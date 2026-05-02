@@ -705,7 +705,7 @@ void Game::forceWalk(const Otc::Direction direction)
     if (!canPerformGameAction())
         return;
 
-    if (m_mapUpdateTimer.first || m_localPlayer->m_preWalks.size() == 1) {
+    if (m_mapUpdateTimer.first || m_localPlayer->isPreWalking()) {
         m_mapUpdateTimer.second.restart();
         m_mapUpdateTimer.first = false;
     }

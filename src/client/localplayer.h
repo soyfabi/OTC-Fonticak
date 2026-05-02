@@ -30,7 +30,7 @@ class LocalPlayer final : public Player
 public:
     void unlockWalk() { m_walkLockExpiration = 0; }
     void lockWalk(uint16_t millis = 250);
-    bool isWalkLocked();
+    bool isWalkLocked() { return m_walkLockExpiration != 0 && g_clock.millis() < m_walkLockExpiration; }
     void stopAutoWalk();
 
     bool autoWalk(const Position& destination, bool retry = false);
@@ -122,8 +122,7 @@ public:
 
     bool hasSight(const Position& pos);
     bool isKnown() { return m_known; }
-    bool isServerWalking() { return m_serverWalk; }
-    bool isPreWalking() { return !m_preWalks.empty(); }
+    bool isPreWalking() { return m_preWalking; }
 
     bool isSupplyStashAvailable() const { return m_isSupplyStashAvailable; }
     void setSupplyStashAvailable(bool available) {
@@ -136,16 +135,20 @@ public:
     bool isParalyzed() const { return (m_states & Otc::IconParalyze) == Otc::IconParalyze; }
     bool isSerene() { return m_serene; }
 
+    void preWalk(Otc::Direction direction);
+    void cancelWalk(Otc::Direction direction = Otc::InvalidDirection);
+
     LocalPlayerPtr asLocalPlayer() { return static_self_cast<LocalPlayer>(); }
     bool isLocalPlayer() const override { return true; }
 
     void onPositionChange(const Position& newPos, const Position& oldPos) override;
 
-    void preWalk(Otc::Direction direction);
-
-    Position getPosition() override { return isPreWalking() ? m_preWalks.back() : m_position; }
-    void resetPreWalk() { m_preWalks.clear(); }
-    auto getPreWalkingSize() { return m_preWalks.size(); }
+protected:
+    void walk(const Position& oldPos, const Position& newPos) override;
+    void updateWalk(const bool /*isPreWalking*/ = false) override { Creature::updateWalk(m_preWalking); }
+    void stopWalk() override;
+    void updateWalkOffset(uint8_t totalPixelsWalked) override;
+    void terminateWalk() override;
 
 
 private:
@@ -156,30 +159,20 @@ private:
         uint16_t levelPercent{ 0 };
     };
 
-    void onWalking() override;
-
-    void walk(const Position& oldPos, const Position& newPos) override;
-    void terminateWalk() override;
-    void cancelWalk(Otc::Direction direction = Otc::InvalidDirection);
-    void cancelAdjustInvalidPosEvent();
-    void registerAdjustInvalidPosEvent();
-
     bool retryAutoWalk();
 
     // walk related
+    Position m_lastPrewalkDestination;
     Position m_lastAutoWalkPosition;
     Position m_autoWalkDestination;
-    std::deque<Position> m_preWalks;
-
-    ScheduledEventPtr m_adjustInvalidPosEvent;
     ScheduledEventPtr m_autoWalkContinueEvent;
     ticks_t m_walkLockExpiration{ 0 };
 
+    bool m_preWalking{ false };
     bool m_knownCompletePath{ false };
     bool m_premium{ false };
     bool m_known{ false };
     bool m_pending{ false };
-    bool m_serverWalk{ false };
     bool m_serene{ false };
 
     bool m_isSupplyStashAvailable{ false };

@@ -217,10 +217,10 @@ minHeight,
     const std::vector<PaperdollPtr>& getPaperdolls() { return m_paperdolls; };
 
 protected:
+    virtual void updateWalkOffset(uint8_t totalPixelsWalked);
+    virtual void updateWalk(bool isPreWalking = false);
     virtual void terminateWalk();
     virtual void onWalking() {};
-    void updateWalkOffset(uint8_t totalPixelsWalked);
-    void updateWalk();
 
     void setOldPositionSilently(const Position& pos) { m_oldPosition = pos; }
     void setRemovedSilently(const bool removed) { m_removed = removed; }

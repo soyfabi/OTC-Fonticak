@@ -3770,10 +3770,6 @@ int ProtocolGame::setTileDescription(const InputMessagePtr& msg, const Position 
         }
 
         const auto& thing = getThing(msg);
-        if (thing->isLocalPlayer()) {
-            thing->static_self_cast<LocalPlayer>()->resetPreWalk();
-        }
-
         g_map.addThing(thing, position, stackPos);
     }
 

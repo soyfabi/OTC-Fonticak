@@ -676,12 +676,6 @@ void Creature::updateWalkAnimation()
     if (footAnimPhases == 0)
         return;
 
-    // diagonal walk is taking longer than the animation, thus why don't animate continously
-    if (m_walkTimer.ticksElapsed() < getStepDuration() && m_walkedPixels == g_gameConfig.getSpriteSize()) {
-        m_walkAnimationPhase = 0;
-        return;
-    }
-
     int minFootDelay = 20;
     const int maxFootDelay = footAnimPhases > 2 ? 80 : 205;
     int footAnimDelay = footAnimPhases;
@@ -764,19 +758,21 @@ void Creature::nextWalkUpdate()
 
     // do the update
     updateWalk();
-    onWalking();
+    if (isCameraFollowing()) {
+        g_map.notificateCameraMove(m_walkOffset);
+    }
 
     if (!m_walking) return;
 
-    auto action = [self = static_self_cast<Creature>()] {
+    // schedules next update
+    auto self = static_self_cast<Creature>();
+    m_walkUpdateEvent = g_dispatcher.scheduleEvent([self] {
         self->m_walkUpdateEvent = nullptr;
         self->nextWalkUpdate();
-    };
-
-    m_walkUpdateEvent = g_dispatcher.scheduleEvent(action, m_stepCache.walkDuration);
+    }, m_stepCache.walkDuration);
 }
 
-void Creature::updateWalk()
+void Creature::updateWalk(const bool isPreWalking)
 {
     const float walkTicksPerPixel = getStepDuration(true) / static_cast<float>(g_gameConfig.getSpriteSize());
 
@@ -785,18 +781,19 @@ void Creature::updateWalk()
     // needed for paralyze effect
     m_walkedPixels = std::max<int>(m_walkedPixels, totalPixelsWalked);
 
-    const auto oldWalkOffset = m_walkOffset;
-
     updateWalkAnimation();
     updateWalkOffset(m_walkedPixels);
     updateWalkingTile();
 
-    if (isCameraFollowing() && oldWalkOffset != m_walkOffset) {
-        g_map.notificateCameraMove(m_walkOffset);
-    }
-
     if (m_walkedPixels == g_gameConfig.getSpriteSize()) {
-        terminateWalk();
+        if (isPreWalking) {
+            const auto self = static_self_cast<Creature>();
+            m_walkFinishAnimEvent = g_dispatcher.scheduleEvent([self] {
+                self->m_walkAnimationPhase = 0;
+                self->m_walkFinishAnimEvent = nullptr;
+            }, g_game.getServerBeat());
+        }
+        else terminateWalk();
     }
 }
 
@@ -948,9 +945,6 @@ void Creature::setSpeed(uint16_t speed)
             m_calculatedStepSpeed = std::max<int>(1, floor((speedA * log((speed / 2.) + speedB) + speedC) + .5));
         } else m_calculatedStepSpeed = 1;
     }
-
-    if (isLocalPlayer())
-        static_self_cast<LocalPlayer>()->registerAdjustInvalidPosEvent();
 
     // speed can change while walking (utani hur, paralyze, etc..)
     if (m_walking)
