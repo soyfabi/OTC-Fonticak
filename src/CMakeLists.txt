@@ -193,6 +193,11 @@ if(NOT DEFINED VCPKG_TARGET_TRIPLET)
 endif()
 find_package(OpenSSL QUIET)
 find_package(PhysFS REQUIRED)
+if(DEFINED VCPKG_TARGET_TRIPLET)
+  unset(ZLIB_LIBRARY CACHE)
+  unset(ZLIB_LIBRARY_DEBUG CACHE)
+  unset(ZLIB_LIBRARY_RELEASE CACHE)
+endif()
 find_package(ZLIB REQUIRED)
 find_package(phmap REQUIRED)
 find_package(absl CONFIG REQUIRED)
@@ -205,7 +210,6 @@ find_package(asio REQUIRED)
 find_package(Threads REQUIRED)
 find_package(STDUUID CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
-find_package(ZLIB REQUIRED)
 find_package(httplib CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
 find_package(utf8cpp REQUIRED)
@@ -705,7 +709,7 @@ if(MSVC)
           ${LUAJIT_LIBRARY}
           ${CMAKE_THREAD_LIBS_INIT}
           ${PHYSFS_LIBRARY}
-          ${ZLIB_LIBRARY}
+          ZLIB::ZLIB
           ${NLOHMANN_JSON_LIBRARY}
           ${OPENGL_LIBRARIES}
           ${DirectX_LIBRARY}
@@ -758,7 +762,7 @@ elseif(ANDROID)
           ${LUA_LIBRARY}
           ${LUAJIT_LIBRARY}
           ${PHYSFS_LIBRARY}
-          ${ZLIB_LIBRARY}
+          ZLIB::ZLIB
           ${NLOHMANN_JSON_LIBRARY}
           ${EGL_LIBRARY}
           ${OGG_LIBRARY}
@@ -823,7 +827,6 @@ elseif(WASM)
           PUBLIC
           ${LUA_LIBRARY}
           ${PHYSFS_LIBRARY}
-          ${ZLIB_LIBRARY}
 
           ${NLOHMANN_JSON_LIBRARY}
           ${GLEW_LIBRARY}
@@ -946,7 +949,6 @@ else() # Linux
           PUBLIC
           ${LUAJIT_LIBRARY}
           ${PHYSFS_LIBRARY}
-          ${ZLIB_LIBRARY}
           ${NLOHMANN_JSON_LIBRARY}
           ${GLEW_LIBRARY}
           ${OPENGL_LIBRARIES}
