@@ -56,6 +56,9 @@ public:
     Position getPosition() const { return m_position; }
     void setPosition(const Position& position) { m_position = position; }
 
+    void setHasCollision(const bool collision) { m_hasCollision = collision; }
+    bool hasCollision() const { return m_hasCollision; }
+
     AnimatedTextPtr asAnimatedText() { return static_self_cast<AnimatedText>(); }
 
 private:
@@ -64,4 +67,5 @@ private:
     CachedText m_cachedText;
     Point m_offset;
     Position m_position;
+    bool m_hasCollision{ false };
 };

@@ -44,11 +44,43 @@ void AnimatedText::drawText(const Point& dest, const Rect& visibleRect)
 
     Point p = dest;
     p.x += (35.f / g_app.getAnimatedTextScale() - (textSize.width() / 2.f));
+
     if (g_game.getFeature(Otc::GameDiagonalAnimatedText)) {
         p.x -= (4 * g_app.getAnimatedTextScale() * t / tf) + (8 * g_app.getAnimatedTextScale() * t * t / tftf);
     }
 
     p.y += ((8.f / g_app.getAnimatedTextScale()) + ((-48.f * g_app.getAnimatedTextScale() * t) / tf));
+
+    const uint8_t color8 = Color::to8bit(m_color);
+    float xOffset = 0.f;
+    switch (color8) {
+        case 180: // Physical (Red)
+        case 215: // Physical (White)
+            xOffset = 22.f;
+            break;
+        case 144: // Fire (Orange)
+        case 198:
+            xOffset = -22.f;
+            break;
+        case 172: // Energy (Purple)
+            xOffset = 32.f;
+            break;
+        case 30:  // Earth (Green)
+            xOffset = -32.f;
+            break;
+        case 45:  // Death (Dark Red)
+        case 112: // Death (Grapes)
+        case 108:
+            xOffset = 0.f;
+            break;
+        default:
+            xOffset = 0.f;
+            break;
+    }
+
+    if (m_hasCollision && xOffset != 0.f)
+        p.x += (xOffset / g_app.getAnimatedTextScale());
+
     p += m_offset;
 
     if (!visibleRect.contains({ p, textSize }))

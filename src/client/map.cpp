@@ -223,30 +223,22 @@ void Map::addAnimatedText(const AnimatedTextPtr& txt, const Position& pos) {
 
     g_textDispatcher.addEvent([=, this] {
         // this code will stack animated texts of the same color
-        AnimatedTextPtr prevAnimatedText;
-
         bool merged = false;
         for (const auto& other : m_animatedTexts) {
-            if (other->getPosition() == pos) {
-                prevAnimatedText = other;
+            if (other->getPosition() == pos && other->getTimer().ticksElapsed() < g_gameConfig.getAnimatedTextDuration() / 2.0) {
                 if (other->merge(txt)) {
                     merged = true;
                     break;
+                }
+
+                if (other->getColor() != txt->getColor()) {
+                    other->setHasCollision(true);
+                    txt->setHasCollision(true);
                 }
             }
         }
 
         if (!merged) {
-            if (prevAnimatedText) {
-                Point offset = prevAnimatedText->getOffset();
-                if (const float t = prevAnimatedText->getTimer().ticksElapsed();
-                    t < g_gameConfig.getAnimatedTextDuration() / 4.0) { // didnt move 12 pixels
-                    const int32_t y = 12 - 48 * t / static_cast<float>(g_gameConfig.getAnimatedTextDuration());
-                    offset += Point(0, y);
-                }
-                offset.y = std::min<int32_t>(offset.y, 12);
-                txt->setOffset(offset);
-            }
             m_animatedTexts.emplace_back(txt);
         }
 
