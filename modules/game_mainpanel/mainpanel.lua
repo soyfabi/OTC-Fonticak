@@ -181,11 +181,7 @@ function optionsController:onInit()
 end
 
 function toggleStore()
-    if  g_game.getFeature(GameIngameStore) then
-        modules.game_store.toggle() -- cipsoft packets
-    else
-        modules.game_shop.toggle() -- custom
-    end
+    modules.game_store.toggle()
 end
 
 function optionsController:onTerminate()

@@ -6,7 +6,7 @@ MainWindow
   !text: tr('Gift Tibia Coins')
   size: 280 238
   color: #909090
-  @onEscape: modules.game_shop.cancelGiftCoins()
+  @onEscape: modules.game_store.cancelGiftCoins()
   $on:
     size: 280 300
 
@@ -23,7 +23,7 @@ MainWindow
     anchors.top: prev.bottom
     anchors.left: parent.left
     margin-top: 10
-    text: Reciepient:
+    text: Recipient:
 
   TextEdit
     id: recipient
@@ -44,7 +44,7 @@ MainWindow
   UIWidget
     anchors.left: prev.right
     anchors.verticalcenter: prev.verticalcenter
-    image-source: images/coin
+    image-source: /images/store/coin
     margin-left: 6
     phantom: true
 
@@ -60,7 +60,7 @@ MainWindow
   UIWidget
     anchors.left: prev.right
     anchors.verticalcenter: prev.verticalcenter
-    image-source: images/coin
+    image-source: /images/store/coin
     margin-left: 6
     phantom: true
 
@@ -70,10 +70,10 @@ MainWindow
     anchors.left: parent.left
     anchors.right: parent.right
     margin-top: 10
-    step: 25
+    step: 1
     minimum: 0
     maximum: 0
-    @onValueChange: modules.game_shop.changeCoinsAmount(self:getValue())
+    @onValueChange: modules.game_store.changeCoinsAmount(self:getValue())
 
   GiftCoinsLabel
     id: taskPointsBalance
@@ -88,7 +88,7 @@ MainWindow
     id: taskPointsCoin
     anchors.left: prev.right
     anchors.verticalcenter: prev.verticalcenter
-    image-source: images/coin_second
+    image-source: /images/store/giftcoin
     margin-left: 6
     phantom: true
 
@@ -105,7 +105,7 @@ MainWindow
     id: taskPointsLabelCoin
     anchors.left: prev.right
     anchors.verticalcenter: prev.verticalcenter
-    image-source: images/coin_second
+    image-source: /images/store/giftcoin
     margin-left: 6
     phantom: true
 
@@ -118,7 +118,7 @@ MainWindow
     step: 25
     minimum: 0
     maximum: 0
-    @onValueChange: modules.game_shop.changeTaskPointsAmount(self:getValue())
+    @onValueChange: modules.game_store.changeTaskPointsAmount(self:getValue())
 
   HorizontalSeparator
     anchors.right: parent.right
@@ -135,7 +135,7 @@ MainWindow
     size: 45 21
     margin-top: 15
     margin-right: 5
-    @onClick: modules.game_shop.cancelGiftCoins()
+    @onClick: modules.game_store.cancelGiftCoins()
 
   Button
     id: giftButton
@@ -145,4 +145,4 @@ MainWindow
     anchors.verticalCenter: prev.verticalCenter
     anchors.right: prev.left
     margin-right: 5
-    @onClick: modules.game_shop.confirmGiftCoins()
+    @onClick: modules.game_store.confirmGiftCoins()
