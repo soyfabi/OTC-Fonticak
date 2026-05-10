@@ -169,3 +169,7 @@ function toggleWindow(type)
 		changePreviousType(character)
 	end
 end
+
+function isVisible()
+    return controllerCyclopedia and controllerCyclopedia.ui and controllerCyclopedia.ui:isVisible()
+end
