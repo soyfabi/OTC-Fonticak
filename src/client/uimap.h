@@ -109,6 +109,7 @@ protected:
 private:
     void updateVisibleDimension();
     void updateMapSize();
+    void resetCursorToDefault();
 
     MapViewPtr m_mapView;
     Rect m_mapRect;
