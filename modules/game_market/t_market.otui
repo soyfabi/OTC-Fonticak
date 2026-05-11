@@ -396,7 +396,6 @@ MarketItemList < UIWidget
     anchors.verticalCenter: parent.verticalCenter
     margin-left: 2
     font: verdana-11px-rounded
-    always-show-count: true
     focusable: true
     draggable: false
 
@@ -412,6 +411,18 @@ MarketItemList < UIWidget
       focusable: false
       visible: false
       image-smooth: true
+
+  Label
+    id: itemCount
+    anchors.bottom: itemBackground.bottom
+    anchors.right: itemBackground.right
+    margin-bottom: 2
+    margin-right: 2
+    font: verdana-11px-rounded
+    color: #c0c0c0
+    text-auto-resize: true
+    phantom: true
+    visible: false
 
   Label
     id: name
@@ -608,7 +619,8 @@ MarketMainWindow < Panel
     anchors.left: parent.left
     margin-top: 1
     margin-left: 1
-    show-count: false
+    show-count: true
+    always-show-count: true
     virtual-count: true
     draggable: false
 

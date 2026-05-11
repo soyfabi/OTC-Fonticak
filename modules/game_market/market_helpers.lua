@@ -12,6 +12,10 @@ function sendMarketLeave()
     g_game.leaveMarket()
 end
 
+function sendMarketEnter()
+    -- This will be overridden by market_protocol_custom if loaded
+end
+
 function sendMarketAcceptOffer(timestamp, counter, amount)
     g_game.acceptMarketOffer(timestamp, counter, amount)
 end
@@ -77,14 +81,21 @@ function getTotalMoney()
         return 0
     end
     
+    local total = 0
     if player.getTotalMoney then
-        return player:getTotalMoney()
+        total = player:getTotalMoney()
+    else
+        local bankBalance = player:getResourceBalance(0) or 0
+        local goldEquipped = player:getResourceBalance(1) or 0
+        total = bankBalance + goldEquipped
     end
     
-    local bankBalance = player:getResourceBalance(0) or 0
-    local goldEquipped = player:getResourceBalance(1) or 0
+    -- Fallback: use cached balance from market enter packet
+    if total == 0 and cachedMarketBalance and cachedMarketBalance > 0 then
+        total = cachedMarketBalance
+    end
     
-    return bankBalance + goldEquipped
+    return total
 end
 
 function short_text(text, chars_limit)

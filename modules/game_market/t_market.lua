@@ -5,6 +5,7 @@ local categoryList = {}
 local depotLockerItems = {}
 local buyOffers = {}
 local sellOffers = {}
+cachedMarketBalance = 0
 
 local lastSelectedCategory = nil
 local lastSelectedItem = {}
@@ -373,6 +374,17 @@ function getDepotItemCount(itemId, tier)
     return 0
 end
 
+function updateItemCountLabel(widget, count)
+    if widget.itemCount then
+        if count and count > 0 then
+            widget.itemCount:setText(tostring(count))
+            widget.itemCount:setVisible(true)
+        else
+            widget.itemCount:setVisible(false)
+        end
+    end
+end
+
 local marketOffersBuy = {}
 local marketOffersSell = {}
 local marketHistoryBuy = {}
@@ -429,9 +441,8 @@ function onParseStoreGetCoin(coins, transferableCoins)
     marketWindow.MarketHistory.currentOffers.coinPanel.gold:setText(comma_value(transferableCoins))
     marketWindow.MarketHistory.currentOffers.coinPanel.gold:setTooltip(coinTooltip)
 
-    local selectedItem = marketWindow.contentPanel.selectedItem:getItem()
-    if selectedItem and selectedItem:getId() == 22118 then
-        selectedItem:setCount(transferableCoins)
+    if marketWindow.contentPanel.selectedItem:getItemId() == 22118 then
+        marketWindow.contentPanel.selectedItem:setItemCount(transferableCoins)
     end
 
     local itemList = marketWindow:recursiveGetChildById("itemList")
@@ -440,38 +451,47 @@ function onParseStoreGetCoin(coins, transferableCoins)
     end
 
     for _, widget in pairs(itemList:getChildren()) do
-        local widgetItem = widget.item:getItem()
-        if widgetItem and widgetItem:getId() == 22118 then
-            widgetItem:setCount(transferableCoins)
+        if widget.item:getItemId() == 22118 then
+            widget.item:setItemCount(transferableCoins)
             break
         end
     end
 end
 
 function onResourcesBalanceChange(value, oldBalance, resourceType)
-    if resourceType > 1 then
-        return
-    end
-
     if not g_game.isOnline() or not marketWindow or not marketWindow:isVisible() then
         return
     end
 
-    local playerBank = g_game.getLocalPlayer():getResourceBalance(ResourceTypes.BANK_BALANCE)
-    local playerInventory = g_game.getLocalPlayer():getResourceBalance(ResourceTypes.GOLD_EQUIPPED)
+    local player = g_game.getLocalPlayer()
+    if not player then
+        return
+    end
+
+    -- Get money from resource balance system
+    local playerBank = player:getResourceBalance(ResourceTypes.BANK_BALANCE) or 0
+    local playerInventory = player:getResourceBalance(ResourceTypes.GOLD_EQUIPPED) or 0
+    local totalMoney = playerBank + playerInventory
+
+    -- Fallback: use cached balance from onMarketEnter if resource system has no data
+    if totalMoney == 0 and cachedMarketBalance > 0 then
+        totalMoney = cachedMarketBalance
+        playerBank = cachedMarketBalance
+    end
+
     local playerCoins = getTransferableTibiaCoins()
     local moneyTooltip = "Cash: " .. comma_value(playerInventory) .. "\nBank: " .. comma_value(playerBank)
 
-    marketWindow.contentPanel.moneyPanel.gold:setText(comma_value(playerBank + playerInventory))
+    marketWindow.contentPanel.moneyPanel.gold:setText(comma_value(totalMoney))
     marketWindow.contentPanel.moneyPanel.gold:setTooltip(moneyTooltip)
     marketWindow.contentPanel.coinPanel.gold:setText(comma_value(playerCoins))
 
-    marketWindow.MarketHistory.currentOffers.moneyPanel.gold:setText(comma_value(playerBank + playerInventory))
+    marketWindow.MarketHistory.currentOffers.moneyPanel.gold:setText(comma_value(totalMoney))
     marketWindow.MarketHistory.currentOffers.moneyPanel.gold:setTooltip(moneyTooltip)
     marketWindow.MarketHistory.currentOffers.coinPanel.gold:setText(comma_value(playerCoins))
 end
 
-function configureList()
+function configureList(customItems)
     marketItems = {}
     -- Initialize all categories from 1 to 31 (including Soul Cores)
     for c = 1, 31 do
@@ -488,25 +508,53 @@ function configureList()
     marketItems[MarketCategoryWeaponsAll] = {}
     marketItems[MarketCategoryFistWeapons] = {}
 
-    local types = g_things.findThingTypeByAttr(ThingAttrMarket, ThingCategoryItem)
-    if not types then
-        return
-    end
-
-    for _, itemType in pairs(types) do
-        if itemType:getId() ~= 49870 and itemType:getId() ~= 14258 then
-            local item = Item.create(itemType:getId())
-            if item then
-                local marketData = itemType:getMarketData()
-                if not table.empty(marketData) then
-                    item:setId(marketData.showAs)
-                    local marketItem = {
-                        displayItem = item,
-                        thingType = itemType,
-                        marketData = marketData
+    if customItems and #customItems > 0 then
+        local marketItemNames = {}
+        for _, entry in ipairs(customItems) do
+            local item = Item.create(entry.id)
+            local thingType = g_things.getThingType(entry.id, ThingCategoryItem)
+            
+            if item and thingType and not marketItemNames[entry.id] then
+                local marketItem = {
+                    displayItem = item,
+                    thingType = thingType,
+                    marketData = {
+                        requiredLevel = 0,
+                        restrictVocation = 0,
+                        name = entry.name,
+                        category = entry.category,
+                        showAs = entry.id,
+                        tradeAs = entry.id
                     }
-                    if marketItems[marketData.category] ~= nil then
-                        table.insert(marketItems[marketData.category], marketItem)
+                }
+                
+                if marketItems[entry.category] ~= nil then
+                    table.insert(marketItems[entry.category], marketItem)
+                    marketItemNames[entry.id] = true
+                end
+            end
+        end
+    else
+        local types = g_things.findThingTypeByAttr(ThingAttrMarket, ThingCategoryItem)
+        if not types then
+            return
+        end
+
+        for _, itemType in pairs(types) do
+            if itemType:getId() ~= 49870 and itemType:getId() ~= 14258 then
+                local item = Item.create(itemType:getId())
+                if item then
+                    local marketData = itemType:getMarketData()
+                    if not table.empty(marketData) then
+                        item:setId(marketData.showAs)
+                        local marketItem = {
+                            displayItem = item,
+                            thingType = itemType,
+                            marketData = marketData
+                        }
+                        if marketItems[marketData.category] ~= nil then
+                            table.insert(marketItems[marketData.category], marketItem)
+                        end
                     end
                 end
             end
@@ -613,11 +661,16 @@ function configureList()
 end
 
 -- Main Window
-function onMarketEnter(items, offerCount, balance, vocation)
-    configureList()
+function onMarketEnter(items, offerCount, balance, vocation, customItems)
+    configureList(customItems)
     depotLockerItems = items
 
     if marketWindow:isVisible() then
+        -- Update balance and items even if already visible
+        if balance and balance >= 0 then
+            cachedMarketBalance = balance
+            onResourcesBalanceChange(0, 0, 0)
+        end
         return
     end
 
@@ -663,14 +716,21 @@ function onMarketEnter(items, offerCount, balance, vocation)
 
     show()
     marketWindow:focus()
+
+    -- Cache the balance from the server packet for use as fallback
+    if balance and balance >= 0 then
+        cachedMarketBalance = balance
+    end
+
+    -- Refresh all balances (will use cachedMarketBalance as fallback if needed)
     onResourcesBalanceChange(0, 0, 0)
     marketWindow.contentPanel.category.onChildFocusChange = function(self, selected)
         onSelectChildCategory(self, selected)
     end
 end
 
-function onMarketBrowse(intOffers, nameOffers)
-    if #marketHistoryBuy > 0 or #marketHistorySell > 0 then
+function onMarketBrowse(intOffers, nameOffers, var)
+    if var == 1 or (#marketHistoryBuy > 0 or #marketHistorySell > 0) then
         local buyOffersData = marketHistoryBuy
         local sellOffersData = marketHistorySell
 
@@ -681,7 +741,7 @@ function onMarketBrowse(intOffers, nameOffers)
         return
     end
 
-    if #marketMyOffersBuy > 0 or #marketMyOffersSell > 0 then
+    if var == 2 or (#marketMyOffersBuy > 0 or #marketMyOffersSell > 0) then
         local buyOffersData = marketMyOffersBuy
         local sellOffersData = marketMyOffersSell
 
@@ -1059,7 +1119,7 @@ function onItemListValueChange(scroll, value, delta)
                 widget.name:setTooltip(data.marketData.name)
             end
 
-            widget.item:getItem():setCount(count)
+            widget.item:setItemCount(count)
             widget.item.itemIndex = index -- Store the actual data index, not pool index
             widget.item:setTooltip(tr("%s%s%s%s", comma_value(count), "x", (count > 65000 and "+ " or " "),
                 data.marketData.name))
@@ -1077,6 +1137,7 @@ function onItemListValueChange(scroll, value, delta)
 
             -- Update opacity based on depot availability
             widget.grayHover:setOpacity(count > 0 and '0.0' or '0.5')
+            updateItemCountLabel(widget, count)
         end
     end
 
@@ -1166,10 +1227,12 @@ function onSelectChildCategory(widget, selected, keepFilter)
 
     local tier = sortButtons["tierFilter"] or 0
 
-    for i, itemInfo in ipairs(marketItems[selected.categoryId]) do
-        if checkSortMarketOptions(itemInfo) and
-            not (showLockerOnly and getDepotItemCount(itemInfo.thingType:getId(), tier) == 0) then
-            table.insert(cache.SCROLL_MARKET_ITEMS.listData, itemInfo)
+    if marketItems[selected.categoryId] then
+        for i, itemInfo in ipairs(marketItems[selected.categoryId]) do
+            if checkSortMarketOptions(itemInfo) and
+                not (showLockerOnly and getDepotItemCount(itemInfo.thingType:getId(), tier) == 0) then
+                table.insert(cache.SCROLL_MARKET_ITEMS.listData, itemInfo)
+            end
         end
     end
 
@@ -1191,7 +1254,7 @@ function onSelectChildCategory(widget, selected, keepFilter)
         end
 
         widget:setBackgroundColor('#363636')
-        widget.item:getItem():setCount(count)
+        widget.item:setItemCount(count)
         widget.item.itemIndex = i
         widget.item:setTooltip(tr("%s%s%s%s", comma_value(count), "x", (count > 65000 and "+ " or " "),
             itemInfo.marketData.name))
@@ -1209,6 +1272,7 @@ function onSelectChildCategory(widget, selected, keepFilter)
         end
 
         widget.grayHover:setOpacity(count > 0 and '0.0' or '0.5')
+        updateItemCountLabel(widget, count)
 
         table.insert(cache.SCROLL_MARKET_ITEMS.listPool, widget)
     end
@@ -1259,9 +1323,10 @@ function onUpdateChildItem(itemID, tier)
                     itemInfo.marketData.name))
             end
 
-            widget.item:getItem():setCount(count)
+            widget.item:setItemCount(count)
 
             widget.grayHover:setOpacity(count > 0 and '0.0' or '0.5')
+            updateItemCountLabel(widget, count)
             break
         end
     end
@@ -1299,18 +1364,14 @@ function onSelectChildItem(widget, selected, oldFocus)
 
     marketWindow.contentPanel.selectedItem:setItemId(itemID)
     marketWindow.contentPanel.selectedItem:getItem():setTier(itemTier)
+    marketWindow.contentPanel.selectedItem:setItemCount(getDepotItemCount(itemID, itemTier))
 
     lastSelectedItem = {
         itemId = itemID,
         tier = itemTier,
         lastWidget = widget
     }
-
-    if itemID == 22118 then
-        marketWindow.contentPanel.selectedItem:getItem():setCount(getTransferableTibiaCoins())
-    else
-        marketWindow.contentPanel.selectedItem:getItem():setCount(getDepotItemCount(itemID, itemTier))
-    end
+    updateCreateCount(nil, 0)
     onClearMainMarket(false)
 
     marketOffersBuy = {}
@@ -1571,40 +1632,47 @@ function updateBuyCount(widget, value)
 end
 
 function onAcceptSellOffer()
-    if cache.SCROLL_SELL_OFFERS.lastSelected == 0 then
-        return
-    end
-
+    if cache.SCROLL_SELL_OFFERS.lastSelected == 0 then return end
     local currentOffer = sellOffers[cache.SCROLL_SELL_OFFERS.lastSelected]
-    if not currentOffer then
-        return
-    end
+    if not currentOffer then return end
 
-    local amount = tonumber(mainMarket.amountSell:getText())
+    local amount = mainMarket.amountSellScrollBar:getValue()
+    if not amount or amount <= 0 then
+        amount = tonumber(mainMarket.amountSell:getText()) or 1
+    end
+    if amount <= 0 then return end
 
     sendMarketAcceptOffer(currentOffer.timestamp, currentOffer.counter, amount)
+    
+    scheduleEvent(function()
+        if lastItemID and lastItemID > 0 then sendMarketAction(3, lastItemID, lastItemTier) end
+        sendMarketEnter()
+    end, 500)
 end
 
 function onAcceptBuyOffer()
-    if cache.SCROLL_BUY_OFFERS.lastSelected == 0 then
-        return
-    end
-
+    if cache.SCROLL_BUY_OFFERS.lastSelected == 0 then return end
     local currentOffer = buyOffers[cache.SCROLL_BUY_OFFERS.lastSelected]
-    if not currentOffer then
-        return
-    end
+    if not currentOffer then return end
 
-    -- Check if trying to accept own offer
     local player = g_game.getLocalPlayer()
-    if player and currentOffer.holder == player:getName() then
+    if player and currentOffer.holder ~= "Anonymous" and currentOffer.holder == player:getName() then
         displayInfoBox("Error", "You cannot accept your own offer.")
         return
     end
 
-    local amount = tonumber(mainMarket.amountBuy:getText())
+    local amount = mainMarket.amountBuyScrollBar:getValue()
+    if not amount or amount <= 0 then
+        amount = tonumber(mainMarket.amountBuy:getText()) or 1
+    end
+    if amount <= 0 then return end
 
     sendMarketAcceptOffer(currentOffer.timestamp, currentOffer.counter, amount)
+    
+    scheduleEvent(function()
+        if lastItemID and lastItemID > 0 then sendMarketAction(3, lastItemID, lastItemTier) end
+        sendMarketEnter()
+    end, 500)
 end
 
 function updateCreateCount(widget, value)
@@ -1612,7 +1680,13 @@ function updateCreateCount(widget, value)
         value = math.cround(value, widget:getIncrementValue())
     end
 
-    mainMarket.createOfferAmount:setText("Amount: " .. value)
+    local text = "Amount: " .. value
+    if not table.empty(lastSelectedItem) and currentActionType == 1 then
+        local count = lastSelectedItem.itemId == 22118 and getTransferableTibiaCoins() or
+                          getDepotItemCount(lastSelectedItem.itemId, lastSelectedItem.tier or 0)
+        text = text .. " / " .. count
+    end
+    mainMarket.createOfferAmount:setText(text)
 
     -- Revalidate price when amount changes to catch overflow conditions
     if #mainMarket.piecePriceCreate:getText() > 0 then
@@ -1797,6 +1871,7 @@ function changeOfferType(widget, primary)
     end
 
     mainMarket.piecePriceCreate:clearText()
+    updateCreateCount(nil, mainMarket.amountCreateScrollBar:getValue())
 end
 
 function createMarketOffer()
@@ -1805,8 +1880,7 @@ function createMarketOffer()
         return
     end
 
-    local n = mainMarket.createOfferAmount:getText()
-    local amount = tonumber(n:gsub("%D", ""))
+    local amount = mainMarket.amountCreateScrollBar:getValue()
     local piecePrice = tonumber(mainMarket.grossAmount.value)
 
     if not amount or not piecePrice then
@@ -1878,6 +1952,7 @@ function createMarketOffer()
             marketOffersSell = {}
             sendMarketAction(3, lastSelectedItem.itemId, lastSelectedItem.tier or 0)
         end
+        sendMarketEnter()
     end, 500)
 end
 
@@ -1988,7 +2063,7 @@ function onSearchItem(textField)
         end
 
         widget:setBackgroundColor('#363636')
-        widget.item:getItem():setCount(count)
+        widget.item:setItemCount(count)
         widget.item.itemIndex = i -- Store item index as property
         widget.item:setTooltip(tr("%s%s%s%s", comma_value(count), "x", (count > 65000 and "+ " or " "),
             itemInfo.marketData.name))
@@ -2007,6 +2082,7 @@ function onSearchItem(textField)
 
         -- Update opacity based on depot availability
         widget.grayHover:setOpacity(count > 0 and '0.0' or '0.5')
+        updateItemCountLabel(widget, count)
 
         table.insert(cache.SCROLL_MARKET_ITEMS.listPool, widget)
     end
@@ -2133,7 +2209,7 @@ function onShowRedirect(item)
         end
 
         widget:setBackgroundColor('#363636')
-        widget.item:getItem():setCount(count)
+        widget.item:setItemCount(count)
         widget.item.itemIndex = i
         widget.item:setTooltip(tr("%s%s%s%s", comma_value(count), "x", (count > 65000 and "+ " or " "),
             itemInfo.marketData.name))
@@ -2150,6 +2226,7 @@ function onShowRedirect(item)
         end
 
         widget.grayHover:setOpacity(count > 0 and '0.0' or '0.5')
+        updateItemCountLabel(widget, count)
 
         table.insert(cache.SCROLL_MARKET_ITEMS.listPool, widget)
     end
@@ -2581,6 +2658,10 @@ function openStorePotions()
 
     -- Wait a bit for the store to load categories, then select Consumables > Potions
     scheduleEvent(function()
+        if not modules.game_store.getUI then
+            return
+        end
+
         local storeUI = modules.game_store.getUI()
         if not storeUI then
             return

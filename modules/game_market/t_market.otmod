@@ -5,6 +5,6 @@ Module
   website: https://github.com/edubart/otclient
   sandboxed: true
   dependencies: [ gamelib ]
-  scripts: [ market_constants, market_helpers, t_market, classes/t_history, classes/t_ownOffers ]
+  scripts: [ market_constants, market_helpers, market_protocol_custom, t_market, classes/t_history, classes/t_ownOffers ]
   @onLoad: init()
   @onUnload: terminate()

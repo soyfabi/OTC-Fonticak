@@ -249,6 +249,13 @@ function MarketOwnOffers.cancelMarketOffer(selling)
     end
 
     sendMarketCancelOffer(targetOffer.timestamp, targetOffer.counter)
+    scheduleEvent(function()
+        marketMyOffersBuy = {}
+        marketMyOffersSell = {}
+        MarketOwnOffers.myBuyOffers = {}
+        MarketOwnOffers.mySellOffers = {}
+        sendMarketAction(2)
+    end, 500)
 end
 
 function MarketOwnOffers.onTopListValueChange(scroll, value, delta)
