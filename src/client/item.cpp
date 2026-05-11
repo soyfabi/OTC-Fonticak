@@ -107,23 +107,6 @@ int Item::getSubType()
     return g_game.getClientVersion() > 862 ? 0 : 1;
 }
 
-bool Item::isQuiver()
-{
-    switch (getId()) {
-        case 35524: // jungle quiver
-        case 35562: // quiver
-        case 35848: // blue quiver
-        case 35849: // red quiver
-        case 36666: // eldritch quiver
-        case 39150: // alicorn quiver
-        case 39160: // naga quiver
-        case 45644: // candy-coated quiver
-            return true;
-        default:
-            return false;
-    }
-}
-
 ItemPtr Item::clone()
 {
     auto item = std::make_shared<Item>();
@@ -457,5 +440,41 @@ void Item::serializeItem(const OutputBinaryTreePtr& out)
 }
 
 #endif
+
+void Item::setDurationTime(uint32_t duration)
+{
+    m_duration = duration;
+    if (m_decaying)
+        m_durationEnd = g_clock.millis() + static_cast<int64_t>(m_duration) * 1000;
+}
+
+void Item::setDecaying(bool decaying)
+{
+    if (m_decaying == decaying) return;
+    m_decaying = decaying;
+
+    if (decaying) {
+        m_durationEnd = g_clock.millis() + static_cast<int64_t>(m_duration) * 1000;
+    } else {
+        const int64_t remaining_ms = m_durationEnd - g_clock.millis();
+        m_duration = static_cast<uint32_t>(std::max<int64_t>(0, (remaining_ms + 999) / 1000));
+        m_durationEnd = 0;
+    }
+}
+
+uint32_t Item::getDurationTime() const
+{
+    if (m_decaying) {
+        const auto remaining = m_durationEnd - g_clock.millis();
+        return remaining > 0 ? static_cast<uint32_t>(remaining / 1000) : 0;
+    }
+    return m_duration;
+}
+
+int Item::getClothSlot()
+{
+    auto* type = getThingType();
+    return type ? type->getClothSlot() : 0;
+}
 
 /* vim: set ts=4 sw=4 et :*/

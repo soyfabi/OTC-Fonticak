@@ -1,12 +1,6 @@
 -- to-do
 -- change to ItemsDatabase.setTier(UIitem) to UIitem:setTier()
-ItemsDatabase = ItemsDatabase or {}
-ItemsDatabase.serverValues = ItemsDatabase.serverValues or {}
-ItemsDatabase.fixedValues = ItemsDatabase.fixedValues or {
-    [3031] = 1,
-    [3035] = 100,
-    [3043] = 10000
-}
+ItemsDatabase = {}
 
 ItemsDatabase.rarityColors = {
     ["yellow"] = TextColors.yellow,
@@ -17,7 +11,6 @@ ItemsDatabase.rarityColors = {
 }
 
 local function getColorForValue(value)
-    value = tonumber(value) or 0
     if value >= 1000000 then
         return "yellow"
     elseif value >= 100000 then
@@ -34,7 +27,6 @@ local function getColorForValue(value)
 end
 
 local function clipfunction(value)
-    value = tonumber(value) or 0
     if value >= 1000000 then
         return "128 0 32 32"
     elseif value >= 100000 then
@@ -47,90 +39,6 @@ local function clipfunction(value)
         return "0 0 32 32"
     end
     return ""
-end
-
-local function safeCall(object, method)
-    if not object or not object[method] then
-        return nil
-    end
-
-    local ok, value = pcall(function()
-        return object[method](object)
-    end)
-    if ok then
-        return tonumber(value) or 0
-    end
-    return nil
-end
-
-local function getItemId(itemOrId)
-    local itemId = tonumber(itemOrId)
-    if itemId then
-        return itemId
-    end
-
-    if itemOrId and itemOrId.getId then
-        local ok, value = pcall(function()
-            return itemOrId:getId()
-        end)
-        if ok then
-            return tonumber(value)
-        end
-    end
-
-    return nil
-end
-
-function ItemsDatabase.registerServerItemValue(itemId, value)
-    itemId = tonumber(itemId)
-    value = tonumber(value)
-    if itemId and itemId > 0 and value and value > 0 then
-        ItemsDatabase.serverValues[itemId] = math.max(ItemsDatabase.serverValues[itemId] or 0, value)
-    end
-end
-
-function ItemsDatabase.getItemValue(itemOrId)
-    local itemId = getItemId(itemOrId)
-    if itemId and ItemsDatabase.fixedValues[itemId] then
-        return ItemsDatabase.fixedValues[itemId]
-    end
-
-    if itemId and ItemsDatabase.serverValues[itemId] then
-        return ItemsDatabase.serverValues[itemId]
-    end
-
-    local prices = Analyzer and Analyzer.analyzers and Analyzer.analyzers.customPrices or {}
-    local customValue = itemId and (prices[tostring(itemId)] or prices[itemId])
-    if tonumber(customValue) and tonumber(customValue) > 0 then
-        return tonumber(customValue)
-    end
-
-    local item = itemOrId
-    if type(itemOrId) == "number" and g_things then
-        item = g_things.getThingType(itemOrId, ThingCategoryItem)
-    end
-
-    local value = safeCall(item, "getPriceValue")
-    if value and value > 0 then
-        return value
-    end
-
-    value = safeCall(item, "getAverageMarketValue")
-    if value and value > 0 then
-        return value
-    end
-
-    value = safeCall(item, "getDefaultValue")
-    if value and value > 0 then
-        return value
-    end
-
-    value = safeCall(item, "getMeanPrice")
-    if value and value > 0 then
-        return value
-    end
-
-    return 0
 end
 
 function ItemsDatabase.getClipAndImagePath(item)
@@ -154,7 +62,7 @@ function ItemsDatabase.getClipAndImagePath(item)
     end
 
     if item then
-        local price = ItemsDatabase.getItemValue(item)
+        local price = type(item) == "number" and item or (item and item:getMeanPrice()) or 0
         local itemRarity = getColorForValue(price)
         if itemRarity then
             clip = clipfunction(price)
@@ -203,7 +111,7 @@ end
 
 function ItemsDatabase.setColorLootMessage(text)
     local function coloringLootName(match)
-        local id, itemValue, itemName = match:match("(%d+):?(%d*)|(.+)")
+        local id, itemName = match:match("(%d+)|(.+)")
         if not id or not itemName then
             -- If pattern doesn't match itemId|itemName format, return the original match with braces
             return "{" .. match .. "}"
@@ -214,17 +122,12 @@ function ItemsDatabase.setColorLootMessage(text)
             return itemName or match
         end
 
-        itemValue = tonumber(itemValue)
-        if itemValue and itemValue > 0 then
-            ItemsDatabase.registerServerItemValue(itemId, itemValue)
-        end
-
         local thingType = g_things.getThingType(itemId, ThingCategoryItem)
         if not thingType then
             return itemName
         end
 
-        local itemInfo = itemValue or ItemsDatabase.getItemValue(itemId)
+        local itemInfo = thingType:getMeanPrice()
         if itemInfo then
             local color = ItemsDatabase.getColorForRarity(getColorForValue(itemInfo))
             return "{" .. itemName .. ", " .. color .. "}"
@@ -291,51 +194,4 @@ function ItemsDatabase.setTier(widget, item, isSmall)
     widget.tier:setVisible(true)
 end
 
-function ItemsDatabase.setCharges(widget, item, style)
-    if not g_game.getFeature(GameThingCounter) or not widget then
-        return
-    end
 
-    if item and item:getCharges() > 0 then
-        widget.charges:setText(item:getCharges())
-    else
-        widget.charges:setText("")
-    end
-
-    if style then
-        widget:setStyle(style)
-    end
-end
-
-function ItemsDatabase.setDuration(widget, item, style)
-    if not g_game.getFeature(GameThingClock) or not widget then
-        return
-    end
-
-    if item and item:getDurationTime() > 0 then
-        local durationTimeLeft = item:getDurationTime()
-        widget.duration:setText(string.format("%dm%02d", durationTimeLeft / 60, durationTimeLeft % 60))
-    else
-        widget.duration:setText("")
-    end
-
-    if style then
-        widget:setStyle(style)
-    end
-end
-
-local OPCODE_ITEM_VALUES = 0xC6
-
-local function parseItemValues(protocol, msg)
-    local size = msg:getU16()
-    for i = 1, size do
-        local itemId = msg:getU16()
-        local value = msg:getU32()
-        ItemsDatabase.registerServerItemValue(itemId, value)
-    end
-end
-
-if ProtocolGame and ProtocolGame.registerOpcode then
-    ProtocolGame.unregisterOpcode(OPCODE_ITEM_VALUES)
-    ProtocolGame.registerOpcode(OPCODE_ITEM_VALUES, parseItemValues)
-end
