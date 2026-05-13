@@ -1,0 +1,10 @@
+Module
+  name: game_mehah_id
+  description: Sends Mehah client identification to server
+  author: Mehah
+  autoload: true
+  autoload-priority: 2000
+  scripts: [ mehah_id ]
+
+  @onLoad: init()
+  @onUnload: terminate()
