@@ -6,10 +6,19 @@ SkillButton < UIButton
   &onClick: onSkillButtonClick
 
 SmallSkillButton < SkillButton
-  height: 14
+  height: 12
+ 
+CombatSkillButton < SkillButton
+  margin-bottom: 5
+ 
+InfoSkillButton < SkillButton
+  height: 15
+  margin-bottom: 0
+
+
 
 SkillNameLabel < GameLabel
-  font: verdana-11px-monochrome
+  font: verdana-11px-mono-rounded
   anchors.left: parent.left
   anchors.top: parent.top
   anchors.bottom: parent.bottom
@@ -132,7 +141,8 @@ MiniWindow
       id: experience
       height: 15
       SkillNameLabel
-        !text: tr('Experience')
+        !text: tr('XP')
+        font: verdana-11px-mono-rounded
       SkillValueLabel
 
     SkillButton
@@ -145,45 +155,39 @@ MiniWindow
     XpBoostButton
       id: xpBoos
 
-    SkillButton
+    InfoSkillButton
       margin-top: -12
       id: health
-      height: 15
       SkillNameLabel
         !text: tr('Hit Points')
       SkillValueLabel
 
-    SkillButton
+    InfoSkillButton
       id: mana
-      height: 15
       SkillNameLabel
         !text: tr('Mana')
       SkillValueLabel
 
-    SkillButton
+    InfoSkillButton
       id: soul
-      height: 15
       SkillNameLabel
         !text: tr('Soul Points')
       SkillValueLabel
 
-    SkillButton
+    InfoSkillButton
       id: capacity
-      height: 15
       SkillNameLabel
         !text: tr('Capacity')
       SkillValueLabel
 
-    SkillButton
+    InfoSkillButton
       id: speed
-      height: 15
       SkillNameLabel
         !text: tr('Speed')
       SkillValueLabel
 
-    SkillButton
+    InfoSkillButton
       id: regenerationTime
-      height: 15
       SkillNameLabel
         !text: tr('Regeneration Time')
       SkillValueLabel
@@ -206,10 +210,10 @@ MiniWindow
       margin-top: 5
       margin-bottom: 5
 
-    SkillButton
+    CombatSkillButton
       id: magiclevel
       SkillNameLabel
-        !text: tr('Magic Level')
+        !text: tr('Magic')
       SkillValueLabel
       ImageSkill
         image-source: /images/icons/icon_magic
@@ -217,57 +221,57 @@ MiniWindow
       SkillPercentPanel
         background-color: red
 
-    SkillButton
+    CombatSkillButton
       id: skillId0
       SkillNameLabel
-        !text: tr('Fist Fighting')
+        !text: tr('Fist')
       SkillValueLabel
       ImageSkill
         image-source: /images/icons/icon_fist
         image-size: 9 9
       SkillPercentPanel
 
-    SkillButton
+    CombatSkillButton
       id: skillId1
       SkillNameLabel
-        !text: tr('Club Fighting')
+        !text: tr('Club')
       SkillValueLabel
       ImageSkill
         image-source: /images/icons/icon_club
         image-size: 9 9
       SkillPercentPanel
 
-    SkillButton
+    CombatSkillButton
       id: skillId2
       SkillNameLabel
-        !text: tr('Sword Fighting')
+        !text: tr('Sword')
       SkillValueLabel
       ImageSkill
         image-source: /images/icons/icon_sword
         image-size: 9 9
       SkillPercentPanel
 
-    SkillButton
+    CombatSkillButton
       id: skillId3
       SkillNameLabel
-        !text: tr('Axe Fighting')
+        !text: tr('Axe')
       SkillValueLabel
       ImageSkill
         image-source: /images/icons/icon_axe
         image-size: 9 9
       SkillPercentPanel
 
-    SkillButton
+    CombatSkillButton
       id: skillId4
       SkillNameLabel
-        !text: tr('Distance Fighting')
+        !text: tr('Distance')
       SkillValueLabel
       ImageSkill
         image-source: /images/icons/icon_distance
         image-size: 9 9
       SkillPercentPanel
 
-    SkillButton
+    CombatSkillButton
       id: skillId5
       SkillNameLabel
         !text: tr('Shielding')
@@ -277,7 +281,7 @@ MiniWindow
         image-size: 9 9
       SkillPercentPanel
 
-    SkillButton
+    CombatSkillButton
       id: skillId6
       SkillNameLabel
         !text: tr('Fishing')

@@ -147,7 +147,7 @@ local function showSelectionList(data, tempValue, tempField, onSelectCallback)
     window.listSearch:show()
 end
 
-local AppearanceData = { "preset", "outfit", "mount", "familiar", "wings", "aura", "effects", "shader", "healthBar",
+local AppearanceData = { "preset", "outfit", "mount", "familiar", "wings", "aura", "effects", "shader",
     "title" }
 
 function init()
@@ -283,10 +283,7 @@ function onShowTitleChange(checkBox, checked)
     updatePreview()
 end
 
-function onShowBarsChange(checkBox, checked)
-    settings.showBars = checked
-    updatePreview()
-end
+
 
 function onShowEffectsChange(checkBox, checked)
     settings.showEffects = checked
@@ -301,9 +298,9 @@ local PreviewOptions = {
     ["showWings"] = onShowWingsChange,
     ["showAura"] = onShowAuraChange,
     ["showShader"] = onShowShaderChange,
-    ["showBars"] = onShowBarsChange,
     ["showTitle"] = onShowTitleChange,
-    ["showEffects"] = onShowEffectsChange
+    ["showEffects"] = onShowEffectsChange,
+    ["showMovement"] = onMovementChange
 }
 
 function create(player, outfitList, creatureMount, mountList, familiarList, wingsList, auraList, effectsList, shaderList)
@@ -400,7 +397,10 @@ function create(player, outfitList, creatureMount, mountList, familiarList, wing
 
     configureAddons(currentOutfit.addons)
 
-    movementCheck = window.preview.panel.movement
+    local showMovementPanel = window:recursiveGetChildById('showMovement')
+    if showMovementPanel then
+        movementCheck = showMovementPanel:getChildById('check')
+    end
     showFloorCheck = window.preview.options.showFloor.check
     showOutfitCheck = window.preview.options.showOutfit.check
     showMountCheck = window.preview.options.showMount.check
@@ -408,11 +408,12 @@ function create(player, outfitList, creatureMount, mountList, familiarList, wing
     showWingsCheck = window.preview.options.showWings.check
     showAuraCheck = window.preview.options.showAura.check
     showShaderCheck = window.preview.options.showShader.check
-    showBarsCheck = window.preview.options.showBars.check
     showEffectsCheck = window.preview.options.showEffects.check
     showTitleCheck = window.preview.options.showTitle.check
 
-    movementCheck.onCheckChange = onMovementChange
+    if movementCheck then
+        movementCheck.onCheckChange = onMovementChange
+    end
     for _, option in ipairs(window.preview.options:getChildren()) do
         option.check.onCheckChange = PreviewOptions[option:getId()]
     end
@@ -437,7 +438,6 @@ function create(player, outfitList, creatureMount, mountList, familiarList, wing
     showWingsCheck:setChecked(settings.showWings)
     showAuraCheck:setChecked(settings.showAura)
     showShaderCheck:setChecked(settings.showShader)
-    showBarsCheck:setChecked(settings.showBars)
     showEffectsCheck:setChecked(settings.showEffects)
     showTitleCheck:setChecked(settings.showTitle)
 
@@ -468,7 +468,6 @@ function create(player, outfitList, creatureMount, mountList, familiarList, wing
     appearanceGroup:addWidget(window.appearance.settings.aura.check)
     appearanceGroup:addWidget(window.appearance.settings.wings.check)
     appearanceGroup:addWidget(window.appearance.settings.shader.check)
-    appearanceGroup:addWidget(window.appearance.settings.healthBar.check)
     appearanceGroup:addWidget(window.appearance.settings.effects.check)
     appearanceGroup:addWidget(window.appearance.settings.title.check)
     appearanceGroup.onSelectionChange = onAppearanceChange
@@ -494,7 +493,6 @@ function create(player, outfitList, creatureMount, mountList, familiarList, wing
         { window.preview.options.showWings,     ServerData.wings },
         { window.preview.options.showAura,      ServerData.auras },
         { window.preview.options.showShader,    ServerData.shaders },
-        { window.preview.options.showBars,      ServerData.healthBars },
         { window.preview.options.showEffects,   ServerData.effects },
         { window.preview.options.showTitle,     ServerData.title },
         { window.preview.options.showFamiliar,  ServerData.familiars },
@@ -502,7 +500,6 @@ function create(player, outfitList, creatureMount, mountList, familiarList, wing
         { window.appearance.settings.wings,     ServerData.wings },
         { window.appearance.settings.aura,      ServerData.auras },
         { window.appearance.settings.shader,    ServerData.shaders },
-        { window.appearance.settings.healthBar, ServerData.healthBars },
         { window.appearance.settings.effects,   ServerData.effects },
         { window.appearance.settings.title,     ServerData.title },
     }
@@ -531,7 +528,6 @@ function destroy()
         showWingsCheck = nil
         showAuraCheck = nil
         showShaderCheck = nil
-        showBarsCheck = nil
         showEffectsCheck = nil
         showTitleCheck = nil
         colorBoxes = {}
@@ -1601,16 +1597,14 @@ function updatePreview()
         previewOutfit.familiar = 0
         previewCreature:setMarginRight(0)
         previewFamiliar:setMarginLeft(0)
-        window.preview.panel.bars:setMarginRight(20)
         previewFamiliar:setVisible(false)
     else
         if previewOutfit.familiar and previewOutfit.familiar > 0 then
             previewFamiliar:setVisible(true)
-            previewCreature:setMarginRight(50)
-            window.preview.panel.bars:setMarginRight(40)
+            previewCreature:setMarginRight(0)
             previewFamiliar:setCreatureSize(124)
             previewFamiliar:setCenter(true)
-            previewFamiliar:setMarginLeft(70)
+            previewFamiliar:setMarginLeft(0)
         end
     end
 
@@ -1648,37 +1642,7 @@ function updatePreview()
         end
     end
 
-    if not settings.showBars then
-        previewOutfit.healthBar = 0
-        window.preview.panel.bars:hide()
-    else
-        if g_game.getFeature(GamePlayerMounts) and settings.showMount and previewOutfit.mount > 0 then
-            window.preview.panel.bars:setMarginTop(-10)
-            window.preview.panel.bars:setMarginLeft(60)
-        else
-            window.preview.panel.bars:setMarginTop(-10)
-            window.preview.panel.bars:setMarginLeft(50)
-        end
-        local name = g_game.getCharacterName()
-        window.preview.panel.bars.name:setText(name)
-        if name:find("g") or name:find("j") or name:find("p") or name:find("q") or name:find("y") then
-            window.preview.panel.bars.name:setHeight(14)
-        else
-            window.preview.panel.bars.name:setHeight(11)
-        end
-        window.preview.panel.bars.name:setMarginLeft(-43)
 
-        local healthBar = window.preview.panel.bars.healthBar
-        local manaBar = window.preview.panel.bars.manaBar
-        manaBar:setMarginTop(0)
-        healthBar:setMarginTop(1)
-        healthBar.image:setMargin(0)
-        healthBar.image:hide()
-        manaBar.image:setMargin(0)
-        manaBar.image:hide(0)
-
-        window.preview.panel.bars:show()
-    end
 
     previewCreature:setOutfit(previewOutfit)
     previewCreature:getCreature():setDirection(direction)

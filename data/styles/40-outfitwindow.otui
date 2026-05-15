@@ -190,6 +190,18 @@ OutfitWindow < MainWindow
           text: Show Mount
 
       FlatPanel
+        id: showMovement
+        height: 22
+        padding: 5
+
+        CheckBox
+          id: check
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.left: parent.left
+          anchors.right: parent.right
+          text: Show Movement
+
+      FlatPanel
         id: showFamiliar
         height: 22
         padding: 5
@@ -248,17 +260,7 @@ OutfitWindow < MainWindow
           anchors.right: parent.right
           text: Show Shader
 
-      FlatPanel
-        id: showBars
-        height: 22
-        padding: 5
-        visible:true
-        CheckBox
-          id: check
-          anchors.verticalCenter: parent.verticalCenter
-          anchors.left: parent.left
-          anchors.right: parent.right
-          text: Show Bars
+
           
       FlatPanel
         id: showTitle
@@ -317,63 +319,11 @@ OutfitWindow < MainWindow
         id: creature
         anchors.centerIn: parent
         size: 64 64
-        margin-top: 26
-        margin-left: -16
+        margin-top: -15
+        margin-left: -14
       
-      Panel
-        id: bars
-        anchors.horizontalCenter: prev.horizontalCenter
-        anchors.top: prev.top
-        margin-top: 47
-        margin-right: 20
-        size: 300 32
 
-        Label
-          id: name
-          anchors.top: parent.top
-          anchors.left: parent.left
-          anchors.right: parent.right
-          font: verdana-11px-rounded
-          color: #00BC00
-          text-align: center
-        
-        Panel
-          id: healthBar
-          anchors.top: name.bottom
-          anchors.horizontalCenter: name.horizontalCenter
-          size: 27 4
-          margin-top: 1
-          background: #00BC00
-          border: 1 black
-
-          Panel
-            id: image
-            anchors.centerIn: parent
-
-        Panel
-          id: manaBar
-          anchors.top: prev.bottom
-          anchors.horizontalCenter: name.horizontalCenter
-          size: 27 4
-          background: #0000FF
-          border: 1 black
-
-          Panel
-            id: image
-            anchors.centerIn: parent
       
-      ChaseModeBox
-        id: movement
-        anchors.top: parent.top
-        anchors.left: parent.left
-        margin-top: 3
-        margin-left: 3
-        image-color: #dfdfdf
-        tooltip: Enable/Disable movement animation
-
-        $hover:
-          image-color: #ffffff
-
       RotateButton
         anchors.left: parent.left
         margin-left: 3

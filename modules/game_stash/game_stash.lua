@@ -253,16 +253,9 @@ local function hideWindow()
 end
 
 local function registerProtocol()
-	print(">>> STASH registerProtocol called <<<")
-	print(">>> ProtocolGame: " .. tostring(ProtocolGame))
-	print(">>> ProtocolGame.registerOpcode: " .. tostring(ProtocolGame.registerOpcode))
-	print(">>> ProtocolGame.onOpcode: " .. tostring(ProtocolGame.onOpcode))
-	
 	if protocolRegistered then
 		return
 	end
-
-	debugLog("registerProtocol: registering opcode " .. tostring(OPCODE_SUPPLY_STASH_SEND))
 	ProtocolGame.unregisterOpcode(OPCODE_SUPPLY_STASH_SEND)
 	ProtocolGame.registerOpcode(OPCODE_SUPPLY_STASH_SEND,
         function(protocol, msg)

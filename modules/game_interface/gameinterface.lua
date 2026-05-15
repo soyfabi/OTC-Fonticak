@@ -623,9 +623,9 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
         shortcut = nil
     end
     if lookThing then
-        menu:addOption(tr('Look'), function()
+        menu:addOption(tr('Look                                      (Shift)'), function()
             g_game.look(lookThing)
-        end, shortcut)
+        end)
     end
 
     if not classic and not mobile then
@@ -636,26 +636,26 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
     if useThing then
         if useThing:isContainer() then
             if useThing:getParentContainer() then
-                menu:addOption(tr('Open'), function()
+                menu:addOption(tr('Open                                        (Ctrl)'), function()
                     g_game.open(useThing, useThing:getParentContainer())
-                end, shortcut)
+                end)
                 menu:addOption(tr('Open in new window'), function()
                     g_game.open(useThing)
                 end)
             else
-                menu:addOption(tr('Open'), function()
+                menu:addOption(tr('Open                                        (Ctrl)'), function()
                     g_game.open(useThing)
-                end, shortcut)
+                end)
             end
         else
             if useThing:isMultiUse() then
-                menu:addOption(tr('Use with ...'), function()
+                menu:addOption(tr('Use with ...                              (Ctrl)'), function()
                     startUseWith(useThing)
-                end, shortcut)
+                end)
             else
-                menu:addOption(tr('Use'), function()
+                menu:addOption(tr('Use                                          (Ctrl)'), function()
                     g_game.use(useThing)
-                end, shortcut)
+                end)
             end
         end
 
@@ -708,7 +708,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
         menu:addSeparator()
 
         if creatureThing:isLocalPlayer() then
-            menu:addOption(tr(g_game.getClientVersion() >= 1000 and "Customise Character" or "Set Outfit"), function()
+            menu:addOption(tr("Customise Character"), function()
                 g_game.requestOutfit()
             end)
 
@@ -761,13 +761,13 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
                 end
 
                 if g_game.getAttackingCreature() ~= creatureThing then
-                    menu:addOption(tr('Attack'), function()
+                    menu:addOption(tr('Attack                                      (Alt)'), function()
                         g_game.attack(creatureThing)
-                    end, shortcut)
+                    end)
                 else
-                    menu:addOption(tr('Stop Attack'), function()
+                    menu:addOption(tr('Stop Attack                             (Alt)'), function()
                         g_game.cancelAttack()
-                    end, shortcut)
+                    end)
                 end
 
                 if g_game.getFollowingCreature() ~= creatureThing then
