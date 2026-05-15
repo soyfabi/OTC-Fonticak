@@ -1,62 +1,18 @@
-SupplyStashWindow < UIWindow
-  anchors.centerIn: parent
-  font: verdana-11px-antialised
-  opacity: 1
-  color: #dfdfdf
-  text-offset: 0 6
-  text-align: top
-  image-source: assets/window
-  image-border: 6
-  image-border-top: 27
-  padding-top: 36
-  padding-left: 16
-  padding-right: 16
-  padding-bottom: 16
-  border-color: #000000
-  border-width-top: 1
-  border-width-left: 1
-  border-width-bottom: 1
-  border-width-right: 1
-
-  $disabled:
-    color: #dfdfdf88
-
-StashItem < UIItem
-  image-source: /images/ui/item/none
-  size: 32 32
-  
-  Label
-    id: count
-    width: 50
-    anchors.bottom: parent.bottom
-    anchors.right: parent.right
-    margin-right: 2
-    text-align: right
-    font: verdana-11px-rounded
-
-  $disabled:
-    image-source: assets/emptySlot
-
-SupplyStashWindow
-  size: 604 435
+SupplyStashWindow < MainWindow
   !text: tr('Supply Stash')
-  color: #909090
+  size: 604 435
   visible: false
   @onEscape: toggle()
 
   ComboBox
-    id: itemTypes
+    id: categoryFilter
     size: 190 20
     anchors.top: parent.top
     anchors.left: parent.left
     text-align: center
-    @onOptionChange: placeholder()
-    @onSetup: |
-      self:addOption("Show all")
-      self:addOption("Show food")
 
   ComboBox
-    id: itemTypes
+    id: traderFilter
     size: 180 20
     anchors.verticalCenter: prev.verticalCenter
     anchors.left: prev.right
@@ -78,7 +34,7 @@ SupplyStashWindow
     anchors.left: prev.right
     margin-left: 10
     size: 138 20
-    @onEnter: placeholder()
+    @onTextChange: refreshItemList()
 
   Label
     id: freeSlots
@@ -88,69 +44,66 @@ SupplyStashWindow
   UIWidget
     id: itemsContainer
     size: 572 318
-    opacity: 1
-    image-source: assets/black_border
-    text-align: top
-    image-border: 6
-    image-border-top: 15
-    anchors.bottom: horizontalSeparator.top
+    anchors.top: categoryFilter.bottom
     anchors.left: parent.left
-    margin-bottom: 7
+    margin-top: 10
+    image-source: /images/ui/panel_flat
+    image-border: 1
 
     UIScrollArea
       id: supplyItems
-      anchors.top: parent.top
-      anchors.bottom: parent.bottom
-      anchors.left: parent.left
-      anchors.right: parent.right
-      margin-top: 3
-      margin-bottom: 3
-      margin-left: 3
-      margin-right: 3
+      anchors.fill: parent
+      margin: 3
       vertical-scrollbar: scrollList
-      layout: verticalBox
-      padding: 1
-      auto-focus: none
       layout:
         type: grid
-        cell-size: 32 32
+        cell-size: 34 34
         flow: true
         auto-spacing: true
 
     VerticalScrollBar
       id: scrollList
-      anchors.top: supplyItems.top
-      anchors.bottom: supplyItems.bottom
-      anchors.right: supplyItems.right
-      margin-right: -2
-      margin-top: -2
-      margin-bottom: -1
-      step: 158
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.right: parent.right
+      step: 14
       pixels-scroll: true
 
   Button
     id: closeButton
-    size: 43 20
+    size: 64 20
     anchors.bottom: parent.bottom
     anchors.right: parent.right
     !text: tr('Close')
-    font: cipsoftFont
-    margin-right: 0
     @onClick: toggle()
 
   Button
     id: stowAllButton
-    size: 62 20
+    size: 80 20
     anchors.bottom: parent.bottom
     anchors.right: closeButton.left
-    !text: tr('Stow All')
-    font: cipsoftFont
     margin-right: 8
+    !text: tr('Stow All')
     @onClick: stowAll()
 
   HorizontalSeparator
     id: horizontalSeparator
-    anchors.bottom: prev.top
+    anchors.bottom: closeButton.top
     anchors.left: parent.left
     anchors.right: parent.right
     margin-bottom: 12
+
+StashItem < UIItem
+  size: 32 32
+  image-source: /images/ui/item/none
+  
+  Label
+    id: itemCountLabel
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    margin-right: 2
+    text-align: right
+    font: verdana-11px-rounded
+    text-auto-resize: true
+
+SupplyStashWindow

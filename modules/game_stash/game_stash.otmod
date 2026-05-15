@@ -2,7 +2,7 @@ Module
   name: game_stash
   description: Game stash
   author: Reddington#9222
-  sandboxed: true
+  sandboxed: false
   scripts: [ game_stash ]
   autoload: true
   autoload-priority: 1001

@@ -1,68 +1,64 @@
-MainWindow
-  id: countWindow
+WithdrawWindow < MainWindow
+  size: 270 140
   !text: tr('Retreive Items')
-  size: 245 143
   @onEscape: withdrawHide()
 
   Item
     id: item
-    anchors.left: parent.left
+    size: 34 34
     anchors.top: parent.top
-    margin-top: 2
-    margin-left: -4
-    focusable: false
-    virtual: true
+    anchors.left: parent.left
+    margin-top: 5
+    image-source: /images/ui/item
 
   Label
-    anchors.top: parent.top
-    anchors.left: prev.right
+    id: infoLabel
+    anchors.top: item.top
+    anchors.left: item.right
     anchors.right: parent.right
     margin-left: 10
-    text-align: topleft
-    text: Set or type the number of items you want to retreive
-    text-auto-resize: true
     text-wrap: true
-
-  Label
-    id: count
-    anchors.bottom: item.bottom
-    anchors.right: item.right
-    margin-right: 2
-    width: 50
-    text-align: right
-    font: verdana-11px-rounded
+    text-auto-resize: true
+    !text: tr('Set or type the number of items you want to retreive')
 
   HorizontalScrollBar
-    id: countScrollBar
-    anchors.left: prev.right
+    id: amountScrollBar
+    anchors.top: infoLabel.bottom
+    anchors.left: infoLabel.left
+    anchors.right: amountTextEdit.left
+    margin-top: 5
+    margin-right: 5
+    step: 1
+    show-buttons: true
+
+  TextEdit
+    id: amountTextEdit
+    width: 35
+    height: 20
+    anchors.bottom: item.bottom
     anchors.right: parent.right
-    anchors.bottom: horizontalSeparator.top
-    margin-left: 10
-    margin-bottom: 10
-    focusable: false
-    minimum: 1
-    maximum: 100
+    text-align: center
+    text: 1
+
+  HorizontalSeparator
+    anchors.top: amountScrollBar.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 10
 
   Button
     id: buttonCancel
     !text: tr('Cancel')
-    size: 43 20
-    anchors.right: parent.right
+    width: 60
     anchors.bottom: parent.bottom
-    focusable: false
+    anchors.right: parent.right
 
   Button
     id: buttonOk
     !text: tr('Ok')
-    size: 43 20
-    anchors.right: buttonCancel.left
+    width: 50
     anchors.bottom: parent.bottom
+    anchors.right: buttonCancel.left
     margin-right: 5
-    focusable: false
 
-  HorizontalSeparator
-    id: horizontalSeparator
-    anchors.bottom: prev.top
-    anchors.left: parent.left
-    anchors.right: parent.right
-    margin-bottom: 12
+WithdrawWindow
