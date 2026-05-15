@@ -631,13 +631,28 @@ function onVipStateChange(id, state, groupID)
     else
         local vipList = vipWindow:getChildById('contentsPanel')
         local label = vipList:getChildById('vip' .. id)
-        local name = label:getText()
-        local description = label:getTooltip()
-        local iconId = label.iconId
-        local notify = label.notifyLogin
-        label:destroy()
+        local name, description, iconId, notify
+        
+        if label then
+            name = label:getText()
+            description = label:getTooltip()
+            iconId = label.iconId
+            notify = label.notifyLogin
+            label:destroy()
+        else
+            local vips = g_game.getVips()
+            local vip = vips[id]
+            if vip then
+                name = vip[1]
+                description = vip[3]
+                iconId = vip[4]
+                notify = vip[5]
+            end
+        end
     
-        onAddVip(id, name, state, description, iconId, notify)
+        if name then
+            onAddVip(id, name, state, description, iconId, notify)
+        end
     end
 
     if notify and state ~= VipState.Pending then

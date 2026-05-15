@@ -103,7 +103,7 @@ private:
 
     // Tile
     uint8_t m_tileMaxElevation{ 24 };
-    uint8_t m_tileMaxThings{ 10 };
+    uint8_t m_tileMaxThings{ 12 };
     uint8_t m_tileTransparentFloorViewRange{ 2 };
 
     // Creature

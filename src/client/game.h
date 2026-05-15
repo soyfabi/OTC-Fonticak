@@ -91,7 +91,7 @@ protected:
 
     // vip related
     void processVipAdd(uint32_t id, std::string_view name, uint32_t status, std::string_view description, uint32_t iconId, bool notifyLogin, const std::vector<uint8_t>& groupID);
-    void processVipStateChange(uint32_t id, uint32_t status);
+    void processVipStateChange(uint32_t id, uint32_t status, std::string_view description = "", uint32_t iconId = 0, bool notifyLogin = false, const std::vector<uint8_t>& groupID = {});
     void processVipGroupChange(const std::vector<std::tuple<uint8_t, std::string, bool>>& vipGroups, uint8_t groupsAmountLeft);
 
     // tutorial hint

@@ -3277,7 +3277,25 @@ void ProtocolGame::parseVipState(const InputMessagePtr& msg)
     const uint32_t id = msg->getU32();
     const uint32_t status = g_game.getFeature(Otc::GameLoginPending) ? msg->getU8() : 1;
 
-    g_game.processVipStateChange(id, status);
+    std::string desc;
+    uint32_t iconId = 0;
+    bool notifyLogin = false;
+    std::vector<uint8_t> groupIDs;
+
+    if (g_game.getFeature(Otc::GameAdditionalVipInfo)) {
+        desc = msg->getString();
+        iconId = msg->getU32();
+        notifyLogin = msg->getU8() > 0;
+    }
+
+    if (g_game.getFeature(Otc::GameVipGroups)) {
+        const uint8_t groupSize = msg->getU8();
+        for (auto i = 0; i < groupSize; ++i) {
+            groupIDs.emplace_back(msg->getU8());
+        }
+    }
+
+    g_game.processVipStateChange(id, status, desc, iconId, notifyLogin, groupIDs);
 }
 
 void ProtocolGame::parseVipLogout(const InputMessagePtr& msg)
@@ -4181,6 +4199,12 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
 
     if (item->isStackable() || item->isFluidContainer() || item->isSplash() || item->isChargeable()) {
         item->setCountOrSubType(g_game.getFeature(Otc::GameCountU16) ? msg->getU16() : msg->getU8());
+    }
+
+    if (g_game.getFeature(Otc::GameThingUpgradeClassification)) {
+        if (item->getClassification() > 0) {
+            item->setTier(msg->getU8());
+        }
     }
 
     if (g_game.getFeature(Otc::GameItemAnimationPhase)) {

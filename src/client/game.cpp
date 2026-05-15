@@ -385,11 +385,18 @@ void Game::processVipAdd(const uint32_t id, const std::string_view name, const u
     g_lua.callGlobalField("g_game", "onAddVip", id, name, status, description, iconId, notifyLogin, groupID);
 }
 
-void Game::processVipStateChange(const uint32_t id, const uint32_t status)
+void Game::processVipStateChange(const uint32_t id, const uint32_t status, const std::string_view description, const uint32_t iconId, const bool notifyLogin, const std::vector<uint8_t>& groupID)
 {
-    std::get<1>(m_vips[id]) = status;
-    const std::vector<uint8_t>& groupID = std::get<5>(m_vips[id]);
-    g_lua.callGlobalField("g_game", "onVipStateChange", id, status, groupID);
+    auto& vip = m_vips[id];
+    std::get<1>(vip) = status;
+
+    if (!description.empty()) std::get<2>(vip) = description;
+    if (iconId > 0) std::get<3>(vip) = iconId;
+    if (notifyLogin) std::get<4>(vip) = notifyLogin;
+    if (!groupID.empty()) std::get<5>(vip) = groupID;
+
+    const std::vector<uint8_t>& finalGroupID = std::get<5>(vip);
+    g_lua.callGlobalField("g_game", "onVipStateChange", id, status, finalGroupID);
 }
 
 void Game::processVipGroupChange(const std::vector<std::tuple<uint8_t, std::string, bool>>& vipGroups, const uint8_t groupsAmountLeft)
