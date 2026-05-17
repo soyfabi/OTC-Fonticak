@@ -361,6 +361,9 @@
   height: 290px;
   background-color: #404040;
   width: 465px;
+  display: flex;
+  flex-direction: column;
+  flex-wrap: nowrap;
   --border-width-top: 1;
   --border-color-top: black;
   --border-width-left: 1;
@@ -371,34 +374,60 @@
   --border-color-right: #747474;
 }
 
-.history-list {
-  height: 100%;
+.history-table-header {
+  flex: 0 0 auto;
   width: 100%;
-  max-height: 290px;
+}
+.history-table-header thead tr {
+  background-color: #363636;
+  color: white;
+}
+
+.history-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  width: 100%;
+  overflow: scroll;
+  padding: 0 1px;
 }
 
 .history-table {
   width: 100%;
   text-align: left;
-  height: 100%;
   padding-left: 1px;
-  padding-top: 1px;
   padding-right: 1px;
 }
 
-.history-table tbody tr:nth-child(odd) {
+.history-table-body {
+  padding-top: 0;
+}
+.history-col-date {
+  width: 145px;
+}
+.history-col-action {
+  width: 85px;
+}
+.history-col-details {
+  width: 230px;
+}
+.history-row {
+  height: 30px;
+}
+.history-table-body tbody tr:nth-child(odd) {
   background-color: #484848;
   color: white;
 }
 
-.history-table tbody tr:nth-child(even) {
+.history-table-body tbody tr:nth-child(even) {
   background-color: #414141;
   color: white;
 }
 
 .history-footer {
-
+  flex: 0 0 auto;
   display: flex;
+  height: 22px;
+  margin-top: 2px;
   flex-direction: row;
   flex-wrap: nowrap;
   align-items: stretch;

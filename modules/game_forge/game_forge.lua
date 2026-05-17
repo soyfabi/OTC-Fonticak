@@ -1,8 +1,18 @@
 ForgeController = Controller:new()
 ForgeButton = nil
 
+ForgeController.forgeBalances = {
+    bank = 0,
+    inventory = 0,
+    dust = 0,
+    slivers = 0,
+    cores = 0
+}
+
 local cloneValue = Helpers.cloneValue
 local replaceTableContents = Helpers.replaceTableContents
+local replaceItemArrayInPlace = Helpers.replaceItemArrayInPlace
+local replaceTransferListInPlace = Helpers.replaceTransferListInPlace
 local normalizeClassPriceEntries = Helpers.normalizeClassPriceEntries
 local normalizeTierPriceEntries = Helpers.normalizeTierPriceEntries
 -- Don't cache formatHistoryDate as a local since it may be updated
@@ -10,6 +20,57 @@ local normalizeTierPriceEntries = Helpers.normalizeTierPriceEntries
 
 -- Store all callback references to prevent garbage collection
 ForgeController.callbacks = {}
+
+function ForgeController.applyPendingForgeConfig()
+    local data = ForgeController._pendingForgeConfig
+    ForgeController._pendingForgeConfig = nil
+    if data then
+        forgeData(data)
+    end
+end
+
+function ForgeController.applyPendingForgeOpenData()
+    local data = ForgeController._pendingForgeOpenData
+    ForgeController._pendingForgeOpenData = nil
+    if data then
+        onOpenForge(data)
+        if ForgeController.ui and not ForgeController.ui:isDestroyed() then
+            ForgeController:updateResourceBalances()
+        end
+    end
+end
+
+function ForgeController.applyPendingForgeResult()
+    local data = ForgeController._pendingForgeResult
+    ForgeController._pendingForgeResult = nil
+    if data then
+        forgeResultData(data)
+    end
+end
+
+function ForgeController.applyPendingForgeHistory()
+    local historyList = ForgeController._pendingForgeHistory
+    ForgeController._pendingForgeHistory = nil
+    if historyList then
+        onBrowseForgeHistory(1, 1, #historyList, historyList)
+    end
+end
+
+function ForgeController.showForgeWindow()
+    ForgeController:show(true)
+end
+
+local function findForgeItemByKey(list, key)
+    if not list or not key then
+        return nil
+    end
+    for _, item in pairs(list) do
+        if item.key == key then
+            return item
+        end
+    end
+    return nil
+end
 
 ForgeController.showResult = false
 ForgeController.showBonus = false
@@ -20,7 +81,7 @@ ForgeController.result = cloneValue(Helpers.baseResult)
 ForgeController.baseResult = Helpers.baseResult
 
 function ForgeController:onGameStart()
-    if g_game.getFeature(GameForgeConvergence) then -- Summer Update 2017
+    if g_game.useCustomForgeProtocol() or g_game.getFeature(GameForgeConvergence) then
         self:updateResourceBalances()
         
         -- Store event callbacks to prevent garbage collection
@@ -28,7 +89,23 @@ function ForgeController:onGameStart()
         self.callbacks.forgeData = forgeData
         self.callbacks.onOpenForge = onOpenForge
         self.callbacks.forgeResultData = forgeResultData
-        self.callbacks.onResourcesBalanceChange = function() self:updateResourceBalances() end
+        self.callbacks.onResourcesBalanceChange = function(value, oldBalance, resourceType)
+            if g_game.useCustomForgeProtocol() and resourceType then
+                local cached = self.forgeBalances
+                if resourceType == ResourceForgeDust or resourceType == ResourceTypes.FORGE_DUST then
+                    cached.dust = value
+                elseif resourceType == ResourceForgeSlivers or resourceType == ResourceTypes.FORGE_SLIVER then
+                    cached.slivers = value
+                elseif resourceType == ResourceForgeExaltedCore or resourceType == ResourceTypes.FORGE_CORES then
+                    cached.cores = value
+                elseif resourceType == ResourceBank or resourceType == ResourceTypes.BANK_BALANCE then
+                    cached.bank = value
+                elseif resourceType == ResourceInventory or resourceType == ResourceTypes.GOLD_EQUIPPED then
+                    cached.inventory = value
+                end
+            end
+            self:updateResourceBalances()
+        end
         
         self:registerEvents(g_game, {
             onBrowseForgeHistory = self.callbacks.onBrowseForgeHistory,
@@ -39,14 +116,14 @@ function ForgeController:onGameStart()
         })
 
         if not ForgeButton then
+            self.callbacks.toggleForge = function()
+                self:toggle()
+            end
             ForgeButton = modules.game_mainpanel.addToggleButton('ForgeButton', tr('Open Exaltation Forge'),
-                '/images/options/button-exaltation-forge.png', function()
-                    self:toggle()
-                end)
+                '/images/options/button-exaltation-forge.png', self.callbacks.toggleForge)
         end
         self.currentTab = 'conversion'
-    else
-        -- Store unload callback
+    elseif not g_game.useCustomForgeProtocol() then
         self.callbacks.unloadModule = function()
             g_modules.getModule("game_forge"):unload()
         end
@@ -64,7 +141,7 @@ local function resetInfo()
     ForgeController.transfer.isConvergence = false
     ForgeController.transfer.title = "Transfer Requirements"
     ForgeController.transfer.dustLabel = ForgeController.transfer.dust
-    replaceTableContents(ForgeController.transfer.currentList, ForgeController.transfer.items)
+    replaceTransferListInPlace(ForgeController.transfer.currentList, ForgeController.transfer.items)
     ForgeController.fusion.title = "Further Items Needed For Fusion"
     ForgeController.fusion.selected = cloneValue(ForgeController.baseSelected)
     ForgeController.fusion.selectedTarget = cloneValue(ForgeController.baseSelected)
@@ -74,7 +151,7 @@ local function resetInfo()
     ForgeController.fusion.chanceImprovedChecked = false
     ForgeController.fusion.reduceTierLossChecked = false
     ForgeController.fusion.dustLabel = ForgeController.fusion.dust
-    replaceTableContents(ForgeController.fusion.currentList, ForgeController.fusion.items)
+    replaceItemArrayInPlace(ForgeController.fusion.currentList, ForgeController.fusion.items)
     ForgeController.showResult = false
     ForgeController.showBonus = false
     ForgeController.result = cloneValue(Helpers.baseResult)
@@ -91,7 +168,7 @@ function ForgeController:handleDescription(currentType)
 end
 
 function ForgeController:show(skipRequest)
-    if not g_game.getFeature(GameForgeConvergence) then
+    if not g_game.useCustomForgeProtocol() and not g_game.getFeature(GameForgeConvergence) then
         return ForgeController:hide()
     end
     resetInfo()
@@ -105,7 +182,11 @@ function ForgeController:show(skipRequest)
     end
 
     if not skipRequest then
-        g_game.openPortableForgeRequest()
+        if g_game.useCustomForgeProtocol() then
+            ForgeProtocol.sendOpen()
+        else
+            g_game.openPortableForgeRequest()
+        end
     end
 
     self.ui:centerIn('parent')
@@ -167,12 +248,28 @@ function ForgeController:updateResourceBalances()
         return
     end
 
-    local player = g_game.getLocalPlayer()
-    self.currentDust = player:getResourceBalance(ResourceTypes.FORGE_DUST or 70)
-    self.currentSlivers = player:getResourceBalance(ResourceTypes.FORGE_SLIVER)
-    self.currentExaltedCores = player:getResourceBalance(ResourceTypes.FORGE_CORES)
-    self.rawCurrentGold = player:getTotalMoney() or 0
+    if g_game.useCustomForgeProtocol() then
+        local cached = self.forgeBalances or {}
+        self.currentDust = cached.dust or 0
+        self.currentSlivers = cached.slivers or 0
+        self.currentExaltedCores = cached.cores or 0
+        self.rawCurrentGold = (cached.bank or 0) + (cached.inventory or 0)
+    else
+        local player = g_game.getLocalPlayer()
+        if not player then
+            return
+        end
+        self.currentDust = player:getResourceBalance(ResourceTypes.FORGE_DUST or 70)
+        self.currentSlivers = player:getResourceBalance(ResourceTypes.FORGE_SLIVER)
+        self.currentExaltedCores = player:getResourceBalance(ResourceTypes.FORGE_CORES)
+        self.rawCurrentGold = player:getTotalMoney() or 0
+    end
+
     self.currentGold = comma_value(self.rawCurrentGold)
+
+    if self.conversion and self.conversion.handleButtons then
+        self.conversion:handleButtons()
+    end
 end
 
 ForgeController.baseSelected = {
@@ -222,39 +319,61 @@ function ForgeController:terminate()
     end
 end
 
-function ForgeController:getPrice(prices, itemId, currentTier, isConvergence, isTransfer)
+function ForgeController:getPrice(prices, itemId, currentTier, isConvergence, isTransfer, classification)
     local price = 0
-    local tierIndex = (tonumber(currentTier) or 0) + 1
+    local tier = tonumber(currentTier) or 0
+    local tierIndex = tier + 1
 
     if isTransfer and isConvergence then
-        for tier, _price in pairs(prices) do
-            if isConvergence then
-                tier = tier > 1 and (tier - 1) or tier
-            end
-            if currentTier == tier then
-                price = tonumber(_price) or 0
-                break
+        local raw = self.transfer.convergencePricesRaw
+        if raw then
+            price = tonumber(raw[tier > 1 and (tier - 1) or tier]) or 0
+        end
+        if price <= 0 then
+            for tierKey, _price in pairs(prices or {}) do
+                local lookupTier = tierKey
+                if tierKey > 1 then
+                    lookupTier = tierKey - 1
+                end
+                if tier == lookupTier then
+                    price = tonumber(_price) or 0
+                    break
+                end
             end
         end
     elseif isConvergence then
-        for tier, _price in pairs(prices) do
-            if tierIndex == tier then
-                price = tonumber(_price) or 0
-                break
+        local raw = self.fusion.convergencePricesRaw
+        if raw then
+            price = tonumber(raw[tier]) or 0
+        end
+        if price <= 0 then
+            for tierKey, _price in pairs(prices or {}) do
+                if tierIndex == tierKey or tier == tierKey then
+                    price = tonumber(_price) or 0
+                    break
+                end
             end
         end
     else
-        local itemPtr = Item.create(itemId, 1)
+        local classId = tonumber(classification) or 0
+        if classId <= 0 then
+            local itemPtr = Item.create(itemId, 1)
+            classId = itemPtr and itemPtr.getClassification and itemPtr:getClassification() or 0
+        end
 
-        local classification = itemPtr and itemPtr.getClassification and itemPtr:getClassification() or 0
-        if classification <= 0 then return 0 end
+        local raw = self.fusion.classPriceRaw
+        if raw and raw[classId] and raw[classId][2] then
+            price = tonumber(raw[classId][2][tier]) or 0
+        end
 
-        for class, tiers in pairs(prices) do
-            if class == classification then
-                for tier, _price in pairs(tiers) do
-                    if tier == tierIndex or (isTransfer and tier == currentTier) then
-                        price = tonumber(_price) or 0
-                        break
+        if price <= 0 and classId > 0 then
+            for class, tiers in pairs(prices or {}) do
+                if class == classId then
+                    for tierKey, _price in pairs(tiers) do
+                        if tierKey == tierIndex or tierKey == tier or (isTransfer and tierKey == tier) then
+                            price = tonumber(_price) or 0
+                            break
+                        end
                     end
                 end
             end
@@ -308,7 +427,9 @@ function ForgeController:forgeAction(isTransfer)
     local data = isTransfer and ForgeController.transfer or ForgeController.fusion
     local canDoAction = isTransfer and data.canTransfer or data.canFusion
     if data.selected.id == -1 then return end
-    if data.selectedTarget.id == -1 then return end
+    if isTransfer or data.isConvergence then
+        if data.selectedTarget.id == -1 then return end
+    end
     if not canDoAction then return end
 
     if ForgeController.rawPrice <= 0 then return end
@@ -350,8 +471,21 @@ function ForgeController:forgeAction(isTransfer)
     
     ForgeController.resultTimeout = scheduleEvent(ForgeController.callbacks.timeoutCallback, 5000)
 
-    g_game.forgeRequest(actionType, data.isConvergence, data.selected.id, data.selected.tier,
-        data.selectedTarget.id, chanceImproved, reduceTierLoss)
+    if g_game.useCustomForgeProtocol() then
+        if isTransfer then
+            ForgeProtocol.sendForgeTransfer(data.isConvergence, data.selected.id, data.selected.tier, data.selectedTarget.id)
+        else
+            local secondItemId = data.selected.id
+            if data.isConvergence then
+                secondItemId = data.selectedTarget.id
+            end
+            ForgeProtocol.sendForgeFusion(data.isConvergence, data.selected.id, data.selected.tier, secondItemId,
+                chanceImproved, reduceTierLoss)
+        end
+    else
+        g_game.forgeRequest(actionType, data.isConvergence, data.selected.id, data.selected.tier,
+            data.selectedTarget.id, chanceImproved, reduceTierLoss)
+    end
 end
 
 function ForgeController:resultSystemEvent()
@@ -568,7 +702,15 @@ ForgeController.fusion = {
     selectedTarget = cloneValue(ForgeController.baseSelected),
     canFusion = false,
     currentList = {},
+    convergenceItems = {},
 }
+
+ForgeController.fusion.handleSelectByKey = function(key)
+    local item = findForgeItemByKey(ForgeController.fusion.currentList, key)
+    if item then
+        ForgeController.fusion.handleSelect(item)
+    end
+end
 
 -- Store callback in ForgeController to prevent garbage collection
 ForgeController.fusion.handleSelect = function(item)
@@ -697,7 +839,8 @@ function ForgeController:handleSelect(data, item, isTransfer)
             end
         end
 
-        data.currentList.receivers = receivers
+        data.currentList.receivers = data.currentList.receivers or {}
+        replaceItemArrayInPlace(data.currentList.receivers, receivers)
     else
         data.selected = cloneValue(item)
         data.selected.targetTier = data.selected.tier + 1
@@ -721,13 +864,22 @@ function ForgeController:handleSelect(data, item, isTransfer)
     end
 
     local prices = isConvergence and data.convergencePrices or data.prices
-    ForgeController:getPrice(prices, item.id, data.selected.tier, isConvergence, isTransfer)
+    ForgeController:getPrice(prices, item.id, data.selected.tier, isConvergence, isTransfer, item.classification)
 
     if ForgeController.rawPrice > 0 and ForgeController.rawCurrentGold >= ForgeController.rawPrice then
         if ForgeController.currentDust >= ForgeController.fusion.dust then
             if isConvergence then return end
-            ForgeController.fusion.canFusion = true
+            if (item.count or 0) >= 2 then
+                ForgeController.fusion.canFusion = true
+            end
         end
+    end
+end
+
+ForgeController.transfer.handleSelectByKey = function(key)
+    local item = findForgeItemByKey(ForgeController.transfer.currentList.donors, key)
+    if item then
+        ForgeController.transfer.handleSelect(item)
     end
 end
 
@@ -738,6 +890,24 @@ ForgeController.transfer.handleSelect = function(item)
         return
     end
     ForgeController:handleSelect(ForgeController.transfer, item, true)
+end
+
+function ForgeController:handleSelectTargetByKey(key, isTransfer)
+    local data = isTransfer and ForgeController.transfer or ForgeController.fusion
+    local list = isTransfer and data.currentList.receivers or data.currentList
+    local item = findForgeItemByKey(list, key)
+    if not item and isTransfer and data.isConvergence then
+        item = findForgeItemByKey(data.convergenceItems and data.convergenceItems.receivers, key)
+    end
+    if not item and not isTransfer and data.isConvergence and data.convergenceItems then
+        for _, slotItems in pairs(data.convergenceItems) do
+            item = findForgeItemByKey(slotItems, key)
+            if item then
+                break
+            end
+        end
+    end
+    self:handleSelectTarget(item, isTransfer)
 end
 
 function ForgeController:handleSelectTarget(item, isTransfer)
@@ -817,8 +987,11 @@ function ForgeController:toggleConvergence(isTransfer)
         end
     end
 
-    -- Replace contents in-place to preserve the table reference for reactive UI
-    replaceTableContents(data.currentList, source)
+    if isTransfer then
+        replaceTransferListInPlace(data.currentList, source)
+    else
+        replaceItemArrayInPlace(data.currentList, source)
+    end
 end
 
 -- TRANSFER MENU
@@ -883,12 +1056,18 @@ end
 
 function onOpenForge(data)
     ForgeController.rawOpenForgeData = data
-    
+
     -- Don't update if we're showing the result animation or waiting for result
     if ForgeController.showResult or ForgeController.showBonus or ForgeController.waitingForResult then
         return
     end
-    
+
+    local shouldShow = not ForgeController.ui or ForgeController.ui:isDestroyed() or not ForgeController.ui:isVisible()
+    if shouldShow then
+        ForgeController:show(true)
+        ForgeController:toggleFusionMenu()
+    end
+
     ForgeController.fusion.chanceImprovedChecked = false
     ForgeController.fusion.reduceTierLossChecked = false
     ForgeController.conversion.dustMax = data.dustLevel or ForgeController.conversion.dustMax or 100
@@ -897,34 +1076,40 @@ function onOpenForge(data)
     local items = cloneValue(data.fusionItems or {})
     local fusionItems = handleFusionItems(items)
     ForgeController.fusion.items = fusionItems
-    replaceTableContents(ForgeController.fusion.currentList, fusionItems)
+    replaceItemArrayInPlace(ForgeController.fusion.currentList, fusionItems)
     local convergenceFusion = cloneValue(data.convergenceFusion or {})
     local _, convergenceItemsBySlot = handleParseConvergenceFusionItems(convergenceFusion)
-    ForgeController.fusion.convergenceItems = convergenceItemsBySlot
+    replaceItemArrayInPlace(ForgeController.fusion.convergenceItems, convergenceItemsBySlot)
     -- FUSION ITEMS
 
     -- TRANSFER ITEMS
     local transfers = cloneValue(data.transfers or {})
     local transferItems = handleTransferItems(transfers)
     ForgeController.transfer.items = transferItems
-    replaceTableContents(ForgeController.transfer.currentList, transferItems)
+    replaceTransferListInPlace(ForgeController.transfer.currentList, transferItems)
 
     local convergenceTransfers = cloneValue(data.convergenceTransfers or {})
     local convergenceTransferItems = handleTransferItems(convergenceTransfers)
-    ForgeController.transfer.convergenceItems = convergenceTransferItems
+    replaceTransferListInPlace(ForgeController.transfer.convergenceItems, convergenceTransferItems)
     -- TRANSFER ITEMS
-
-    local shouldShow = not ForgeController.ui or ForgeController.ui:isDestroyed() or not ForgeController.ui:isVisible()
-    if shouldShow then
-        ForgeController:show(true)
-        ForgeController:toggleFusionMenu()
-    end
 end
 
 function forgeData(data)
     ForgeController.rawData = data
-    ForgeController:updateResourceBalances()
+    if not g_game.useCustomForgeProtocol() then
+        ForgeController:updateResourceBalances()
+    end
     -- FUSION
+    if data.classPriceRaw then
+        ForgeController.fusion.classPriceRaw = data.classPriceRaw
+    end
+    if data.convergenceFusionPricesRaw then
+        ForgeController.fusion.convergencePricesRaw = data.convergenceFusionPricesRaw
+    end
+    if data.convergenceTransferPricesRaw then
+        ForgeController.transfer.convergencePricesRaw = data.convergenceTransferPricesRaw
+    end
+
     local classPrices = normalizeClassPriceEntries(data.classPrices)
     if next(classPrices) then
         ForgeController.fusion.prices = classPrices
@@ -1131,25 +1316,33 @@ function ForgeController.conversion.toggle(conversionType)
     end
 
     if conversionType == ForgeController.conversion.types.DUST2SLIVER then
-        local dustBalance = player:getResourceBalance(ResourceTypes.FORGE_DUST) or 0
+        local dustBalance = ForgeController.currentDust or 0
         if dustBalance <= ForgeController.conversion.necessaryDustToSliver then
             return
         end
-        g_game.forgeRequest(conversionType)
+        if g_game.useCustomForgeProtocol() then
+            ForgeProtocol.sendForgeConverter(conversionType)
+        else
+            g_game.forgeRequest(conversionType)
+        end
         return
     end
 
     if conversionType == ForgeController.conversion.types.SLIVER2CORE then
-        local sliverBalance = player:getResourceBalance(ResourceTypes.FORGE_SLIVER) or 0
+        local sliverBalance = ForgeController.currentSlivers or 0
         if sliverBalance <= ForgeController.conversion.sliverToCore then
             return
         end
-        g_game.forgeRequest(conversionType)
+        if g_game.useCustomForgeProtocol() then
+            ForgeProtocol.sendForgeConverter(conversionType)
+        else
+            g_game.forgeRequest(conversionType)
+        end
         return
     end
 
     if conversionType == ForgeController.conversion.types.INCREASE_DUST_LIMIT then
-        local dustBalance = player:getResourceBalance(ResourceTypes.FORGE_DUST) or 0
+        local dustBalance = ForgeController.currentDust or 0
         local currentNecessaryDust = ForgeController.conversion.dustMaxIncreaseCost
         local maxDustCap = ForgeController.conversion.dustCap
         local maxDustLevel = ForgeController.conversion.dustMax
@@ -1161,7 +1354,11 @@ function ForgeController.conversion.toggle(conversionType)
         if dustBalance < currentNecessaryDust then
             return
         end
-        g_game.forgeRequest(conversionType)
+        if g_game.useCustomForgeProtocol() then
+            ForgeProtocol.sendForgeConverter(conversionType)
+        else
+            g_game.forgeRequest(conversionType)
+        end
     end
 end
 
@@ -1192,7 +1389,11 @@ ForgeController.history = {
 function ForgeController:toggleHistoryMenu()
     self:resetTabsClip()
     self.currentTab = 'history'
-    g_game.sendForgeBrowseHistoryRequest(0)
+    if g_game.useCustomForgeProtocol() then
+        ForgeProtocol.sendHistory()
+    else
+        g_game.sendForgeBrowseHistoryRequest(0)
+    end
     self.history.clip = { x = 0, y = 34, width = 118, height = 34 }
 end
 
@@ -1230,7 +1431,7 @@ function onBrowseForgeHistory(page, lastPage, currentCount, historyList)
             end
         end
     end
-    ForgeController.history.list = historyList or {}
+    replaceItemArrayInPlace(ForgeController.history.list, historyList or {})
 end
 
 function ForgeController.history.onHistoryPreviousPage()
@@ -1239,7 +1440,11 @@ function ForgeController.history.onHistoryPreviousPage()
         return
     end
 
-    g_game.sendForgeBrowseHistoryRequest(currentPage - 1)
+    if g_game.useCustomForgeProtocol() then
+        ForgeProtocol.sendHistory()
+    else
+        g_game.sendForgeBrowseHistoryRequest(currentPage - 1)
+    end
 end
 
 function ForgeController.history.onHistoryNextPage()
@@ -1250,5 +1455,9 @@ function ForgeController.history.onHistoryNextPage()
         return
     end
 
-    g_game.sendForgeBrowseHistoryRequest(currentPage + 1)
+    if g_game.useCustomForgeProtocol() then
+        ForgeProtocol.sendHistory()
+    else
+        g_game.sendForgeBrowseHistoryRequest(currentPage + 1)
+    end
 end

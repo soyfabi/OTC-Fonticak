@@ -200,8 +200,10 @@ function UIWidget:__applyOrBindHtmlAttribute(attr, value, isInheritable, control
                 end
             end
 
-            g_dispatcher.deferEvent(function()
-                method(self, value)
+            addEvent(function()
+                if self and not self:isDestroyed() then
+                    method(self, value)
+                end
             end)
         elseif value ~= nil then
             method(self, value)

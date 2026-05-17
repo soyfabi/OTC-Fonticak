@@ -21,4 +21,5 @@ Module
     dofile 'spells'
     dofile 'tile'
     dofile 'items'
+    dofile 'custom_forge_protocol'
     dofiles 'ui'

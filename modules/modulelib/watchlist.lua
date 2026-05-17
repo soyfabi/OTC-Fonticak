@@ -10,14 +10,16 @@ function WidgetWatch.update()
             return true
         end
 
-        local isDestroyed = obj.widget:isDestroyed()
-        if isDestroyed then
+        if obj.widget:isDestroyed() then
             obj.widget = nil
-        elseif obj.methodName == 'conditionif' or obj.methodName == 'visible' or obj.widget:isVisible() then
-            obj.fnc(obj)
+            return true
         end
 
-        return isDestroyed
+        if obj.methodName == 'conditionif' or obj.methodName == 'visible' or obj.widget:isVisible() then
+            pcall(obj.fnc, obj)
+        end
+
+        return false
     end)
 
     if #WATCH_LIST == 0 then

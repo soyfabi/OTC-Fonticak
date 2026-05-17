@@ -2,6 +2,10 @@ function g_game.getRsa()
     return G.currentRsa
 end
 
+function g_game.useCustomForgeProtocol()
+    return g_game.getClientVersion() >= 860
+end
+
 function g_game.findPlayerItem(itemId, subType, tier)
     local localPlayer = g_game.getLocalPlayer()
     if localPlayer then

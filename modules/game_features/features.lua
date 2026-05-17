@@ -80,6 +80,8 @@ controller:registerEvents(g_game, {
             g_game.enableFeature(GamePurseSlot)
             g_game.enableFeature(GamePrey)
             g_game.enableFeature(GameSpellList)
+            g_game.enableFeature(GameThingUpgradeClassification)
+            g_game.enableFeature(GameItemTierByte)
         end
 
         if version >= 862 then

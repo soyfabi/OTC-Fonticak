@@ -20,6 +20,49 @@ function Helpers.replaceTableContents(target, source)
     end
 end
 
+function Helpers.getForgeItemKey(item)
+    if not item then
+        return ''
+    end
+    return item.key or ('%d_%d'):format(item.id or 0, item.tier or 0)
+end
+
+-- Keeps the same table/item references when id+tier match so HTML *for loops do not
+-- destroy and recreate every row (avoids "expired lua function" from stale C++ callbacks).
+function Helpers.replaceItemArrayInPlace(target, source)
+    if not target or not source then
+        return
+    end
+
+    local sourceLen = #source
+    for i = #target, sourceLen + 1, -1 do
+        target[i] = nil
+    end
+
+    for i = 1, sourceLen do
+        local src = source[i]
+        local dst = target[i]
+        if dst and Helpers.getForgeItemKey(dst) == Helpers.getForgeItemKey(src) then
+            for k, v in pairs(src) do
+                dst[k] = v
+            end
+        else
+            target[i] = Helpers.cloneValue(src)
+        end
+    end
+end
+
+function Helpers.replaceTransferListInPlace(target, source)
+    if not target or not source then
+        return
+    end
+
+    target.donors = target.donors or {}
+    target.receivers = target.receivers or {}
+    Helpers.replaceItemArrayInPlace(target.donors, source.donors or {})
+    Helpers.replaceItemArrayInPlace(target.receivers, source.receivers or {})
+end
+
 function Helpers.cloneValue(value)
     if type(value) == 'table' then
         if table and type(table.recursivecopy) == 'function' then

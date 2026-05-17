@@ -4201,7 +4201,9 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
         item->setCountOrSubType(g_game.getFeature(Otc::GameCountU16) ? msg->getU16() : msg->getU8());
     }
 
-    if (g_game.getFeature(Otc::GameThingUpgradeClassification)) {
+    if (g_game.getFeature(Otc::GameItemTierByte)) {
+        item->setTier(msg->getU8());
+    } else if (g_game.getFeature(Otc::GameThingUpgradeClassification)) {
         if (item->getClassification() > 0) {
             item->setTier(msg->getU8());
         }

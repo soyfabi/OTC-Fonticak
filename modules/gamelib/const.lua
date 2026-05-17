@@ -224,6 +224,7 @@ GameCharacterSkillStats = 127
 GameCreaturePaperdoll = 128
 GameMultiSpr = 129
 GameVocationMonk = 130
+GameItemTierByte = 131
 
 TextColors = {
     red = '#f55e5e',    -- '#c83200'

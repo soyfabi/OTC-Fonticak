@@ -20,9 +20,13 @@
  * THE SOFTWARE.
  */
 
+#include <cstdlib>
+
 #include "game.h"
 #include "item.h"
 #include "protocolgame.h"
+#include <framework/core/application.h>
+#include <framework/stdext/string.h>
 #include "framework/net/outputmessage.h"
 #include "protocolcodes.h"
 #include "thingtypemanager.h"
@@ -104,9 +108,23 @@ void ProtocolGame::sendLoginPacket(const uint32_t challengeTimestamp, const uint
         msg->addU8(challengeRandom);
     }
 
-    const auto& extended = callLuaField<std::string>("getLoginExtendedData");
-    if (!extended.empty())
+    const auto extended = callLuaField<std::string>("getLoginExtendedData");
+    if (!extended.empty()) {
         msg->addString(extended);
+    } else {
+        msg->addString("OTCv8");
+        auto version = g_app.getVersion();
+        const auto spacePos = version.find(' ');
+        if (spacePos != std::string::npos) {
+            version = version.substr(0, spacePos);
+        }
+        stdext::replace_all(version, ".", "");
+        if (version.length() == 2) {
+            version += "0";
+        }
+        msg->addU16(static_cast<uint16_t>(std::atoi(version.c_str())));
+        msg->addString("OTCv8TierByte");
+    }
 
     // complete the bytes for rsa encryption with zeros
     const int paddingBytes = g_crypt.rsaGetSize() - (msg->getMessageSize() - offset);

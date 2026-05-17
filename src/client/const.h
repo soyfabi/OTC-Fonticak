@@ -579,6 +579,7 @@ namespace Otc
         GameCreaturePaperdoll = 128,
         GameMultiSpr = 129,
         GameVocationMonk = 130,
+        GameItemTierByte = 131,
         LastGameFeature
     };
 
