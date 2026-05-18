@@ -43,6 +43,7 @@
 #include "paperdoll.h"
 #include <fmt/format.h>
 #include <framework/util/stats.h>
+#include <functional>
 
 void ProtocolGame::parseMessage(const InputMessagePtr& msg)
 {
@@ -3213,11 +3214,10 @@ void ProtocolGame::parseKillTracker(const InputMessagePtr& msg)
     const Outfit& monsterOutfit = getOutfit(msg, false);
 
     std::vector<ItemPtr> dropItems;
-    
-    // Recursive function to parse containers as sent by the server
+
     std::function<void(int)> parseContainer = [&](int depth) {
         if (depth > 4) {
-            msg->getU8(); // Consume the 0 sent by server on max depth
+            msg->getU8(); // Consume depth limit fallback byte (0)
             return;
         }
 
@@ -3225,14 +3225,25 @@ void ProtocolGame::parseKillTracker(const InputMessagePtr& msg)
         for (int i = 0; i < itemCount; ++i) {
             uint16_t itemId = msg->getU16();
             ItemPtr item = Item::create(itemId);
+
+            bool isContainer = false;
             if (item) {
-                if (item->isContainer()) {
-                    parseContainer(depth + 1);
-                } else {
-                    item->setCount(msg->getU8());
-                    msg->getU16(); // Consume 'worth' field sent by server
-                    msg->getString(); // Consume 'itemName' string sent by server
+                isContainer = item->isContainer();
+            }
+
+            if (isContainer) {
+                parseContainer(depth + 1);
+            } else {
+                uint8_t count = msg->getU8();
+                uint16_t worth = msg->getU16();
+                std::string itemName = msg->getString();
+
+                if (item) {
+                    item->setCount(count);
                 }
+            }
+
+            if (item) {
                 dropItems.push_back(item);
             }
         }
@@ -4876,7 +4887,13 @@ void ProtocolGame::parseUpdateSupplyTracker(const InputMessagePtr& msg)
 
 void ProtocolGame::parseUpdateLootTracker(const InputMessagePtr& msg)
 {
-    const auto& item = getItem(msg);
+    uint16_t itemId = msg->getU16();
+    ItemPtr item = Item::create(itemId);
+    if (item) {
+        if (item->isStackable() || item->isFluidContainer() || item->isSplash() || item->isChargeable()) {
+            item->setCountOrSubType(g_game.getFeature(Otc::GameCountU16) ? msg->getU16() : msg->getU8());
+        }
+    }
     const auto& itemName = msg->getString();
 
     // Call the onLootStats callback to expose the data to Lua
