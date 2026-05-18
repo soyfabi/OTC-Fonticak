@@ -26,7 +26,7 @@ EnterGameWindow
   &authenticatorHeight: 44
   &stayLoggedBoxEnabled: false
   &stayLoggedBoxHeight: 24
-  size: 280 302
+  size: 280 286
   @onEnter: EnterGame.doLogin()
 
   Label
@@ -52,7 +52,7 @@ EnterGameWindow
     anchors.verticalCenter: emailLabel.verticalCenter
     anchors.left: accountPasswordTextEdit.left
     
-  HiddenTextQtEdit
+  HiddenTextQtToggleEdit
     id: accountPasswordTextEdit
     anchors.right: parent.right
     anchors.left: passwordLabel.right
@@ -196,16 +196,6 @@ EnterGameWindow
     anchors.right: parent.right
     anchors.top: prev.bottom
     margin-top: 10
-
-  QtCheckBox
-    id: httpLoginBox
-    enabled: true
-    !text: tr('Enable HTTP login')
-    !tooltip: tr('If login fails using HTTPS (encrypted) try with HTTP (unencrypted)')
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 2
 
   HorizontalSeparator
     anchors.left: parent.left

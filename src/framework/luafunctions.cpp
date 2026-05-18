@@ -58,7 +58,6 @@
 #endif
 
 #ifdef FRAMEWORK_NET
-#include <framework/net/httplogin.h>
 #include <framework/net/protocol.h>
 #include <framework/net/protocolhttp.h>
 #include <framework/net/server.h>
@@ -201,10 +200,7 @@ void Application::registerLuaFunctions()
     g_lua.bindSingletonFunction("g_logger", "setLevel", &Logger::setLevel, &g_logger);
     g_lua.bindSingletonFunction("g_logger", "getLevel", &Logger::getLevel, &g_logger);
 
-    // Login Http
-    g_lua.registerClass<LoginHttp>();
-    g_lua.bindClassStaticFunction<LoginHttp>("create", [] { return std::make_shared<LoginHttp>(); });
-    g_lua.bindClassMemberFunction<LoginHttp>("httpLogin", &LoginHttp::httpLogin);
+
 
     // Http
     g_lua.registerSingletonClass("g_http");

@@ -297,7 +297,6 @@ set(SOURCE_FILES
         framework/net/outputmessage.cpp
         framework/net/protocol.cpp
         framework/net/protocolhttp.cpp
-        framework/net/httplogin.cpp
         framework/net/server.cpp
         framework/html/queryselector.cpp
         framework/html/htmlnode.cpp

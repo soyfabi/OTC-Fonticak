@@ -3558,25 +3558,6 @@ function g_logger.setLevel(level) end
 ---@return integer
 function g_logger.getLevel() end
 
---------------------------------
----------- LoginHttp -----------
---------------------------------
-
----@class LoginHttp
-LoginHttp = {}
-
----@return LoginHttp
-function LoginHttp.create() end
-
----@param host string
----@param path string
----@param port integer
----@param email string
----@param password string
----@param token string
----@param requestId integer
----@param httpLogin boolean
-function LoginHttp:httpLogin(host, path, port, email, password, token, requestId, httpLogin) end
 
 --------------------------------
 ------------ g_http ------------

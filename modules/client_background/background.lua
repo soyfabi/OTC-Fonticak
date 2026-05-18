@@ -1,6 +1,5 @@
 -- private variables
 local background
-local clientVersionLabel
 local bgEffectEvent = nil
 local toggleState = true  -- controls which effect  is active
 local timeLoopBackgroundEffect = 5000 -- 5 seconds
@@ -9,18 +8,6 @@ local timeLoopBackgroundEffect = 5000 -- 5 seconds
 function init()
     background = g_ui.displayUI('background')
     background:lower()
-
-    clientVersionLabel = background:getChildById('clientVersionLabel')
-    clientVersionLabel:setText(g_app.getName() .. ' ' .. g_app.getVersion() .. '\n' .. 'Rev  ' ..
-                                   g_app.getBuildRevision() .. ' (' .. g_app.getBuildCommit() .. ')\n' .. 'Built on ' ..
-                                   g_app.getBuildDate() .. '\n' .. g_app.getBuildCompiler() .. ' - ' ..
-                                   g_app.getBuildArch())
-
-    if not g_game.isOnline() then
-        addEvent(function()
-            g_effects.fadeIn(clientVersionLabel, 1500)
-        end)
-    end
 
     connect(g_game, {
         onGameStart = hide
@@ -39,7 +26,6 @@ function terminate()
         onGameEnd = show
     })
 
-    g_effects.cancelFade(background:getChildById('clientVersionLabel'))
     if bgEffectEvent then
         removeEvent(bgEffectEvent)
         bgEffectEvent = nil
@@ -47,7 +33,6 @@ function terminate()
     background:destroy()
 
     background = nil
-    clientVersionLabel = nil
 end
 
 function hide()
@@ -61,14 +46,6 @@ end
 function show()
     background:show()
     startBackgroundEffectLoop()
-end
-
-function hideVersionLabel()
-    background:getChildById('clientVersionLabel'):hide()
-end
-
-function setVersionText(text)
-    clientVersionLabel:setText(text)
 end
 
 function getBackground()

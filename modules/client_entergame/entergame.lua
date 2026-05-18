@@ -66,7 +66,7 @@ local function onSessionKey(protocol, sessionKey)
 end
 
 local function onCharacterList(protocol, characters, account, otui)
-    local httpLogin = enterGame:getChildById('httpLoginBox'):isChecked()
+    local httpLogin = false
 
     -- Try add server to the server list
     ServerList.add(G.host, G.port, g_game.getClientVersion(), httpLogin)
@@ -206,7 +206,6 @@ function EnterGame.init()
     enterGame:getChildById('serverHostTextEdit'):setText(host)
     enterGame:getChildById('serverPortTextEdit'):setText(port)
     enterGame:getChildById('stayLoggedBox'):setChecked(stayLogged)
-    enterGame:getChildById('httpLoginBox'):setChecked(httpLogin)
 
     local installedClients = {}
     local amountInstalledClients = 0
@@ -569,11 +568,6 @@ function EnterGame.setPassword(password)
 end
 
 function EnterGame.setHttpLogin(httpLogin)
-    if type(httpLogin) == "boolean" then
-        enterGame:getChildById('httpLoginBox'):setChecked(httpLogin)
-    else
-        enterGame:getChildById('httpLoginBox'):setChecked(#httpLogin > 0)
-    end
 end
 
 function EnterGame.clearAccountFields()
@@ -618,59 +612,6 @@ function EnterGame.onClientVersionChange(comboBox, text, data)
     updateLabelText()
 end
 
-function EnterGame.tryHttpLogin(clientVersion, httpLogin)
-    g_game.setClientVersion(clientVersion)
-    g_game.setProtocolVersion(g_game.getClientProtocolVersion(clientVersion))
-    g_game.chooseRsa(G.host)
-    if not modules.game_things.isLoaded() then
-        if loadBox then
-            loadBox:destroy()
-            loadBox = nil
-        end
-
-        local errorBox = displayErrorBox(tr("Login Error"), string.format("Things are not loaded, please put assets in things/%d/<assets>.", clientVersion))
-        connect(errorBox, {
-            onOk = EnterGame.show
-        })
-        return
-    end
-
-    -- Show connecting message immediately
-    loadBox = displayCancelBox(tr('Connecting'), tr('Your character list is being loaded. Please wait.'))
-    connect(loadBox, {
-        onCancel = function(msgbox)
-            loadBox = nil
-            G.requestId = 0
-            EnterGame.show()
-        end
-    })
-
-    local host, path = G.host, "/"
-    if G.host:find("https?://") then
-        local url = G.host:gsub("https?://", "")
-        host, path = url:match("([^/]+)(/.*)")
-        if not host then
-            host = url
-            path = "/"
-        elseif not path or path == "" then
-            path = "/"
-        end
-    end
-
-    if not G.port then
-        if G.host:find("https") then
-            G.port = 443
-        else
-            G.port = 80
-        end
-    end
-
-    math.randomseed(os.time())
-    G.requestId = math.random(1)
-
-    local http = LoginHttp.create()
-    http:httpLogin(host, path, G.port, G.account, G.password, G.requestId, httpLogin, G.authenticatorToken)
-end
 
 function printTable(t)
     for k, v in pairs(t) do
@@ -684,87 +625,6 @@ function printTable(t)
     end
 end
 
-function EnterGame.loginSuccess(requestId, jsonSession, jsonWorlds, jsonCharacters)
-    if G.requestId ~= requestId then
-        return
-    end
-
-    -- Update the existing loadBox message or create new one if it doesn't exist
-    if loadBox then
-        loadBox:destroy()
-    end
-    loadBox = displayCancelBox(tr('Connecting'), tr('Your character list is being loaded. Please wait.'))
-
-    connect(loadBox, {
-        onCancel = function(msgbox)
-            loadBox = nil
-            G.requestId = 0
-            EnterGame.show()
-        end
-    })
-
-    if tokenWindow then
-        tokenWindow:destroy()
-        tokenWindow = nil
-    end
-
-    local worlds = {}
-    for _, world in ipairs(json.decode(jsonWorlds)) do
-        worlds[world.id] = {
-            name = world.name,
-            ip = world.externaladdressprotected,
-            port = world.externalportprotected,
-            previewState = world.previewstate == 1,
-            pvptype = world.pvptype,
-        }
-    end
-
-    local characters = {}
-    for index, character in ipairs(json.decode(jsonCharacters)) do
-        local world = worlds[character.worldid]
-        characters[index] = {
-            name = character.name,
-            level = character.level,
-            main = character.ismaincharacter,
-            dailyreward = character.dailyrewardstate,
-            hidden = character.ishidden,
-            vocation = character.vocation,
-            outfitid = character.outfitid,
-            headcolor = character.headcolor,
-            torsocolor = character.torsocolor,
-            legscolor = character.legscolor,
-            detailcolor = character.detailcolor,
-            addonsflags = character.addonsflags,
-            worldName = world.name,
-            worldIp = world.ip,
-            worldPort = world.port,
-            previewState = world.previewstate,
-            pvptype = world.pvptype,
-        }
-    end
-
-    local session = json.decode(jsonSession)
-
-    local premiumUntil = tonumber(session.premiumuntil)
-
-    local account = {
-        status = '',
-        premDays = math.floor((premiumUntil - os.time()) / 86400),
-        subStatus = premiumUntil > os.time() and SubscriptionStatus.Premium or SubscriptionStatus.Free
-    }
-
-    -- set session key
-    G.sessionKey = session.sessionkey
-
-    onCharacterList(nil, characters, account)
-end
-
-function EnterGame.loginFailed(requestId, msg, result)
-    if G.requestId ~= requestId then
-        return
-    end
-    onError(nil, msg, result)
-end
 
 function EnterGame.doLogin()
     G.account = enterGame:getChildById('accountNameTextEdit'):getText()
@@ -774,7 +634,6 @@ function EnterGame.doLogin()
     G.port = tonumber(enterGame:getChildById('serverPortTextEdit'):getText())
     local clientVersion = tonumber(clientBox:getText())
     G.clientVersion = clientVersion
-    local httpLogin = enterGame:getChildById('httpLoginBox'):isChecked()
     EnterGame.hide()
 
     if g_game.isOnline() then
@@ -789,44 +648,40 @@ function EnterGame.doLogin()
     g_settings.set('port', G.port)
     g_settings.set('client-version', clientVersion)
 
-    if clientVersion >= 1281 and G.port ~= 7171 then
-        EnterGame.tryHttpLogin(clientVersion, httpLogin)
-    else
-        protocolLogin = ProtocolLogin.create()
-        protocolLogin.onLoginError = onError
-        protocolLogin.onMotd = onMotd
-        protocolLogin.onSessionKey = onSessionKey
-        protocolLogin.onCharacterList = onCharacterList
-        protocolLogin.onUpdateNeeded = onUpdateNeeded
+    protocolLogin = ProtocolLogin.create()
+    protocolLogin.onLoginError = onError
+    protocolLogin.onMotd = onMotd
+    protocolLogin.onSessionKey = onSessionKey
+    protocolLogin.onCharacterList = onCharacterList
+    protocolLogin.onUpdateNeeded = onUpdateNeeded
 
-        loadBox = displayCancelBox(tr('Please wait'), tr('Connecting to login server...'))
+    loadBox = displayCancelBox(tr('Please wait'), tr('Connecting to login server...'))
 
-        connect(loadBox, {
-            onCancel = function(msgbox)
-                loadBox = nil
-                protocolLogin:cancelLogin()
-                EnterGame.show()
-            end
-        })
-
-        g_game.setClientVersion(clientVersion)
-        g_game.setProtocolVersion(g_game.getClientProtocolVersion(clientVersion))
-        g_game.chooseRsa(G.host)
-
-        if modules.game_things.isLoaded() then
-            protocolLogin:login(G.host, G.port, G.account, G.password, G.authenticatorToken, G.stayLogged)
-        else
-            if loadBox then
-                loadBox:destroy()
-                loadBox = nil
-            end
-
-            local errorBox = displayErrorBox(tr("Login Error"), string.format("Things are not loaded, please put spr and dat in things/%d/<here>.", clientVersion))
-            connect(errorBox, {
-               onOk = EnterGame.show
-            })
-            return
+    connect(loadBox, {
+        onCancel = function(msgbox)
+            loadBox = nil
+            protocolLogin:cancelLogin()
+            EnterGame.show()
         end
+    })
+
+    g_game.setClientVersion(clientVersion)
+    g_game.setProtocolVersion(g_game.getClientProtocolVersion(clientVersion))
+    g_game.chooseRsa(G.host)
+
+    if modules.game_things.isLoaded() then
+        protocolLogin:login(G.host, G.port, G.account, G.password, G.authenticatorToken, G.stayLogged)
+    else
+        if loadBox then
+            loadBox:destroy()
+            loadBox = nil
+        end
+
+        local errorBox = displayErrorBox(tr("Login Error"), string.format("Things are not loaded, please put spr and dat in things/%d/<here>.", clientVersion))
+        connect(errorBox, {
+           onOk = EnterGame.show
+        })
+        return
     end
 end
 
@@ -886,10 +741,6 @@ function EnterGame.setUniqueServer(host, port, protocol, windowWidth, windowHeig
     local clientLabel = enterGame:getChildById('clientLabel')
     clientLabel:setVisible(false)
     clientLabel:setHeight(0)
-
-    local httpLoginBox = enterGame:getChildById('httpLoginBox')
-    httpLoginBox:setVisible(false)
-    httpLoginBox:setHeight(0)
 
     local serverListButton = enterGame:getChildById('serverListButton')
     serverListButton:setVisible(false)
@@ -1005,20 +856,14 @@ function EnterGame.showAuthenticatorInput()
         
         hasAttemptedAuthenticator = true
         
-        G.account = enterGame:getChildById('accountNameTextEdit'):getText()
-        G.password = enterGame:getChildById('accountPasswordTextEdit'):getText()
-        G.host = enterGame:getChildById('serverHostTextEdit'):getText()
-        G.port = tonumber(enterGame:getChildById('serverPortTextEdit'):getText())
         G.authenticatorToken = token
-        local clientVersion = tonumber(clientBox:getText())
-        local httpLogin = enterGame:getChildById('httpLoginBox'):isChecked()
         
         if tokenWindow then
             tokenWindow:destroy()
             tokenWindow = nil
         end
         
-        EnterGame.tryHttpLogin(clientVersion, httpLogin)
+        EnterGame.doLogin()
     end
     
     local cancelCallback = function()
