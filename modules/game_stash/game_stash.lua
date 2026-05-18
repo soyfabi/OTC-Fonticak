@@ -78,14 +78,14 @@ local categoryOptions = {
 }
 
 
-local function sendSupplyRequest(action, itemId, count)
+local function sendSupplyRequest(action, itemId, count, tier)
 	local protocolGame = g_game.getProtocolGame()
 	if not protocolGame then
 		debugLog("sendSupplyRequest aborted: protocolGame is nil (action=" .. tostring(action) .. ")")
 		return
 	end
 
-	debugLog("sendSupplyRequest action=" .. tostring(action) .. ", itemId=" .. tostring(itemId) .. ", count=" .. tostring(count))
+	debugLog("sendSupplyRequest action=" .. tostring(action) .. ", itemId=" .. tostring(itemId) .. ", count=" .. tostring(count) .. ", tier=" .. tostring(tier))
 
 	local msg = OutputMessage.create()
 	msg:addU8(OPCODE_SUPPLY_STASH_REQUEST)
@@ -97,6 +97,7 @@ local function sendSupplyRequest(action, itemId, count)
 
 		msg:addU16(itemId)
 		msg:addU32(count)
+		msg:addU8(tier or 0)
 	end
 	protocolGame:send(msg)
 	debugLog("packet sent with opcode=" .. tostring(OPCODE_SUPPLY_STASH_REQUEST))
@@ -263,10 +264,11 @@ local function registerProtocol()
 				local itemData = {}
 				local count = msg:getU16()
 				for i = 1, count do
-					if msg:getUnreadSize() < 6 then break end
+					if msg:getUnreadSize() < 7 then break end
 					table.insert(itemData, {
 						itemId = msg:getU16(),
-						amount = msg:getU32()
+						amount = msg:getU32(),
+						tier = msg:getU8()
 					})
 				end
 
@@ -605,7 +607,7 @@ local function itemMatchesSearch(itemId, name)
 	return name:lower():find(text, 1, true) ~= nil or tostring(itemId):find(text, 1, true) ~= nil
 end
 
-local function openWithdrawWindow(itemId, amount)
+local function openWithdrawWindow(itemId, amount, tier)
 	hideWindow()
 	withdrawWindow:show()
 	withdrawWindow:raise()
@@ -615,6 +617,11 @@ local function openWithdrawWindow(itemId, amount)
 
 	withdrawWindow.item:setItemId(itemId)
 	withdrawWindow.item:setItemCount(amount)
+	if tier and tier > 0 then
+		ItemsDatabase.setTier(withdrawWindow.item, tier)
+	else
+		ItemsDatabase.setTier(withdrawWindow.item, 0)
+	end
 	withdrawWindow.amountTextEdit:setText(1)
 	withdrawWindow.amountScrollBar:setMinimum(1)
 	withdrawWindow.amountScrollBar:setMaximum(amount)
@@ -643,7 +650,7 @@ local function openWithdrawWindow(itemId, amount)
 
 	withdrawWindow.buttonOk.onClick = function(self)
 		local count = tonumber(withdrawWindow.amountTextEdit:getText()) or 0
-		sendSupplyRequest(ACTION_WITHDRAW, itemId, count)
+		sendSupplyRequest(ACTION_WITHDRAW, itemId, count, tier)
 		withdrawHide()
 		modules.game_interface.getRootPanel():focus()
 	end
@@ -666,6 +673,9 @@ function refreshItemList()
 			row:setId("stashItem" .. i)
 			row.categoryId = i
 			row:setItemId(itemId)
+			if rowData.tier and rowData.tier > 0 then
+				ItemsDatabase.setTier(row, rowData.tier)
+			end
 			row:setDraggable(false)
 			row:setTooltip(name)
 			markSupplyStashDropBlocked(row)
@@ -675,7 +685,7 @@ function refreshItemList()
 			markSupplyStashDropBlocked(countText)
 
 			row.onClick = function(self)
-				openWithdrawWindow(itemId, amount)
+				openWithdrawWindow(itemId, amount, rowData.tier or 0)
 			end
 			row.onDrop = onSupplyDrop
 		end
