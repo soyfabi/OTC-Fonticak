@@ -42,6 +42,9 @@ public:
     BitmapFontPtr getFont() const { return m_font; }
     Fw::AlignmentFlag getAlign() const { return m_align; }
 
+    void setTextColors(std::vector<std::pair<int, Color>> textColors) { m_textColors = std::move(textColors); update(); }
+    const std::vector<std::pair<int, Color>>& getTextColors() const { return m_textColors; }
+
 private:
     void update();
 
@@ -57,4 +60,6 @@ private:
     const AtlasRegion* m_atlasRegion = nullptr;
 
     CoordsBufferPtr m_coordsBuffer;
+    std::vector<std::pair<int, Color>> m_textColors;
+    std::vector<std::pair<Color, CoordsBufferPtr>> m_colorCoordsBuffer;
 };

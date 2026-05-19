@@ -21,6 +21,7 @@
  */
 
 #include "statictext.h"
+#include <regex>
 
 #include "gameconfig.h"
 #include "map.h"
@@ -148,6 +149,48 @@ void StaticText::compose()
             text += "\n";
     }
 
-    m_cachedText.setText(text);
+    std::vector<std::pair<int, Color>> textColors;
+    std::string finalCleanText;
+    
+    static const std::regex expColor(R"(\{([^\}]+),[ ]*([^\}]+)\})");
+    std::smatch res;
+    std::string _text = text;
+
+    while (std::regex_search(_text, res, expColor)) {
+        std::string prefix = res.prefix().str();
+        if (!prefix.empty()) {
+            textColors.emplace_back(finalCleanText.size(), m_color);
+            finalCleanText.append(prefix);
+        }
+        
+        auto color = Color(res[2].str());
+        std::string colorContent = res[1].str();
+        
+        static const std::regex expEvent(R"(\[text-event\](.*?)\[/text-event\])");
+        std::smatch eventMatch;
+        std::string cleanColorContent;
+        std::string tempColorContent = colorContent;
+        while(std::regex_search(tempColorContent, eventMatch, expEvent)) {
+            cleanColorContent += eventMatch.prefix().str();
+            std::string eventContent = eventMatch[1].str();
+            if (!eventContent.empty() && eventContent[0] == '\x01')
+                eventContent = eventContent.substr(1);
+            cleanColorContent += eventContent;
+            tempColorContent = eventMatch.suffix().str();
+        }
+        cleanColorContent += tempColorContent;
+
+        textColors.emplace_back(finalCleanText.size(), color);
+        finalCleanText.append(cleanColorContent);
+        _text = res.suffix().str();
+    }
+    
+    if (!_text.empty()) {
+        textColors.emplace_back(finalCleanText.size(), m_color);
+        finalCleanText.append(_text);
+    }
+
+    m_cachedText.setTextColors(textColors);
+    m_cachedText.setText(textColors.empty() ? text : finalCleanText);
     m_cachedText.wrapText(275);
 }

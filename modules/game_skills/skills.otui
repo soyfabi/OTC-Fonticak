@@ -143,6 +143,7 @@ MiniWindow
       SkillNameLabel
         !text: tr('XP')
         font: verdana-11px-mono-rounded
+        color: #1bd625ff
       SkillValueLabel
 
     SkillButton

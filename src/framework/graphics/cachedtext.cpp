@@ -41,10 +41,22 @@ void CachedText::draw(const Rect& rect, const Color& color)
 
     if (m_textScreenCoords != rect) {
         m_textScreenCoords = rect;
-        m_font->fillTextCoords(m_coordsBuffer, m_text, m_textSize, m_align, rect, m_glyphsPositions);
+        m_colorCoordsBuffer.clear();
+        if (m_textColors.empty()) {
+            m_font->fillTextCoords(m_coordsBuffer, m_text, m_textSize, m_align, rect, m_glyphsPositions);
+        } else {
+            m_font->fillTextColorCoords(m_colorCoordsBuffer, m_text, m_textColors, m_textSize, m_align, rect, m_glyphsPositions);
+        }
     }
 
-    g_drawPool.addTexturedCoordsBuffer(m_font->getTexture(), m_coordsBuffer, color);
+    if (m_textColors.empty() || m_colorCoordsBuffer.empty()) {
+        g_drawPool.addTexturedCoordsBuffer(m_font->getTexture(), m_coordsBuffer, color);
+    } else {
+        const auto& texture = m_font->getTexture();
+        for (const auto& [c, coordsBuffer] : m_colorCoordsBuffer) {
+            g_drawPool.addTexturedCoordsBuffer(texture, coordsBuffer, c);
+        }
+    }
 }
 
 void CachedText::update()
@@ -61,7 +73,7 @@ void CachedText::wrapText(const int maxWidth)
     if (!m_font)
         return;
 
-    m_text = m_font->wrapText(m_text, maxWidth);
+    m_text = m_font->wrapText(m_text, maxWidth, {}, m_textColors.empty() ? nullptr : &m_textColors);
     update();
 }
 
