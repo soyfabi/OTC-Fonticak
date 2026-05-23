@@ -1,91 +1,7 @@
-RoundButton < UIWidget
-  anchors.top: parent.top
-  anchors.left: parent.left
-  image-source: /images/modern_ui/round
 
-SpecialLabel < UIButton
-  font: verdana-11px-antialised
-  width: 100
-  color: #dfdfdfff
-  opacity: 1.0
-
-BarButton2 < UIButton
-  color: #dfdfdfff
-  size: 147 34
-  text-offset: 0 0
-  image-color: #dfdfdf
-  image-clip: 0 0 147 34
-  image-border: 3
-  padding: 0 0 147 34
-  opacity: 1.0
-
-  $pressed:
-    image-clip: 0 34 147 34
-
-  $checked:
-    image-clip: 0 34 147 34
-
-  $disabled:
-    color: #dfdfdf88
-    opacity: 0.8
-
-CompendiumButton < UIButton
-  font: verdana-11px-antialised
-  color: #dfdfdfff
-  size: 106 23
-  text-offset: 0 0
-  image-source: /images/modern_ui/button
-  image-color: #dfdfdf
-  image-clip: 0 0 22 23
-  image-border: 3
-  padding: 5 10 5 10
-  opacity: 1.0
-
-  $hover !disabled:
-    image-clip: 0 23 22 23
-
-  $pressed:
-    image-clip: 0 46 22 23
-    text-offset: 1 1
-
-  $disabled:
-    color: #dfdfdf88
-    opacity: 0.8
-
-CyclopediaWindow < UIWindow
-  anchors.centerIn: parent
-  font: verdana-11px-antialised
-  size: 200 200
-  opacity: 1
-  color: #dfdfdf
-  text-offset: 0 6
-  text-align: top
-  image-source: /images/modern_ui/window
-  image-border: 6
-  image-border-top: 27
-  padding-top: 36
-  padding-left: 16
-  padding-right: 16
-  padding-bottom: 16
-
-  $disabled:
-    color: #dfdfdf88
-
-FlatLabel < UILabel
-  font: verdana-11px-antialised
-  color: #dfdfdf
-  size: 86 20
-  text-offset: 3 3
-  image-source: /images/modern_ui/panel_flat
-  image-border: 1
-
-  $disabled:
-    color: #dfdfdf88
-
-CyclopediaWindow
-  size: 700 538
+MainWindow
+  size: 700 560
   !text: tr('Cyclopedia')
-  color: #909090
   visible: false
   @onEscape: toggle()
 
@@ -106,12 +22,11 @@ CyclopediaWindow
 
     UIButton
       id: items
-      visible: false
       anchors.top: parent.top
       anchors.left: parent.left
-      margin-top: 1
       margin-left: 1
-      @onClick: toggleWindow("items")
+      size: 668 36
+      @onClick: SelectWindow("items")
 
       $on:
         size: 150 34
@@ -126,14 +41,14 @@ CyclopediaWindow
       $pressed:
         size: 34 34
         image-clip: 0 34 34 34
-        image-source: /images/game/cyclopedia/items_on
+        image-source: /images/game/cyclopedia/items_off
 
     UIButton
       id: bestiary
       anchors.top: prev.top
-      anchors.left: parent.left
+      anchors.left: prev.right
       margin-left: 1
-      @onClick: toggleWindow("bestiary")
+      @onClick: SelectWindow("bestiary")
 
       $on:
         size: 150 34
@@ -154,7 +69,8 @@ CyclopediaWindow
       id: charms
       anchors.top: prev.top
       anchors.left: prev.right
-      @onClick: toggleWindow("charms")
+      margin-left: 1
+      @onClick: SelectWindow("charms")
 
       $on:
         size: 150 34
@@ -173,11 +89,10 @@ CyclopediaWindow
 
     UIButton
       id: map
-      visible: false
       anchors.top: prev.top
       anchors.left: prev.right
       margin-left: 1
-      @onClick: toggleWindow("map")
+      @onClick: SelectWindow("map")
 
       $on:
         size: 150 34
@@ -196,11 +111,10 @@ CyclopediaWindow
 
     UIButton
       id: houses
-      visible: false
       anchors.top: prev.top
       anchors.left: prev.right
       margin-left: 1
-      @onClick: toggleWindow("houses")
+      @onClick: SelectWindow("houses")
 
       $on:
         size: 150 34
@@ -219,11 +133,10 @@ CyclopediaWindow
 
     UIButton
       id: character
-      visible: false
       anchors.top: prev.top
       anchors.left: prev.right
       margin-left: 1
-      @onClick: toggleWindow("character")
+      @onClick: SelectWindow("character")
 
       $on:
         size: 150 34
@@ -240,6 +153,72 @@ CyclopediaWindow
         image-clip: 0 34 34 34
         image-source: /images/game/cyclopedia/character_off
 
+    UIButton
+      id: bosstiary
+      anchors.top: prev.top
+      anchors.left: prev.right
+      margin-left: 1
+      @onClick: SelectWindow("bosstiary")
+
+      $on:
+        size: 150 34
+        image-clip: 0 0 150 34
+        image-source: /images/game/cyclopedia/bosstiary_on
+
+      $!on:
+        size: 34 34
+        image-clip: 0 0 34 34
+        image-source: /images/game/cyclopedia/bosstiary_off
+
+      $pressed:
+        size: 34 34
+        image-clip: 0 34 34 34
+        image-source: /images/game/cyclopedia/bosstiary_off
+
+    UIButton
+      id: bossSlot
+      anchors.top: prev.top
+      anchors.left: prev.right
+      margin-left: 1
+      @onClick: SelectWindow("bossSlot")
+
+      $on:
+        size: 150 34
+        image-clip: 0 0 150 34
+        image-source: /images/game/cyclopedia/bossSlot_on
+
+      $!on:
+        size: 34 34
+        image-clip: 0 0 34 34
+        image-source: /images/game/cyclopedia/bossSlot_off
+
+      $pressed:
+        size: 34 34
+        image-clip: 0 34 34 34
+        image-source: /images/game/cyclopedia/bossSlot_off
+
+    UIButton
+      id: magicalArchives
+      anchors.top: prev.top
+      anchors.left: prev.right
+      margin-left: 1
+      @onClick: SelectWindow("magicalArchives")
+
+      $on:
+        size: 150 34
+        image-clip: 0 0 150 34
+        image-source: /images/game/cyclopedia/magical_on
+
+      $!on:
+        size: 34 34
+        image-clip: 0 0 34 34
+        image-source: /images/game/cyclopedia/magical_off
+
+      $pressed:
+        size: 34 34
+        image-clip: 0 34 34 34
+        image-source: /images/game/cyclopedia/magical_off
+        
   UIWidget
     id: contentContainer
     anchors.top: prev.bottom
@@ -247,3 +226,112 @@ CyclopediaWindow
     anchors.left: parent.left
     anchors.right: parent.right
     margin-top: 5
+
+
+  Button
+    id: CloseButton
+    size: 40 20
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    !text: tr('Close')
+    //font: verdana-bold-8px-antialiased
+    text-offset: 0 -1
+    color: #C0C0C0
+    @onClick: toggle()
+  Button
+    id: BackButton
+    size: 40 20
+    anchors.bottom: parent.bottom
+    anchors.right: CloseButton.left
+    margin-right: 10
+    !text: tr('Back')
+    //font: verdana-bold-8px-antialiased
+    text-offset: 0 -1
+    color: #C0C0C0
+    enabled: false
+    @onClick: toggleBack()
+  HorizontalSeparator
+    id: BottomSep
+    anchors.bottom: CloseButton.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 10
+  UIWidget
+    id: GoldBase
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    image-source: /images/ui/item
+    image-border: 10
+    size: 131 20
+    UIWidget
+      id: Icon
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 4
+      image-source: /game_cyclopedia/images/icon_gold
+    Label
+      id: Value
+      anchors.right: Icon.left
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 4
+      !text: tr('0')
+      text-auto-resize: true
+      color: #BDBDBD
+  UIWidget
+    id: CharmsBase
+    anchors.bottom: parent.bottom
+    anchors.left: GoldBase.right
+    margin-left: 5
+    image-source: /images/ui/item
+    image-border: 10
+    size: 100 20
+    UIWidget
+      id: Icon
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 4
+      image-source: /game_cyclopedia/images/icon_charms
+    Label
+      id: Value
+      anchors.right: Icon.left
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 4
+      !text: tr('0')
+      text-auto-resize: true
+      color: #BDBDBD
+
+  UIWidget
+    id: CharmsBase1410
+    visible: false
+    anchors.bottom: parent.bottom
+    anchors.left: prev.right
+    margin-left: 5
+    image-source: /images/ui/item
+    image-border: 10
+    size: 100 20
+    !tooltip: tr("Minor Charm echoes\nEarned by unlocking or upgrading major charm and promotion your character")
+    UIWidget
+      id: Icon
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 4
+      image-source: /game_cyclopedia/images/minor-charm-echoes
+    Label
+      id: Value
+      anchors.right: Icon.left
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 4
+      !text: tr('0 / 0')
+      text-auto-resize: true
+      color: #BDBDBD
+  Button
+    id: BestiaryTrackerButton
+    size: 90 20
+    anchors.bottom: parent.bottom
+    anchors.left: prev.right
+    margin-left: 5
+    !text: tr('Bestiary Tracker')
+    font: small-9px
+    @onClick: modules.game_cyclopedia.Cyclopedia.toggleBestiaryTracker()
+    text-offset: 0 -1
+    color: #C0C0C0

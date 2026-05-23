@@ -1,10 +1,8 @@
 Module
   name: game_cyclopedia
-  description: Game cyclopedia
-  author: Reddington#9222
+  description: game_cyclopedia
+  scripts: [ game_cyclopedia, tab/*, utils]
   sandboxed: true
-  scripts: [ charms, bestiary, game_cyclopedia, map ]
   autoload: true
-  autoload-priority: 1001
-  @onLoad: init()
-  @onUnload: terminate()
+  @onLoad: controllerCyclopedia:init()
+  @onUnload: controllerCyclopedia:terminate()
