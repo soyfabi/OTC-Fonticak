@@ -1,10 +1,9 @@
 Module
   name: game_stash
-  description: Game stash
-  author: Reddington#9222
+  description: Global supply stash system
+  author: Aluisio Penna
+  website: https://github.com/mehah/otclient
   sandboxed: false
   scripts: [ game_stash ]
-  autoload: true
-  autoload-priority: 1001
-  @onLoad: init()
-  @onUnload: terminate()
+  @onLoad: stashController:init()
+  @onUnload: stashController:terminate()

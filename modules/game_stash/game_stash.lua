@@ -1,706 +1,686 @@
-local function debugLog(msg)
-end
+stashController = Controller:new()
+-- LuaFormatter off
 
-local window
-withdrawWindow = nil
-local protocolRegistered = false
-local currentItemData = {}
-local currentSizeLeft = 0
-local itemNameCache = {}
-local itemInfoCache = {}
-local getItemInfo -- Forward declaration for protocol callback
-local searchInput
-local categoryFilter
-local currentCategoryFilter = "all"
-local OPCODE_SUPPLY_STASH_REQUEST = 0x28
-local OPCODE_SUPPLY_STASH_SEND = 0x29
-local SUPPLY_STASH_DETAILS_MARKER = 0x5353
-local SUPPLY_STASH_ITEM_ID = 28750
-local ACTION_OPEN = 1
-local ACTION_STOW_ALL = 2
-local ACTION_WITHDRAW = 3
+-- /*=============================================
+-- =            Constants                    =
+-- =============================================*/
 
-local CATEGORY_ARMORS = MarketCategory and MarketCategory.Armors or 1
-local CATEGORY_AMULETS = MarketCategory and MarketCategory.Amulets or 2
-local CATEGORY_BOOTS = MarketCategory and MarketCategory.Boots or 3
-local CATEGORY_FOOD = MarketCategory and MarketCategory.Food or 6
-local CATEGORY_HELMETS = MarketCategory and MarketCategory.HelmetsHats or 7
-local CATEGORY_LEGS = MarketCategory and MarketCategory.Legs or 8
-local CATEGORY_OTHERS = MarketCategory and MarketCategory.Others or 9
-local CATEGORY_POTIONS = MarketCategory and MarketCategory.Potions or 10
-local CATEGORY_RUNES = MarketCategory and MarketCategory.Runes or 12
-local CATEGORY_SHIELDS = MarketCategory and MarketCategory.Shields or 13
-local CATEGORY_TOOLS = MarketCategory and MarketCategory.Tools or 14
-local CATEGORY_VALUABLES = MarketCategory and MarketCategory.Valuables or 15
-local CATEGORY_AMMUNITION = MarketCategory and MarketCategory.Ammunition or 16
-local CATEGORY_AXES = MarketCategory and MarketCategory.Axes or 17
-local CATEGORY_CLUBS = MarketCategory and MarketCategory.Clubs or 18
-local CATEGORY_DISTANCE = MarketCategory and MarketCategory.DistanceWeapons or 19
-local CATEGORY_SWORDS = MarketCategory and MarketCategory.Swords or 20
-local CATEGORY_WANDS = MarketCategory and MarketCategory.WandsRods or 21
-local CATEGORY_CREATURE_PRODUCTS = MarketCategory and MarketCategory.CreatureProducs or 24
-local CATEGORY_FISTS = MarketCategory and MarketCategory.Unknown1 or 25
+local CELL_SIZE        = 36   -- matches grid cell-size in game_stash.otui
+local BATCH_SIZE       = 0    -- ~20 cols × 12 rows first full viewport + 1 row overscan) but recalculated in ensureWindow from real panel dimensions
+local SCROLL_THRESHOLD = 0    -- 3 rows × 36 px load next batch before hitting bottom but recalculated in ensureWindow from real panel dimensions
 
-local weaponCategories = {
-	[CATEGORY_AMMUNITION] = true,
-	[CATEGORY_AXES] = true,
-	[CATEGORY_CLUBS] = true,
-	[CATEGORY_DISTANCE] = true,
-	[CATEGORY_SWORDS] = true,
-	[CATEGORY_WANDS] = true,
-	[CATEGORY_FISTS] = true
+-- /*=============================================
+-- =            Widget struct                    =
+-- =============================================*/
+
+local W = {
+    window    = nil,
+    poolBin   = nil,   -- hidden 0x0 parent that parks pooled StashItemBox widgets
+    panels    = { items = nil },
+    combos    = { stash = nil, seller = nil, sort = nil },
+    inputs    = { search = nil },
+    buttons   = { manage = nil, close = nil },
+    scrollbar = nil,
+    modal     = { selectAmount = nil },
+}
+-- /*=============================================
+-- =            Static data                      =
+-- =============================================*/
+
+local categoryNames = {
+    [1]  = "Armors",           [2]  = "Amulets",           [3]  = "Boots",
+    [4]  = "Containers",       [5]  = "Decoration",        [6]  = "Food",
+    [7]  = "Helmets/Hats",     [8]  = "Legs",              [9]  = "Others",
+    [10] = "Potions",          [11] = "Rings",             [12] = "Runes",
+    [13] = "Shields",          [14] = "Tools",             [15] = "Valuables",
+    [16] = "Ammunition",       [17] = "Axes",              [18] = "Clubs",
+    [19] = "Distance Weapons", [20] = "Swords",            [21] = "Wands/Rods",
+    [22] = "Premium Scrolls",  [23] = "Tibia Coins",       [24] = "Creature Products",
+    [25] = "Quiver",           [26] = "Soul Cores",        [27] = "Fist Weapons",
 }
 
-local categoryOptions = {
-	{text = "Show all", data = "all"},
-	{text = "Show stackable", data = "stackable"},
-	{text = "Show weapons", data = "weapons"},
-	{text = "Show ammunition", data = CATEGORY_AMMUNITION},
-	{text = "Show axes", data = CATEGORY_AXES},
-	{text = "Show clubs", data = CATEGORY_CLUBS},
-	{text = "Show distance weapons", data = CATEGORY_DISTANCE},
-	{text = "Show swords", data = CATEGORY_SWORDS},
-	{text = "Show wands and rods", data = CATEGORY_WANDS},
-	{text = "Show fist weapons", data = CATEGORY_FISTS},
-	{text = "Show food", data = CATEGORY_FOOD},
-	{text = "Show potions", data = CATEGORY_POTIONS},
-	{text = "Show runes", data = CATEGORY_RUNES},
-	{text = "Show armors", data = CATEGORY_ARMORS},
-	{text = "Show amulets", data = CATEGORY_AMULETS},
-	{text = "Show boots", data = CATEGORY_BOOTS},
-	{text = "Show helmets and hats", data = CATEGORY_HELMETS},
-	{text = "Show legs", data = CATEGORY_LEGS},
-	{text = "Show shields", data = CATEGORY_SHIELDS},
-	{text = "Show tools", data = CATEGORY_TOOLS},
-	{text = "Show valuables", data = CATEGORY_VALUABLES},
-	{text = "Show creature products", data = CATEGORY_CREATURE_PRODUCTS},
-	{text = "Show others", data = CATEGORY_OTHERS}
+local imbuementSet = {}
+for _, id in ipairs({
+    5877, 5920, 9633, 9635, 9636, 9638, 9639, 9640, 9641, 9644, 9647, 9650, 9654,
+    9657, 9660, 9661, 9663, 9665, 9685, 9686, 9691, 9694, 10196, 10281, 10295, 10298,
+    10302, 10304, 10307, 10309, 10311, 10405, 10420, 11444, 11447, 11452, 11464, 11466,
+    11484, 11489, 11492, 11658, 11702, 11703, 14012, 14079, 14081, 16131, 17458, 17823,
+    18993, 18994, 20199, 20200, 20205, 21194, 21200, 21202, 21975, 22007, 22053, 22189,
+    22728, 22730, 23507, 23508, 25694, 25702, 28567, 40529,
+}) do imbuementSet[id] = true end
+
+local function nameAscComparator(a, b)
+    local aName, bName = a.meta.nameLower, b.meta.nameLower
+    if aName == bName then return a.itemId < b.itemId end
+    return aName < bName
+end
+
+local sortFunctions = {
+    ["Name (A-Z)"] = nameAscComparator,
+    ["Name (Z-A)"] = function(a, b)
+        local aName, bName = a.meta.nameLower, b.meta.nameLower
+        if aName == bName then return a.itemId < b.itemId end
+        return aName > bName
+    end,
+    ["Quantity (High to Low)"] = function(a, b)
+        if a.amount == b.amount then return nameAscComparator(a, b) end
+        return a.amount > b.amount
+    end,
+    ["Quantity (Low to High)"] = function(a, b)
+        if a.amount == b.amount then return nameAscComparator(a, b) end
+        return a.amount < b.amount
+    end,
 }
 
+local sortOrder = {
+    "Name (A-Z)",
+    "Name (Z-A)",
+    "Quantity (High to Low)",
+    "Quantity (Low to High)",
+}
 
-local function sendSupplyRequest(action, itemId, count, tier)
-	local protocolGame = g_game.getProtocolGame()
-	if not protocolGame then
-		debugLog("sendSupplyRequest aborted: protocolGame is nil (action=" .. tostring(action) .. ")")
-		return
-	end
+local sellers = {
+    "No Trader Selected", "Sell to Alaister", "Sell to Alesar", "Sell to Alexander",
+    "Sell to Arkulius", "Sell to Asnarus", "Sell to Asphota", "Sell to Augustin",
+    "Sell to Avan", "Sell to Brengus", "Sell to Chondur", "Sell to Dal the Huntress",
+    "Sell to Domizian", "Sell to Esrik", "Sell to Fadil", "Sell to Fiona",
+    "Sell to Flint", "Sell to Gladys", "Sell to Gnominission", "Sell to Grizzly Adams",
+    "Sell to Haroun", "Sell to Inigo", "Sell to Irmana", "Sell to Khanna",
+    "Sell to Kiru", "Sell to Lailene", "Sell to Luna", "Sell to Malunga",
+    "Sell to Mugruu", "Sell to Nah'bob", "Sell to Rafzan", "Sell to Rashid",
+    "Sell to Rock in a Hard Place", "Sell to Talila", "Sell to Tamoril",
+    "Sell to Tamru", "Sell to Telas", "Sell to Tothdral", "Sell to Valindara",
+    "Sell to Yaman", "Sell to Yasir",
+}
 
-	debugLog("sendSupplyRequest action=" .. tostring(action) .. ", itemId=" .. tostring(itemId) .. ", count=" .. tostring(count) .. ", tier=" .. tostring(tier))
+-- /*=============================================
+-- =            State                            =
+-- =============================================*/
 
-	local msg = OutputMessage.create()
-	msg:addU8(OPCODE_SUPPLY_STASH_REQUEST)
-	msg:addU8(action)
-	if action == ACTION_WITHDRAW then
-		if not itemId or not count then
-			return
-		end
-
-		msg:addU16(itemId)
-		msg:addU32(count)
-		msg:addU8(tier or 0)
-	end
-	protocolGame:send(msg)
-	debugLog("packet sent with opcode=" .. tostring(OPCODE_SUPPLY_STASH_REQUEST))
+local stashCache          = {}   -- [itemId] = {itemId, amount, meta}
+local itemMetaCache       = {}   -- [itemId] = static item metadata
+local filteredList        = {}   -- {stashCache entries}
+local payloadSeen         = {}
+local categorySet         = {}
+local categoryList        = {}
+local searchDebounce      = nil
+local renderState         = { loadedCount = 0, selectedBox = nil }
+local filterState         = { searchText = nil, stashIndex = nil, sellerIndex = nil, sortIndex = nil, filtered = false }
+local stashHandle         = nil  -- handle from openModal, used to destroy window on close
+local itemBoxPool         = nil  -- ObjectPool<StashItemBox>
+local suppressRenderEvents = false
+-- LuaFormatter on
+-- /*=============================================
+-- =            Filter helpers                   =
+-- =============================================*/
+local function resetFilterState()
+    filterState.searchText = nil
+    filterState.stashIndex = nil
+    filterState.sellerIndex = nil
+    filterState.sortIndex = nil
+    filterState.filtered = false
 end
 
-local function getDraggedItem(widget)
-	local item = widget and widget.currentDragThing
-	if item and item:isItem() then
-		return item
-	end
-
-	if widget and widget.getItem then
-		local ok, widgetItem = pcall(function()
-			return widget:getItem()
-		end)
-		if ok and widgetItem and widgetItem:isItem() then
-			return widgetItem
-		end
-	end
-
-	return nil
+local function matchesCategory(entry, categoryTarget, imbuementOnly)
+    if not categoryTarget and not imbuementOnly then
+        return true
+    end
+    if imbuementOnly then
+        return imbuementSet[entry.itemId] == true
+    end
+    return entry.meta.categoryName == categoryTarget
 end
 
-local isMouseOverSupplyStash
-
-local function showStashDropBlockedMessage()
-	if modules.game_textmessage and modules.game_textmessage.displayFailureMessage then
-		modules.game_textmessage.displayFailureMessage("Put items inside Depot Locker boxes 1 to 15, then use Stow All.")
-	end
-	return true
+local function matchesSeller(meta, sellerTarget)
+    if not sellerTarget then
+        return true
+    end
+    return meta.npcSellSet[sellerTarget] == true
 end
 
-local function markSupplyStashDropBlocked(widget)
-	if widget then
-		widget.supplyStashDropBlocked = true
-	end
-end
+-- /*=============================================
+-- =            Data layer                      =
+-- =============================================*/
 
-local function isSupplyStashWidget(widget)
-	while widget do
-		if widget == window or widget == itemsContainer or widget == supplyItems or widget.supplyStashDropBlocked then
-			return true
-		end
-
-		if not widget.getParent then
-			break
-		end
-		widget = widget:getParent()
-	end
-	return false
-end
-
-local function isSupplyStashItemWidget(widget)
-	local item = widget and widget.getItem and widget:getItem()
-	return item and item:isItem() and item:getId() == SUPPLY_STASH_ITEM_ID
-end
-
-function shouldBlockItemDrop(targetWidget, draggedWidget, mousePos)
-	if not window or not window:isVisible() then
-		return isSupplyStashItemWidget(targetWidget) and getDraggedItem(draggedWidget) ~= nil and showStashDropBlockedMessage()
-	end
-
-	local item = getDraggedItem(draggedWidget)
-	if not item then
-		return false
-	end
-
-	if targetWidget and targetWidget.setBorderWidth then
-		targetWidget:setBorderWidth(0)
-	end
-
-	if isSupplyStashItemWidget(targetWidget) or isSupplyStashWidget(targetWidget) or isMouseOverSupplyStash(mousePos) then
-		return showStashDropBlockedMessage()
-	end
-	return false
-end
-
-local function onSupplyDrop(self, widget, mousePos)
-	return shouldBlockItemDrop(self, widget, mousePos)
-end
-
-function blockItemDrop(self, widget, mousePos)
-	return shouldBlockItemDrop(self, widget, mousePos)
-end
-
-isMouseOverSupplyStash = function(mousePos)
-	if not window or not window:isVisible() or not mousePos then
-		return false
-	end
-
-	if supplyItems and supplyItems:containsPoint(mousePos) then
-		return true
-	end
-	if itemsContainer and itemsContainer:containsPoint(mousePos) then
-		return true
-	end
-	return window:containsPoint(mousePos)
-end
-
-function handleItemDragLeave(draggedWidget, droppedWidget, mousePos)
-	if droppedWidget then
-		return false
-	end
-	if not isMouseOverSupplyStash(mousePos) then
-		return false
-	end
-
-	local item = getDraggedItem(draggedWidget)
-	if not item then
-		debugLog("dragLeave over stash ignored: dragged widget has no item")
-		return false
-	end
-
-	return showStashDropBlockedMessage()
-end
-
-local function requestOpen()
-	debugLog("requestOpen called")
-	sendSupplyRequest(ACTION_OPEN)
-end
-
-local function setupCategoryFilter()
-	if not categoryFilter then
-		return
-	end
-
-	categoryFilter.onOptionChange = nil
-	categoryFilter:clearOptions()
-	for _, option in ipairs(categoryOptions) do
-		categoryFilter:addOption(option.text, option.data)
-	end
-	categoryFilter:setCurrentOption("Show all", true)
-	categoryFilter.onOptionChange = function(widget, option, data)
-		currentCategoryFilter = data or "all"
-		debugLog("category changed: " .. tostring(option) .. " data=" .. tostring(currentCategoryFilter))
-		refreshItemList()
-	end
-end
-
-local function showWindow()
-	debugLog("showWindow")
-	window:show()
-	window:raise()
-	window:focus()
-	modules.game_interface.getRootPanel():focus()
-	window:lock()
-end
-
-local function hideWindow()
-	debugLog("hideWindow")
-	window:hide()
-	window:unlock()
-	modules.game_interface.getRootPanel():focus()
-end
-
-local function registerProtocol()
-	if protocolRegistered then
-		return
-	end
-	ProtocolGame.unregisterOpcode(OPCODE_SUPPLY_STASH_SEND)
-	ProtocolGame.registerOpcode(OPCODE_SUPPLY_STASH_SEND,
-        function(protocol, msg)
-			pcall(function()
-				local itemData = {}
-				local count = msg:getU16()
-				for i = 1, count do
-					if msg:getUnreadSize() < 7 then break end
-					table.insert(itemData, {
-						itemId = msg:getU16(),
-						amount = msg:getU32(),
-						tier = msg:getU8()
-					})
-				end
-
-				local sizeLeft = msg:getU16()
-				
-				-- Try to parse details if present
-				if msg:getUnreadSize() >= 2 then
-					local peek = msg:peekU16()
-					if peek == SUPPLY_STASH_DETAILS_MARKER or peek == 0x0053 or peek == 0x5300 then
-						msg:getU16() -- consume marker
-						local detailCount = msg:getU16()
-						for i = 1, detailCount do
-							if msg:getUnreadSize() < 5 then break end
-							local id = msg:getU16()
-							local name = msg:getString()
-							local cat = msg:getU16()
-							local stack = msg:getU8()
-							getItemInfo(id, {name = name, category = cat, stackable = stack == 1})
-						end
-					elseif peek == count and count > 0 then
-						local detailCount = msg:getU16() -- consume detailCount
-						for i = 1, detailCount do
-							if msg:getUnreadSize() < 5 then break end
-							local id = msg:getU16()
-							local name = msg:getString()
-							local cat = msg:getU16()
-							local stack = msg:getU8()
-							getItemInfo(id, {name = name, category = cat, stackable = stack == 1})
-						end
-					end
-				end
-
-				setup(itemData, sizeLeft)
-			end)
-			return true
+local function getItemMeta(itemId)
+    local meta = itemMetaCache[itemId]
+    if meta then
+        return meta
+    end
+    local thingType = g_things.getThingType(itemId, 0)
+    local name = ""
+    local categoryName = ""
+    local npcSellSet = {}
+    if thingType then
+        name = thingType:getName() or ""
+        if thingType:isMarketable() then
+            local mData = thingType:getMarketData()
+            if mData then
+                categoryName = categoryNames[mData.category] or ""
+            end
+            local nData = thingType:getNpcSaleData()
+            if nData then
+                for _, npc in ipairs(nData) do
+                    if npc.name then
+                        npcSellSet[npc.name:lower()] = true
+                    end
+                end
+            end
         end
-    )
-	protocolRegistered = true
+    end
+    meta = {
+        itemId = itemId,
+        name = name,
+        nameLower = name:lower(),
+        categoryName = categoryName,
+        npcSellSet = npcSellSet,
+        thingType = thingType
+    }
+    itemMetaCache[itemId] = meta
+    return meta
 end
 
-local function unregisterProtocol()
-	if not protocolRegistered then
-		return
-	end
-
-	debugLog("unregisterProtocol: unregistering opcode " .. tostring(OPCODE_SUPPLY_STASH_SEND))
-	ProtocolGame.unregisterOpcode(OPCODE_SUPPLY_STASH_SEND)
-	protocolRegistered = false
+local function getStashEntry(itemId)
+    local entry = stashCache[itemId]
+    if entry then
+        return entry
+    end
+    entry = {
+        itemId = itemId,
+        amount = 0,
+        meta = getItemMeta(itemId)
+    }
+    stashCache[itemId] = entry
+    return entry
 end
 
-function init()	
-	debugLog("init start")
-	
-	-- Main stash window
-	window 	   = g_ui.displayUI('game_stash')
-	if not window then
-		g_logger.error("game_stash: could not load game_stash.otui")
-		return
-	end
-	debugLog("UI loaded: game_stash")
-	freeSlots = window:recursiveGetChildById('freeSlots')
-	
-	-- Selecter for charms
-	itemsContainer = window:recursiveGetChildById('itemsContainer')
-	supplyItems = itemsContainer:recursiveGetChildById('supplyItems')
-	searchInput = window:recursiveGetChildById('searchInput')
-	categoryFilter = window:recursiveGetChildById('categoryFilter') or window:recursiveGetChildById('itemTypes')
-	setupCategoryFilter()
-	if searchInput then
-		searchInput.onTextChange = function()
-			refreshItemList()
-		end
-	end
-	window.onDrop = onSupplyDrop
-	itemsContainer.onDrop = onSupplyDrop
-	supplyItems.onDrop = onSupplyDrop
-	markSupplyStashDropBlocked(window)
-	markSupplyStashDropBlocked(itemsContainer)
-	markSupplyStashDropBlocked(supplyItems)
-	debugLog("UI refs resolved: freeSlots=" .. tostring(freeSlots ~= nil) .. ", itemsContainer=" .. tostring(itemsContainer ~= nil) .. ", supplyItems=" .. tostring(supplyItems ~= nil))
-	
-	connect(
-        g_game,
-        {
-            onEnterGame = registerProtocol,
-            onPendingGame = registerProtocol,
-            onGameStart = registerProtocol,
-            onGameEnd = unregisterProtocol
-        }
-    )
-	
-	createwithdrawWindow()
-	debugLog("withdraw window created")
-	
-    if g_game.isOnline() then
-		debugLog("game is online during init; registering protocol now")
-        registerProtocol()
-	else
-		debugLog("game offline during init; waiting on onEnterGame/onPendingGame/onGameStart")
+local function applyFilters(searchText)
+    local searchFilter = (searchText or W.inputs.search:getText() or ""):lower()
+    local stashFilter = W.combos.stash.currentIndex ~= 1 and W.combos.stash:getCurrentOption()
+    local sellerFilter = W.combos.seller.currentIndex ~= 1 and W.combos.seller:getCurrentOption()
+    local categoryTarget = nil
+    local imbuementOnly = false
+    if stashFilter then
+        local opt = stashFilter.text
+        if opt == "Show Imbuement Items" then
+            imbuementOnly = true
+        else
+            categoryTarget = opt:sub(6)
+        end
+    end
+    local sellerTarget = sellerFilter and sellerFilter.text:sub(9):lower() or nil
+    table.clear(filteredList)
+    for _, entry in pairs(stashCache) do
+        local meta = entry.meta
+        local passSearch = #searchFilter == 0 or meta.nameLower:find(searchFilter, 1, true)
+        if passSearch and matchesCategory(entry, categoryTarget, imbuementOnly) and matchesSeller(meta, sellerTarget) then
+            table.insert(filteredList, entry)
+        end
+    end
+    filterState.filtered = true
+end
+
+local function sortFilteredList()
+    local func = sortFunctions[sortOrder[W.combos.sort.currentIndex]]
+    if func then
+        table.sort(filteredList, func)
     end
 end
 
-function terminate()
-	debugLog("terminate")
-	disconnect(
-        g_game,
-        {
-            onEnterGame = registerProtocol,
-            onPendingGame = registerProtocol,
-            onGameStart = registerProtocol,
-            onGameEnd = unregisterProtocol
-        }
-    )
+-- /*=============================================
+-- =            Render layer                    =
+-- =============================================*/
 
-    unregisterProtocol()
-	window:destroy()
-	withdrawWindow:destroy()
+local function onStashItemBoxMousePress(itemBox, mousePos, mouseButton)
+    if mouseButton ~= MouseLeftButton or not itemBox.itemId then
+        return false
+    end
+    if g_keyboard.isCtrlPressed() then
+        return false
+    end
+    if renderState.selectedBox and renderState.selectedBox ~= itemBox then
+        renderState.selectedBox:setChecked(false)
+    end
+    renderState.selectedBox = itemBox
+    itemBox:setChecked(true)
+    prepareWithdraw(itemBox.itemId, itemBox.amount)
+    return true
 end
 
-function toggle()
-	debugLog("toggle called; window visible=" .. tostring(window and window:isVisible() or false))
-	if window:isVisible() then
-		hideWindow()
-	else
-		requestOpen()
-	end
+local function onStashItemMouseRelease(itemWidget, mousePos, mouseButton)
+    if mouseButton ~= MouseRightButton and not (mouseButton == MouseLeftButton and g_keyboard.isCtrlPressed()) then
+        return false
+    end
+    local itemBox = itemWidget.itemBox
+    if not itemBox or not itemBox.itemId then
+        return false
+    end
+    local itemId = itemBox.itemId
+    local amount = itemBox.amount
+    local name = itemBox.name
+    local thingType = itemBox.thingType
+    local moduleQuickLoot = modules.game_quickloot
+    local menu = g_ui.createWidget('PopupMenu')
+    menu:setGameMenu(true)
+    menu:addOption(tr('Retrieve'), function()
+        prepareWithdraw(itemId, amount)
+    end)
+    menu:addSeparator()
+    menu:addOption(tr('Cyclopedia'), function()
+        local cyc = modules.game_cyclopedia
+        if not cyc then
+            return
+        end
+        if cyc.controllerCyclopedia and cyc.controllerCyclopedia.ui and cyc.controllerCyclopedia.ui:isVisible() then
+            cyc.SelectWindow('items', false)
+        else
+            cyc.show('items')
+        end
+        onSupplyStashClose()
+        stashController:scheduleEvent(function()
+            if cyc.Cyclopedia and cyc.Cyclopedia.ItemSearch then
+                cyc.Cyclopedia.ItemSearch(name, false)
+            end
+        end, 100, "showDeliveryItemCyclopedia")
+    end)
+    if thingType and thingType:isMarketable() then
+        menu:addSeparator()
+        menu:addOption(tr('Show in Market'), function()
+            local market = modules.game_market
+            if not market or not market.onShowRedirect then
+                return
+            end
+            onSupplyStashClose()
+            market.onMarketEnter({}, 0, 0, 0)
+            stashController:scheduleEvent(function()
+                market.onShowRedirect(thingType)
+            end, 100, "showDeliveryItemMarket")
+        end)
+    end
+    if moduleQuickLoot and moduleQuickLoot.QuickLoot then
+        menu:addSeparator()
+        if not moduleQuickLoot.QuickLoot.lootExists(itemId) then
+            menu:addOption(tr('Add to Loot List'), function()
+                moduleQuickLoot.QuickLoot.addLootList(itemId)
+            end)
+        else
+            menu:addOption(tr('Remove from Loot List'), function()
+                moduleQuickLoot.QuickLoot.removeLootList(itemId)
+            end)
+        end
+    end
+    menu:display(mousePos)
 end
 
-function createwithdrawWindow()
-	if withdrawWindow then return end
-	withdrawWindow = g_ui.displayUI('withdraw')
-	if withdrawWindow then
-		withdrawWindow:hide()
-		debugLog("withdraw window UI loaded")
-	else
-		g_logger.error("game_stash: could not load withdraw.otui")
-	end
+local function createPooledItemBox()
+    local itemBox = g_ui.createWidget('StashItemBox', W.poolBin)
+    local itemWidget = itemBox:getChildById('item')
+    itemBox.itemWidget = itemWidget
+    itemWidget.itemBox = itemBox
+    itemBox.onMousePress = onStashItemBoxMousePress
+    itemWidget.onMouseRelease = onStashItemMouseRelease
+    return itemBox
 end
 
-function withdrawHide()
-	withdrawWindow:hide()
-end	
-
-function placeholder()
-	refreshItemList()
+local function resetItems()
+    if not W.panels.items then
+        return
+    end
+    local panel = W.panels.items
+    while panel:getChildCount() > 0 do
+        itemBoxPool:release(panel:getChildByIndex(1))
+    end
+    renderState.selectedBox = nil
 end
 
-function stowAll()
-	debugLog("stowAll clicked")
-	sendSupplyRequest(ACTION_STOW_ALL)
+local function createItemBox(entry)
+    local itemBox = itemBoxPool:get()
+    itemBox:setParent(W.panels.items)
+    local meta = entry.meta
+    local itemWidget = itemBox.itemWidget or itemBox:getChildById('item')
+    itemBox.itemId = entry.itemId
+    itemBox.amount = entry.amount
+    itemBox.name = meta.name
+    itemBox.thingType = meta.thingType
+    itemWidget:setItemId(entry.itemId)
+    itemWidget:setDisplayCount(entry.amount)
+    ItemsDatabase.setRarityItem(itemWidget, entry.itemId)
+    itemBox:setTooltip(#meta.name > 0 and string.format("Name: %s \nCount: %d", meta.name, entry.amount) or "Loading...")
 end
 
-function emptyItemList()
-	while supplyItems:getChildCount() > 0 do
-		local child = supplyItems:getLastChild()
-		child:destroy()
-	end
+local function refreshRenderedItems()
+    resetItems()
+    renderState.loadedCount = 0
+    renderState.selectedBox = nil
+    loadNextBatch()
 end
 
-local function inferCategoryFromName(name)
-	name = (name or ""):lower()
-	if name == "" then
-		return nil
-	end
-
-	if name:find("sword", 1, true) or name:find("blade", 1, true) or name:find("sabre", 1, true) or name:find("katana", 1, true) then
-		return CATEGORY_SWORDS
-	end
-	if name:find("fist", 1, true) or name:find("claw", 1, true) or name:find("knuckle", 1, true) then
-		return CATEGORY_FISTS
-	end
-	if name:find("axe", 1, true) or name:find("hatchet", 1, true) then
-		return CATEGORY_AXES
-	end
-	if name:find("club", 1, true) or name:find("mace", 1, true) or name:find("hammer", 1, true) then
-		return CATEGORY_CLUBS
-	end
-	if name:find("bow", 1, true) or name:find("crossbow", 1, true) or name:find("spear", 1, true) then
-		return CATEGORY_DISTANCE
-	end
-	if name:find("wand", 1, true) or name:find("rod", 1, true) then
-		return CATEGORY_WANDS
-	end
-	if name:find("arrow", 1, true) or name:find("bolt", 1, true) then
-		return CATEGORY_AMMUNITION
-	end
-	if name:find("helmet", 1, true) or name:find("hat", 1, true) then
-		return CATEGORY_HELMETS
-	end
-	if name:find("armor", 1, true) or name:find("mail", 1, true) or name:find("plate", 1, true) then
-		return CATEGORY_ARMORS
-	end
-	if name:find("legs", 1, true) then
-		return CATEGORY_LEGS
-	end
-	if name:find("boots", 1, true) then
-		return CATEGORY_BOOTS
-	end
-	if name:find("shield", 1, true) then
-		return CATEGORY_SHIELDS
-	end
-	if name:find("amulet", 1, true) or name:find("necklace", 1, true) then
-		return CATEGORY_AMULETS
-	end
-	if name:find("potion", 1, true) or name:find("fluid", 1, true) then
-		return CATEGORY_POTIONS
-	end
-	if name:find("rune", 1, true) then
-		return CATEGORY_RUNES
-	end
-	if name:find("ring", 1, true) then
-		return MarketCategory and MarketCategory.Rings or 11
-	end
-	if name:find("food", 1, true) or name:find("ham", 1, true) or name:find("meat", 1, true) or name:find("fish", 1, true) or name:find("bread", 1, true) then
-		return CATEGORY_FOOD
-	end
-	return nil
+function renderItems(reason)
+    if suppressRenderEvents then
+        return
+    end
+    if not g_game.isOnline() then
+        return
+    end
+    if not W.window then
+        return
+    end
+    local searchText = W.inputs.search:getText() or ""
+    local stashIndex = W.combos.stash.currentIndex
+    local sellerIndex = W.combos.seller.currentIndex
+    local sortIndex = W.combos.sort.currentIndex
+    local filterChanged = reason == "data" or not filterState.filtered or searchText ~= filterState.searchText or
+                              stashIndex ~= filterState.stashIndex or sellerIndex ~= filterState.sellerIndex
+    local sortChanged = filterChanged or sortIndex ~= filterState.sortIndex
+    if filterChanged then
+        applyFilters(searchText)
+    end
+    if sortChanged then
+        sortFilteredList()
+    end
+    filterState.searchText = searchText
+    filterState.stashIndex = stashIndex
+    filterState.sellerIndex = sellerIndex
+    filterState.sortIndex = sortIndex
+    refreshRenderedItems()
+    if W.window:isHidden() then
+        W.window:show()
+        W.window:lock()
+    end
 end
 
-getItemInfo = function(itemId, rowData)
-	itemId = tonumber(itemId) or 0
-	local cachedInfo = itemInfoCache[itemId]
-	if rowData then
-		local serverName = rowData.name or rowData.itemName
-		local serverCategory = tonumber(rowData.category or rowData.itemCategory)
-		local serverStackable = rowData.stackable
-		if (serverName and serverName ~= "") or (serverCategory and serverCategory > 0) or serverStackable ~= nil then
-			local info = cachedInfo or {
-				name = nil,
-				category = nil,
-				stackable = false
-			}
-			if serverName and serverName ~= "" then
-				info.name = serverName
-			end
-			if serverCategory and serverCategory > 0 then
-				info.category = serverCategory
-			end
-			if serverStackable ~= nil then
-				info.stackable = serverStackable and true or false
-			end
-			info.name = info.name or ("Item " .. tostring(itemId))
-			if not info.category or info.category == 0 then
-				info.category = inferCategoryFromName(info.name)
-			end
-			itemInfoCache[itemId] = info
-			itemNameCache[itemId] = info.name
-			return info
-		end
-	end
-	if cachedInfo then
-		return itemInfoCache[itemId]
-	end
+-- /*=============================================
+-- =            Scroll load                     =
+-- =============================================*/
 
-	local info = {
-		name = nil,
-		category = nil,
-		stackable = false
-	}
-
-	if Item and Item.create then
-		local okItem, item = pcall(function()
-			return Item.create(itemId)
-		end)
-		if okItem and item then
-			if item.isStackable then
-				local okStackable, stackable = pcall(function()
-					return item:isStackable()
-				end)
-				info.stackable = okStackable and stackable or false
-			end
-
-			local okMarket, marketData = pcall(function()
-				return item:getMarketData()
-			end)
-			if okMarket and marketData then
-				if marketData.name and marketData.name ~= "" then
-					info.name = marketData.name
-				end
-				info.category = marketData.category
-			end
-
-			if not info.name and item.getName then
-				local okName, itemName = pcall(function()
-					return item:getName()
-				end)
-				if okName and itemName and itemName ~= "" then
-					info.name = itemName
-				end
-			end
-		end
-	end
-
-	info.name = info.name or ("Item " .. tostring(itemId))
-	if not info.category or info.category == 0 then
-		info.category = inferCategoryFromName(info.name)
-	end
-	itemInfoCache[itemId] = info
-	itemNameCache[itemId] = info.name
-	return info
+function loadNextBatch()
+    local total = #filteredList
+    local current = renderState.loadedCount
+    if current >= total then
+        return
+    end
+    local limit = math.min(total, current + BATCH_SIZE)
+    for i = current + 1, limit do
+        createItemBox(filteredList[i])
+    end
+    renderState.loadedCount = limit
 end
 
-local function getItemDisplayName(itemId, rowData)
-	return getItemInfo(itemId, rowData).name
+local function onItemsPanelScroll(widget, offset)
+    if renderState.loadedCount >= #filteredList then
+        return
+    end
+    local maxScroll = W.scrollbar:getMaximum()
+    if offset.y >= maxScroll - SCROLL_THRESHOLD then
+        loadNextBatch()
+    end
 end
 
-local function itemMatchesCategory(itemId, rowData)
-	if currentCategoryFilter == "all" then
-		return true
-	end
+-- /*=============================================
+-- =            Search debounce            =
+-- =============================================*/
 
-	local info = getItemInfo(itemId, rowData)
-	if currentCategoryFilter == "stackable" then
-		return info.stackable
-	end
-	if currentCategoryFilter == "weapons" then
-		return weaponCategories[info.category] == true
-	end
-	if type(currentCategoryFilter) == "number" then
-		return info.category == currentCategoryFilter
-	end
-	return true
+function onSearchChange()
+    if searchDebounce then
+        searchDebounce:cancel()
+        searchDebounce = nil
+    end
+    searchDebounce = scheduleEvent(renderItems, 150, "searchDebounce")
 end
 
-local function itemMatchesSearch(itemId, name)
-	if not searchInput then
-		return true
-	end
-
-	local text = searchInput:getText()
-	if not text or text == "" then
-		return true
-	end
-
-	text = text:lower()
-	return name:lower():find(text, 1, true) ~= nil or tostring(itemId):find(text, 1, true) ~= nil
+-- /*=============================================
+-- =            Modal: withdraw amount            =
+-- =============================================*/
+local function resetSelectAmount()
+    if W.modal.selectAmount then
+        W.modal.selectAmount:destroy()
+        W.modal.selectAmount = nil
+    end
 end
 
-local function openWithdrawWindow(itemId, amount, tier)
-	hideWindow()
-	withdrawWindow:show()
-	withdrawWindow:raise()
-	withdrawWindow:focus()
-	withdrawWindow:unlock()
-	modules.game_interface.getRootPanel():focus()
-
-	withdrawWindow.item:setItemId(itemId)
-	withdrawWindow.item:setItemCount(amount)
-	if tier and tier > 0 then
-		ItemsDatabase.setTier(withdrawWindow.item, tier)
-	else
-		ItemsDatabase.setTier(withdrawWindow.item, 0)
-	end
-	withdrawWindow.amountTextEdit:setText(1)
-	withdrawWindow.amountScrollBar:setMinimum(1)
-	withdrawWindow.amountScrollBar:setMaximum(amount)
-	withdrawWindow.amountScrollBar:setValue(1)
-	withdrawWindow.amountScrollBar.onValueChange = function(widget, value)
-		if tonumber(withdrawWindow.amountTextEdit:getText()) ~= value then
-			withdrawWindow.amountTextEdit:setText(value)
-		end
-	end
-	
-	withdrawWindow.amountTextEdit.onTextChange = function(widget, text)
-		local val = tonumber(text)
-		if val then
-			if val > amount then val = amount end
-			if val < 1 then val = 1 end
-			if withdrawWindow.amountScrollBar:getValue() ~= val then
-				withdrawWindow.amountScrollBar:setValue(val)
-			end
-		end
-	end
-
-	withdrawWindow.buttonCancel.onClick = function(self)
-		withdrawHide()
-		requestOpen()
-	end
-
-	withdrawWindow.buttonOk.onClick = function(self)
-		local count = tonumber(withdrawWindow.amountTextEdit:getText()) or 0
-		sendSupplyRequest(ACTION_WITHDRAW, itemId, count, tier)
-		withdrawHide()
-		modules.game_interface.getRootPanel():focus()
-	end
+function prepareWithdraw(itemId, itemAmount)
+    resetSelectAmount()
+    W.modal.selectAmount = g_ui.createWidget('StashSelectAmount', rootWidget)
+    W.modal.selectAmount:lock()
+    local itembox = W.modal.selectAmount:getChildById('item')
+    local scrollbar = W.modal.selectAmount:getChildById('countScrollBar')
+    itembox:setItemId(itemId)
+    itembox:setDisplayCount(itemAmount)
+    scrollbar:setMaximum(itemAmount)
+    scrollbar:setMinimum(1)
+    scrollbar:setValue(itemAmount)
+    scrollbar.onValueChange = function(_, value)
+        itembox:setDisplayCount(value)
+    end
+    g_keyboard.bindKeyPress('Up', function()
+        scrollbar:setValue(scrollbar:getValue() + 10)
+    end, W.modal.selectAmount)
+    g_keyboard.bindKeyPress('Down', function()
+        scrollbar:setValue(scrollbar:getValue() - 10)
+    end, W.modal.selectAmount)
+    g_keyboard.bindKeyPress('Right', function()
+        scrollbar:onIncrement()
+    end, W.modal.selectAmount)
+    g_keyboard.bindKeyPress('Left', function()
+        scrollbar:onDecrement()
+    end, W.modal.selectAmount)
+    g_keyboard.bindKeyPress('PageUp', function()
+        scrollbar:setValue(scrollbar:getMaximum())
+    end, W.modal.selectAmount)
+    g_keyboard.bindKeyPress('PageDown', function()
+        scrollbar:setValue(scrollbar:getMinimum())
+    end, W.modal.selectAmount)
+    local function withdraw()
+        g_game.stashWithdraw(itemId, scrollbar:getValue(), 1)
+        W.modal.selectAmount:unlock()
+        resetSelectAmount()
+    end
+    local function cancel()
+        W.modal.selectAmount:unlock()
+        resetSelectAmount()
+    end
+    W.modal.selectAmount.onEnter = withdraw
+    W.modal.selectAmount.onEscape = cancel
+    W.modal.selectAmount:getChildById('buttonOk').onClick = withdraw
+    W.modal.selectAmount:getChildById('buttonCancel').onClick = cancel
 end
 
-function refreshItemList()
-	if not supplyItems then
-		return
-	end
-
-	emptyItemList()
-	for i = 1, #currentItemData do
-		local rowData = currentItemData[i]
-		local itemId = rowData.itemId or rowData[1]
-		local amount = rowData.amount or rowData[2]
-		local name = getItemDisplayName(itemId, rowData)
-		if itemMatchesCategory(itemId, rowData) and itemMatchesSearch(itemId, name) then
-			local row = g_ui.createWidget('StashItem', supplyItems)
-			row.index = i
-			row:setId("stashItem" .. i)
-			row.categoryId = i
-			row:setItemId(itemId)
-			if rowData.tier and rowData.tier > 0 then
-				ItemsDatabase.setTier(row, rowData.tier)
-			end
-			row:setDraggable(false)
-			row:setTooltip(name)
-			markSupplyStashDropBlocked(row)
-
-			local countText = row:recursiveGetChildById('itemCountLabel')
-			countText:setText(tostring(amount))
-			markSupplyStashDropBlocked(countText)
-
-			row.onClick = function(self)
-				openWithdrawWindow(itemId, amount, rowData.tier or 0)
-			end
-			row.onDrop = onSupplyDrop
-		end
-	end
-
-	if freeSlots then
-		freeSlots:setText("Free slots: " .. currentSizeLeft)
-	end
+-- /*=============================================
+-- =            Viewport geometry            =
+-- =============================================*/
+local function recomputeViewport()
+    local cols = math.max(1, math.floor(W.panels.items:getWidth() / CELL_SIZE))
+    local rows = math.max(1, math.floor(W.panels.items:getHeight() / CELL_SIZE))
+    BATCH_SIZE = cols * (rows + 1) -- full viewport + 1 row overscan
+    SCROLL_THRESHOLD = CELL_SIZE * 3 -- trigger 3 rows before bottom
 end
 
-function setup(itemData, sizeLeft)
-	itemData = itemData or {}
-	debugLog("setup start: items=" .. tostring(#itemData) .. ", sizeLeft=" .. tostring(sizeLeft))
-	showWindow()
-	currentItemData = itemData
-	currentSizeLeft = sizeLeft or 0
-	refreshItemList()
+-- /*=============================================
+-- =            Window setup / teardown          =
+-- =============================================*/
+
+local function destroyWindow()
+    if not stashHandle then
+        return
+    end
+    itemBoxPool = nil
+    stashController:closeModal(stashHandle)
+    stashHandle = nil
+    W.window = nil
+    W.poolBin = nil
+    W.panels.items = nil
+    W.inputs.search = nil
+    W.combos.stash = nil
+    W.combos.seller = nil
+    W.combos.sort = nil
+    W.scrollbar = nil
+    W.buttons.manage = nil
+    W.buttons.close = nil
+end
+
+local function ensureWindow()
+    if W.window then
+        return true
+    end
+    stashHandle = stashController:openModal('StashWindow', { mode = 'otui' })
+    if not stashHandle or not stashHandle.ui then
+        return false
+    end
+    W.window = stashHandle.ui
+    W.panels.items = W.window:recursiveGetChildById('itemsPanel')
+    W.inputs.search = W.window:recursiveGetChildById('searchEdit')
+    W.combos.stash = W.window:recursiveGetChildById('stashCombo')
+    W.combos.seller = W.window:recursiveGetChildById('sellerCombo')
+    W.combos.sort = W.window:recursiveGetChildById('sortCombo')
+    W.scrollbar = W.window:recursiveGetChildById('itemsPanelListScrollBar')
+    W.buttons.manage = W.window:recursiveGetChildById('manageButton')
+    W.buttons.close = W.window:recursiveGetChildById('closeButton')
+    W.window:hide()
+    W.poolBin = g_ui.createWidget('UIWidget', W.window)
+    W.poolBin:hide()
+    W.poolBin:setWidth(0)
+    W.poolBin:setHeight(0)
+    itemBoxPool = ObjectPool.new(createPooledItemBox, function(itemBox)
+        itemBox:setChecked(false)
+        itemBox:setTooltip('')
+        itemBox.itemId = nil
+        itemBox.amount = nil
+        itemBox.name = nil
+        itemBox.thingType = nil
+        itemBox:setParent(W.poolBin)
+    end)
+    W.panels.items.onScrollChange = onItemsPanelScroll
+    local oldSuppress = suppressRenderEvents
+    suppressRenderEvents = true
+    W.combos.stash:addOption("Show All")
+    W.combos.stash:setCurrentOption("Show All", true)
+    for _, name in ipairs(sellers) do
+        W.combos.seller:addOption(name)
+    end
+    W.combos.seller:setCurrentOption("No Trader Selected", true)
+    for _, name in ipairs(sortOrder) do
+        W.combos.sort:addOption(name)
+    end
+    W.combos.sort:setCurrentOption(sortOrder[1], true)
+    suppressRenderEvents = oldSuppress
+    recomputeViewport()
+    return true
+end
+
+-- /*=============================================
+-- =            Server event handlers            =
+-- =============================================*/
+
+local function onSupplyStashEnter(payload)
+    if not ensureWindow() then
+        return
+    end
+    if not W.window then
+        return
+    end
+    table.clear(payloadSeen)
+    table.clear(categorySet)
+    table.clear(categoryList)
+    for i = 1, #payload do
+        local itemId = payload[i][1]
+        local amount = payload[i][2]
+        local entry = getStashEntry(itemId)
+        payloadSeen[itemId] = true
+        entry.amount = amount
+        if entry.meta.categoryName ~= "" then
+            categorySet[entry.meta.categoryName] = true
+        end
+    end
+    for itemId in pairs(stashCache) do
+        if not payloadSeen[itemId] then
+            stashCache[itemId] = nil
+        end
+    end
+    local oldSuppress = suppressRenderEvents
+    suppressRenderEvents = true
+    W.combos.stash:clearOptions()
+    W.combos.stash:addOption("Show All")
+    for catName in pairs(categorySet) do
+        table.insert(categoryList, catName)
+    end
+    table.sort(categoryList)
+    table.insert(categoryList, "Imbuement Items")
+    for _, catName in ipairs(categoryList) do
+        W.combos.stash:addOption("Show " .. catName)
+    end
+    W.combos.stash:setCurrentOption("Show All", true)
+    suppressRenderEvents = oldSuppress
+    renderItems("data")
+end
+
+-- /*=============================================
+-- =            onClick Button                   =
+-- =============================================*/
+
+function onSupplyStashClose()
+    if not W.window then
+        return
+    end
+    table.clear(stashCache)
+    table.clear(itemMetaCache)
+    table.clear(filteredList)
+    table.clear(payloadSeen)
+    table.clear(categorySet)
+    table.clear(categoryList)
+    renderState.loadedCount = 0
+    renderState.selectedBox = nil
+    resetFilterState()
+    resetSelectAmount()
+    if searchDebounce then
+        searchDebounce:cancel()
+        searchDebounce = nil
+    end
+    modules.game_interface.getRootPanel():focus()
+    destroyWindow()
+end
+
+function openManageContainers()
+    onSupplyStashClose()
+    modules.game_quickloot.QuickLoot.toggle()
+end
+
+-- /*=============================================
+-- =            Controller                       =
+-- =============================================*/
+
+function stashController:onInit()
+
+end
+
+function stashController:onGameStart()
+    local version = g_game.getClientVersion()
+    if version < 1180 then
+        return
+    end
+    g_ui.importStyle('game_stash')
+    stashController:registerEvents(g_game, {
+        onSupplyStashEnter = onSupplyStashEnter
+    })
+end
+
+function stashController:onGameEnd()
+    onSupplyStashClose()
+end
+
+function stashController:onTerminate()
+    resetSelectAmount()
+    itemBoxPool = nil
+    stashHandle = nil
+    W.window = nil
+    table.clear(stashCache)
+    table.clear(itemMetaCache)
+    table.clear(filteredList)
+    table.clear(payloadSeen)
+    table.clear(categorySet)
+    table.clear(categoryList)
+    resetFilterState()
+    if searchDebounce then
+        searchDebounce:cancel()
+        searchDebounce = nil
+    end
 end
