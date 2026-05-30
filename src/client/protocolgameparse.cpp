@@ -5862,7 +5862,7 @@ Imbuement ProtocolGame::getImbuementInfo(const InputMessagePtr& msg)
     imbuement.name = msg->getString();
     imbuement.description = msg->getString();
 
-    if (g_game.getClientVersion() >= 1510) {
+    if (g_game.getClientVersion() >= 860) {
         imbuement.tier = msg->getU8(); // tier: 0 = Basic / 1 = Intricate / 2 = Powerful
 
         static const std::array<std::string, 3> tierNames = { "Basic", "Intricate", "Powerful" };
@@ -5879,7 +5879,7 @@ Imbuement ProtocolGame::getImbuementInfo(const InputMessagePtr& msg)
     imbuement.imageId = msg->getU16(); // iconId
     imbuement.duration = msg->getU32();
 
-    if (g_game.getClientVersion() < 1510) {
+    if (g_game.getClientVersion() < 860) {
         imbuement.premiumOnly = msg->getU8();
     } else {
         imbuement.premiumOnly = false;
@@ -5897,7 +5897,7 @@ Imbuement ProtocolGame::getImbuementInfo(const InputMessagePtr& msg)
 
     imbuement.cost = msg->getU32();
 
-    if (g_game.getClientVersion() < 1510) {
+    if (g_game.getClientVersion() < 860) {
         imbuement.successRate = msg->getU8();
         imbuement.protectionCost = msg->getU32();
     } else {
@@ -5911,16 +5911,16 @@ Imbuement ProtocolGame::getImbuementInfo(const InputMessagePtr& msg)
 void ProtocolGame::parseImbuementWindow(const InputMessagePtr& msg)
 {
     uint8_t windowType = Otc::IMBUEMENT_WINDOW_SELECT_ITEM;
-    if (g_game.getClientVersion() >= 1510) {
+    if (g_game.getClientVersion() >= 860) {
         windowType = static_cast<Otc::Imbuement_Window_t>(msg->getU8()); // window type
         msg->getU8(); // unknown byte
     }
     switch (windowType) {
         case Otc::IMBUEMENT_WINDOW_CHOICE: {
-            const uint16_t itemId = msg->getU16(); // item client ID
-            const uint32_t unknown = msg->getU32(); // unknown
+            // Server sends U16(0) as placeholder for Open action (no extra U32)
+            const uint16_t itemId = msg->getU16(); // item client ID (0 for open)
 
-            g_lua.callGlobalField("g_game", "onOpenImbuementWindow", itemId, unknown);
+            g_lua.callGlobalField("g_game", "onOpenImbuementWindow", itemId);
             break;
         }
         case Otc::IMBUEMENT_WINDOW_SCROLL: {
@@ -5947,11 +5947,12 @@ void ProtocolGame::parseImbuementWindow(const InputMessagePtr& msg)
         }
         case Otc::IMBUEMENT_WINDOW_SELECT_ITEM: {
             const uint16_t itemId = msg->getU16(); // item client ID
+            uint8_t tier = 0;
             const auto& thing = g_things.getThingType(itemId, ThingCategoryItem);
-            if (thing) {
+            if (g_game.getClientVersion() >= 860 && thing) {
                 const uint16_t classification = thing->getClassification();
                 if (classification > 0) {
-                    msg->getU8(); // upgradeClass
+                    tier = msg->getU8(); // upgradeClass
                 }
             }
             const uint8_t slot = msg->getU8();
@@ -5980,7 +5981,7 @@ void ProtocolGame::parseImbuementWindow(const InputMessagePtr& msg)
                 needItem->setCount(count);
                 neededItemsList.push_back(needItem);
             }
-            g_lua.callGlobalField("g_game", "onImbuementWindow", itemId, slot, activeSlots, imbuements, neededItemsList);
+            g_lua.callGlobalField("g_game", "onImbuementItem", itemId, tier, slot, activeSlots, imbuements, neededItemsList);
             break;
         }
     }
@@ -5996,6 +5997,7 @@ void ProtocolGame::parseError(const InputMessagePtr& msg)
     const uint8_t code = msg->getU8();
     const auto& error = msg->getString();
     g_lua.callGlobalField("g_game", "onServerError", code, error);
+    g_lua.callGlobalField("g_game", "onMessageDialog", code, error);
 }
 
 static uint8_t readMarketItemTier(const InputMessagePtr& msg, uint16_t itemId, int clientVersion)
