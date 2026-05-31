@@ -208,6 +208,20 @@ SelectImbue < UIWidget
         margin-right: 22
         phantom: true
         draggable: false
+        UIWidget
+          id: tier
+          size: 10 9
+          image-source: /images/inventory/tiers-strip
+          image-clip: 0 0 10 9
+          image-size: 10 9
+          anchors.top: parent.top
+          anchors.right: parent.right
+          margin-top: 1
+          margin-right: 1
+          phantom: true
+          focusable: false
+          visible: false
+          image-smooth: true
       Label
         id: titleInformation
         anchors.top: prev.top
@@ -487,6 +501,20 @@ ClearImbue < UIWidget
         draggable: false
         margin-top: 1
         margin-right: 22
+        UIWidget
+          id: tier
+          size: 10 9
+          image-source: /images/inventory/tiers-strip
+          image-clip: 0 0 10 9
+          image-size: 10 9
+          anchors.top: parent.top
+          anchors.right: parent.right
+          margin-top: 1
+          margin-right: 1
+          phantom: true
+          focusable: false
+          visible: false
+          image-smooth: true
       Label
         id: titleInformation
         anchors.top: prev.top

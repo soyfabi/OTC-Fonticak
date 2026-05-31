@@ -69,6 +69,9 @@ function itemApi.configureWindow(window)
         itemWidget:setItemId(self.itemId)
         itemWidget:setImageSmooth(true)
         itemWidget:setItemCount(1)
+        if ItemsDatabase and ItemsDatabase.setTier then
+            ItemsDatabase.setTier(itemWidget, self.tier)
+        end
     end
 
     local itemInformation = window:recursiveGetChildById("titleInformation")
