@@ -240,9 +240,14 @@ function init()
         onWeaponProficiency = onWeaponProficiency,
         onWeaponProficiencyExperience = onWeaponProficiencyExperience
     })
+
+    if g_game.isOnline() then
+        onGameStart()
+    end
 end
 
 function terminate()
+    cancelProficiencyButtonInit()
     cancelTopBarProficiencyInit()
     cancelAutoSelect()
 
@@ -310,6 +315,40 @@ local function createProficiencyButton()
     return nil
 end
 
+function cancelProficiencyButtonInit()
+    if WeaponProficiency.buttonInitEvent then
+        removeEvent(WeaponProficiency.buttonInitEvent)
+        WeaponProficiency.buttonInitEvent = nil
+    end
+end
+
+function initProficiencyButton(attempts)
+    attempts = attempts or 0
+    local maxRetries = 15
+
+    cancelProficiencyButtonInit()
+
+    if WeaponProficiency.button and not WeaponProficiency.button:isDestroyed() then
+        setProficiencyButtonState(false)
+        return
+    end
+
+    WeaponProficiency.button = createProficiencyButton()
+    if WeaponProficiency.button then
+        setProficiencyButtonState(false)
+        return
+    end
+
+    if attempts < maxRetries then
+        WeaponProficiency.buttonInitEvent = scheduleEvent(function()
+            WeaponProficiency.buttonInitEvent = nil
+            if g_game.isOnline() then
+                initProficiencyButton(attempts + 1)
+            end
+        end, 100)
+    end
+end
+
 function cancelTopBarProficiencyInit()
     if WeaponProficiency.topBarInitEvent then
         removeEvent(WeaponProficiency.topBarInitEvent)
@@ -346,8 +385,7 @@ function onGameStart()
     -- Recreate item cache on each login (may have been cleared by reset())
     WeaponProficiency:createItemCache()
 
-    WeaponProficiency.button = createProficiencyButton()
-    setProficiencyButtonState(false)
+    initProficiencyButton()
 
     if not hasWeaponProficiencyProtocol() then
         return
@@ -506,6 +544,7 @@ function updateTopBarProficiency()
 end
 
 function onGameEnd()
+    cancelProficiencyButtonInit()
     cancelTopBarProficiencyInit()
     cancelAutoSelect()
 

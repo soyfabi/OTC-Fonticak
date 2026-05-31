@@ -52,5 +52,6 @@ Module
     - game_creatureinformation
     - game_rewardwall
     - game_forge
+    - game_proficiency
   @onLoad: init()
   @onUnload: terminate()
