@@ -75,7 +75,7 @@ function itemApi.configureWindow(window)
         itemWidget:setImageSmooth(true)
         itemWidget:setItemCount(1)
         if ItemsDatabase and ItemsDatabase.setTier then
-            ItemsDatabase.setTier(itemWidget, self.tier)
+            ItemsDatabase.setTier(itemWidget, self.tier, false)
         end
     end
 
