@@ -86,7 +86,7 @@ local function onImbuementScroll(...)
 end
 
 local function onResourcesBalanceChange(...)
-    if activeDesignName == 'old' and not isModernImbuementWindow() then
+    if activeDesignName == 'new' or (activeDesignName == 'old' and not isModernImbuementWindow()) then
         return callActive('onResourcesBalanceChange', ...)
     end
 end

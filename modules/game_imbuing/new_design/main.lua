@@ -89,6 +89,10 @@ function api.onMessageDialog(...)
   return context.imbuement.onMessageDialog(...)
 end
 
+function api.onResourcesBalanceChange(...)
+  return context.imbuement.onResourcesBalanceChange(...)
+end
+
 function api.onSelectItem()
   return context.imbuement.onSelectItem()
 end

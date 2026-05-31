@@ -45,6 +45,11 @@
 #include <framework/util/stats.h>
 #include <functional>
 
+static bool usesModernImbuementWindow()
+{
+    return g_game.getProtocolVersion() >= 860 || g_game.getClientVersion() >= 860;
+}
+
 void ProtocolGame::parseMessage(const InputMessagePtr& msg)
 {
     int opcode = -1;
@@ -5857,12 +5862,13 @@ void ProtocolGame::parsePreyRerollPrice(const InputMessagePtr& msg)
 
 Imbuement ProtocolGame::getImbuementInfo(const InputMessagePtr& msg)
 {
+    const bool modernImbuementWindow = usesModernImbuementWindow();
     Imbuement imbuement;
     imbuement.id = msg->getU32();
     imbuement.name = msg->getString();
     imbuement.description = msg->getString();
 
-    if (g_game.getClientVersion() >= 860) {
+    if (modernImbuementWindow) {
         imbuement.tier = msg->getU8(); // tier: 0 = Basic / 1 = Intricate / 2 = Powerful
 
         static const std::array<std::string, 3> tierNames = { "Basic", "Intricate", "Powerful" };
@@ -5879,7 +5885,7 @@ Imbuement ProtocolGame::getImbuementInfo(const InputMessagePtr& msg)
     imbuement.imageId = msg->getU16(); // iconId
     imbuement.duration = msg->getU32();
 
-    if (g_game.getClientVersion() < 860) {
+    if (!modernImbuementWindow) {
         imbuement.premiumOnly = msg->getU8();
     } else {
         imbuement.premiumOnly = false;
@@ -5897,7 +5903,7 @@ Imbuement ProtocolGame::getImbuementInfo(const InputMessagePtr& msg)
 
     imbuement.cost = msg->getU32();
 
-    if (g_game.getClientVersion() < 860) {
+    if (!modernImbuementWindow) {
         imbuement.successRate = msg->getU8();
         imbuement.protectionCost = msg->getU32();
     } else {
@@ -5911,7 +5917,7 @@ Imbuement ProtocolGame::getImbuementInfo(const InputMessagePtr& msg)
 void ProtocolGame::parseImbuementWindow(const InputMessagePtr& msg)
 {
     uint8_t windowType = Otc::IMBUEMENT_WINDOW_SELECT_ITEM;
-    if (g_game.getClientVersion() >= 860) {
+    if (usesModernImbuementWindow()) {
         windowType = static_cast<Otc::Imbuement_Window_t>(msg->getU8()); // window type
         msg->getU8(); // unknown byte
     }
@@ -5947,14 +5953,7 @@ void ProtocolGame::parseImbuementWindow(const InputMessagePtr& msg)
         }
         case Otc::IMBUEMENT_WINDOW_SELECT_ITEM: {
             const uint16_t itemId = msg->getU16(); // item client ID
-            uint8_t tier = 0;
-            const auto& thing = g_things.getThingType(itemId, ThingCategoryItem);
-            if (g_game.getClientVersion() >= 860 && thing) {
-                const uint16_t classification = thing->getClassification();
-                if (classification > 0) {
-                    tier = msg->getU8(); // upgradeClass
-                }
-            }
+            const uint8_t tier = msg->getU8(); // upgradeClass
             const uint8_t slot = msg->getU8();
             std::unordered_map<int, std::tuple<Imbuement, uint32_t, uint32_t>> activeSlots;
             for (auto i = 0; i < slot; i++) {

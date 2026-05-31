@@ -276,7 +276,7 @@ int push_luavalue(const UnjustifiedPoints& unjustifiedPoints)
 
 int push_luavalue(const Imbuement& i)
 {
-    g_lua.createTable(0, 11);
+    g_lua.createTable(0, 13);
     g_lua.pushInteger(i.id);
     g_lua.setField("id");
     g_lua.pushString(i.name);
@@ -285,6 +285,10 @@ int push_luavalue(const Imbuement& i)
     g_lua.setField("description");
     g_lua.pushString(i.group);
     g_lua.setField("group");
+    g_lua.pushInteger(i.tier);
+    g_lua.setField("tier");
+    g_lua.pushInteger(i.tier);
+    g_lua.setField("type");
     g_lua.pushInteger(i.imageId);
     g_lua.setField("imageId");
     g_lua.pushInteger(i.duration);

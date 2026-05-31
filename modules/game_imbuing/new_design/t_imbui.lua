@@ -26,6 +26,9 @@ return function(context)
   }
 
   local self = imbuementApi
+  local function getGoldBarWidth(text)
+    return math.min(240, math.max(150, (#tostring(text) * 7) + 34))
+  end
 
   function imbuementApi.ensureWindow()
     if self.window then
@@ -125,6 +128,25 @@ return function(context)
     end
   end
 
+  function imbuementApi:updateGold()
+    if not self.window then
+      return
+    end
+
+    local player = g_game.getLocalPlayer()
+    local totalGold = 0
+    if player then
+      local bankGold = player:getResourceBalance(ResourceTypes.BANK_BALANCE) or 0
+      local inventoryGold = player:getResourceBalance(ResourceTypes.GOLD_EQUIPPED) or 0
+      totalGold = bankGold + inventoryGold
+    end
+
+    local formattedGold = context.commaValue(totalGold)
+    local goldPanel = self.window.contentPanel.gold
+    goldPanel:setWidth(getGoldBarWidth(formattedGold))
+    goldPanel.gold:setText(formattedGold)
+  end
+
   function imbuementApi:toggleMenu(menu)
     for key, value in pairs(self) do
       if type(value) == 'userdata' and key ~= 'window' then
@@ -149,16 +171,15 @@ return function(context)
   function imbuementApi.onOpenImbuementWindow()
     self.ensureWindow()
     self:show()
-
-    local player = g_game.getLocalPlayer()
-    if player then
-      local bankGold = player:getResourceBalance(ResourceTypes.BANK_BALANCE) or 0
-      local inventoryGold = player:getResourceBalance(ResourceTypes.GOLD_EQUIPPED) or 0
-      local totalGold = bankGold + inventoryGold
-      self.window.contentPanel.gold.gold:setText(context.commaValue(totalGold))
-    end
+    self:updateGold()
 
     self:toggleMenu("selectItemOrScroll")
+  end
+
+  function imbuementApi.onResourcesBalanceChange(_, _, resourceType)
+    if resourceType == ResourceTypes.BANK_BALANCE or resourceType == ResourceTypes.GOLD_EQUIPPED then
+      self:updateGold()
+    end
   end
 
   function imbuementApi.onImbuementItem(itemId, tier, slots, activeSlots, availableImbuements, needItems)

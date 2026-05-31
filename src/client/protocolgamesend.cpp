@@ -1547,6 +1547,25 @@ void ProtocolGame::sendCloseImbuingWindow()
     send(msg);
 }
 
+void ProtocolGame::sendSelectImbuementItem(const uint16_t itemId, const Position& position, const uint8_t stackPos)
+{
+    const auto& msg = std::make_shared<OutputMessage>();
+    msg->addU8(Proto::ClientImbuementAction);
+    msg->addU8(Otc::IMBUEMENT_WINDOW_SELECT_ITEM);
+    addPosition(msg, position);
+    msg->addU16(itemId);
+    msg->addU8(stackPos);
+    send(msg);
+}
+
+void ProtocolGame::sendSelectImbuementScroll()
+{
+    const auto& msg = std::make_shared<OutputMessage>();
+    msg->addU8(Proto::ClientImbuementAction);
+    msg->addU8(Otc::IMBUEMENT_WINDOW_SCROLL);
+    send(msg);
+}
+
 void ProtocolGame::sendOpenRewardWall()
 {
     const auto& msg = std::make_shared<OutputMessage>();

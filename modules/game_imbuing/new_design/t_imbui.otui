@@ -1,3 +1,42 @@
+ProgressBarSD < ProgressBar
+  background: alpha
+  &usingImage: true
+
+ImbuingMainWindow < MainWindow
+  font: Verdana Bold-11px
+  color: #909090
+  text-offset: -2 1
+  image-source: /images/ui/popupwindow
+  image-border: 4
+  image-border-top: 17
+  padding-top: 17
+  padding-left: 4
+  padding-right: 4
+  padding-bottom: 4
+
+ImbuingGoldLabel < FlatPanel
+  size: 150 20
+  padding: 5
+  UIWidget
+    id: goldIcon
+    anchors.right: parent.right
+    anchors.verticalCenter: parent.verticalCenter
+    margin-right: 5
+    image-source: /images/game/prey/prey_gold
+    tooltip: Gold Coins
+  UIWidget
+    id: gold
+    anchors.right: prev.left
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-right: 4
+    text-align: right
+    text: 0
+    font: verdana-11px-rounded
+    color: white
+    text-auto-resize: true
+    text-wrap: true
+
 PickItemButton < UIButton
   id: itemButton
   size: 96 64
@@ -56,7 +95,7 @@ RequiredItem < UIWidget
     anchors.top: parent.top
     priceable: false
     phantom: true
-    image-source: /images/ui/item66
+    image-source: /images/ui/item
     draggable: false
   FlatLabel
     id: count
@@ -65,7 +104,7 @@ RequiredItem < UIWidget
     anchors.left: prev.left
     anchors.right: prev.right
     anchors.top: prev.bottom
-    image-source: /images/ui/infoPanel
+    image-source: /images/ui/panel_flat
     font: verdana-11px-rounded
     color: white
     text-offset: -2 1
@@ -328,7 +367,7 @@ SelectImbue < UIWidget
         anchors.left: prev.right
         anchors.verticalCenter: requiredItems.verticalCenter
         margin-left: 171
-        image-source: /images/ui/right-arrow
+        image-source: /images/ui/icon-arrow7x7-right
         phantom: false
 
       Label
@@ -357,7 +396,7 @@ SelectImbue < UIWidget
         anchors.left: prev.left
         anchors.right: prev.right
         anchors.top: prev.bottom
-        image-source: /images/ui/infoPanel
+        image-source: /images/ui/panel_flat
         Label
           id: cost
           anchors.horizontalCenter: parent.horizontalCenter
@@ -578,7 +617,7 @@ ClearImbue < UIWidget
         anchors.left: prev.left
         anchors.right: prev.right
         anchors.top: prev.bottom
-        image-source: /images/ui/infoPanel
+        image-source: /images/ui/panel_flat
         Label
           id: cost
           anchors.horizontalCenter: parent.horizontalCenter
@@ -782,7 +821,7 @@ ScrollImbue < UIWidget
         anchors.left: prev.right
         anchors.verticalCenter: requiredItems.verticalCenter
         margin-left: 171
-        image-source: /images/ui/right-arrow
+        image-source: /images/ui/icon-arrow7x7-right
         phantom: false
 
       Label
@@ -811,7 +850,7 @@ ScrollImbue < UIWidget
         anchors.left: prev.left
         anchors.right: prev.right
         anchors.top: prev.bottom
-        image-source: /images/ui/infoPanel
+        image-source: /images/ui/panel_flat
         Label
           id: cost
           anchors.horizontalCenter: parent.horizontalCenter
@@ -831,7 +870,7 @@ ScrollImbue < UIWidget
           margin-left: 2
           image-source: /images/game/cyclopedia/icons/icon-goldcoin
 
-NewMainWindow
+ImbuingMainWindow
   id: imbuingWindow
   !text: tr('Imbuement Shrine')
   size: 740 640
@@ -874,28 +913,7 @@ NewMainWindow
       anchors.right: parent.right
       anchors.bottom: parent.bottom
       @onClick: modules.game_imbuing.close()
-    Panel
+    ImbuingGoldLabel
       id: gold
-      size: 160 20
       anchors.left: parent.left
       anchors.bottom: parent.bottom
-      image-source: /images/game/prey/balanceBg
-      UIWidget
-        id: goldIcon
-        anchors.top: parent.top
-        anchors.right: parent.right
-        margin-top: 6
-        margin-right: 3
-        image-source: /images/game/prey/prey_gold
-      UIWidget
-        id: gold
-        anchors.top: parent.top
-        anchors.right: prev.left
-        anchors.left: parent.left
-        margin-top: 3
-        margin-right: 2
-        text-align: right
-        text: 0
-        font: verdana-11px-rounded
-        color: white
-        text-auto-resize: true

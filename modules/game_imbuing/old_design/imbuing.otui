@@ -1,3 +1,7 @@
+ProgressBarSD < ProgressBar
+  background: alpha
+  &usingImage: true
+
 Slot < Button
   width: 66
   height: 66
@@ -23,7 +27,7 @@ RequiredItem < Panel
     width: 66
     anchors.left: parent.left
     anchors.top: parent.top
-    image-source: /images/ui/item66
+    image-source: /images/ui/item
 
   FlatLabel
     id: count
@@ -33,7 +37,7 @@ RequiredItem < Panel
     anchors.right: prev.right
     anchors.top: prev.bottom
     text-offset: 0 0
-    image-source: /images/ui/infoPanel
+    image-source: /images/ui/panel_flat
 
 ItemInformation < Panel
   height: 100
@@ -118,7 +122,7 @@ ItemInformation < Panel
 EmptyImbue < Panel
   height: 240
   padding: 3 15 15 15
-  image-source: /images/ui/t2pixel-up-frame-borderimage_2
+  image-source: /images/ui/t2pixel-up-frame-borderimage
   image-border: 5
 
   Label
@@ -213,7 +217,7 @@ EmptyImbue < Panel
     anchors.left: prev.left
     anchors.right: prev.right
     anchors.top: prev.bottom
-    image-source: /images/ui/infoPanel
+    image-source: /images/ui/panel_flat
 
   UIWidget
     id: horizontalArrow
@@ -248,12 +252,12 @@ EmptyImbue < Panel
     anchors.left: prev.left
     anchors.right: prev.right
     anchors.top: prev.bottom
-    image-source: /images/game/prey/balanceBg
+    image-source: /images/ui/panel_flat
 
 ClearImbue < Panel
   height: 240
   padding: 3 15 15 15
-  image-source: /images/ui/t2pixel-up-frame-borderimage_2
+  image-source: /images/ui/t2pixel-up-frame-borderimage
   image-border: 5
 
   Label
@@ -354,7 +358,7 @@ ClearImbue < Panel
     anchors.left: prev.left
     anchors.right: prev.right
     anchors.top: prev.bottom
-    image-source: /images/game/prey/balanceBg
+    image-source: /images/ui/panel_flat
 
 infoPanelTolltip < Panel
   height: 75
@@ -421,10 +425,10 @@ MainWindow
     anchors.bottom: parent.bottom
     text-align: right
     text-offset: -20 0
-    image-source: /images/game/prey/balanceBg
+    image-source: /images/ui/panel_flat
     UIWidget
       id: Icon
       anchors.right: parent.right
       anchors.verticalCenter: parent.verticalCenter
       margin-right: 4
-      image-source: /game_cyclopedia/images/icon-goldcoin
+      image-source: /images/game/cyclopedia/icons/icon-goldcoin

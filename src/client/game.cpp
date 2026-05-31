@@ -1985,6 +1985,22 @@ void Game::closeImbuingWindow()
     m_protocolGame->sendCloseImbuingWindow();
 }
 
+void Game::selectImbuementItem(const uint16_t itemId, const Position& position, const uint8_t stackPos)
+{
+    if (!canPerformGameAction())
+        return;
+
+    m_protocolGame->sendSelectImbuementItem(itemId, position, stackPos);
+}
+
+void Game::selectImbuementScroll()
+{
+    if (!canPerformGameAction())
+        return;
+
+    m_protocolGame->sendSelectImbuementScroll();
+}
+
 void Game::imbuementDurations(const bool isOpen)
 {
     if (!canPerformGameAction())

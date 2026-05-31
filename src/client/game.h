@@ -407,6 +407,8 @@ public:
     void applyImbuement(uint8_t slot, uint32_t imbuementId, bool protectionCharm);
     void clearImbuement(uint8_t slot);
     void closeImbuingWindow();
+    void selectImbuementItem(uint16_t itemId, const Position& position, uint8_t stackPos);
+    void selectImbuementScroll();
     void imbuementDurations(bool isOpen = false);
     void openWheelOfDestiny(uint32_t playerId);
     void applyWheelOfDestiny(const std::vector<uint16_t>& wheelPointsVec, const std::vector<uint16_t>& activeGemsVec);
