@@ -2,11 +2,149 @@ local window, previousType, currentType
 local bestiaryPanel
 cyclopediaButton = nil
 bestiaryTrackerButton = nil
+itemsData = itemsData or {
+	customSalePrices = {},
+	primaryLootValueSources = {}
+}
+CyclopediaItems = CyclopediaItems or {}
+
+local function getItemId(item)
+	if type(item) == 'number' then
+		return item
+	end
+	if item and item.getId then
+		local ok, id = pcall(function() return item:getId() end)
+		if ok then
+			return id
+		end
+	end
+	return nil
+end
+
+local function getPricesFile()
+	local player = g_game.getLocalPlayer and g_game.getLocalPlayer() or nil
+	local playerId = player and player.getId and player:getId() or nil
+	if playerId then
+		return '/characterdata/' .. playerId .. '/itemprices.json', '/characterdata/' .. playerId
+	end
+
+	local characterName = g_game.getCharacterName and g_game.getCharacterName() or ''
+	if not characterName or characterName == '' then
+		return nil
+	end
+	characterName = characterName:gsub('[^%w_%- ]', '_')
+	return '/characterdata/' .. characterName .. '/itemprices.json', '/characterdata/' .. characterName
+end
+
+local function ensureItemsData()
+	itemsData.customSalePrices = itemsData.customSalePrices or {}
+	itemsData.primaryLootValueSources = itemsData.primaryLootValueSources or {}
+	modules.game_cyclopedia.itemsData = itemsData
+	return itemsData
+end
+
+function loadItemsPriceData()
+	ensureItemsData()
+	local file = getPricesFile()
+	if not file or not g_resources.fileExists(file) then
+		return
+	end
+
+	local ok, result = pcall(function()
+		return json.decode(g_resources.readFileContents(file))
+	end)
+	if ok and type(result) == 'table' then
+		itemsData = result
+		ensureItemsData()
+	else
+		g_logger.warning('Unable to load cyclopedia item prices: ' .. tostring(result))
+	end
+end
+
+function saveItemsPriceData()
+	ensureItemsData()
+	local file, directory = getPricesFile()
+	if not file then
+		return
+	end
+
+	local ok, result = pcall(function() return json.encode(itemsData, 2) end)
+	if not ok then
+		g_logger.warning('Unable to encode cyclopedia item prices: ' .. tostring(result))
+		return
+	end
+	pcall(function() g_resources.makeDir('/characterdata') end)
+	if directory then
+		pcall(function() g_resources.makeDir(directory) end)
+	end
+	g_resources.writeFileContents(file, result)
+end
+
+function CyclopediaItems.getCurrentItemValue(item)
+	ensureItemsData()
+	local itemId = getItemId(item)
+	if not itemId then
+		return 0
+	end
+
+	local customPrice = itemsData.customSalePrices[tostring(itemId)] or itemsData.customSalePrices[itemId]
+	if customPrice then
+		return tonumber(customPrice) or 0
+	end
+
+	local defaultValue = 0
+	if item and item.getDefaultValue then
+		local ok, value = pcall(function() return item:getDefaultValue() end)
+		if ok then defaultValue = tonumber(value) or 0 end
+	end
+
+	local averageMarketValue = 0
+	if item and item.getAverageMarketValue then
+		local ok, value = pcall(function() return item:getAverageMarketValue() end)
+		if ok then averageMarketValue = tonumber(value) or 0 end
+	elseif item and item.getMeanPrice then
+		local ok, value = pcall(function() return item:getMeanPrice() end)
+		if ok then averageMarketValue = tonumber(value) or 0 end
+	end
+
+	if itemsData.primaryLootValueSources[tostring(itemId)] then
+		return averageMarketValue > 0 and averageMarketValue or defaultValue
+	end
+	return defaultValue > 0 and defaultValue or averageMarketValue
+end
+
+function onItemsPriceList(items)
+	ensureItemsData()
+	for _, item in ipairs(items) do
+		local id, name, price, type = unpack(item)
+		if id and price then
+			itemsData.customSalePrices[tostring(id)] = tonumber(price) or price
+		end
+	end
+	saveItemsPriceData()
+
+	if modules.game_containers and modules.game_containers.reloadContainers then
+		scheduleEvent(function()
+			modules.game_containers.reloadContainers()
+		end, 50)
+	end
+
+	if refreshItemsCyclopedia then
+		scheduleEvent(function()
+			refreshItemsCyclopedia()
+		end, 50)
+	end
+end
 
 function init()
+	modules.game_cyclopedia.itemsData = itemsData
+	modules.game_cyclopedia.CyclopediaItems = CyclopediaItems
 	
 	-- The rest
 	connect(g_game, { 
+		onGameStart = loadItemsPriceData,
+		onItemsPriceList = onItemsPriceList,
+		onMarketEnter = onCyclopediaMarketEnter,
 		onEnterGame = registerBestiaryProtocol,
 		onPendingGame = registerBestiaryProtocol,
 		onGameEnd = onCyclopediaGameEnd
@@ -33,7 +171,11 @@ function init()
 end
 
 function terminate()
+	saveItemsPriceData()
 	disconnect(g_game, { 
+		onGameStart = loadItemsPriceData,
+		onItemsPriceList = onItemsPriceList,
+		onMarketEnter = onCyclopediaMarketEnter,
 		onEnterGame = registerBestiaryProtocol,
 		onPendingGame = registerBestiaryProtocol,
 		onGameEnd = onCyclopediaGameEnd
@@ -60,6 +202,9 @@ function terminate()
 		bestiaryTrackerButton:destroy()
 		bestiaryTrackerButton = nil
 	end
+	if terminateMap then
+		terminateMap()
+	end
 	
 	window:destroy()
 	
@@ -77,6 +222,7 @@ function getCurrentType()
 end
 
 function onCyclopediaGameEnd()
+	saveItemsPriceData()
 	if window then
 		window:hide()
 	end
@@ -139,6 +285,10 @@ function toggleWindow(type)
 		items:setOn(true)
 		items:disable()
 		changePreviousType(items)
+
+		if initItems then
+			initItems(contentContainer)
+		end
 	elseif (type == "bestiary") then
 		bestiary:setOn(true)
 		bestiary:disable()

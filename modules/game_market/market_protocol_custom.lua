@@ -52,6 +52,14 @@ function parseCustomMarketMessage(protocol, msg)
         end
 
         if lastChunk then
+            if modules.game_cyclopedia then
+                modules.game_cyclopedia.customMarketItems = customMarketEnter.items
+                if modules.game_cyclopedia.CyclopediaItems and modules.game_cyclopedia.CyclopediaItems.refreshItems then
+                    scheduleEvent(function()
+                        modules.game_cyclopedia.CyclopediaItems.refreshItems()
+                    end, 50)
+                end
+            end
             if g_game.onMarketEnter then
                 signalcall(g_game.onMarketEnter, customMarketEnter.depotItems, customMarketEnter.offers, customMarketEnter.balance, -1, customMarketEnter.items)
             end
@@ -113,6 +121,15 @@ function parseCustomMarketMessage(protocol, msg)
 
         if g_game.onMarketDetail then
             signalcall(g_game.onMarketDetail, itemId, descriptions, readStatistics(0), readStatistics(1))
+        end
+        if modules.game_cyclopedia then
+            modules.game_cyclopedia.customItemDetails = modules.game_cyclopedia.customItemDetails or {}
+            modules.game_cyclopedia.customItemDetails[itemId] = descriptions
+            if modules.game_cyclopedia.CyclopediaItems and modules.game_cyclopedia.CyclopediaItems.refreshSelectedItemDetails then
+                scheduleEvent(function()
+                    modules.game_cyclopedia.CyclopediaItems.refreshSelectedItemDetails(itemId)
+                end, 50)
+            end
         end
     end
 

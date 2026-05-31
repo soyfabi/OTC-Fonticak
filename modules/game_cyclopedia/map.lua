@@ -1,23 +1,26 @@
-local preloaded, fullmapView, minimapWidget = false, false
+local preloaded, fullmapView, minimapWidget, mapPanel, mapConnected = false, false
 
 function initMap(contentContainer)
-	--mapPanel = g_ui.loadUI("styles/map", contentContainer)
-	--mapPanel:show()
+	mapPanel = g_ui.loadUI("styles/map", contentContainer)
+	mapPanel:show()
 	
-	--minimapWidget = mapPanel:recursiveGetChildById("minimap")
-	connect(
-        g_game,
-        {
-            onGameStart = online
-        }
-    )
+	minimapWidget = mapPanel:recursiveGetChildById("minimap")
+	if not mapConnected then
+		connect(
+			g_game,
+			{
+				onGameStart = online
+			}
+		)
 
-    connect(
-        LocalPlayer,
-        {
-            --onPositionChange = updateCameraPosition
-        }
-    )
+		connect(
+			LocalPlayer,
+			{
+				onPositionChange = updateCameraPosition
+			}
+		)
+		mapConnected = true
+	end
 	
 	if g_game.isOnline() then
         online()
@@ -25,12 +28,37 @@ function initMap(contentContainer)
 end
 
 function online()
-    --loadMap(false)
-    --updateCameraPosition()
+    loadMap(false)
+    updateCameraPosition()
+end
+
+function terminateMap()
+	if not mapConnected then
+		return
+	end
+
+	disconnect(
+		g_game,
+		{
+			onGameStart = online
+		}
+	)
+
+	disconnect(
+		LocalPlayer,
+		{
+			onPositionChange = updateCameraPosition
+		}
+	)
+	mapConnected = false
 end
 
 
 function loadMap(clean)
+    if not minimapWidget then
+        return
+    end
+
     local clientVersion = g_game.getClientVersion()
 
     if clean then
@@ -54,6 +82,10 @@ end
 
 
 function updateCameraPosition()
+    if not minimapWidget then
+        return
+    end
+
     local player = g_game.getLocalPlayer()
     if not player then
         return

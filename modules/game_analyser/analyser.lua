@@ -432,9 +432,14 @@ function onUpdateExperience(rawExp, exp)
 end
 
 function onItemsPriceList(items)
-  if not modules.game_cyclopedia or not modules.game_cyclopedia.itemsData then
+  if not modules.game_cyclopedia then
     return
   end
+
+  modules.game_cyclopedia.itemsData = modules.game_cyclopedia.itemsData or {
+    customSalePrices = {},
+    primaryLootValueSources = {}
+  }
 
   if not modules.game_cyclopedia.itemsData["customSalePrices"] then
     modules.game_cyclopedia.itemsData["customSalePrices"] = {}
@@ -442,8 +447,11 @@ function onItemsPriceList(items)
 
   for _, item in ipairs(items) do
     local id, name, price, type = unpack(item)
-    modules.game_cyclopedia.itemsData["customSalePrices"][tostring(id)] = price
+    if id and price then
+      modules.game_cyclopedia.itemsData["customSalePrices"][tostring(id)] = tonumber(price) or price
+    end
   end
+
 end
 
 function onLootStats(item, name)

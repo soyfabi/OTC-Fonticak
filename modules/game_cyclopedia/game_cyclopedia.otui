@@ -106,7 +106,6 @@ CyclopediaWindow
 
     UIButton
       id: items
-      visible: false
       anchors.top: parent.top
       anchors.left: parent.left
       margin-top: 1
@@ -131,7 +130,7 @@ CyclopediaWindow
     UIButton
       id: bestiary
       anchors.top: prev.top
-      anchors.left: parent.left
+      anchors.left: prev.right
       margin-left: 1
       @onClick: toggleWindow("bestiary")
 
@@ -173,7 +172,6 @@ CyclopediaWindow
 
     UIButton
       id: map
-      visible: false
       anchors.top: prev.top
       anchors.left: prev.right
       margin-left: 1

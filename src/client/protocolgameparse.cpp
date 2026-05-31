@@ -43,7 +43,9 @@
 #include "paperdoll.h"
 #include <fmt/format.h>
 #include <framework/util/stats.h>
+#include <algorithm>
 #include <functional>
+#include <limits>
 
 void ProtocolGame::parseMessage(const InputMessagePtr& msg)
 {
@@ -4853,9 +4855,12 @@ void ProtocolGame::parseUpdateImpactTracker(const InputMessagePtr& msg)
 void ProtocolGame::parseItemsPrice(const InputMessagePtr& msg)
 {
     const uint16_t priceCount = msg->getU16(); // count
+    std::vector<std::tuple<uint16_t, std::string, uint32_t, uint8_t>> items;
+    items.reserve(priceCount);
 
     for (auto i = 0; i < priceCount; ++i) {
         const uint16_t itemId = msg->getU16(); // item client id
+        uint64_t price = 0;
         if (g_game.getClientVersion() >= 1281) {
             const auto& item = Item::create(itemId);
 
@@ -4864,13 +4869,15 @@ void ProtocolGame::parseItemsPrice(const InputMessagePtr& msg)
             if (item && item->getId() != 0 && item->getClassification() > 0) {
                 msg->getU8();
             }
-            msg->getU64(); // price
+            price = msg->getU64(); // price
         } else {
-            msg->getU32(); // price
+            price = msg->getU32(); // price
         }
+
+        items.emplace_back(itemId, std::string{}, static_cast<uint32_t>(std::min<uint64_t>(price, std::numeric_limits<uint32_t>::max())), 0);
     }
 
-    // TODO: implement items price usage
+    g_lua.callGlobalField("g_game", "onItemsPriceList", items);
 }
 
 void ProtocolGame::parseItemsPriceList(const InputMessagePtr& msg)

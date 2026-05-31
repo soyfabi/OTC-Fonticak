@@ -71,6 +71,26 @@ function destroy(container)
     end
 end
 
+local function applyContainerItemDecorations(widget, item)
+    if not widget then
+        return
+    end
+
+    ItemsDatabase.setRarityItem(widget, item)
+    ItemsDatabase.setTier(widget, item)
+    if modules.client_options.getOption('showExpiryInContainers') then
+        ItemsDatabase.setCharges(widget, item)
+        ItemsDatabase.setDuration(widget, item)
+    else
+        if widget.charges then
+            widget.charges:setText("")
+        end
+        if widget.duration then
+            widget.duration:setText("")
+        end
+    end
+end
+
 function showContainersContextMenu(widget, mousePos, mouseButton)
     local menu = g_ui.createWidget('ContainersSubMenu')
     if not menu then
@@ -590,6 +610,7 @@ function sortContainerItems(container, sortMode)
         local itemWidget = container.itemsPanel:getChildById('item' .. slot)
         if itemWidget then
             itemWidget:setItem(nil)
+            applyContainerItemDecorations(itemWidget, nil)
         end
     end
     
@@ -605,12 +626,7 @@ function sortContainerItems(container, sortMode)
                 -- Preserve the original slot position for drag-and-drop operations
                 itemWidget.position = container:getSlotPosition(itemData.slot)
                 
-                ItemsDatabase.setRarityItem(itemWidget, itemData.item)
-                ItemsDatabase.setTier(itemWidget, itemData.item)
-                if modules.client_options.getOption('showExpiryInContainers') then
-                    ItemsDatabase.setCharges(itemWidget, itemData.item)
-                    ItemsDatabase.setDuration(itemWidget, itemData.item)
-                end
+                applyContainerItemDecorations(itemWidget, itemData.item)
                 
                 local itemName = "unnamed"
                 local success, result = pcall(function()
@@ -746,13 +762,9 @@ function refreshContainerItems(container)
     
     for slot = 0, container:getCapacity() - 1 do
         local itemWidget = container.itemsPanel:getChildById('item' .. slot)
-        itemWidget:setItem(container:getItem(slot))
-        ItemsDatabase.setRarityItem(itemWidget, container:getItem(slot))
-        ItemsDatabase.setTier(itemWidget, container:getItem(slot))
-        if modules.client_options.getOption('showExpiryInContainers') then
-            ItemsDatabase.setCharges(itemWidget, container:getItem(slot))
-            ItemsDatabase.setDuration(itemWidget, container:getItem(slot))
-        end
+        local item = container:getItem(slot)
+        itemWidget:setItem(item)
+        applyContainerItemDecorations(itemWidget, item)
     end
 
     if container:hasPages() then
@@ -1055,13 +1067,9 @@ function onContainerOpen(container, previousContainer)
     for slot = 0, container:getCapacity() - 1 do
         local itemWidget = g_ui.createWidget('Item', containerPanel)
         itemWidget:setId('item' .. slot)
-        itemWidget:setItem(container:getItem(slot))
-        ItemsDatabase.setRarityItem(itemWidget, container:getItem(slot))
-        ItemsDatabase.setTier(itemWidget, container:getItem(slot))
-        if modules.client_options.getOption('showExpiryInContainers') then
-            ItemsDatabase.setCharges(itemWidget, container:getItem(slot))
-            ItemsDatabase.setDuration(itemWidget, container:getItem(slot))
-        end
+        local item = container:getItem(slot)
+        itemWidget:setItem(item)
+        applyContainerItemDecorations(itemWidget, item)
         itemWidget:setMargin(0)
         itemWidget.position = container:getSlotPosition(slot)
 
@@ -1174,10 +1182,7 @@ function onContainerUpdateItem(container, slot, item, oldItem)
     end
     local itemWidget = container.itemsPanel:getChildById('item' .. slot)
     itemWidget:setItem(item)
-    if modules.client_options.getOption('showExpiryInContainers') then
-        ItemsDatabase.setCharges(itemWidget, container:getItem(slot))
-        ItemsDatabase.setDuration(itemWidget, container:getItem(slot))
-    end
+    applyContainerItemDecorations(itemWidget, item)
     
     -- Note: Removed automatic re-sorting to prevent interference with manual item movement
     -- Sorting should only happen when explicitly requested by the user

@@ -10,6 +10,52 @@ ItemsDatabase.rarityColors = {
     ["grey"] = TextColors.grey,
 }
 
+local forcedPrices = {
+    [3031] = 1, -- Gold Coin
+    [3035] = 100, -- Platinum Coin
+    [3043] = 10000 -- Crystal Coin
+}
+
+local function getItemId(item)
+    if type(item) == "number" then
+        return item
+    end
+
+    if item and item.getId then
+        local ok, id = pcall(function() return item:getId() end)
+        if ok then
+            return id
+        end
+    end
+
+    if item and item.getItemId then
+        local ok, id = pcall(function() return item:getItemId() end)
+        if ok then
+            return id
+        end
+    end
+
+    return nil
+end
+
+local function safeNumber(value)
+    value = tonumber(value)
+    if value and value > 0 then
+        return value
+    end
+    return 0
+end
+
+local function callPriceGetter(source, item)
+    if source and source.getCurrentItemValue and item then
+        local ok, price = pcall(function() return source.getCurrentItemValue(item) end)
+        if ok then
+            return safeNumber(price)
+        end
+    end
+    return 0
+end
+
 local function getColorForValue(value)
     if value >= 1000000 then
         return "yellow"
@@ -41,40 +87,78 @@ local function clipfunction(value)
     return ""
 end
 
+function ItemsDatabase.getLootValue(item)
+    local itemId = getItemId(item)
+    if not itemId then
+        return 0
+    end
+
+    if forcedPrices[itemId] then
+        return forcedPrices[itemId]
+    end
+
+    local cyclopedia = modules.game_cyclopedia
+    local itemsData = cyclopedia and cyclopedia.itemsData
+    local customPrices = itemsData and itemsData.customSalePrices
+    local customPrice = customPrices and customPrices[tostring(itemId)] or nil
+    if customPrice == nil and customPrices then
+        customPrice = customPrices[itemId]
+    end
+    local price = safeNumber(customPrice)
+    if price > 0 then
+        return price
+    end
+
+    if type(item) == "number" then
+        item = g_things.getThingType(itemId, ThingCategoryItem)
+    end
+
+    price = callPriceGetter(CyclopediaItems, item)
+    if price > 0 then
+        return price
+    end
+
+    if Cyclopedia and Cyclopedia.Items then
+        price = callPriceGetter(Cyclopedia.Items, item)
+        if price > 0 then
+            return price
+        end
+    end
+
+    if item and item.getMeanPrice then
+        local ok, meanPrice = pcall(function() return item:getMeanPrice() end)
+        if ok then
+            price = safeNumber(meanPrice)
+            if price > 0 then
+                return price
+            end
+        end
+    end
+
+    return 0
+end
+
 function ItemsDatabase.getClipAndImagePath(item)
-    if not item then
+    local frameOption = modules.client_options.getOption('framesRarity')
+    if not item or frameOption == "none" then
         return nil, nil, nil
     end
 
-    local frameOption = modules.client_options.getOption('framesRarity')
-    if frameOption == "none" then
-        return nil, nil, nil
-    end
     local imagePath = '/images/ui/item'
     local clip = nil
 
-    if type(item) == "number" then
-        item = g_things.getThingType(item, ThingCategoryItem)
-    end
-
-    if not item then
-        return nil, nil, nil
-    end
-
-    if item then
-        local price = type(item) == "number" and item or (item and item:getMeanPrice()) or 0
-        local itemRarity = getColorForValue(price)
-        if itemRarity then
-            clip = clipfunction(price)
-            if clip ~= "" then
-                if frameOption == "frames" then
-                    imagePath = "/images/ui/rarity_frames"
-                elseif frameOption == "corners" then
-                    imagePath = "/images/ui/containerslot-coloredges"
-                end
-            else
-                clip = nil
+    local price = ItemsDatabase.getLootValue(item)
+    local itemRarity = getColorForValue(price)
+    if itemRarity then
+        clip = clipfunction(price)
+        if clip ~= "" then
+            if frameOption == "frames" then
+                imagePath = "/images/ui/rarity_frames"
+            elseif frameOption == "corners" then
+                imagePath = "/images/ui/containerslot-coloredges"
             end
+        else
+            clip = nil
         end
     end
 
@@ -88,13 +172,18 @@ function ItemsDatabase.getClipAndImagePath(item)
 end
 
 function ItemsDatabase.setRarityItem(widget, item, style)
-    if not g_game.getFeature(GameColorizedLootValue) or not widget then
+    if not widget then
         return
     end
 
     local clip, imagePath = ItemsDatabase.getClipAndImagePath(item)
 
     if not imagePath then
+        widget:setImageClip(torect("0 0 0 0"))
+        widget:setImageSource('/images/ui/item')
+        if style then
+            widget:setStyle(style)
+        end
         return
     end
 
@@ -127,8 +216,8 @@ function ItemsDatabase.setColorLootMessage(text)
             return itemName
         end
 
-        local itemInfo = thingType:getMeanPrice()
-        if itemInfo then
+        local itemInfo = ItemsDatabase.getLootValue(thingType)
+        if itemInfo and itemInfo > 0 then
             local color = ItemsDatabase.getColorForRarity(getColorForValue(itemInfo))
             return "{" .. itemName .. ", " .. color .. "}"
         else

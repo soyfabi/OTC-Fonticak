@@ -1,0 +1,645 @@
+SaleList < UIWidget
+  id: main
+  size: 207 28
+
+  Label
+    id: valueLabel
+    size: 207 14
+    background-color: alpha
+    anchors.top: parent.top
+    anchors.left: parent.left
+    text-offset: 1 -1
+    font: Verdana Bold-11px
+    color: #c0c0c0
+
+  Label
+    id: locationLabel
+    size: 207 14
+    background-color: alpha
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 14
+    text-offset: 1 -2
+    font: Verdana Bold-11px
+    color: #c0c0c0
+
+InspectLabel < UIWidget
+  size: 410 18
+
+  Label
+    id: label
+    width: 156
+    anchors.top: parent.top
+    anchors.left: parent.left
+    text-align: right
+    font: Verdana Bold-11px
+    color: #c0c0c0
+    text-auto-reduce: true
+
+  Label
+    id: content
+    anchors.top: parent.top
+    anchors.left: label.right
+    anchors.right: parent.right
+    margin-left: 8
+    font: Verdana Bold-11px
+    color: #c0c0c0
+    text-wrap: true
+    text-auto-reduce: true
+
+ItemListLabel < UIWidget
+  size: 198 36
+  focusable: true
+
+  UIWidget
+    size: 34 34
+    image-source: /images/ui/item
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-left: 1
+    anchors.verticalCenter: parent.verticalCenter
+
+  UIItem
+    size: 32 32
+    id: item
+    virtual: true
+    priceable: true
+    draggable: false
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 2
+
+  Label
+    id: name
+    size: 145 34
+    !text: tr('Unknown')
+    font: Verdana Bold-11px
+    color: #c0c0c0
+    text-wrap: true
+    text-auto-reduce: true
+    text-align: left
+    anchors.top: parent.top
+    anchors.left: prev.right
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 5
+
+CategoryItemListLabel < Label
+  font: Verdana Bold-11px
+  height: 16
+  background-color: alpha
+  text-offset: 1 -1
+  focusable: true
+  color: #c0c0c0
+  text-auto-reduce: true
+
+UIWidget
+  id: itemDataPanel
+  size: 668 452
+  visible: false
+  focusable: true
+
+  UIWidget
+    id: leftInfo
+    anchors.top: parent.top
+    anchors.left: parent.left
+    size: 210 420
+    focusable: true
+
+    UIWidget
+      id: categoriesLabel
+      image-source: /game_cyclopedia/images/ui/names/name-categories
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 3
+      margin-left: 1
+
+    TextList
+      id: categoriesList
+      size: 200 60
+      margin-top: 6
+      anchors.top: categoriesLabel.bottom
+      anchors.left: parent.left
+      focusable: true
+      color: #c0c0c0
+      vertical-scrollbar: categoriesListScrollBar
+
+    VerticalScrollBar
+      id: categoriesListScrollBar
+      anchors.top: categoriesList.top
+      anchors.bottom: categoriesList.bottom
+      anchors.right: categoriesList.right
+      step: 14
+      pixels-scroll: true
+
+    Button
+      id: levelButton
+      size: 47 20
+      anchors.top: categoriesList.bottom
+      anchors.left: parent.left
+      !text: tr('Level')
+      margin-top: 31
+      font: cipsoftFont
+      enabled: false
+
+    Button
+      id: vocButton
+      size: 47 20
+      anchors.top: levelButton.top
+      anchors.left: prev.right
+      !text: tr('Voc.')
+      margin-left: 6
+      font: cipsoftFont
+      enabled: false
+
+    Button
+      id: oneHandButton
+      size: 46 20
+      anchors.top: levelButton.top
+      anchors.left: prev.right
+      !text: tr('1H')
+      margin-left: 6
+      font: cipsoftFont
+      enabled: false
+
+    Button
+      id: twoHandButton
+      size: 46 20
+      anchors.top: levelButton.top
+      anchors.left: prev.right
+      !text: tr('2H')
+      margin-left: 6
+      font: cipsoftFont
+      enabled: false
+
+    ComboBox
+      id: classOptions
+      anchors.left: parent.left
+      anchors.top: prev.bottom
+      margin-top: 6
+      font: Verdana Bold-11px
+      color: #c0c0c0
+      text-offset: -20 2
+      size: 77 20
+
+    UIWidget
+      id: itemsLabel
+      image-source: /game_cyclopedia/images/ui/names/name-items
+      anchors.top: prev.bottom
+      anchors.left: parent.left
+      margin-top: 9
+      margin-left: 1
+
+    ScrollablePanel
+      id: itemList
+      background-color: #414141
+      size: 200 135
+      margin-top: 8
+      anchors.top: prev.bottom
+      anchors.left: parent.left
+      vertical-scrollbar: itemListScrollBar
+      padding: 1
+      border-width: 1
+      border-color-bottom: #747575
+      border-color-right: #747575
+      border-color-top: #141414
+      layout:
+        type: verticalBox
+        align-top: true
+
+    VerticalScrollBar
+      id: itemListScrollBar
+      anchors.top: itemList.top
+      anchors.bottom: itemList.bottom
+      anchors.right: itemList.right
+      step: 28
+      pixels-scroll: true
+
+    UIWidget
+      id: imageWidget
+      size: 34 34
+      image-source: /images/ui/item
+      anchors.top: itemList.bottom
+      anchors.left: parent.left
+      margin-top: 7
+
+      UIItem
+        id: itemImage
+        size: 32 32
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.horizontalCenter: parent.horizontalCenter
+        virtual: true
+        priceable: true
+
+    UIWidget
+      id: searchLabel
+      image-source: /game_cyclopedia/images/ui/names/name-search
+      anchors.top: imageWidget.top
+      anchors.left: imageWidget.right
+      margin-top: 2
+      margin-left: 7
+
+    TextEdit
+      id: searchText
+      size: 161 16
+      anchors.top: searchLabel.bottom
+      anchors.left: searchLabel.left
+      margin-left: -1
+      margin-top: 8
+      focusable: true
+      !placeholder: tr('Type to search...')
+      box-text-padding: 20
+
+      Button
+        id: clearSearchButton
+        anchors.top: parent.top
+        anchors.right: parent.right
+        margin-top: 1
+        margin-right: 1
+        size: 14 14
+        image-source: /images/store/button-erase-small-up-2
+        image-clip: 0 0 14 14
+        tooltip: Clear all text from the search field.
+        @onClick: modules.game_cyclopedia.CyclopediaItems.clearSearch(self)
+
+    Label
+      id: header
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-left: 19
+      margin-top: 359
+      visible: false
+      font: cipsoftFont
+      color: #c0c0c0
+      !text: tr('Loot Value Source:')
+
+    CheckBox
+      id: circlenpc
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 378
+      margin-left: 20
+      size: 107 12
+      text-align: left
+      text-offset: 18 -2
+      color: #dfdfdf
+      image-color: #dfdfdfff
+      image-rect: 0 0 12 12
+      image-source: /game_cyclopedia/images/ui/checkboxcircle
+      visible: false
+      change-cursor-image: false
+      @onClick: modules.game_cyclopedia.CyclopediaItems.onSourceValueChange(self:isChecked(), true)
+
+      UIWidget
+        image-source: /game_cyclopedia/images/ui/names/npc-value
+        anchors.top: parent.top
+        anchors.left: parent.left
+        margin-top: 2
+        margin-left: 17
+
+    CheckBox
+      id: circlemarket
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 396
+      margin-left: 20
+      size: 158 12
+      text-align: left
+      text-offset: 18 -2
+      color: #dfdfdf
+      image-color: #dfdfdfff
+      image-rect: 0 0 12 12
+      image-source: /game_cyclopedia/images/ui/checkboxcircle
+      visible: false
+      change-cursor-image: false
+      @onClick: modules.game_cyclopedia.CyclopediaItems.onSourceValueChange(self:isChecked(), false)
+
+      UIWidget
+        image-source: /game_cyclopedia/images/ui/names/market-value
+        anchors.top: parent.top
+        anchors.left: parent.left
+        margin-top: 2
+        margin-left: 17
+
+  VerticalSeparator
+    id: separator
+    size: 2 420
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    anchors.left: leftInfo.right
+    margin-bottom: 44
+    margin-left: 1
+
+  UILabel
+    id: emptyLabel
+    size: 333 10
+    !text: tr('Please select an item from the list to see its details here.')
+    anchors.top: parent.top
+    anchors.left: separator.right
+    color: #c0c0c0
+    font: Verdana Bold-11px
+    text-auto-resize: true
+    margin-left: 10
+    margin-top: -1
+
+  UIWidget
+    id: panelitemshide
+    size: 456 425
+    background-color: alpha
+    anchors.top: parent.top
+    anchors.left: separator.right
+    margin-left: 0
+    margin-top: -5
+    visible: false
+
+    TextList
+      id: basicDetails
+      image-source: /images/ui/textedit
+      anchors.top: parent.top
+      anchors.left: parent.left
+      size: 446 150
+      focusable: false
+      vertical-scrollbar: basicItemDetailsScroll
+      auto-focus: first
+      margin-top: 23
+      margin-left: 10
+      visible: true
+
+    VerticalScrollBar
+      id: basicItemDetailsScroll
+      anchors.top: basicDetails.top
+      anchors.bottom: basicDetails.bottom
+      anchors.right: basicDetails.right
+      step: 14
+      margin-top: 1
+      margin-right: 1
+      margin-bottom: 1
+      pixels-scroll: true
+      visible: true
+
+    TextList
+      id: sellToList
+      anchors.top: parent.top
+      anchors.left: parent.left
+      size: 221 100
+      focusable: false
+      vertical-scrollbar: sellToListScroll
+      auto-focus: first
+      margin-top: 211
+      margin-left: 10
+      visible: true
+
+    VerticalScrollBar
+      id: sellToListScroll
+      anchors.top: sellToList.top
+      anchors.bottom: sellToList.bottom
+      anchors.right: sellToList.right
+      step: 14
+      margin-top: 1
+      margin-right: 1
+      margin-bottom: 1
+      pixels-scroll: true
+      visible: true
+
+    TextList
+      id: buyFromList
+      anchors.top: sellToList.top
+      anchors.left: sellToList.right
+      size: 220 100
+      focusable: false
+      vertical-scrollbar: buyFromListScroll
+      auto-focus: first
+      margin-left: 6
+      visible: true
+
+    VerticalScrollBar
+      id: buyFromListScroll
+      anchors.top: buyFromList.top
+      anchors.bottom: buyFromList.bottom
+      anchors.right: buyFromList.right
+      step: 14
+      margin-top: 1
+      margin-right: 1
+      margin-bottom: 1
+      pixels-scroll: true
+      visible: true
+
+    UIWidget
+      id: textGoldBoxOne
+      size: 104 20
+      anchors.top: parent.top
+      anchors.left: parent.left
+      image-source: /game_cyclopedia/images/ui/text-slot
+      image-clip: 0 0 28 20
+      image-border: 1
+      margin-top: 331
+      margin-left: 352
+      visible: true
+
+    UIWidget
+      id: textGoldBoxOneGold
+      anchors.top: textGoldBoxOne.top
+      anchors.right: textGoldBoxOne.right
+      anchors.verticalCenter: textGoldBoxOne.verticalCenter
+      image-source: /game_cyclopedia/images/ui/gold
+      margin-top: 1
+      margin-right: 3
+      visible: true
+
+    Label
+      id: averageMarketPrice
+      !text: tr('0')
+      text-auto-resize: true
+      font: Verdana Bold-11px
+      color: #c0c0c0
+      anchors.top: textGoldBoxOneGold.top
+      anchors.right: textGoldBoxOneGold.left
+      anchors.verticalCenter: textGoldBoxOneGold.verticalCenter
+      margin-top: -1
+      margin-right: 2
+
+    UIWidget
+      id: textGoldBoxTwo
+      size: 104 20
+      anchors.top: parent.top
+      anchors.left: parent.left
+      image-source: /game_cyclopedia/images/ui/text-slot
+      image-clip: 0 20 28 20
+      image-border: 1
+      margin-top: 351
+      margin-left: 352
+
+    TextEdit
+      size: 104 20
+      id: customPrice
+      font: Verdana Bold-11px
+      anchors.centerIn: textGoldBoxTwo
+      padding-right: 3
+      text-align: right
+      !placeholder: tr('Type to set')
+      max-length: 9
+
+    UIWidget
+      id: textGoldBoxThree
+      size: 104 20
+      anchors.top: parent.top
+      anchors.left: parent.left
+      image-source: /game_cyclopedia/images/ui/text-slot
+      image-clip: 0 0 28 20
+      image-border: 1
+      margin-top: 371
+      margin-left: 352
+
+    UIWidget
+      id: itemColor
+      size: 102 18
+      anchors.centerIn: textGoldBoxThree
+      image-source: /game_cyclopedia/images/ui/itemcolor/item-gold
+      visible: true
+
+    UIWidget
+      id: textGoldBoxThreeGold
+      anchors.top: textGoldBoxThree.top
+      anchors.right: textGoldBoxThree.right
+      anchors.verticalCenter: textGoldBoxThree.verticalCenter
+      image-source: /game_cyclopedia/images/ui/gold
+      margin-top: 1
+      margin-right: 3
+
+    Label
+      id: resultingValue
+      !text: tr('0')
+      text-auto-resize: true
+      font: Verdana Bold-11px
+      color: #c0c0c0
+      anchors.top: textGoldBoxThreeGold.top
+      anchors.right: textGoldBoxThreeGold.left
+      anchors.verticalCenter: textGoldBoxThreeGold.verticalCenter
+      margin-top: -1
+      margin-right: 2
+
+    UIWidget
+      id: nameBasicItem
+      image-source: /game_cyclopedia/images/ui/names/basicitem
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 7
+      margin-left: 11
+
+    UIWidget
+      id: nameSellTo
+      image-source: /game_cyclopedia/images/ui/names/sellto
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 195
+      margin-left: 11
+
+    UIWidget
+      id: nameBuyFrom
+      image-source: /game_cyclopedia/images/ui/names/buyfrom
+      anchors.top: nameSellTo.top
+      anchors.left: nameSellTo.right
+      margin-top: 1
+      margin-left: 181
+
+    UIWidget
+      id: nameAveragePref
+      image-source: /game_cyclopedia/images/ui/names/averagepreferresulting
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 337
+      margin-left: 11
+
+    CheckBox
+      id: checkbox-track-drops
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 412
+      margin-left: 10
+      size: 12 12
+      image-rect: 0 0 12 12
+      image-source: /game_cyclopedia/images/ui/checkbox
+      @onClick: modules.game_cyclopedia.CyclopediaItems.updateDropTracker(self, self:isChecked())
+
+    UIWidget
+      id: nameTrackDrops
+      image-source: /game_cyclopedia/images/ui/names/trackdrops
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 413
+      margin-left: 26
+
+    CheckBox
+      id: checkLootbox
+      anchors.top: checkbox-track-drops.top
+      anchors.left: checkbox-track-drops.right
+      margin-left: 261
+      size: 12 12
+      image-rect: 0 0 12 12
+      image-source: /game_cyclopedia/images/ui/checkbox
+      @onClick: modules.game_cyclopedia.CyclopediaItems.manageQuickloot(self, self:isChecked())
+
+    UIWidget
+      id: lootBox
+      image-source: /game_cyclopedia/images/ui/names/skipwhen
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 413
+      margin-left: 299
+
+    CheckBox
+      id: quickListbox
+      anchors.bottom: checkLootbox.top
+      anchors.left: checkLootbox.left
+      margin-bottom: 5
+      size: 12 12
+      image-rect: 0 0 12 12
+      image-source: /game_cyclopedia/images/ui/checkbox
+      @onClick: modules.game_cyclopedia.CyclopediaItems.manageQuickSellWhitelist(self, self:isChecked())
+
+    Label
+      id: quickListLabel
+      !text: tr('Skip when Quick Selling')
+      font: cipsoftFont
+      color: #c0c0c0
+      anchors.top: quickListbox.top
+      anchors.left: quickListbox.right
+      margin-top: -2
+      margin-left: 5
+
+  Button
+    id: manageContainer
+    size: 128 20
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    !text: tr('Manage Containers')
+    margin-bottom: 1
+    font: cipsoftFont
+    text-color: #c0c0c0
+    enabled: false
+
+  HorizontalSeparator
+    id: horizontalSeparator
+    anchors.bottom: closeButton.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 12
+
+  Button
+    id: closeButton
+    size: 43 20
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    !text: tr('Close')
+    font: cipsoftFont
+    @onClick: modules.game_cyclopedia.toggle()
+
+  Button
+    id: backButton
+    size: 43 20
+    anchors.bottom: parent.bottom
+    anchors.right: closeButton.left
+    margin-right: 6
+    !text: tr('Back')
+    font: cipsoftFont
+    @onClick: modules.game_cyclopedia.show('bestiary')
