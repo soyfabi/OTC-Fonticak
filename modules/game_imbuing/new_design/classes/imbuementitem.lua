@@ -5,6 +5,7 @@ return function(context)
     lastselectedwidget = nil,
     selectedSlot = 0,
     itemId = 0,
+    itemName = nil,
     tier = 0,
     slots = 0,
     activeSlots = {},
@@ -15,8 +16,9 @@ return function(context)
   itemApi.__index = itemApi
 
   local self = itemApi
-function itemApi.setup(itemId, tier, slots, activeSlots, availableImbuements, needItems)
+function itemApi.setup(itemId, tier, slots, activeSlots, availableImbuements, needItems, itemName)
     self.itemId = itemId
+    self.itemName = itemName
     self.tier = tier
     self.slots = slots
 
@@ -63,7 +65,10 @@ function itemApi.configureWindow(window)
         end
     end
     
-    local itemName = context.getItemNameById(self.itemId)
+    local itemName = self.itemName
+    if not itemName or itemName == "" or itemName == "item" then
+        itemName = context.getItemNameById(self.itemId)
+    end
     local itemWidget = window:recursiveGetChildById("item")
     if itemWidget then
         itemWidget:setItemId(self.itemId)

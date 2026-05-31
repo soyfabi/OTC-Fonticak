@@ -182,7 +182,7 @@ return function(context)
     end
   end
 
-  function imbuementApi.onImbuementItem(itemId, tier, slots, activeSlots, availableImbuements, needItems)
+  function imbuementApi.onImbuementItem(itemId, tier, slots, activeSlots, availableImbuements, needItems, itemName)
     self.ensureWindow()
     local needItemsTable = {}
 
@@ -196,7 +196,7 @@ return function(context)
 
     self:show()
     self:toggleMenu("selectImbue")
-    context.item.setup(itemId, tier, slots, activeSlots, availableImbuements, needItemsTable)
+    context.item.setup(itemId, tier, slots, activeSlots, availableImbuements, needItemsTable, itemName)
   end
 
   function imbuementApi.onImbuementScroll(availableImbuements, needItems)
