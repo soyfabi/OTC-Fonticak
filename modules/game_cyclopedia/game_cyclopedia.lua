@@ -115,9 +115,8 @@ function toggleTracker()
 end
 
 function emptyContentContainer()
-	while contentContainer:getChildCount() > 0 do
-		local child = contentContainer:getLastChild()
-		contentContainer:destroyChildren(child)
+	for _, child in ipairs(contentContainer:getChildren()) do
+		child:hide()
 	end
 end
 

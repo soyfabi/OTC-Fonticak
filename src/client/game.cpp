@@ -2009,6 +2009,22 @@ void Game::imbuementDurations(const bool isOpen)
     m_protocolGame->sendImbuementDurations(isOpen);
 }
 
+void Game::sendWeaponProficiencyAction(const uint8_t actionType, const uint16_t itemId)
+{
+    if (!canPerformGameAction())
+        return;
+
+    m_protocolGame->sendWeaponProficiencyAction(actionType, itemId);
+}
+
+void Game::sendWeaponProficiencyApply(const uint16_t itemId, const std::vector<uint8_t>& levels, const std::vector<uint8_t>& perkPositions)
+{
+    if (!canPerformGameAction())
+        return;
+
+    m_protocolGame->sendWeaponProficiencyApply(itemId, levels, perkPositions);
+}
+
 void Game::openWheelOfDestiny(uint32_t playerId)
 {
     if (!playerId || !canPerformGameAction())

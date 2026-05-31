@@ -150,6 +150,11 @@ public:
     void sendCloseImbuingWindow();
     void sendSelectImbuementItem(uint16_t itemId, const Position& position, uint8_t stackPos);
     void sendSelectImbuementScroll();
+
+    // Weapon Proficiency
+    void sendWeaponProficiencyAction(uint8_t actionType, uint16_t itemId = 0);
+    void sendWeaponProficiencyApply(uint16_t itemId, const std::vector<uint8_t>& levels, const std::vector<uint8_t>& perkPositions);
+
     void sendOpenRewardWall();
     void sendOpenRewardHistory();
     void sendGetRewardDaily(const uint8_t bonusShrine, const std::map<uint16_t, uint8_t>& items);
@@ -383,8 +388,10 @@ private:
     void parseBestiaryCharmsData(const InputMessagePtr& msg);
 
     // 15x
+    void parseWeaponProficiencyCatalog(const InputMessagePtr& msg);
     void parseWeaponProficiencyExperience(const InputMessagePtr& msg);
     void parseWeaponProficiencyInfo(const InputMessagePtr& msg);
+    void parseWeaponProficiencyInfoBatch(const InputMessagePtr& msg);
 
     void parseHighscores(const InputMessagePtr& msg);
     void parseAttachedEffect(const InputMessagePtr& msg);

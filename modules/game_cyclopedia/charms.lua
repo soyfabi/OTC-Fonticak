@@ -574,6 +574,13 @@ function requestBestiaryCharmRefresh()
 end
 
 function initCharms()
+	if charmsWindow then
+		charmsWindow:show()
+		updateBalances()
+		refreshCharmGrid()
+		return
+	end
+
 	charmsWindow = g_ui.loadUI('styles/charms', getContentContainer())
 	charmsWindow:show()
 

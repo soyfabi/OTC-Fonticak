@@ -580,6 +580,7 @@ namespace Otc
         GameMultiSpr = 129,
         GameVocationMonk = 130,
         GameItemTierByte = 131,
+        GameProficiency = 132,
         LastGameFeature
     };
 

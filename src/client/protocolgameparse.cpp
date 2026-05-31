@@ -174,6 +174,12 @@ void ProtocolGame::parseMessage(const InputMessagePtr& msg)
                 case Proto::GameServerItemsPriceList:
                     parseItemsPriceList(msg);
                     break;
+                case Proto::GameServerWeaponProficiencyCatalog:
+                    parseWeaponProficiencyCatalog(msg);
+                    break;
+                case Proto::GameServerWeaponProficiencyInfoBatch:
+                    parseWeaponProficiencyInfoBatch(msg);
+                    break;
                 case Proto::GameServerWeaponProficiencyExperience:
                     parseWeaponProficiencyExperience(msg);
                     break;
@@ -6513,22 +6519,51 @@ void ProtocolGame::parseHighscores(const InputMessagePtr& msg)
     g_game.processHighscore(serverName, world, worldType, battlEye, vocations, categories, page, totalPages, highscores, entriesTs);
 }
 
+void ProtocolGame::parseWeaponProficiencyCatalog(const InputMessagePtr& msg)
+{
+    const uint16_t count = msg->getU16();
+    for (uint16_t i = 0; i < count; ++i) {
+        const uint16_t itemId = msg->getU16();
+        const uint16_t marketCategory = msg->getU16();
+        const std::string name = msg->getString();
+        g_lua.callGlobalField("g_game", "onWeaponProficiencyCatalogItem", itemId, marketCategory, name);
+    }
+    g_lua.callGlobalField("g_game", "onWeaponProficiencyCatalogReady");
+}
+
 void ProtocolGame::parseWeaponProficiencyExperience(const InputMessagePtr& msg)
 {
-    msg->getU16(); // itemId
-    msg->getU32(); // Experience
-    msg->getU8(); // 1
+    const uint16_t itemId = msg->getU16();
+    const uint32_t experience = msg->getU32();
+    const uint8_t hasUnusedPerk = msg->getU8();
+    g_lua.callGlobalField("g_game", "onWeaponProficiencyExperience", itemId, experience, hasUnusedPerk != 0);
+}
+
+static void parseWeaponProficiencyInfoPayload(const InputMessagePtr& msg)
+{
+    const uint16_t itemId = msg->getU16();
+    const uint32_t experience = msg->getU32();
+    const uint8_t perksCount = msg->getU8();
+    std::vector<std::vector<uint8_t>> perks;
+    for (int i = 0; i < perksCount; ++i) {
+        const uint8_t level = msg->getU8();
+        const uint8_t perkPosition = msg->getU8();
+        perks.push_back({ level, perkPosition });
+    }
+    const uint16_t marketCategory = msg->getU16();
+    g_lua.callGlobalField("g_game", "onWeaponProficiency", itemId, experience, perks, marketCategory);
 }
 
 void ProtocolGame::parseWeaponProficiencyInfo(const InputMessagePtr& msg)
 {
-    msg->getU16(); // itemId
-    msg->getU32(); // experience
+    parseWeaponProficiencyInfoPayload(msg);
+}
 
-    const uint8_t size = msg->getU8();
-    for (auto j = 0; j < size; ++j) {
-        msg->getU8(); // proficiencyLevel
-        msg->getU8(); // perkPosition
+void ProtocolGame::parseWeaponProficiencyInfoBatch(const InputMessagePtr& msg)
+{
+    const uint16_t count = msg->getU16();
+    for (uint16_t i = 0; i < count; ++i) {
+        parseWeaponProficiencyInfoPayload(msg);
     }
 }
 

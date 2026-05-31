@@ -82,6 +82,8 @@ namespace Proto
         GameServerFeatures = 67,
         GameServerFloorDescription = 75,
         GameServerItemsPriceList = 83,
+        GameServerWeaponProficiencyCatalog = 90,
+        GameServerWeaponProficiencyInfoBatch = 91,
 
         // original tibia ONLY
         GameServerWeaponProficiencyExperience = 92,
@@ -328,6 +330,7 @@ namespace Proto
         ClientBosstiaryRequestSlotAction = 176,
         ClientRequestHighscore = 177,
         ClientImbuementAction = 178,
+        ClientWeaponProficiency = 179,
         ClientCancelAttackAndFollow = 190,
         ClientForgeEnter = 191,
         ClientForgeBrowseHistory = 192,

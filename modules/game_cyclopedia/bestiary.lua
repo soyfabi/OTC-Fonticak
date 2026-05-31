@@ -1316,6 +1316,14 @@ function updateBestiaryTracker(msg)
 end
 
 function initBestiary(contentContainer)
+	if bestiaryPanel then
+		bestiaryPanel:show()
+		if #currentCategoriesList == 0 then
+			requestBestiaryData()
+		end
+		return
+	end
+
 	bestiaryPanel = g_ui.loadUI("styles/bestiary", contentContainer)
 	bestiaryPanel:show()
 	

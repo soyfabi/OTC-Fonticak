@@ -1,0 +1,12 @@
+Module
+  name: game_proficiency
+  description: Weapon Proficiency System
+  sandboxed: true
+  scripts: [ const, proficiency_data, proficiency ]
+  autoload: true
+  autoload-priority: 1200
+  minClientVersion: 860
+  dependencies:
+    - game_interface
+  @onLoad: init()
+  @onUnload: terminate()

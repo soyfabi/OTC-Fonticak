@@ -6,6 +6,7 @@ local depotLockerItems = {}
 local buyOffers = {}
 local sellOffers = {}
 cachedMarketBalance = 0
+cachedMarketBalanceKnown = false
 
 local lastSelectedCategory = nil
 local lastSelectedItem = {}
@@ -471,13 +472,12 @@ function onResourcesBalanceChange(value, oldBalance, resourceType)
     -- Get money from resource balance system
     local playerBank = player:getResourceBalance(ResourceTypes.BANK_BALANCE) or 0
     local playerInventory = player:getResourceBalance(ResourceTypes.GOLD_EQUIPPED) or 0
-    local totalMoney = playerBank + playerInventory
 
-    -- Fallback: use cached balance from onMarketEnter if resource system has no data
-    if totalMoney == 0 and cachedMarketBalance > 0 then
-        totalMoney = cachedMarketBalance
+    if cachedMarketBalanceKnown then
         playerBank = cachedMarketBalance
     end
+
+    local totalMoney = playerBank + playerInventory
 
     local playerCoins = getTransferableTibiaCoins()
     local moneyTooltip = "Cash: " .. comma_value(playerInventory) .. "\nBank: " .. comma_value(playerBank)
@@ -669,6 +669,7 @@ function onMarketEnter(items, offerCount, balance, vocation, customItems)
         -- Update balance and items even if already visible
         if balance and balance >= 0 then
             cachedMarketBalance = balance
+            cachedMarketBalanceKnown = true
             onResourcesBalanceChange(0, 0, 0)
         end
         return
@@ -720,6 +721,7 @@ function onMarketEnter(items, offerCount, balance, vocation, customItems)
     -- Cache the balance from the server packet for use as fallback
     if balance and balance >= 0 then
         cachedMarketBalance = balance
+        cachedMarketBalanceKnown = true
     end
 
     -- Refresh all balances (will use cachedMarketBalance as fallback if needed)
@@ -1646,6 +1648,7 @@ function onAcceptSellOffer()
     
     scheduleEvent(function()
         if lastItemID and lastItemID > 0 then sendMarketAction(3, lastItemID, lastItemTier) end
+        sendMarketAction(2)
         sendMarketEnter()
     end, 500)
 end
@@ -1671,6 +1674,7 @@ function onAcceptBuyOffer()
     
     scheduleEvent(function()
         if lastItemID and lastItemID > 0 then sendMarketAction(3, lastItemID, lastItemTier) end
+        sendMarketAction(2)
         sendMarketEnter()
     end, 500)
 end
@@ -1930,6 +1934,9 @@ function createMarketOffer()
         end
     end
 
+    local refreshItemId = lastSelectedItem.itemId
+    local refreshItemTier = lastSelectedItem.tier or 0
+
     mainMarket.amountCreateScrollBar:setRange(0, 0)
     mainMarket.createButton:setEnabled(false)
     mainMarket.amountCreateScrollBar:setValue(0)
@@ -1943,15 +1950,18 @@ function createMarketOffer()
     lastItemID = 0
     lastItemTier = 0
 
-    sendMarketCreateOffer(currentActionType, lastSelectedItem.itemId, lastSelectedItem.tier or 0, amount, piecePrice,
+    sendMarketCreateOffer(currentActionType, refreshItemId, refreshItemTier, amount, piecePrice,
         mainMarket.anonymous:isChecked())
 
     scheduleEvent(function()
-        if not table.empty(lastSelectedItem) then
+        if refreshItemId and refreshItemId > 0 then
             marketOffersBuy = {}
             marketOffersSell = {}
-            sendMarketAction(3, lastSelectedItem.itemId, lastSelectedItem.tier or 0)
+            sendMarketAction(3, refreshItemId, refreshItemTier)
         end
+        marketMyOffersBuy = {}
+        marketMyOffersSell = {}
+        sendMarketAction(2)
         sendMarketEnter()
     end, 500)
 end
@@ -2428,10 +2438,9 @@ function onMarketDetail(itemID, details, purchase, sale, tier)
     end
 end
 
-function getItemNameById(itemId)
+function getMarketItemName(itemId)
     -- Search in all categories from 1 to 31 (includes Soul Cores)
-    for c = 1, 31 do
-        local marketItem = marketItems[c]
+    for c, marketItem in pairs(marketItems) do
         if marketItem then
             for _, data in pairs(marketItem) do
                 if data.thingType:getId() == itemId then
@@ -2441,7 +2450,19 @@ function getItemNameById(itemId)
         end
     end
 
-    return ''
+    local thingType = g_things.getThingType(itemId, ThingCategoryItem)
+    if thingType then
+        local marketData = thingType:getMarketData()
+        if marketData and marketData.name and marketData.name ~= '' then
+            return marketData.name
+        end
+    end
+
+    return tostring(itemId)
+end
+
+function getItemNameById(itemId)
+    return getMarketItemName(itemId)
 end
 
 function onRedirect(item)

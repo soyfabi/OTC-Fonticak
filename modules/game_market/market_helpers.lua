@@ -80,18 +80,22 @@ function getTotalMoney()
     if not player then
         return 0
     end
-    
+
+    local inventory = player:getResourceBalance(1) or 0
+    if marketWindow and marketWindow:isVisible() and cachedMarketBalanceKnown then
+        return cachedMarketBalance + inventory
+    end
+
     local total = 0
     if player.getTotalMoney then
         total = player:getTotalMoney()
     else
         local bankBalance = player:getResourceBalance(0) or 0
-        local goldEquipped = player:getResourceBalance(1) or 0
-        total = bankBalance + goldEquipped
+        total = bankBalance + inventory
     end
     
     -- Fallback: use cached balance from market enter packet
-    if total == 0 and cachedMarketBalance and cachedMarketBalance > 0 then
+    if total == 0 and cachedMarketBalanceKnown then
         total = cachedMarketBalance
     end
     

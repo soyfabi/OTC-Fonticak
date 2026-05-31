@@ -410,6 +410,11 @@ public:
     void selectImbuementItem(uint16_t itemId, const Position& position, uint8_t stackPos);
     void selectImbuementScroll();
     void imbuementDurations(bool isOpen = false);
+
+    // weapon proficiency related
+    void sendWeaponProficiencyAction(uint8_t actionType, uint16_t itemId = 0);
+    void sendWeaponProficiencyApply(uint16_t itemId, const std::vector<uint8_t>& levels, const std::vector<uint8_t>& perkPositions);
+
     void openWheelOfDestiny(uint32_t playerId);
     void applyWheelOfDestiny(const std::vector<uint16_t>& wheelPointsVec, const std::vector<uint16_t>& activeGemsVec);
 
