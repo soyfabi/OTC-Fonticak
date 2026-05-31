@@ -60,6 +60,7 @@ function scrollApi.selectBaseType(selectedButtonId)
     end
 
     local imbuementsList = self.window:recursiveGetChildById("imbuementsList")
+    self.lastselectedwidget = nil
     imbuementsList:destroyChildren()
 
     local imbuementsDetails = self.window:recursiveGetChildById("imbuementsDetails")

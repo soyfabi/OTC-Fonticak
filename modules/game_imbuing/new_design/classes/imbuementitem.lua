@@ -35,6 +35,7 @@ function itemApi.setup(itemId, tier, slots, activeSlots, availableImbuements, ne
     end
 
     self.selectedSlot = 0
+    self.lastselectedwidget = nil
     self.onSelectImbuementSlot(self.selectedSlot)
 
     -- Verificar se o slot 0 tem um imbuement ativo e passar para updateWindowState
@@ -118,6 +119,7 @@ end
 function itemApi:shutdown()
     self.window = nil
     self.itemId = 0
+    self.itemName = nil
     self.tier = 0
     self.slots = 0
     self.activeSlots = {}
@@ -127,10 +129,7 @@ function itemApi:shutdown()
         self.confirmWindow:destroy()
     end
 
-    if self.lastselectedwidget then
-        self.lastselectedwidget:destroy()
-        self.lastselectedwidget = nil
-    end
+    self.lastselectedwidget = nil
     self.confirmWindow = nil
 end
 
@@ -269,6 +268,7 @@ function itemApi.selectBaseType(selectedButtonId)
 
     local imbuementsList = self.window:recursiveGetChildById("imbuementsList")
     imbuementsList:setWidth(70)
+    self.lastselectedwidget = nil
     imbuementsList:destroyChildren()
 
     local imbuementsDetails = self.window:recursiveGetChildById("imbuementsDetails")

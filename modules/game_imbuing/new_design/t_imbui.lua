@@ -104,6 +104,7 @@ return function(context)
 
   function imbuementApi.show()
     self.ensureWindow()
+    self:updateGold()
     self.window:show(true)
     self.window:raise()
     self.window:focus()
@@ -171,7 +172,6 @@ return function(context)
   function imbuementApi.onOpenImbuementWindow()
     self.ensureWindow()
     self:show()
-    self:updateGold()
 
     self:toggleMenu("selectItemOrScroll")
   end
@@ -211,6 +211,7 @@ return function(context)
       end
     end
 
+    self:show()
     self:toggleMenu("scrollImbue")
     context.scroll.setup(availableImbuements, needItemsTable)
   end
