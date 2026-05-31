@@ -35,9 +35,41 @@ local function getPlayerBalance()
 end
 
 local function getItemNameById(itemId)
+  local function validName(name)
+    return name and name ~= "" and name ~= "unnamed" and name ~= "Unknown Item"
+  end
+
+  if Item and Item.create then
+    local ok, item = pcall(function()
+      return Item.create(itemId, 1)
+    end)
+    if ok and item then
+      if item.getName then
+        local nameOk, name = pcall(function()
+          return item:getName()
+        end)
+        if nameOk and validName(name) then
+          return name
+        end
+      end
+
+      if item.getMarketData then
+        local marketOk, marketData = pcall(function()
+          return item:getMarketData()
+        end)
+        if marketOk and marketData and validName(marketData.name) then
+          return marketData.name
+        end
+      end
+    end
+  end
+
   local itemType = g_things.getThingType(itemId, ThingCategoryItem)
   if itemType and itemType.getName and type(itemType.getName) == "function" then
-    return itemType:getName() or "Unknown Item"
+    local name = itemType:getName()
+    if validName(name) then
+      return name
+    end
   end
 
   return "Unknown Item"
