@@ -3,6 +3,7 @@ skillsButton = nil
 skillsSettings = nil
 local ExpRating = {}
 local smallSkillsCache = {}
+local wheelSkillStatsEnabled = false
 
 -- Cache for stats data when UI elements are hidden
 local statsCache = {
@@ -38,6 +39,39 @@ local statsCache = {
     transcendence = 0,
     amplification = 0
 }
+
+local wheelAbsorbIds = {
+    physical = 0,
+    fire = 1,
+    earth = 2,
+    energy = 3,
+    ice = 4,
+    holy = 5,
+    death = 6,
+    healing = 7,
+    drown = 8,
+    lifedrain = 9,
+    manadrain = 10
+}
+
+local function onWheelSkillStats(protocol, opcode, data)
+    local player = g_game.getLocalPlayer()
+    if not player or type(data) ~= 'table' then
+        return
+    end
+
+    wheelSkillStatsEnabled = true
+    local absorbs = {}
+    for name, id in pairs(wheelAbsorbIds) do
+        absorbs[id] = data.absorbs and data.absorbs[name] or 0
+    end
+
+    onImbuementsChange(player, data.lifeLeech or 0, data.manaLeech or 0, data.criticalChance or 0,
+        data.criticalDamage or 0, 0)
+    onDefenseInfoChange(player, data.defense or 0, data.armor or 0, data.mitigation or 0, 0, 0)
+    onCombatAbsorbValuesChange(player, absorbs)
+    updateHeight()
+end
 
 local function setupUIButtons()
     local toggleFilterButton = skillsWindow:recursiveGetChildById('toggleFilterButton')
@@ -146,6 +180,7 @@ function init()
 
     setupUIButtons()
     skillsWindow:setup()
+    ProtocolGame.registerExtendedJSONOpcode(ExtendedIds.WheelSkills, onWheelSkillStats)
     if g_game.isOnline() then
         online()
         skillsWindow:setupOnStart()
@@ -185,6 +220,7 @@ function terminate()
     })
 
     Keybind.delete("Windows", "Show/hide skills windows")
+    ProtocolGame.unregisterExtendedJSONOpcode(ExtendedIds.WheelSkills)
     skillsWindow:destroy()
     skillsButton:destroy()
 
@@ -231,7 +267,7 @@ local function setSkillGroupVisibility(groupName, visible)
             if visible then
                 local valueWidget = skill:getChildById('value')
                 local text = valueWidget and valueWidget:getText() or ""
-                if g_game.getClientVersion() >= 1410 then
+                if g_game.getClientVersion() >= 1410 or wheelSkillStatsEnabled then
                     skill:setVisible(text ~= "" and text ~= "0" and text ~= "0%" and 
                         text ~= "+ 0%" and text ~= "0.0%" and text ~= "+ 0.0%")
                 else
@@ -245,7 +281,7 @@ local function setSkillGroupVisibility(groupName, visible)
 end
 
 local function areStatsVisible(groupName)
-    if g_game.getClientVersion() < 1412 and groupName ~= 'individual' then
+    if g_game.getClientVersion() < 1412 and not wheelSkillStatsEnabled and groupName ~= 'individual' then
         return false
     end
     
@@ -289,7 +325,7 @@ local function refreshGroupData(groupName)
 end
 
 local function toggleGroupVisibility(groupName)
-    if g_game.getClientVersion() < 1412 and groupName ~= 'individual' then
+    if g_game.getClientVersion() < 1412 and not wheelSkillStatsEnabled and groupName ~= 'individual' then
         return
     end
     
@@ -321,8 +357,8 @@ local function hideOldClientStats()
         skillsWindow:recursiveGetChildById('experience'):getChildByIndex(1):setText('XP')
     end
     local version = g_game.getClientVersion()
-    setSkillGroupVisibility('offence', features.charSkills)
-    setSkillGroupVisibility('defence', features.charSkills)
+    setSkillGroupVisibility('offence', features.charSkills or wheelSkillStatsEnabled)
+    setSkillGroupVisibility('defence', features.charSkills or wheelSkillStatsEnabled)
     setSkillGroupVisibility('misc', features.charSkills)
     setSkillGroupVisibility('GameAdditionalSkills', features.additionalSkills)
     setSkillGroupVisibility('GameForgeSkillStats1332', features.forgeSkills and version >= 1332)
@@ -890,7 +926,7 @@ function refresh()
     end
     update()
     updateHeight()
-    if g_game.getClientVersion() >= 1410 then
+    if g_game.getClientVersion() >= 1410 or wheelSkillStatsEnabled then
         onFlatDamageHealingChange(player, statsCache.flatDamageHealing)
         onAttackInfoChange(player, statsCache.attackValue, statsCache.attackElement)
         onConvertedDamageChange(player, statsCache.convertedDamage, statsCache.convertedElement)
@@ -930,7 +966,7 @@ function loadSkillsVisibilitySettings()
         end
     end
     
-    if g_game.getClientVersion() >= 1412 then
+    if g_game.getClientVersion() >= 1412 or wheelSkillStatsEnabled then
         local groupSettings = {
             {name = 'offence', key = 'offenceStats_visible'},
             {name = 'defence', key = 'defenceStats_visible'},
@@ -993,6 +1029,7 @@ local function resetTable(t)
 end
 
 function offline()
+    wheelSkillStatsEnabled = false
     skillsWindow:setParent(nil, true)
     if expSpeedEvent then
         expSpeedEvent:cancel()
@@ -1372,7 +1409,7 @@ local function setSkillValueWithTooltips(id, value, tooltip, showPercentage, col
         return
     end
     
-    if g_game.getClientVersion() < 1412 then
+    if g_game.getClientVersion() < 1412 and not wheelSkillStatsEnabled then
         local oldClientStats = {
             'skillId7', 'skillId8', 'skillId9', 'skillId10', 'skillId11', 'skillId12', 
             'skillId13', 'skillId14', 'skillId15', 'skillId16',
@@ -1392,7 +1429,7 @@ local function setSkillValueWithTooltips(id, value, tooltip, showPercentage, col
         end
     end
     
-    if g_game.getClientVersion() >= 1412 then
+    if g_game.getClientVersion() >= 1412 or wheelSkillStatsEnabled then
         local char = g_game.getCharacterName()
         if char and skillSettings and skillSettings[char] then
             local settings = skillSettings[char]
