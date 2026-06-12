@@ -330,6 +330,22 @@ function parseCatalog(msg)
     addCategory(category)
   end
 
+  -- Banners da home (servidor #93) vêm após as categorias: u8 count +
+  -- (string imagem, u8 action, u32 target) por banner + u8 delay. Sem
+  -- consumir, os bytes sobram e viram opcode fantasma (0x01). Guard de
+  -- getUnreadSize mantém compat com servidor antigo sem banners.
+  if msg:getUnreadSize() > 0 then
+    local bannerCount = msg:getU8()
+    for i = 1, bannerCount do
+      msg:getString() -- caminho da imagem
+      msg:getU8() -- action
+      msg:getU32() -- target (offer id)
+    end
+    if msg:getUnreadSize() > 0 then
+      msg:getU8() -- delay de rotação dos banners
+    end
+  end
+
   onGameStoreUpdatePoints({ points = premiumPoints })
 
   local firstCategory = categoriesList:getFirstChild()

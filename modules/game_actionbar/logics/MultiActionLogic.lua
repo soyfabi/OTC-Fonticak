@@ -781,6 +781,10 @@ function assignMultiAction(button, skipPrefill)
             local data = button.cache.multiActions[k] or {}
 
             actionButton.onMouseRelease = function(self, mousePos, mouseBtn)
+                -- closure atrasada: button.cache pode ter sido limpo (logout/reset)
+                if not button.cache or not button.cache.multiActions then
+                    return
+                end
                 local current = button.cache.multiActions[k]
                 onMultiActionButtonMouseRelease(self, mousePos, mouseBtn, button, current)
             end
@@ -808,6 +812,9 @@ function assignMultiAction(button, skipPrefill)
                     end
                 end
                 actionButton.item.onDragEnter = function(self, mousePos)
+                    if not button.cache or not button.cache.multiActions then
+                        return false
+                    end
                     local current = button.cache.multiActions[k]
                     if not current or table.empty(current) then
                         return false

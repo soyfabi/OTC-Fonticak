@@ -25,6 +25,10 @@
 #include "inputmessage.h"
 #include "outputmessage.h"
 #include "framework/core/clock.h"
+#ifdef ANDROID
+#include "framework/core/resourcemanager.h"
+#endif
+
 PacketRecorder::PacketRecorder(const std::string_view& file)
 {
     m_start = g_clock.millis();

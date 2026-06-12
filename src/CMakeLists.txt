@@ -80,7 +80,11 @@ endif()
 # Cmake Features
 # *****************************************************************************
 set(GNUCXX_MINIMUM_VERSION 9)
-set(CMAKE_CXX_STANDARD 23)
+if(MSVC)
+  set(CMAKE_CXX_STANDARD 20)
+else()
+  set(CMAKE_CXX_STANDARD 23)
+endif()
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 set(CMAKE_POSITION_INDEPENDENT_CODE ON)
@@ -101,6 +105,13 @@ elseif(ANDROID)
   add_library(${PROJECT_NAME} SHARED ${SOURCE_FILES})
 else()
   add_executable(${PROJECT_NAME} "")
+endif()
+
+if(NOT OTCLIENT_BUILD_CLIENT)
+  set_target_properties(${PROJECT_NAME} PROPERTIES EXCLUDE_FROM_ALL ON)
+  if(MSVC)
+    set_target_properties(${PROJECT_NAME} PROPERTIES EXCLUDE_FROM_DEFAULT_BUILD ON)
+  endif()
 endif()
 
 # *****************************************************************************
@@ -189,21 +200,33 @@ if(NOT DEFINED VCPKG_TARGET_TRIPLET)
 endif()
 find_package(OpenSSL QUIET)
 find_package(PhysFS REQUIRED)
+if(DEFINED VCPKG_TARGET_TRIPLET)
+  unset(ZLIB_LIBRARY CACHE)
+  unset(ZLIB_LIBRARY_DEBUG CACHE)
+  unset(ZLIB_LIBRARY_RELEASE CACHE)
+endif()
 find_package(ZLIB REQUIRED)
+find_package(PNG REQUIRED)
 find_package(phmap REQUIRED)
 find_package(absl CONFIG REQUIRED)
 if (TOGGLE_FRAMEWORK_PROTOBUF)
   find_package(Protobuf REQUIRED)
 endif()
 find_package(LibLZMA REQUIRED)
+if(NOT ANDROID)
+  find_package(LibArchive REQUIRED)
+endif()
 find_package(nlohmann_json REQUIRED)
 find_package(asio REQUIRED)
 find_package(Threads REQUIRED)
 find_package(STDUUID CONFIG REQUIRED)
 find_package(pugixml CONFIG REQUIRED)
-find_package(ZLIB REQUIRED)
 find_package(httplib CONFIG REQUIRED)
 find_package(fmt CONFIG REQUIRED)
+if(NOT WASM)
+  find_package(ixwebsocket CONFIG REQUIRED)
+endif()
+find_package(spdlog CONFIG REQUIRED)
 find_package(utf8cpp REQUIRED)
 if(DEFINED VCPKG_TARGET_TRIPLET)
   find_package(unofficial-inih CONFIG REQUIRED)
@@ -213,6 +236,34 @@ else()
 endif()
 find_package(Freetype REQUIRED)
 
+if (TARGET spdlog::spdlog)
+  set(OTCLIENT_SPDLOG_TARGET spdlog::spdlog)
+elseif (TARGET spdlog::spdlog_header_only)
+  set(OTCLIENT_SPDLOG_TARGET spdlog::spdlog_header_only)
+else()
+  message(FATAL_ERROR "spdlog target not found; expected spdlog::spdlog or spdlog::spdlog_header_only")
+endif()
+
+if (TARGET fmt::fmt)
+  set(OTCLIENT_FMT_TARGET fmt::fmt)
+elseif (TARGET fmt::fmt-header-only)
+  set(OTCLIENT_FMT_TARGET fmt::fmt-header-only)
+else()
+  message(FATAL_ERROR "fmt target not found; expected fmt::fmt or fmt::fmt-header-only")
+endif()
+
+if(NOT ANDROID)
+  add_definitions(-DFRAMEWORK_HAVE_LIBARCHIVE)
+  if(TARGET LibArchive::LibArchive)
+    set(LIBARCHIVE_LIBRARY LibArchive::LibArchive)
+  else()
+    include_directories(${LibArchive_INCLUDE_DIRS})
+    set(LIBARCHIVE_LIBRARY ${LibArchive_LIBRARIES})
+  endif()
+else()
+  set(LIBARCHIVE_LIBRARY "")
+endif()
+
 find_path(CPPCODEC_INCLUDE_DIRS "cppcodec/base32_crockford.hpp")
 
 if(APPLE)
@@ -220,8 +271,14 @@ if(APPLE)
   find_library(FOUNDATION Foundation REQUIRED)
   find_library(IOKIT IOKit REQUIRED)
 endif()
-if(UNIX AND NOT ANDROID AND NOT WASM)
+if(UNIX AND NOT APPLE AND NOT ANDROID AND NOT WASM)
   find_package(X11 REQUIRED)
+endif()
+if(APPLE AND NOT ANDROID AND NOT WASM)
+  find_library(COCOA_LIBRARY Cocoa REQUIRED)
+  find_library(COREVIDEO_LIBRARY CoreVideo REQUIRED)
+  find_library(QUARTZCORE_LIBRARY QuartzCore REQUIRED)
+  find_library(OPENGL_FRAMEWORK OpenGL REQUIRED)
 endif()
 if(WIN32)
   find_package(DbgHelp REQUIRED)
@@ -474,8 +531,6 @@ if (TOGGLE_FRAMEWORK_GRAPHICS)
           framework/graphics/texturemanager.cpp
           framework/graphics/xbrz.cpp
           framework/graphics/shadermanager.cpp
-          framework/platform/win32window.cpp
-          framework/platform/x11window.cpp
           framework/ui/uianchorlayout.cpp
           framework/ui/uiboxlayout.cpp
           framework/ui/uigridlayout.cpp
@@ -528,17 +583,37 @@ if(ANDROID)
   )
 endif()
 
+if(WIN32)
+  set(SOURCE_FILES ${SOURCE_FILES} framework/platform/win32window.cpp)
+elseif(APPLE AND NOT ANDROID AND NOT WASM)
+  set(SOURCE_FILES ${SOURCE_FILES}
+          framework/platform/cocoawindow.mm
+          framework/platform/cocoaview.mm
+  )
+  set_source_files_properties(
+    framework/net/httplogin.cpp
+    framework/platform/cocoawindow.mm
+    framework/platform/cocoaview.mm
+    PROPERTIES
+    SKIP_UNITY_BUILD_INCLUSION ON
+    SKIP_PRECOMPILE_HEADERS ON
+  )
+elseif(UNIX AND NOT ANDROID AND NOT WASM)
+  set(SOURCE_FILES ${SOURCE_FILES} framework/platform/x11window.cpp)
+endif()
+
 add_library(otclient_core STATIC ${SOURCE_FILES})
 
 target_link_libraries(otclient_core PRIVATE unofficial::inih::inireader)
 
-if(NOT MSVC)
+if(NOT MSVC AND CMAKE_INTERPROCEDURAL_OPTIMIZATION MATCHES "^(ON|1|TRUE)$")
   target_link_options(otclient_core PUBLIC -flto=auto)
 endif()
 
 if(TOGGLE_PRE_COMPILED_HEADER)
   # === PRECOMPILED HEADER ===
   target_precompile_headers(otclient_core PRIVATE framework/pch.h)
+  target_compile_definitions(otclient_core PRIVATE USE_PRECOMPILED_HEADERS)
   message(STATUS "Use precompiled header: ON")
 else()
   message(STATUS "Use precompiled header: OFF")
@@ -616,23 +691,37 @@ else()
   log_option_disabled("DEBUG LOG")
 endif(CMAKE_BUILD_TYPE MATCHES Debug)
 
-target_compile_definitions(otclient_core PRIVATE ENABLE_DISCORD_RPC=${OTCLIENT_ENABLE_DISCORD_RPC})
+target_compile_definitions(otclient_core PRIVATE
+  ENABLE_DISCORD_RPC=${OTCLIENT_ENABLE_DISCORD_RPC}
+  OPENSSL_API_COMPAT=0x10100000L
+  OPENSSL_SUPPRESS_DEPRECATED
+)
 
 # *****************************************************************************
 # Includes and librarys
 # *****************************************************************************
 if(MSVC)
 
-  # Set variables to have Windows Vista Value so httplib will build 'inet_pton'
+  # cpp-httplib 0.43+ requires Windows 10 or later.
   target_compile_definitions(otclient_core
           PUBLIC
-          NTDDI_VERSION=0x06000000
-          _WIN32_WINNT=0x0600
+          NTDDI_VERSION=0x0A000000
+          WINVER=0x0A00
+          _WIN32_WINNT=0x0A00
   )
 
   target_compile_definitions(otclient_core PRIVATE CRASH_HANDLER)
 
   target_compile_options(otclient_core PUBLIC /MP /FS /Zf /EHsc /bigobj)
+
+  # MSVC 19.44 ICEs in stdext::safe_cast instantiations with release optimization.
+  set_source_files_properties(
+          framework/luaengine/luavaluecasts.cpp
+          framework/luafunctions.cpp
+          PROPERTIES
+            COMPILE_OPTIONS "/Od;/Ob0"
+            SKIP_PRECOMPILE_HEADERS ON
+  )
 
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     string(REPLACE "/Zi" "/Z7" CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG}")
@@ -657,10 +746,14 @@ if(MSVC)
         set_property(TARGET ${msvc_target} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
       endif()
     endforeach()
-    set(VCPKG_TARGET_TRIPLET "x64-windows-static" CACHE STRING "")
+    if(NOT DEFINED VCPKG_TARGET_TRIPLET)
+      set(VCPKG_TARGET_TRIPLET "x64-windows-static" CACHE STRING "")
+    endif()
   else()
     log_option_disabled("STATIC_LIBRARY")
-    set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "")
+    if(NOT DEFINED VCPKG_TARGET_TRIPLET)
+      set(VCPKG_TARGET_TRIPLET "x64-windows" CACHE STRING "")
+    endif()
     foreach(msvc_target IN ITEMS otclient_core ${PROJECT_NAME})
       if(TARGET ${msvc_target})
         set_property(TARGET ${msvc_target} PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>DLL")
@@ -687,7 +780,8 @@ if(MSVC)
           ${LUAJIT_LIBRARY}
           ${CMAKE_THREAD_LIBS_INIT}
           ${PHYSFS_LIBRARY}
-          ${ZLIB_LIBRARY}
+          ZLIB::ZLIB
+          PNG::PNG
           ${NLOHMANN_JSON_LIBRARY}
           ${OPENGL_LIBRARIES}
           ${DirectX_LIBRARY}
@@ -705,9 +799,13 @@ if(MSVC)
           asio::asio
           OpenAL::OpenAL
           LibLZMA::LibLZMA
+          ${LIBARCHIVE_LIBRARY}
           winmm.lib
+          bcrypt.lib
           pugixml::pugixml
-          fmt::fmt-header-only
+          ixwebsocket::ixwebsocket
+          ${OTCLIENT_FMT_TARGET}
+          ${OTCLIENT_SPDLOG_TARGET}
           utf8cpp::utf8cpp
           Freetype::Freetype
   )
@@ -740,7 +838,8 @@ elseif(ANDROID)
           ${LUA_LIBRARY}
           ${LUAJIT_LIBRARY}
           ${PHYSFS_LIBRARY}
-          ${ZLIB_LIBRARY}
+          ZLIB::ZLIB
+          PNG::PNG
           ${NLOHMANN_JSON_LIBRARY}
           ${EGL_LIBRARY}
           ${OGG_LIBRARY}
@@ -758,13 +857,16 @@ elseif(ANDROID)
           Vorbis::vorbis
           Vorbis::vorbisfile
           LibLZMA::LibLZMA
+          ${LIBARCHIVE_LIBRARY}
           game-activity::game-activity
           GLESv3
           android
           log
           Freetype::Freetype
           pugixml::pugixml
-          fmt::fmt-header-only
+          ixwebsocket::ixwebsocket
+          ${OTCLIENT_FMT_TARGET}
+          ${OTCLIENT_SPDLOG_TARGET}
           utf8cpp::utf8cpp
   )
 
@@ -805,8 +907,7 @@ elseif(WASM)
           PUBLIC
           ${LUA_LIBRARY}
           ${PHYSFS_LIBRARY}
-          ${ZLIB_LIBRARY}
-
+          PNG::PNG
           ${NLOHMANN_JSON_LIBRARY}
           ${GLEW_LIBRARY}
           ${OPENGL_LIBRARIES}
@@ -828,12 +929,14 @@ elseif(WASM)
           asio::asio
           # OpenAL::OpenAL (using emscripten openal api)
           LibLZMA::LibLZMA
+          ${LIBARCHIVE_LIBRARY}
           pugixml::pugixml
           ZLIB::ZLIB
           OpenSSL::SSL
           OpenSSL::Crypto
           httplib::httplib
-          fmt::fmt
+          ${OTCLIENT_FMT_TARGET}
+          ${OTCLIENT_SPDLOG_TARGET}
           utf8cpp::utf8cpp
           Ogg::ogg
           Vorbis::vorbisfile
@@ -928,7 +1031,7 @@ else() # Linux
           PUBLIC
           ${LUAJIT_LIBRARY}
           ${PHYSFS_LIBRARY}
-          ${ZLIB_LIBRARY}
+          PNG::PNG
           ${NLOHMANN_JSON_LIBRARY}
           ${GLEW_LIBRARY}
           ${OPENGL_LIBRARIES}
@@ -947,16 +1050,19 @@ else() # Linux
 
           absl::log_internal_check_op
           Threads::Threads
-          X11::X11
+          $<$<AND:$<PLATFORM_ID:Linux>,$<NOT:$<BOOL:${ANDROID}>>>:X11::X11>
           asio::asio
           OpenAL::OpenAL
           LibLZMA::LibLZMA
+          ${LIBARCHIVE_LIBRARY}
           pugixml::pugixml
+          ixwebsocket::ixwebsocket
           ZLIB::ZLIB
           OpenSSL::SSL
           OpenSSL::Crypto
           httplib::httplib
-          fmt::fmt-header-only
+          ${OTCLIENT_FMT_TARGET}
+          ${OTCLIENT_SPDLOG_TARGET}
           utf8cpp::utf8cpp
           Ogg::ogg
           Vorbis::vorbisfile
@@ -971,6 +1077,16 @@ else() # Linux
       )
   endif()
 
+  if(APPLE AND NOT ANDROID AND NOT WASM)
+    target_link_libraries(otclient_core
+            PUBLIC
+            ${COCOA_LIBRARY}
+            ${COREVIDEO_LIBRARY}
+            ${QUARTZCORE_LIBRARY}
+            ${OPENGL_FRAMEWORK}
+    )
+  endif()
+
   if(CMAKE_BUILD_TYPE STREQUAL "Debug")
     target_compile_options(otclient_core
             PRIVATE
@@ -979,6 +1095,41 @@ else() # Linux
   endif()
 
 endif()
+
+if(APPLE AND NOT ANDROID AND NOT WASM)
+  set(MACOSX_BUNDLE_BUNDLE_NAME "OTClient")
+  set(MACOSX_BUNDLE_DISPLAY_NAME "OTClient")
+  set(MACOSX_BUNDLE_IDENTIFIER "com.otclient.otclient")
+  set(MACOSX_BUNDLE_VERSION "${VERSION}")
+  set(MACOSX_BUNDLE_SHORT_VERSION_STRING "${VERSION}")
+  set(MACOSX_BUNDLE_COPYRIGHT "Copyright © 2024")
+  set(MACOSX_BUNDLE_ICON_FILE "OTClient")
+  if(DEFINED CMAKE_OSX_DEPLOYMENT_TARGET)
+    set(MACOSX_BUNDLE_MINIMUM_SYSTEM_VERSION "${CMAKE_OSX_DEPLOYMENT_TARGET}")
+  else()
+    set(MACOSX_BUNDLE_MINIMUM_SYSTEM_VERSION "11.0")
+  endif()
+
+  set(OTCLIENT_INFO_PLIST "${CMAKE_CURRENT_BINARY_DIR}/Info.plist")
+  configure_file("${CMAKE_SOURCE_DIR}/cmake/Info.plist.in" "${OTCLIENT_INFO_PLIST}" @ONLY)
+
+  set_target_properties(${PROJECT_NAME} PROPERTIES
+    OUTPUT_NAME "OTClient"
+    MACOSX_BUNDLE TRUE
+    MACOSX_BUNDLE_INFO_PLIST "${OTCLIENT_INFO_PLIST}"
+    MACOSX_BUNDLE_ICON_FILE "OTClient"
+  )
+
+  add_custom_command(TARGET ${PROJECT_NAME}
+    POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+      "${CMAKE_SOURCE_DIR}/cmake/OTClient.icns"
+      "$<TARGET_FILE_DIR:${PROJECT_NAME}>/../Resources/OTClient.icns"
+    COMMENT "Copying OTClient.icns to app bundle Resources"
+    VERBATIM
+  )
+ endif()
+
 if(ENABLE_DISCORD_RPC AND NOT ANDROID)
         target_link_libraries(otclient_core PUBLIC ${DISCORDRPC_LIBRARY})
 endif()

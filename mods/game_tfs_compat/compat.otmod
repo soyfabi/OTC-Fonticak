@@ -1,0 +1,8 @@
+Module
+  name: game_tfs_compat
+  description: Pacotes custom do TFS downgrade 1.8/8.60 que o engine não cobre (0x2F, 0x2D/0x30/0x31, extended 0x8C)
+  author: astra-port
+  sandboxed: true
+  scripts: [ compat ]
+  @onLoad: init()
+  @onUnload: terminate()

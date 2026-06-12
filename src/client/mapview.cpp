@@ -67,7 +67,7 @@ bool isLookCursorThing(const ThingPtr& thing, const TilePtr& tile)
 MapView::MapView() : m_lightView(std::make_unique<LightView>(Size())), m_pool(g_drawPool.get(DrawPoolType::MAP))
 {
     m_floors.resize(g_gameConfig.getMapMaxZ() + 1);
-    m_floorThreads.resize(g_asyncDispatcher.get_thread_count());
+    m_floorThreads.resize(g_asyncDispatcher->get_thread_count());
     for (auto& thread : m_floorThreads)
         thread.resize(m_floors.size());
 
@@ -417,7 +417,7 @@ void MapView::updateVisibleTiles()
     };
 
     if (m_multithreading) {
-        static const int numThreads = g_asyncDispatcher.get_thread_count();
+        static const int numThreads = g_asyncDispatcher->get_thread_count();
         static BS::multi_future<void> tasks(numThreads);
         tasks.clear();
 
@@ -430,7 +430,7 @@ void MapView::updateVisibleTiles()
             for (auto& floor : m_floorThreads[i])
                 floor.cachedVisibleTiles.clear();
 
-            tasks.emplace_back(g_asyncDispatcher.submit_task([=, this] {
+            tasks.emplace_back(g_asyncDispatcher->submit_task([=, this] {
                 processDiagonalRange(m_floorThreads[i], start, end);
             }));
         }

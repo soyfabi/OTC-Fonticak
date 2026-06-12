@@ -272,11 +272,9 @@ local function setup()
     local talkOnRightClick = panels.generalPanel:recursiveGetChildById('talkOnRightClick')
     if talkOnRightClick then
         local parent = talkOnRightClick:getParent()
-       if g_game.getClientVersion() > 1511 then
-            parent:setVisible(false)
-            parent:setHeight(0)
-            parent:setMarginTop(0)
-        end
+        parent:setVisible(false)
+        parent:setHeight(0)
+        parent:setMarginTop(0)
     end
 end
 
@@ -418,6 +416,8 @@ function controller:onGameStart()
             end
         end
     end
+    -- bloco GameEffectSource do upstream removido: a UI de opções do Fonticak
+    -- não tem os widgets clientEffectOpacity/clientMissileOpacity/GameEffectSource.
 end
 
 function setOption(key, value, force)
@@ -481,6 +481,9 @@ function show()
     controller.ui:show()
     controller.ui:raise()
     controller.ui:focus()
+    if extraWidgets.optionsButton then
+        extraWidgets.optionsButton:setOn(true)
+    end
 end
 
 function showCustomHotkeys()
@@ -515,6 +518,9 @@ function hide()
     -- Save all settings when closing the options window
     g_settings.save()
     controller.ui:hide()
+    if extraWidgets.optionsButton then
+        extraWidgets.optionsButton:setOn(false)
+    end
 end
 
 function saveOptions()

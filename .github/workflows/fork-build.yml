@@ -1,0 +1,162 @@
+## Workflow do fork (JV-071).
+## - Em todo push: builda o Windows CMake Release (o artefato do dia a dia),
+##   rápido graças ao cache binário do vcpkg em pasta (files + actions/cache,
+##   mesmo padrão do AstraClient) + sccache.
+## - Em workflow_dispatch ou push na main: builda também todas as outras
+##   plataformas (Linux, macOS, Android, Browser, Docker) reaproveitando os
+##   reusables do upstream, que já têm cache próprio por plataforma.
+name: Fork Build
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["**"]
+    paths:
+      - "src/**"
+      - "cmake/**"
+      - "vcpkg.json"
+      - "CMakeLists.txt"
+      - "CMakePresets.json"
+      - ".github/workflows/fork-build.yml"
+
+concurrency:
+  group: fork-build-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build-linux:
+    name: Build - Linux
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: read
+    uses: ./.github/workflows/reusable-build-linux.yml
+    secrets: inherit
+
+  build-macos:
+    name: Build - macOS
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/reusable-build-macos.yml
+    secrets: inherit
+
+  build-android-apk:
+    name: Build - Android APK
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      pull-requests: read
+    uses: ./.github/workflows/reusable-build-android-apk.yml
+    secrets: inherit
+
+  build-browser:
+    name: Build - Browser
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+    uses: ./.github/workflows/reusable-build-browser.yml
+    secrets: inherit
+
+  build-docker:
+    name: Build - Docker
+    if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+    permissions:
+      contents: read
+      packages: write
+    uses: ./.github/workflows/reusable-build-docker.yml
+    with:
+      push: false
+      vcpkg_binary_cache_access: read
+    secrets: inherit
+
+  build:
+    name: Compile (CMake Release)
+    runs-on: windows-2025
+    env:
+      SCCACHE_DIR: ${{ github.workspace }}\.sccache
+      SCCACHE_GHA_ENABLED: "false"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Get vcpkg baseline
+        shell: pwsh
+        run: |
+          $json = Get-Content vcpkg.json -Raw | ConvertFrom-Json
+          "VCPKG_GIT_COMMIT_ID=$($json.'builtin-baseline')" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Remove Windows pre-installed MySQL
+        shell: pwsh
+        run: Remove-Item -Recurse -Force C:\mysql* -ErrorAction SilentlyContinue
+
+      - name: Setup sccache
+        uses: mozilla-actions/sccache-action@v0.0.6
+
+      - name: Prepare sccache directory
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path $env:SCCACHE_DIR | Out-Null
+
+      - name: Restore sccache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}\.sccache
+          key: sccache-windows-release-${{ github.run_id }}
+          restore-keys: |
+            sccache-windows-release-
+
+      - name: Setup vcpkg
+        uses: lukka/run-vcpkg@v11
+        with:
+          vcpkgGitURL: "https://github.com/microsoft/vcpkg.git"
+          vcpkgGitCommitId: ${{ env.VCPKG_GIT_COMMIT_ID }}
+
+      # O CMakePresets.json passa --binarysource=files,$VCPKG_ROOT/binary-cache
+      # na linha de comando do vcpkg (sobrepõe env vars) — o cache TEM que
+      # apontar para essa pasta. E TEM que ser restaurado DEPOIS do Setup
+      # vcpkg: o run-vcpkg recria a pasta vcpkg/ ao clonar e apagaria o
+      # conteúdo restaurado (runs 6-7 recompilaram tudo por isso).
+      - name: Restore vcpkg binary cache
+        uses: actions/cache/restore@v4
+        with:
+          path: ${{ github.workspace }}/vcpkg/binary-cache
+          key: vcpkg-bincache-windows-${{ hashFiles('vcpkg.json') }}-${{ github.run_id }}
+          restore-keys: |
+            vcpkg-bincache-windows-${{ hashFiles('vcpkg.json') }}-
+            vcpkg-bincache-windows-
+
+      - name: Run CMake
+        uses: lukka/run-cmake@v10
+        with:
+          configurePreset: windows-release
+          buildPreset: windows-release
+          # O preset não define launcher — sem isso o sccache nunca é invocado
+          # e todo compile é do zero (~20 min mesmo com deps cacheadas).
+          configurePresetAdditionalArgs: "['-DTOGGLE_BIN_FOLDER=ON', '-DOPTIONS_ENABLE_IPO=OFF', '-DOTCLIENT_BUILD_TESTS=OFF', '-DCMAKE_C_COMPILER_LAUNCHER=sccache', '-DCMAKE_CXX_COMPILER_LAUNCHER=sccache']"
+
+      # Salva mesmo em falha: as deps compilam antes de qualquer erro no código,
+      # então a próxima run as restaura e pula direto pro compile.
+      - name: Save vcpkg binary cache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}/vcpkg/binary-cache
+          key: vcpkg-bincache-windows-${{ hashFiles('vcpkg.json') }}-${{ github.run_id }}
+
+      - name: Save sccache
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ${{ github.workspace }}\.sccache
+          key: sccache-windows-release-${{ github.run_id }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v7
+        with:
+          name: windows-cmake-release
+          path: build/windows-release/bin/

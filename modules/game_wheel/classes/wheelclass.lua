@@ -3220,7 +3220,9 @@ function WheelOfDestiny.loadWheelPresets()
 
 	-- Validate preset structure
 	WheelOfDestiny.generateInternalPreset()
-	return true
+	-- Sem return true: esta função é slot de onGameStart, e retorno truthy
+	-- interrompe a cadeia do signalcall — os handlers conectados depois
+	-- (mods/ carregam por último) nunca rodavam.
 end
 
 function WheelOfDestiny.generateInternalPreset()

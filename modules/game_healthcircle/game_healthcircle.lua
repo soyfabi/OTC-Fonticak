@@ -667,7 +667,6 @@ function setSkillType(skill)
     end
 
     local char = g_game.getCharacterName()
-    local skillType = skillTypes[char]
 
     skillTypes[char] = skill
     whenMapResizeChange()

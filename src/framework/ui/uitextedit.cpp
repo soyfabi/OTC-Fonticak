@@ -1390,6 +1390,8 @@ bool UITextEdit::onKeyPress(const uint8_t keyCode, const int keyboardModifiers, 
     if (UIWidget::onKeyPress(keyCode, keyboardModifiers, autoRepeatTicks))
         return true;
 
+    const bool primaryOnly = Fw::isPrimaryModifierOnly(keyboardModifiers);
+
     if (keyboardModifiers == Fw::KeyboardNoModifier) {
         if (keyCode == Fw::KeyDelete && getProp(PropEditable)) {
             if (hasSelection() || !m_text.empty()) {
@@ -1473,7 +1475,7 @@ bool UITextEdit::onKeyPress(const uint8_t keyCode, const int keyboardModifiers, 
             moveCursorVertically(false);
             return true;
         }
-    } else if (keyboardModifiers == Fw::KeyboardCtrlModifier) {
+    } else if (primaryOnly) {
         if (keyCode == Fw::KeyV && getProp(PropEditable)) {
             paste(g_window.getClipboardText());
             return true;

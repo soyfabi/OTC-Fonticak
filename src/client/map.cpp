@@ -647,7 +647,7 @@ void Map::setCentralPosition(const Position& centralPosition)
                 localPlayer->onDisappear();
             localPlayer->setPosition(pos);
             localPlayer->onAppear();
-            g_logger.debug("forced player position update");
+            g_logger.debug("Forced player position update");
         }
     });
 
@@ -1173,7 +1173,7 @@ void Map::findPathAsync(const Position& start, const Position& goal, const std::
         }
     }
 
-    g_asyncDispatcher.detach_task([=] {
+    g_asyncDispatcher->detach_task([=] {
         const auto ret = g_map.newFindPath(start, goal, visibleNodes);
         g_dispatcher.addEvent(std::bind(callback, ret));
     });
