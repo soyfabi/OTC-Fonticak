@@ -137,6 +137,7 @@ ChannelEventFormats = {
 MAX_HISTORY = 500
 MAX_LINES = 100
 HELP_CHANNEL = 9
+CHAT_HISTORY_SETTINGS = 'game_console_chat_history'
 
 consolePanel = nil
 consoleContentPanel = nil
@@ -152,6 +153,8 @@ communicationWindow = nil
 ownPrivateName = nil
 messageHistory = {}
 currentMessageIndex = 0
+chatHistoryRestored = false
+pendingChatHistoryTabs = {}
 ignoreNpcMessages = false
 defaultTab = nil
 serverTab = nil
@@ -452,6 +455,7 @@ function isChatEnabled()
 end
 
 function consoleController:onTerminate()
+    saveChatHistory()
     save()
     Keybind.delete("Chat Channel", "Close Current Channel")
     Keybind.delete("Chat Channel", "Next Channel")
@@ -518,6 +522,198 @@ function save()
     settings.wasdMode = consoleToggleChat.isChecked
     settings.showHighlightedUnderline = showHighlightedUnderline
     g_settings.setNode('game_console', settings)
+end
+
+local function isChatHistoryEnabled()
+    if not modules.client_options or not modules.client_options.getOption then
+        return true
+    end
+
+    return modules.client_options.getOption('enableChatHistory') ~= false
+end
+
+local function getChatHistoryScope()
+    if not g_game or not g_game.isOnline or not g_game.isOnline() then
+        return nil
+    end
+
+    local worldName = g_game.getWorldName and g_game.getWorldName() or ''
+    local characterName = g_game.getCharacterName and g_game.getCharacterName() or ''
+    if characterName == '' then
+        return nil
+    end
+
+    return worldName .. '/' .. characterName
+end
+
+local function getTabHistoryType(tab)
+    if tab == defaultTab then
+        return 'default'
+    elseif tab == serverTab then
+        return 'server'
+    elseif tab.npcChat or tab:getText() == 'NPCs' then
+        return 'npc'
+    elseif tab.channelId then
+        return 'channel'
+    end
+
+    return 'private'
+end
+
+local function serializeConsoleBuffer(tab)
+    local panel = consoleTabBar:getTabPanel(tab)
+    if not panel then
+        return nil
+    end
+
+    local consoleBuffer = panel:getChildById('consoleBuffer')
+    if not consoleBuffer then
+        return nil
+    end
+
+    local messages = {}
+    for _, label in pairs(consoleBuffer:getChildren()) do
+        table.insert(messages, {
+            text = label:getText(),
+            color = label.historyColor or label:getColor(),
+            coloredData = label.coloredData,
+            creatureName = label.name
+        })
+    end
+
+    while #messages > MAX_LINES do
+        table.remove(messages, 1)
+    end
+
+    return {
+        type = getTabHistoryType(tab),
+        channelId = tab.channelId,
+        npcChat = tab.npcChat,
+        messages = messages
+    }
+end
+
+function saveChatHistory()
+    if not isChatHistoryEnabled() or not consoleTabBar then
+        return
+    end
+
+    local scope = getChatHistoryScope()
+    if not scope then
+        return
+    end
+
+    local allHistory = g_settings.getNode(CHAT_HISTORY_SETTINGS) or {}
+    local scopeHistory = { tabs = {} }
+
+    for _, tab in pairs(consoleTabBar.tabs) do
+        local tabName = tab:getText()
+        local tabHistory = serializeConsoleBuffer(tab)
+        if tabName and tabHistory and #tabHistory.messages > 0 then
+            scopeHistory.tabs[tabName] = tabHistory
+        end
+    end
+
+    allHistory[scope] = scopeHistory
+    g_settings.setNode(CHAT_HISTORY_SETTINGS, allHistory)
+end
+
+function clearChatHistoryTab(tabName)
+    if not tabName then
+        return
+    end
+
+    local scope = getChatHistoryScope()
+    if not scope then
+        return
+    end
+
+    local allHistory = g_settings.getNode(CHAT_HISTORY_SETTINGS) or {}
+    if allHistory[scope] and allHistory[scope].tabs then
+        allHistory[scope].tabs[tabName] = nil
+        g_settings.setNode(CHAT_HISTORY_SETTINGS, allHistory)
+    end
+end
+
+local function restoreTabMessages(tab, tabHistory)
+    if not tab or not tabHistory or not tabHistory.messages then
+        return
+    end
+
+    for _, entry in ipairs(tabHistory.messages) do
+        local speaktype = {
+            color = entry.color or '#FFFF00',
+            colored = entry.coloredData ~= nil,
+            restored = true
+        }
+        addTabText(entry.text, speaktype, tab, entry.creatureName, {
+            restored = true,
+            coloredData = entry.coloredData
+        })
+    end
+end
+
+function restorePendingChatHistoryTab(channelId, channelName)
+    if not isChatHistoryEnabled() or not channelName then
+        return
+    end
+
+    local tabHistory = pendingChatHistoryTabs[channelName] or pendingChatHistoryTabs[tostring(channelId)]
+    if not tabHistory then
+        return
+    end
+
+    local tab = getTab(channelName)
+    if tab then
+        restoreTabMessages(tab, tabHistory)
+    end
+
+    pendingChatHistoryTabs[channelName] = nil
+    pendingChatHistoryTabs[tostring(channelId)] = nil
+end
+
+function restoreChatHistory()
+    if chatHistoryRestored or not isChatHistoryEnabled() then
+        return
+    end
+
+    local scope = getChatHistoryScope()
+    if not scope then
+        return
+    end
+
+    chatHistoryRestored = true
+    pendingChatHistoryTabs = {}
+
+    local allHistory = g_settings.getNode(CHAT_HISTORY_SETTINGS) or {}
+    local scopeHistory = allHistory[scope]
+    if not scopeHistory or not scopeHistory.tabs then
+        return
+    end
+
+    for tabName, tabHistory in pairs(scopeHistory.tabs) do
+        if tabHistory.type == 'default' then
+            restoreTabMessages(defaultTab, tabHistory)
+        elseif tabHistory.type == 'server' then
+            restoreTabMessages(serverTab, tabHistory)
+        elseif tabHistory.type == 'npc' then
+            local tab = getTab('NPCs')
+            if tab then
+                tab.npcChat = true
+                restoreTabMessages(tab, tabHistory)
+            end
+        elseif tabHistory.type == 'private' then
+            local tab = addTab(tabName, false)
+            channels[tabName] = tabName
+            tab.npcChat = tabHistory.npcChat
+            restoreTabMessages(tab, tabHistory)
+        elseif tabHistory.type == 'channel' then
+            pendingChatHistoryTabs[tabName] = tabHistory
+            if tabHistory.channelId then
+                pendingChatHistoryTabs[tostring(tabHistory.channelId)] = tabHistory
+            end
+        end
+    end
 end
 
 function load()
@@ -640,6 +836,7 @@ function clearChannel(consoleTabBar)
     local currentTab = consoleTabBar:getCurrentTab()
     local currentTabName = currentTab:getText()
     currentTab.tabPanel:getChildById('consoleBuffer'):destroyChildren()
+    clearChatHistoryTab(currentTabName)
     
     if readOnlyModeEnabled and currentTabName == activeactiveReadOnlyTabName then
         readOnlyPanel:getChildById('panel'):destroyChildren()
@@ -1138,12 +1335,14 @@ function onConsoleTextHovered(widget, text, hovered)
     end
 end
 
-function addTabText(text, speaktype, tab, creatureName)
+function addTabText(text, speaktype, tab, creatureName, options)
     if not tab or tab.locked or not text or #text == 0 then
         return
     end
 
-    if modules.client_options.getOption('showTimestampsInConsole') then
+    options = options or {}
+
+    if not options.restored and modules.client_options.getOption('showTimestampsInConsole') then
         text = os.date('%H:%M') .. ' ' .. text
     end
 
@@ -1166,7 +1365,10 @@ function addTabText(text, speaktype, tab, creatureName)
             })
         end
     else
-        if speaktype.colored then
+        if options.coloredData then
+            label:setColoredText(options.coloredData)
+            label.coloredData = options.coloredData
+        elseif speaktype.colored then
             label:setColoredText(text)
             label.coloredData = text
         else
@@ -1174,6 +1376,7 @@ function addTabText(text, speaktype, tab, creatureName)
         end
     end
     label:setColor(speaktype.color)
+    label.historyColor = speaktype.color
     if readOnlyModeEnabled and activeactiveReadOnlyTabName == tab:getText() then
         local readOnlyBuffer = readOnlyPanel:getChildById('panel')
         local readOnlyLabel = g_ui.createWidget('ConsoleLabel', readOnlyBuffer)
@@ -1187,6 +1390,8 @@ function addTabText(text, speaktype, tab, creatureName)
                 onTextClick = onConsoleTextClicked,
                 onTextHoverChange = onConsoleTextHovered
             })
+        elseif options.coloredData then
+            readOnlyLabel:setColoredText(options.coloredData)
         elseif speaktype.colored then
             readOnlyLabel:setColoredText(text)
         else
@@ -1194,7 +1399,7 @@ function addTabText(text, speaktype, tab, creatureName)
         end
         readOnlyLabel:setColor(speaktype.color)
     end
-    if consoleTabBar:getCurrentTab() ~= tab then
+    if not options.restored and consoleTabBar:getCurrentTab() ~= tab then
         if not (readOnlyModeEnabled and activeactiveReadOnlyTabName == tab:getText()) then
             changeNewNessageColor(tab)
         end
@@ -1739,6 +1944,7 @@ end
 
 function onOpenChannel(channelId, channelName)
     addChannel(channelName, channelId)
+    restorePendingChatHistoryTab(channelId, channelName)
 end
 
 function onOpenPrivateChannel(receiver)
@@ -2141,6 +2347,7 @@ function consoleController:onGameStart()
 
     -- Update chat mode when game comes online to ensure proper key binding
     updateChatMode()
+    restoreChatHistory()
 
     -- open last channels
     local lastChannelsOpen = g_settings.getNode('lastChannelsOpen')
@@ -2164,7 +2371,10 @@ function consoleController:onGameStart()
 end
 
 function consoleController:onGameEnd()
+    saveChatHistory()
     clear()
+    chatHistoryRestored = false
+    pendingChatHistoryTabs = {}
     self:closeWindowExiva()
 end
 

@@ -105,8 +105,18 @@ UIWidget
     anchors.top: prev.bottom
     margin-top: 7
     height: 22
+
+    OptionCheckBox
+      id: enableChatHistory
+      !text: tr('Save chat history')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
   
     OptionCheckBox
       id: showHighlightedUnderline
       !text: tr('Show highlighted text underline')
-

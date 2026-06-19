@@ -166,6 +166,7 @@ return {
     showOthersStatusMessagesInConsole = false,
     showPrivateMessagesOnScreen       = true,
     showLootMessagesOnScreen          = true,
+    enableChatHistory                 = true,
     showHighlightedUnderline          = {
         value = false,
         action = function(value, options, controller, panels, extraWidgets)
