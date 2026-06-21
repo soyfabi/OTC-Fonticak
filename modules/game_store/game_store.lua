@@ -330,6 +330,19 @@ function parseCatalog(msg)
     addCategory(category)
   end
 
+  if msg:getUnreadSize() > 0 then
+    local bannerCount = msg:getU8()
+    for i = 1, bannerCount do
+      msg:getString()
+      msg:getU8()
+      msg:getU32()
+    end
+
+    if msg:getUnreadSize() > 0 then
+      msg:getU8()
+    end
+  end
+
   onGameStoreUpdatePoints({ points = premiumPoints })
 
   local firstCategory = categoriesList:getFirstChild()
