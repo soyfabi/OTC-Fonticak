@@ -154,6 +154,7 @@ return {
     },
     returnDisablesChat                = false,
     smartWalk                         = false,
+    alwaysTurnTowardsMoveDirection    = true,
     autoChaseOverride                 = true,
     talkOnRightClick                  = false,
     moveStack                         = false,

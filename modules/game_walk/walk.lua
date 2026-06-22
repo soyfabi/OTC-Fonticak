@@ -42,8 +42,20 @@ local function walk(dir)
     end
 
     local dire = smartWalkDir or dir
-    g_game.walk(dire, firstStep)
+    local walked = g_game.walk(dire, firstStep)
     firstStep = false
+
+    if not walked then
+        local player = g_game.getLocalPlayer()
+        if player and player:canWalk() and modules.client_options.getOption('alwaysTurnTowardsMoveDirection') then
+            if not player:isWalking() and player:getDirection() ~= dire then
+                if dire == North or dire == East or dire == South or dire == West then
+                    g_game.turn(dire)
+                end
+            end
+        end
+    end
+
     return true
 end
 

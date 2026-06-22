@@ -119,6 +119,18 @@ UIWidget
     margin-top: 7
     height: 22
   
+    OptionCheckBoxMarked
+      id: alwaysTurnTowardsMoveDirection
+      !text: tr('Always turn towards the direction of movement')
+      !tooltip: tr('When checked, the character will always turn in the direction it\ntries to walk, even if it targets a tile that cannot be walked on.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+  
     OptionCheckBox
       id: openMaximized
       !text: tr('Open containers maximized')

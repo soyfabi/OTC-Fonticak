@@ -601,9 +601,6 @@ void Game::processAttackCancel(const uint32_t seq)
 void Game::processWalkCancel(const Otc::Direction direction)
 {
     m_localPlayer->cancelWalk(direction);
-
-    if (m_lastWalkDir != Otc::InvalidDirection)
-        m_localPlayer->setDirection(m_lastWalkDir);
 }
 
 void Game::loginWorld(const std::string_view account, const std::string_view password, const std::string_view worldName, const std::string_view worldHost, const int worldPort, const std::string_view characterName, const std::string_view authenticatorToken, const std::string_view sessionKey, const std::string_view& recordTo)
@@ -749,10 +746,8 @@ bool Game::walk(const Otc::Direction direction, const bool isKeyDown /*= false*/
             return toTile && toTile->isWalkable();
         };
 
-        if (!(canChangeFloorDown() || canChangeFloorUp() || !toTile || toTile->isEmpty())) {
-            m_localPlayer->setDirection(direction);
+        if (!(canChangeFloorDown() || canChangeFloorUp() || !toTile || toTile->isEmpty()))
             return false;
-        }
 
         m_localPlayer->lockWalk();
     }
