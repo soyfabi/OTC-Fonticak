@@ -820,6 +820,40 @@ Position MapView::getPosition(const Point& point, const Size& mapSize)
     return position;
 }
 
+Point MapView::getPositionOffset(const Point& mousePos)
+{
+    const auto newMousePos = mousePos * g_window.getDisplayDensity();
+    if (!m_posInfo.rect.contains(newMousePos))
+        return {};
+
+    const auto& relativeMousePos = newMousePos - m_posInfo.rect.topLeft();
+    return getPositionOffset(relativeMousePos, m_posInfo.rect.size());
+}
+
+Point MapView::getPositionOffset(const Point& point, const Size& mapSize)
+{
+    const auto& cameraPosition = getCameraPosition();
+
+    // if we have no camera, its impossible to get the tile
+    if (!cameraPosition.isValid())
+        return {};
+
+    const auto& srcRect = calcFramebufferSource(mapSize);
+    const float sh = srcRect.width() / static_cast<float>(mapSize.width());
+    const float sv = srcRect.height() / static_cast<float>(mapSize.height());
+
+    const auto& framebufferPos = Point(point.x * sh, point.y * sv);
+    const auto& realPos = (framebufferPos + srcRect.topLeft());
+    const float scaleFactor = m_pool->getScaleFactor();
+
+    const int unscaledX = static_cast<int>(realPos.x / scaleFactor);
+    const int unscaledY = static_cast<int>(realPos.y / scaleFactor);
+    const int spriteSize = g_gameConfig.getSpriteSize();
+
+    return Point(unscaledX % spriteSize, unscaledY % spriteSize);
+}
+
+
 void MapView::move(const int32_t x, const int32_t y)
 {
     m_moveOffset.x += x;

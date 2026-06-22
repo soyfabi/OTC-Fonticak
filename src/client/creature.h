@@ -123,6 +123,7 @@ public:
     std::string getName() { return m_name.getText(); }
 
     Point getDrawOffset() { return Point(-1, -1) * getDrawElevation() + m_walkOffset; }
+    bool isInsideOffset(const Point& offset);
     int getDrawElevation();
 
     Otc::Direction getDirection() { return m_direction; }

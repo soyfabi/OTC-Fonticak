@@ -62,6 +62,11 @@ public:
     ThingPtr getTopMoveThing();
     ThingPtr getTopMultiUseThing();
 
+    CreaturePtr getTopCreatureEx(const Point& offset);
+    ThingPtr getTopLookThingEx(const Point& offset);
+    ThingPtr getTopMultiUseThingEx(const Point& offset);
+    uint32_t getCollisionCreatureId();
+
     int getDrawElevation() const { return m_drawElevation; }
     const Position& getPosition() { return m_position; }
     const std::vector<CreaturePtr>& getWalkingCreatures() { return m_walkingCreatures; }

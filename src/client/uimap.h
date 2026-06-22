@@ -65,6 +65,7 @@ public:
     CreaturePtr getFollowingCreature();
     Position getCameraPosition();
     Position getPosition(const Point& mousePos);
+    Point getPositionOffset(const Point& mousePos);
     TilePtr getTile(const Point& mousePos);
     Size getVisibleDimension();
     float getMinimumAmbientLight();

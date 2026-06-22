@@ -1132,6 +1132,13 @@ Point Creature::getDisplacement() const
     return Thing::getDisplacement();
 }
 
+bool Creature::isInsideOffset(const Point& offset)
+{
+    Rect rect(getDrawOffset() - getDisplacement(), Size(g_gameConfig.getSpriteSize(), g_gameConfig.getSpriteSize()));
+    return rect.contains(offset);
+}
+
+
 int Creature::getDisplacementX() const
 {
     if (m_outfit.isEffect())

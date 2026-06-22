@@ -103,6 +103,7 @@ function UIGameMap:onMouseRelease(mousePosition, mouseButton)
     end
 
     local autoWalkPos = self:getPosition(mousePosition)
+    local positionOffset = self:getPositionOffset(mousePosition)
 
     -- happens when clicking outside of map boundaries
     if not autoWalkPos then
@@ -125,14 +126,17 @@ function UIGameMap:onMouseRelease(mousePosition, mouseButton)
 
     local tile = self:getTile(mousePosition)
     if tile then
-        lookThing = tile:getTopLookThing()
+        lookThing = tile:getTopLookThingEx(positionOffset)
         useThing = tile:getTopUseThing()
-        creatureThing = tile:getTopCreature()
+        creatureThing = tile:getTopCreatureEx(positionOffset)
+        if not creatureThing then
+            creatureThing = g_map.getCreatureById(tile:getCollisionCreatureId())
+        end
     end
 
     local autoWalkTile = g_map.getTile(autoWalkPos)
     if autoWalkTile then
-        attackCreature = autoWalkTile:getTopCreature()
+        attackCreature = autoWalkTile:getTopCreatureEx(positionOffset)
     end
 
     local ret = modules.game_interface.processMouseAction(mousePosition, mouseButton, autoWalkPos, lookThing, useThing,

@@ -95,8 +95,10 @@ public:
     PainterShaderProgramPtr getShader() { return m_shader; }
 
     Position getPosition(const Point& point, const Size& mapSize);
+    Point getPositionOffset(const Point& point, const Size& mapSize);
 
     Position getPosition(const Point& mousePos);
+    Point getPositionOffset(const Point& mousePos);
 
     MapViewPtr asMapView() { return static_self_cast<MapView>(); }
 

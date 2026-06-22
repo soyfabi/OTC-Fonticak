@@ -691,6 +691,107 @@ ThingPtr Tile::getTopMultiUseThing()
     return m_things[0];
 }
 
+CreaturePtr Tile::getTopCreatureEx(const Point& offset)
+{
+    static const int cords[][2] = { {1,1}, {0,1}, {1, 0}, {-1, 1}, {0, 0}, {1, -1}, {-1, 0}, {0, -1}, {-1, -1} };
+
+    CreaturePtr localPlayer = nullptr;
+    Point localPlayerOffset;
+
+    const int spriteSize = g_gameConfig.getSpriteSize();
+
+    for (auto& xy : cords) {
+        Position pos = m_position.translated(xy[0], xy[1]);
+        const TilePtr& tile = g_map.getTile(pos);
+        if (!tile) continue;
+        for (const CreaturePtr& c : tile->getCreatures()) {
+            if (c->isLocalPlayer()) {
+                localPlayer = c;
+                localPlayerOffset = Point(offset.x - xy[0] * spriteSize, offset.y - xy[1] * spriteSize);
+                continue;
+            }
+            if (c->isInsideOffset(Point(offset.x - xy[0] * spriteSize, offset.y - xy[1] * spriteSize)))
+                return c;
+        }
+    }
+
+    if (localPlayer && localPlayer->isInsideOffset(localPlayerOffset))
+        return localPlayer;
+
+    return nullptr;
+}
+
+ThingPtr Tile::getTopLookThingEx(const Point& offset)
+{
+    auto creature = getTopCreatureEx(offset);
+    if (creature)
+        return creature;
+
+    if (isEmpty())
+        return nullptr;
+
+    for (uint i = 0; i < m_things.size(); ++i) {
+        ThingPtr thing = m_things[i];
+        if (!thing->isIgnoreLook() && (!thing->isGround() && !thing->isGroundBorder() && !thing->isOnBottom() && !thing->isOnTop() && !thing->isCreature()))
+            return thing;
+    }
+
+    return m_things[0];
+}
+
+ThingPtr Tile::getTopMultiUseThingEx(const Point& offset)
+{
+    if (CreaturePtr topCreature = getTopCreatureEx(offset))
+        return topCreature;
+
+    if (isEmpty())
+        return nullptr;
+
+    for (uint i = 0; i < m_things.size(); ++i) {
+        ThingPtr thing = m_things[i];
+        if (thing->isForceUse() && !thing->isCreature())
+            return thing;
+    }
+
+    for (uint i = 0; i < m_things.size(); ++i) {
+        ThingPtr thing = m_things[i];
+        if (!thing->isGround() && !thing->isGroundBorder() && !thing->isOnBottom() && !thing->isOnTop() && !thing->isCreature()) {
+            if (i > 0 && thing->isSplash())
+                return m_things[i - 1];
+            return thing;
+        }
+    }
+
+    for (uint i = m_things.size() - 1; i > 0; --i) {
+        ThingPtr thing = m_things[i];
+        if (!thing->isCreature())
+            return thing;
+    }
+
+    return m_things[0];
+}
+
+uint32_t Tile::getCollisionCreatureId()
+{
+    for (const ThingPtr& thing : m_things) {
+        if (!thing->isCreature())
+            continue;
+
+        CreaturePtr creature = thing->static_self_cast<Creature>();
+        if (creature && !creature->isPassable() && creature->canBeSeen() && !creature->isLocalPlayer())
+            return creature->getId();
+    }
+
+    for (const CreaturePtr& creature : m_walkingCreatures) {
+        if (creature && !creature->isPassable() && creature->canBeSeen() && !creature->isLocalPlayer())
+            return creature->getId();
+    }
+
+    return 0;
+}
+
+
+
 bool Tile::isWalkable(const bool ignoreCreatures)
 {
     if (m_thingTypeFlag & NOT_WALKABLE || !getGround()) {
