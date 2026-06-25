@@ -164,6 +164,7 @@ public:
     bool isDecoKit() { return (m_flags & ThingFlagAttrDecoKit); }
     bool isLoading() const { return m_loading.load(std::memory_order_acquire); }
     bool isAmmo() { return (m_flags & ThingFlagAttrAmmo); }
+    bool isQuiver() { return m_market.category == ITEM_CATEGORY_QUIVER; }
     bool isDualWield() { return (m_flags & ThingFlagAttrDualWield); }
     bool hasSkillWheelGem() { return (m_flags & ThingFlagAttrSkillWheelGem); }
     SkillWheelGem getSkillWheelGem() { return m_skillWheelGem; }

@@ -160,6 +160,7 @@ public:
     bool hasAnimationPhases() const;
     bool isDecoKit() const;
     bool isAmmo();
+    bool isQuiver();
     bool isDualWield();
 
     PLAYER_ACTION getDefaultAction();

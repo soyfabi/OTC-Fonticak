@@ -345,8 +345,19 @@ local function getStatsBarsIconContent()
         iconContents[#iconContents + 1] = { content = statsBar.icons, loadIconTransparent = true }
     end
 
-    iconContents[#iconContents + 1] = { content = modules.game_inventory.getIconsPanelOn(), loadIconTransparent = false }
-    iconContents[#iconContents + 1] = { content = modules.game_inventory.getIconsPanelOff(), loadIconTransparent = false }
+    local inventory = modules.game_inventory
+    if inventory then
+        local iconsPanelOn = inventory.getIconsPanelOn and inventory.getIconsPanelOn()
+        local iconsPanelOff = inventory.getIconsPanelOff and inventory.getIconsPanelOff()
+
+        if iconsPanelOn then
+            iconContents[#iconContents + 1] = { content = iconsPanelOn, loadIconTransparent = false }
+        end
+
+        if iconsPanelOff then
+            iconContents[#iconContents + 1] = { content = iconsPanelOff, loadIconTransparent = false }
+        end
+    end
 
     return iconContents
 end
@@ -677,8 +688,19 @@ function StatsBar.OnGameEnd()
     StatsBar.saveSettings()
     StatsBar.hideAll()
 
-    modules.game_inventory.getIconsPanelOn():destroyChildren()
-    modules.game_inventory.getIconsPanelOff():destroyChildren()
+    local inventory = modules.game_inventory
+    if inventory then
+        local iconsPanelOn = inventory.getIconsPanelOn and inventory.getIconsPanelOn()
+        local iconsPanelOff = inventory.getIconsPanelOff and inventory.getIconsPanelOff()
+
+        if iconsPanelOn then
+            iconsPanelOn:destroyChildren()
+        end
+
+        if iconsPanelOff then
+            iconsPanelOff:destroyChildren()
+        end
+    end
 
     StatsBar.destroyAllIcons()
 end

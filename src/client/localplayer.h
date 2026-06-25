@@ -124,6 +124,7 @@ public:
     bool hasSight(const Position& pos);
     bool isKnown() { return m_known; }
     bool isPreWalking() { return m_preWalking; }
+    bool isServerWalking() { return isWalking() && !m_preWalking; }
 
     bool isSupplyStashAvailable() const { return m_isSupplyStashAvailable; }
     void setSupplyStashAvailable(bool available) {

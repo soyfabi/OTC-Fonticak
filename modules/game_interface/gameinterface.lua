@@ -2014,12 +2014,24 @@ function applyExtendedViewLayout(extendedView)
     end
 
     addEvent(function()
-        modules.game_console.setExtendedView(extendedView)
-        modules.game_minimap.extendedView(extendedView)
-        modules.game_healthinfo.extendedView(extendedView)
-        modules.game_inventory.extendedView(extendedView)
-        modules.client_topmenu.extendedView(extendedView)
-        modules.game_mainpanel.toggleExtendedViewButtons(extendedView)
+        if modules.game_console and modules.game_console.setExtendedView then
+            modules.game_console.setExtendedView(extendedView)
+        end
+        if modules.game_minimap and modules.game_minimap.extendedView then
+            modules.game_minimap.extendedView(extendedView)
+        end
+        if modules.game_healthinfo and modules.game_healthinfo.extendedView then
+            modules.game_healthinfo.extendedView(extendedView)
+        end
+        if modules.game_inventory and modules.game_inventory.extendedView then
+            modules.game_inventory.extendedView(extendedView)
+        end
+        if modules.client_topmenu and modules.client_topmenu.extendedView then
+            modules.client_topmenu.extendedView(extendedView)
+        end
+        if modules.game_mainpanel and modules.game_mainpanel.toggleExtendedViewButtons then
+            modules.game_mainpanel.toggleExtendedViewButtons(extendedView)
+        end
     end)
 end
 

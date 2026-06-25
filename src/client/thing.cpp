@@ -557,6 +557,12 @@ bool Thing::isAmmo() {
     return false;
 }
 
+bool Thing::isQuiver() {
+    if (const auto t = getThingType(); t)
+        return t->isQuiver();
+    return false;
+}
+
 bool Thing::isDualWield() {
     if (const auto t = getThingType(); t)
         return t->isDualWield();

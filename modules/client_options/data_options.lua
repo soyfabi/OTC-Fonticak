@@ -674,11 +674,13 @@ return {
         value = true,
         event = nil,
         action = function(value, options, controller, panels, extraWidgets)
-            if options.showExpiryInContainers.event ~= nil then
+            if options.showExpiryInInvetory.event ~= nil then
                 removeEvent(options.showExpiryInInvetory.event)
             end
             options.showExpiryInInvetory.event = scheduleEvent(function()
-                modules.game_inventory.reloadInventory()
+                if modules.game_inventory and modules.game_inventory.reloadInventory then
+                    modules.game_inventory.reloadInventory()
+                end
                 options.showExpiryInInvetory.event = nil
             end, 100)
         end
