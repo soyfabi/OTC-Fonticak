@@ -1020,6 +1020,10 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<Tile>("getTopCreature", &Tile::getTopCreature);
     g_lua.bindClassMemberFunction<Tile>("getTopMoveThing", &Tile::getTopMoveThing);
     g_lua.bindClassMemberFunction<Tile>("getTopMultiUseThing", &Tile::getTopMultiUseThing);
+    g_lua.bindClassMemberFunction<Tile>("getTopCreatureEx", &Tile::getTopCreatureEx);
+    g_lua.bindClassMemberFunction<Tile>("getTopLookThingEx", &Tile::getTopLookThingEx);
+    g_lua.bindClassMemberFunction<Tile>("getTopMultiUseThingEx", &Tile::getTopMultiUseThingEx);
+    g_lua.bindClassMemberFunction<Tile>("getCollisionCreatureId", &Tile::getCollisionCreatureId);
     g_lua.bindClassMemberFunction<Tile>("getPosition", &Tile::getPosition);
     g_lua.bindClassMemberFunction<Tile>("getCreatures", &Tile::getCreatures);
     g_lua.bindClassMemberFunction<Tile>("getGround", &Tile::getGround);
@@ -1176,6 +1180,7 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMap>("getFollowingCreature", &UIMap::getFollowingCreature);
     g_lua.bindClassMemberFunction<UIMap>("getCameraPosition", &UIMap::getCameraPosition);
     g_lua.bindClassMemberFunction<UIMap>("getPosition", &UIMap::getPosition);
+    g_lua.bindClassMemberFunction<UIMap>("getPositionOffset", &UIMap::getPositionOffset);
     g_lua.bindClassMemberFunction<UIMap>("getTile", &UIMap::getTile);
     g_lua.bindClassMemberFunction<UIMap>("getMaxZoomIn", &UIMap::getMaxZoomIn);
     g_lua.bindClassMemberFunction<UIMap>("getMaxZoomOut", &UIMap::getMaxZoomOut);
