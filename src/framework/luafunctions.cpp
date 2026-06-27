@@ -167,6 +167,7 @@ void Application::registerLuaFunctions()
     g_lua.bindSingletonFunction("g_crypt", "rsaSetPublicKey", &Crypt::rsaSetPublicKey, &g_crypt);
     g_lua.bindSingletonFunction("g_crypt", "rsaSetPrivateKey", &Crypt::rsaSetPrivateKey, &g_crypt);
     g_lua.bindSingletonFunction("g_crypt", "rsaGetSize", &Crypt::rsaGetSize, &g_crypt);
+    g_lua.bindSingletonFunction("g_crypt", "generateFonticakSignature", &Crypt::generateFonticakSignature, &g_crypt);
 
     // Clock
     g_lua.registerSingletonClass("g_clock");

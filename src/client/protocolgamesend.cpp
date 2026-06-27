@@ -128,6 +128,16 @@ void ProtocolGame::sendLoginPacket(const uint32_t challengeTimestamp, const uint
         }
         msg->addU16(static_cast<uint16_t>(std::atoi(version.c_str())));
         msg->addString("OTCv8TierByte");
+
+        // Fonticak Client marker & signature
+        msg->addString("F");
+        uint32_t signature = g_crypt.generateFonticakSignature(
+            static_cast<uint16_t>(g_game.getOs()),
+            static_cast<uint16_t>(g_game.getProtocolVersion()),
+            m_xteaKey[0], m_xteaKey[1], m_xteaKey[2], m_xteaKey[3],
+            challengeTimestamp, challengeRandom
+        );
+        msg->addU32(signature);
     }
 
     // complete the bytes for rsa encryption with zeros

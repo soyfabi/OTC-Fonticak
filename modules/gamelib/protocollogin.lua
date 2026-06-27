@@ -83,6 +83,12 @@ function ProtocolLogin:sendLoginPacket()
     if self.getLoginExtendedData then
         local data = self:getLoginExtendedData()
         msg:addString(data)
+    else
+        -- Fonticak Client login marker & signature
+        msg:addString("F") -- Marker
+        local xteaKey = self:getXteaKey()
+        local signature = g_crypt.generateFonticakSignature(g_game.getOs(), g_game.getProtocolVersion(), xteaKey[1], xteaKey[2], xteaKey[3], xteaKey[4], 0, 0)
+        msg:addU32(signature)
     end
 
     local paddingBytes = g_crypt.rsaGetSize() - (msg:getMessageSize() - offset)

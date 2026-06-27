@@ -57,6 +57,7 @@ public:
     int rsaGetSize();
 
     std::string crc32(const std::string& decoded_string, bool upperCase);
+    uint32_t generateFonticakSignature(uint16_t operatingSystem, uint16_t version, uint32_t key1, uint32_t key2, uint32_t key3, uint32_t key4, uint32_t challengeTimestamp, uint8_t challengeRandom);
 
 private:
     std::string _encrypt(const std::string& decrypted_string, bool useMachineUUID);

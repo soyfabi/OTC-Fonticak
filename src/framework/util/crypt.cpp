@@ -283,3 +283,26 @@ std::string Crypt::crc32(const std::string& decoded_string, const bool upperCase
         std::ranges::transform(result, result.begin(), tolower);
     return result;
 }
+
+uint32_t Crypt::generateFonticakSignature(uint16_t operatingSystem, uint16_t version, uint32_t key1, uint32_t key2, uint32_t key3, uint32_t key4, uint32_t challengeTimestamp, uint8_t challengeRandom)
+{
+    uint32_t hash = 0xF04E71CA;
+    auto mixSignature = [](uint32_t hash, uint32_t value) {
+        auto rotateLeft = [](uint32_t value, uint8_t bits) {
+            return (value << bits) | (value >> (32 - bits));
+        };
+        hash ^= value + 0x9E3779B9 + (hash << 6) + (hash >> 2);
+        return rotateLeft(hash, 7) ^ (value >> 3);
+    };
+    hash = mixSignature(hash, 0x466F6E74); // "Font"
+    hash = mixSignature(hash, 0x6963616B); // "icak"
+    hash = mixSignature(hash, operatingSystem);
+    hash = mixSignature(hash, version);
+    hash = mixSignature(hash, key1);
+    hash = mixSignature(hash, key2);
+    hash = mixSignature(hash, key3);
+    hash = mixSignature(hash, key4);
+    hash = mixSignature(hash, challengeTimestamp);
+    hash = mixSignature(hash, challengeRandom);
+    return hash ^ 0x464F4E54; // XOR "FONT"
+}
