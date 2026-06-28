@@ -1,11 +1,11 @@
 TerminalLabel < UILabel
-  font: terminus-10px
+  font: Verdana-10px-antialiased
   text-wrap: true
   text-auto-resize: true
   phantom: true
 
 TerminalSelectText < UITextEdit
-  font: terminus-10px
+  font: Verdana-10px-antialiased
   text-wrap: true
   text-align: bottomLeft
   editable: false
@@ -19,17 +19,19 @@ TerminalSelectText < UITextEdit
 
 UIWindow
   id: terminalWindow
-  background-color: #000000
-  opacity: 0.85
-  clipping: true
+  background-color: #0f0f1a
+  opacity: 0.95
+  border-radius: 6
+  padding: 6
   anchors.fill: parent
-  border: 0 white
+  clipping: true
   $on:
-    border: 1 black
+    border: 1 #13d644cc
 
   Label
     id: titleBar
     !text: tr('Terminal')
+    font: Verdana Bold-11px
     border: 1 black
     color: white
     anchors.top: parent.top
@@ -70,25 +72,25 @@ UIWindow
 
   UILabel
     id: commandSymbolLabel
-    size: 12 12
+    size: 12 14
     fixed-size: true
     anchors.bottom: parent.bottom
     anchors.left: parent.left
     margin-left: 2
-    font: terminus-10px
+    font: Verdana-10px-antialiased
     text: >
 
   UITextEdit
     id: commandTextEdit
-    background: #aaaaaa11
-    border-color: #aaaaaa88
-    &baseHeight: 12
+    background: #0055ff1a
+    border-color: #007acc44
+    &baseHeight: 14
     anchors.bottom: parent.bottom
     anchors.left: commandSymbolLabel.right
     anchors.right: terminalScroll.left
     margin-left: 1
     padding-left: 2
-    font: terminus-10px
+    font: Verdana-10px-antialiased
     selection-color: black
     selection-background-color: white
     border-width-left: 0
