@@ -2074,3 +2074,11 @@ function toggleFocus(value, reason)
     gameRightExtraPanel:setFocusable(value)
     gameLeftExtraPanel:setFocusable(value)
 end
+
+function isChatVisible()
+    if modules.game_console and modules.game_console.isChatEnabled then
+        return modules.game_console.isChatEnabled()
+    end
+    return false
+end
+
