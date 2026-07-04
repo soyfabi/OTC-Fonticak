@@ -204,35 +204,30 @@ local function setup()
     for k, obj in pairs(options) do
         local v = obj.value
 
-        if type(v) == 'boolean' then
-            local value = g_settings.getBoolean(k)
-            setOption(k, value, true)
-        elseif type(v) == 'number' then
-            local value = g_settings.getNumber(k)
-            setOption(k, value, true)
-        elseif type(v) == 'string' then
-            local value = g_settings.getString(k)
-            setOption(k, value, true)
+        if k ~= 'classicControl' and k ~= 'smartLeftClick' and k ~= 'mouseControlMode' then
+            if type(v) == 'boolean' then
+                local value = g_settings.getBoolean(k)
+                setOption(k, value, true)
+            elseif type(v) == 'number' then
+                local value = g_settings.getNumber(k)
+                setOption(k, value, true)
+            elseif type(v) == 'string' then
+                local value = g_settings.getString(k)
+                setOption(k, value, true)
+            end
         end
     end
     
     -- Special handling for mouseControlMode to ensure it's in sync with the underlying options
-    local mouseControlMode = g_settings.getNumber('mouseControlMode')
-    if mouseControlMode ~= nil then
-        setOption('mouseControlMode', mouseControlMode, true)
-    else
-        -- Derive from classicControl and smartLeftClick if mouseControlMode isn't set
-        local classicControl = g_settings.getBoolean('classicControl')
-        local smartLeftClick = g_settings.getBoolean('smartLeftClick')
-        
-        if classicControl then
-            setOption('mouseControlMode', 1, true)
-        elseif smartLeftClick then
-            setOption('mouseControlMode', 2, true)
-        else
-            setOption('mouseControlMode', 0, true)
-        end
+    local classicControl = g_settings.getBoolean('classicControl')
+    local smartLeftClick = g_settings.getBoolean('smartLeftClick')
+    local mouseControlMode = 0
+    if classicControl then
+        mouseControlMode = 1
+    elseif smartLeftClick then
+        mouseControlMode = 2
     end
+    setOption('mouseControlMode', mouseControlMode, true)
     
     -- Schedule combobox updates to ensure they happen after UI setup is complete
     scheduleEvent(function()

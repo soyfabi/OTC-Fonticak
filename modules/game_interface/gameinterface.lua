@@ -614,7 +614,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
     local mobile = g_platform.isMobile()
     local shortcut = nil
 
-    if not classic and not mobile and not smartLeftClick then
+    if not mobile then
         shortcut = '(Shift)'
     else
         shortcut = nil
@@ -646,7 +646,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
         end
     end
 
-    if not classic and not mobile then
+    if not mobile then
         shortcut = '(Ctrl)'
     else
         shortcut = nil
@@ -766,7 +766,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
             end
         else
             local localPosition = localPlayer:getPosition()
-            if not classic and not mobile then
+            if not mobile then
                 shortcut = '(Alt)'
             else
                 shortcut = nil
