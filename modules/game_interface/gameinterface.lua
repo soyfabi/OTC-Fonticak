@@ -726,7 +726,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
         menu:addSeparator()
 
         if creatureThing:isLocalPlayer() then
-            menu:addOption(tr(g_game.getClientVersion() >= 1000 and "Customise Character" or "Set Outfit"), function()
+            menu:addOption(tr("Customise Character"), function()
                 g_game.requestOutfit()
             end)
 
