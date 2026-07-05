@@ -164,6 +164,12 @@ function init()
     connect(commandTextEdit, {
         onTextChange = onCommandChange
     })
+
+    terminalWindow:getChildById('clearShortcutButton').onClick = function()
+        executeCommand('clear')
+        commandTextEdit:focus()
+    end
+
     g_keyboard.bindKeyPress('Up', function()
         navigateCommand(1)
     end, commandTextEdit)

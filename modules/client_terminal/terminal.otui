@@ -17,6 +17,25 @@ TerminalSelectText < UITextEdit
   focusable: false
   auto-scroll: false
 
+TerminalShortcutButton < UIButton
+  font: Verdana-10px-antialiased
+  color: white
+  size: 44 18
+  text-offset: 0 1
+  background-color: #1b2b3dcc
+  border: 1 #007acc88
+  border-radius: 3
+  change-cursor-image: true
+  cursor: pointer
+
+  $hover:
+    background-color: #24507acc
+    border: 1 #36a3ffcc
+
+  $pressed:
+    background-color: #0d2238dd
+    text-offset: 1 2
+
 UIWindow
   id: terminalWindow
   background-color: #0f0f1a
@@ -80,6 +99,13 @@ UIWindow
     font: Verdana-10px-antialiased
     text: >
 
+  TerminalShortcutButton
+    id: clearShortcutButton
+    !text: tr('Clear')
+    anchors.bottom: parent.bottom
+    anchors.right: terminalScroll.left
+    margin-right: 3
+
   UITextEdit
     id: commandTextEdit
     background: #0055ff1a
@@ -87,8 +113,9 @@ UIWindow
     &baseHeight: 14
     anchors.bottom: parent.bottom
     anchors.left: commandSymbolLabel.right
-    anchors.right: terminalScroll.left
+    anchors.right: clearShortcutButton.left
     margin-left: 1
+    margin-right: 3
     padding-left: 2
     font: Verdana-10px-antialiased
     selection-color: black
