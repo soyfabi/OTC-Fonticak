@@ -534,6 +534,17 @@ return {
                 tr('Animated Message Scale: %sx', math.max(value + 0.5, 1)))
         end
     },
+    conditionIconSize                 = {
+        value = 2,
+        action = function(value, options, controller, panels, extraWidgets)
+            if modules.game_healthcircle and modules.game_healthcircle.ConditionsHUD then
+                modules.game_healthcircle.ConditionsHUD.setIconSize(value)
+            end
+            local labels = {[1] = 'Small', [2] = 'Medium', [3] = 'Large'}
+            panels.interfaceHUD:recursiveGetChildById('conditionIconSize'):setText(
+                tr('Condition Icon Size: %s', labels[value] or 'Medium'))
+        end
+    },
     showLeftExtraPanel                = {
         value = false,
         action = function(value, options, controller, panels, extraWidgets)

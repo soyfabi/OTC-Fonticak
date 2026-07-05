@@ -18,6 +18,20 @@ local config = {
     shrinkInterval = 30
 }
 
+local CONDITION_ICON_SIZES = {
+    [1] = { container = 20, icon = 12 },
+    [2] = { container = 20, icon = 16 },
+    [3] = { container = 20, icon = 20 },
+}
+
+local function getConditionIconSize()
+    local sizeValue = 2
+    if ConditionsHUD.settings and ConditionsHUD.settings.iconSize then
+        sizeValue = ConditionsHUD.settings.iconSize
+    end
+    return CONDITION_ICON_SIZES[sizeValue] or CONDITION_ICON_SIZES[2]
+end
+
 local SETTINGS_FILE = '/settings_conditions_hud.json'
 local DECORATIVE_CHILD_COUNT = 2
 local SELECTED_COLOR = '#585858'
@@ -65,7 +79,8 @@ local function defaultSettings()
         visibleHud = {},
         visibleBar = {},
         showInHud = true,
-        showInBar = true
+        showInBar = true,
+        iconSize = 2
     }
 end
 
@@ -86,6 +101,9 @@ local function normalizeSettings(settings)
     end
     if type(settings.showInBar) ~= 'boolean' then
         settings.showInBar = true
+    end
+    if type(settings.iconSize) ~= 'number' or settings.iconSize < 1 or settings.iconSize > 3 then
+        settings.iconSize = 2
     end
 
     return settings
@@ -137,6 +155,36 @@ function ConditionsHUD.saveSettings()
     if status and encoded then
         g_resources.writeFileContents(SETTINGS_FILE, encoded)
     end
+end
+
+local function applyPanelSize()
+    if not statusIconPanel then
+        return
+    end
+    local sz = getConditionIconSize()
+    statusIconPanel:setWidth(sz.container)
+    local topWidget = statusIconPanel:getChildByIndex(1)
+    if topWidget then
+        topWidget:setWidth(sz.container)
+    end
+    local bottomWidget = statusIconPanel:getChildByIndex(2)
+    if bottomWidget then
+        bottomWidget:setWidth(sz.container)
+    end
+end
+
+function ConditionsHUD.setIconSize(value)
+    if not ConditionsHUD.settings then
+        ConditionsHUD.settings = defaultSettings()
+    end
+    if value < 1 or value > 3 then
+        value = 2
+    end
+    ConditionsHUD.settings.iconSize = value
+    ConditionsHUD.saveSettings()
+
+    applyPanelSize()
+    StatusIconBar.refreshIcons()
 end
 
 function ConditionsHUD.getOrderedConditions()
@@ -512,6 +560,13 @@ local function applyIconWidgetStyle(container, condition)
         return
     end
 
+    local iconSize = getConditionIconSize()
+    container:setWidth(iconSize.container)
+    container:setHeight(iconSize.container)
+    icon:setWidth(iconSize.icon)
+    icon:setHeight(iconSize.icon)
+    icon:setImageSize(tosize(iconSize.icon .. ' ' .. iconSize.icon))
+
     if condition.path then
         icon:setImageSource(condition.path)
     else
@@ -719,21 +774,24 @@ function StatusIconBar.refreshIcons()
 
     for _, condition in ipairs(activeConditions) do
         local container = activeIcons[condition.id]
+        local isNew = false
         if not container then
             container = g_ui.createWidget('StatusIconContainer', statusIconPanel)
             container:setId('stateicon_' .. condition.id)
             container.conditionId = condition.id
-            container.realHeight = container:getHeight()
-            container:setHeight(1)
-            setWidgetIconOpacity(container, 0.0)
             activeIcons[condition.id] = container
-            StatusIconBar.shrinkIn(container, 0)
-        else
-            container.realHeight = container.realHeight or container:getHeight()
+            isNew = true
         end
 
-        container:setTooltip(condition.tooltip or '')
         applyIconWidgetStyle(container, condition)
+        container:setTooltip(condition.tooltip or '')
+        container.realHeight = container:getHeight()
+
+        if isNew then
+            container:setHeight(1)
+            setWidgetIconOpacity(container, 0.0)
+            StatusIconBar.shrinkIn(container, 0)
+        end
     end
 
     for index, condition in ipairs(activeConditions) do
@@ -799,6 +857,7 @@ function StatusIconBar.init()
         g_ui.createWidget('StatusIconBottom', statusIconPanel)
         statusIconPanel:setVisible(false)
         statusIconPanel:setHeight(config.topBottomSize * 2 + 1)
+        applyPanelSize()
         StatusIconBar.updatePosition()
     end
 

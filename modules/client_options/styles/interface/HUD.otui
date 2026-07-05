@@ -250,6 +250,19 @@ UIWidget
       anchors.top: conditionsList.bottom
       margin-top: 7
       height: 22
+      OptionScaleScroll
+        id: conditionIconSize
+        anchors.fill: parent
+        &minimumScrollValue: 1
+        &maximumScrollValue: 3
+        &scrollSize: 21
+
+    SmallReversedQtPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+      margin-top: 7
+      height: 22
       OptionCheckBox
         id: showCustomisableStatusBars
         !text: tr('Show Customisable Status Bars')
