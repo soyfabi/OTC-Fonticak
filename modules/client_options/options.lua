@@ -413,6 +413,26 @@ function controller:onGameStart()
             end
         end
     end
+
+    -- When entering the game, the login screen buttons may have left 'pointerbutton'
+    -- entries in the mouse cursor stack (from UIButton:onHoverChange). This makes
+    -- g_mouse.isCursorChanged() return true, which blocks mapview.cpp from changing
+    -- the animated cursor. We drain the stack here so cursor animations work immediately.
+    if options.showAnimatedCursor.value then
+        -- Pop any leftover cursors from the login screen buttons.
+        -- We do this in a loop because multiple buttons could have been hovered.
+        for _ = 1, 20 do
+            if not g_mouse.isCursorChanged() then break end
+            g_mouse.popCursor('pointerbutton')
+            g_mouse.popCursor('window')
+        end
+    end
+
+    -- Re-apply setCursorAnimations to ensure the map panel has the correct value.
+    local gameMapPanel = modules.game_interface and modules.game_interface.getMapPanel()
+    if gameMapPanel then
+        gameMapPanel:setCursorAnimations(options.showAnimatedCursor.value)
+    end
 end
 
 function setOption(key, value, force)

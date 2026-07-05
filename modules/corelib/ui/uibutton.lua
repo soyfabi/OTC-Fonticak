@@ -24,6 +24,18 @@ function UIButton:onDestroy()
     end
 end
 
+function UIButton:onVisibilityChange(visible)
+    -- When button becomes invisible, pop cursor if it was pushed to avoid stack leaks
+    if not visible and self.cursorPushed then
+        if modules.client_options and modules.client_options.getOption('nativeCursor') then
+            g_window.restoreMouseCursor()
+        else
+            g_mouse.popCursor('pointerbutton')
+        end
+        self.cursorPushed = false
+    end
+end
+
 function UIButton:onHoverChange(hovered)
     if not modules.client_options then
         UIWidget.onHoverChange(self, hovered)

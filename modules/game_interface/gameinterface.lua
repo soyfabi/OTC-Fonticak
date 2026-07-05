@@ -740,11 +740,11 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
                 if not localPlayer:isMounted() then
                     menu:addOption(tr('Mount'), function()
                         localPlayer:mount()
-                    end)
+                    end, not mobile and '(Ctrl+R)' or nil)
                 else
                     menu:addOption(tr('Dismount'), function()
                         localPlayer:dismount()
-                    end)
+                    end, not mobile and '(Ctrl+R)' or nil)
                 end
             end
 
