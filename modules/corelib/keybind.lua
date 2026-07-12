@@ -905,11 +905,9 @@ function Keybind.hotkeyCallback(hotkeyId, chatMode)
   elseif action == HOTKEY_ACTION.TEXT_AUTO then
     local text = hotkey.data.text or ""
     text = text:gsub("^%[Text%]%s*", ""):gsub("^%[Spell%]%s*", "")
-    if modules.game_interface.isChatVisible() then
-      modules.game_console.sendMessage(text)
-    else
-      g_game.talk(text)
-    end
+    -- Automatic text hotkeys must use the game channel, never the active
+    -- private-chat input.
+    g_game.talk(text)
   elseif action == HOTKEY_ACTION.SPELL then
     local text = data.words or ""
     text = text:gsub("^%[Text%]%s*", ""):gsub("^%[Spell%]%s*", "")
@@ -917,11 +915,8 @@ function Keybind.hotkeyCallback(hotkeyId, chatMode)
       text = text .. " " .. data.parameter
     end
 
-    if modules.game_interface.isChatVisible() then
-      modules.game_console.sendMessage(text)
-    else
-      g_game.talk(text)
-    end
+    -- Cast through the game channel even when the private-chat input has focus.
+    g_game.talk(text)
   elseif action == HOTKEY_ACTION.SMART_CAST then
     local pos = g_window.getMousePosition()
     local clickedWidget = modules.game_interface.getRootPanel():recursiveGetChildByPos(pos, false)
