@@ -152,7 +152,6 @@ return {
             end, 50)
         end
     },
-    returnDisablesChat                = false,
     smartWalk                         = false,
     alwaysTurnTowardsMoveDirection    = true,
     autoChaseOverride                 = true,
@@ -185,7 +184,7 @@ return {
             CharacterList.updateCharactersAppearances(value)
         end
     },
-    openMaximized                     = false,
+    openMinimized                     = false,
     backgroundFrameRate               = {
         value = 501,
         action = function(value, options, controller, panels, extraWidgets)

@@ -1118,17 +1118,14 @@ function onContainerOpen(container, previousContainer)
         panel:addChild(containerWindow)
     end
 
-    -- Auto-fit only when the container window is first opened. If the window is
-    -- reused, preserve any height selected manually by the player.
+    -- Set the initial height only when the container window is first opened. If
+    -- the window is reused, preserve any height selected manually by the player.
     if not previousContainer then
-        -- Always set the content height based on the current container's content, with a minimum of one row
-        local minRows = 1
-        if modules.client_options.getOption('openMaximized') then
-            local numLines = math.max(layout:getNumLines(), minRows)
-            containerWindow:setHeight(cellSize.height + (numLines - 1) * step + chromeHeight)
+        if modules.client_options.getOption('openMinimized') then
+            containerWindow:setHeight(cellSize.height + chromeHeight)
         else
             local numColumns = math.max(layout:getNumColumns(), 1)
-            local filledLines = math.max(math.ceil(container:getItemsCount() / numColumns), minRows)
+            local filledLines = math.max(math.ceil(container:getItemsCount() / numColumns), 1)
             containerWindow:setHeight(cellSize.height + (filledLines - 1) * step + chromeHeight)
         end
     end

@@ -5,19 +5,7 @@ UIWidget
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: parent.top
-    height: 22
-
-    OptionCheckBoxMarked
-      id: showPing
-      !text: tr('Show connection ping')
-      !tooltip: tr('Display connection speed to the server (milliseconds)')
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
     height: 32
-    margin-top: 7
 
     $mobile:
       height: 0
@@ -84,18 +72,6 @@ UIWidget
     margin-top: 7
     height: 22
   
-    OptionCheckBoxMarked
-      id: returnDisablesChat
-      !text: tr('Enter to disable chat')
-      !tooltip: tr('Enables disabling chat and enabling WASD when pressed Enter.')
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-  
     OptionCheckBox
       id: moveStack
       !text: tr('Move stacks directly')
@@ -131,21 +107,11 @@ UIWidget
     margin-top: 7
     height: 22
   
-    OptionCheckBox
-      id: openMaximized
-      !text: tr('Open containers maximized')
+    OptionCheckBoxMarked
+      id: openMinimized
+      !text: tr('Open containers minimized')
+      !tooltip: tr('When checked, containers will open showing only one row and can still be resized manually.')
 
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-  
-    OptionCheckBox
-      id: displayText
-      !text: tr('Display text messages')
-      
   SmallReversedQtPanel
     id: hotkeyDelay_label
     anchors.left: parent.left

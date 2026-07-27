@@ -280,6 +280,29 @@ UIWidget
         !text: tr('Show Status Bars')
         !tooltip: tr('Check this box to show your character\'s status bars for mana and \nhealth in the sidebar.')
 
+    SmallReversedQtPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+      margin-top: 7
+      height: 22
+
+      OptionCheckBox
+        id: displayText
+        !text: tr('Display text messages')
+
+    SmallReversedQtPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+      margin-top: 7
+      height: 22
+
+      OptionCheckBoxMarked
+        id: showPing
+        !text: tr('Show connection ping')
+        !tooltip: tr('Display connection speed to the server (milliseconds)')
+
   VerticalScrollBar
     id: hudScrollBar
     anchors.top: parent.top
