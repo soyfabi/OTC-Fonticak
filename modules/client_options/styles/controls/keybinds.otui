@@ -126,7 +126,7 @@ UIWidget
     OptionCheckBoxMarked
       id: autoSwitchPreset
       !text: tr('Auto-Switch Hotkey Preset')
-      !tooltip: tr('If you have named your hotkey presets the same like your\ncharacters and have checked this option, the preset with the same\nname as the corresponding character will be activated upon login\nautomatically.')
+      !tooltip: tr('Automatically activates a preset on login. A preset matching\nthe character name takes priority; otherwise, a preset matching the\ncharacter vocation (Druid, Knight, Paladin, Sorcerer or Monk) is used.')
 
   SmallReversedQtPanel
     anchors.left: parent.left

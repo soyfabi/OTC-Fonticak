@@ -117,65 +117,51 @@ UIWidget
     OptionCheckBoxMarked
       id: autoSwitchPreset
       !text: tr('Auto-Switch Hotkey Preset')
-      !tooltip: tr('If you have named your hotkey presets the same like your\ncharacters and have checked this option, the preset with the same\nname as the corresponding character will be activated upon login\nautomatically.')
+      !tooltip: tr('Automatically activates a preset on login. A preset matching\nthe character name takes priority; otherwise, a preset matching the\ncharacter vocation (Druid, Knight, Paladin, Sorcerer or Monk) is used.')
 
-  FlatPanel
+  SmallReversedQtPanel
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
     height: 22
-    margin-top: 5
+    margin-top: 7
     id: panel
-    image-source: /images/ui/panel_flat_astra
-    image-border: 1
 
-    Panel
+    OptionContainer
+      anchors.left: parent.left
+      anchors.right: parent.right
+      image-source: ""
+      !tooltip: tr('There are two chat modes for each hotkey preset: Chat On and Chat\n Off.You can find a small button that tells you which chat mode is\n currently active on the right side of the entry line of the chat console.Press this button to switch between the two chat modes.\nOf course, you can also set a hotkey to toggle between Chat On and Off.\n- Chat On\nIn this mode, you will be able to write text in the entry line of the chat console.\nHowever, if you have assigned an action to a letter key, the action will be triggered.\n- Chat On*\nThis is the temporary Chat On mode.\nIn the default hotkey preset, the Return key switches between Chat Off and this mode.\nIf the chat mode is off and you press this hotkey, it temporarily activates the chat mode so that you can write one message in the console.\nAs soon as you press Return to send the message, your chat mode will be set to Chat Off again so that you can continue walking with WASD, for example.\n- Chat Off\nIn this mode, you will not be able to write any text in the entry line of the console, but you can use your predefined hotkeys to walk or cast spells, for example.\nYou can assign functions to all keys of your keyboard, e.g. walk with WASD.')
+
       id: chatMode
-      anchors.fill: parent
+      $!first:
+        margin-left: 40
+      layout:
+        type: horizontalBox
+        spacing: 127
 
-      CheckBox
+      CheckBoxCircle
         id: on
-        size: 12 12
-        !text: tr('Chat Mode On')
-        font: Verdana Bold-11px
-        text-auto-resize: true
-        color: #c0c0c0
-        anchors.left: parent.left
-        anchors.top: parent.top
-        image-source: /images/ui/checkboxcircle
-        image-clip: 0 0 12 12
-        margin-top: 5
-        margin-left: 5
-        enabled: true
-        change-cursor-image: false
-        $hover !disabled:
-          color: #c0c0c0
+        text-horizontal-auto-resize: true
+        !text: tr("Chat Mode On")
+        margin-bottom: -5
+        text-offset: 20 -3
 
-      CheckBox
+      CheckBoxCircle
         id: off
-        size: 12 12
-        !text: tr('Chat Mode Off')
-        font: Verdana Bold-11px
-        text-auto-resize: true
-        color: #c0c0c0
-        anchors.left: prev.right
-        anchors.top: parent.top
-        image-source: /images/ui/checkboxcircle
-        image-clip: 0 0 12 12
-        margin-top: 5
-        margin-left: 145
-        enabled: true
-        change-cursor-image: false
-        $hover !disabled:
-          color: #c0c0c0
+        text-horizontal-auto-resize: true
+        !text: tr("Chat Mode Off")
+        margin-bottom: -5
+        text-offset: 20 -3
+        $mobile:
+          margin-left: -120
 
     UIWidget
       id: toolTipWidget
       image-source: /images/icons/show_gui_help_grey
       size: 12 12  
       anchors.right: parent.right
-      anchors.verticalCenter: parent.verticalCenter
-      margin-right: 7
+      margin-right: 3
       !tooltip: tr('There are two chat modes for each hotkey preset: Chat On and Chat\nOff. You can find a small button that tells you which mode is\n currently active on the right side of the entry line of the chat\n console. Press this button to switch between the two chat modes. Of\n course, you can also set a hotkey to toggle between Chat On and Off.\n\n                      * Chat On\n                          In this mode, you will be able to write text in the entry line of\n                          the chat console. However, if you have assigned an action to\n                          a letter key, the action will be triggered.\n\n                      * Chat On*\n                          This is the temporary Chat On mode. In the default hotkey\n                          preset, the Return key switches between Chat Off and this\n                          mode. If the chat mode is off and you press this hotkey, it\n                          temporarily activates the chat mode so that you can write\n                          one message in the console. As soon as you press Return to\n                          send the message, your chat mode will be set to Chat Off\n                          again so that you can continue walking with WASD, for\n                          example.\n                      * Chat Off\n                          In this mode, you will not be able to write any text in the\n                          entry line of the console, but you can use your predefined\n                          hotkeys to walk or cast spells, for example. You can assign\n                          functions to all keys of your keyboard, e.g., walk with WASD.')
      
   Panel

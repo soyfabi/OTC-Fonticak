@@ -727,7 +727,23 @@ return {
             end, 100)
         end
     },
-    autoSwitchPreset                  = false,
+    autoSwitchPreset                  = {
+        value = false,
+        action = function(value, options, controller, panels)
+            -- Both hotkey pages expose this setting. Synchronize them after
+            -- setOption stores the new value to avoid recursive change events.
+            scheduleEvent(function()
+                for _, panel in ipairs({ panels.keybindsPanel, panels.customHotkeys }) do
+                    if panel and panel.presets then
+                        local widget = panel.presets.autoSwitchPreset
+                        if widget and widget:isChecked() ~= value then
+                            widget:setChecked(value)
+                        end
+                    end
+                end
+            end)
+        end
+    },
     listKeybindsPanel                 = {
         action = function(value, options, controller, panels, extraWidgets)
             listKeybindsComboBox(value)

@@ -1,4 +1,6 @@
 local options = dofile("data_options")
+local autoSwitchPresetEvent = nil
+
 panels = {
     generalPanel = nil,
     graphicsPanel = nil,
@@ -380,6 +382,11 @@ function controller:onInit()
 end
 
 function controller:onTerminate()
+    if autoSwitchPresetEvent then
+        removeEvent(autoSwitchPresetEvent)
+        autoSwitchPresetEvent = nil
+    end
+
     -- Make sure all settings are saved before terminating
     g_settings.save()
     
@@ -400,19 +407,113 @@ function controller:onTerminate()
     terminate_custom_hotkeys()
 end
 
-function controller:onGameStart()
-    if g_settings.getBoolean("autoSwitchPreset") then
-        local name = g_game.getCharacterName()
-        if Keybind.selectPreset(name) then
-            panels.keybindsPanel.presets.list:setCurrentOption(name, true)
-            updateKeybinds()
-            if modules.game_actionbar and modules.game_actionbar.selectHotkeySet then
-                if not modules.game_actionbar.selectHotkeySet(name) then
-                    g_logger.warning(string.format("[client_options] Failed to sync action bar hotkey set '%s' on startup.", name))
-                end
+local function findPresetIgnoringCase(name)
+    if not name or name == '' then
+        return nil
+    end
+
+    local normalizedName = name:lower()
+    for _, preset in ipairs(Keybind.presets) do
+        if preset:lower() == normalizedName then
+            return preset
+        end
+    end
+
+    return nil
+end
+
+local function getCharacterVocationPreset(player)
+    local vocationNames = {
+        { name = 'Druid', check = 'isDruid' },
+        { name = 'Knight', check = 'isKnight' },
+        { name = 'Paladin', check = 'isPaladin' },
+        { name = 'Sorcerer', check = 'isSorcerer' },
+        { name = 'Monk', check = 'isMonk' }
+    }
+
+    for _, vocation in ipairs(vocationNames) do
+        local check = player[vocation.check]
+        if check and check(player) then
+            return findPresetIgnoringCase(vocation.name)
+        end
+    end
+
+    return nil
+end
+
+local function getAutomaticPreset(player)
+    -- Character-specific presets take priority. The vocation fallback makes
+    -- the default Druid/Knight/Paladin/Sorcerer/Monk presets useful as-is.
+    return findPresetIgnoringCase(player:getName()) or getCharacterVocationPreset(player)
+end
+
+local function updatePresetWidgets(preset)
+    if panels.keybindsPanel and panels.keybindsPanel.presets then
+        panels.keybindsPanel.presets.list:setCurrentOption(preset, true)
+        updateKeybinds()
+    end
+
+    if panels.customHotkeys and panels.customHotkeys.presets then
+        panels.customHotkeys.presets.list:setCurrentOption(preset, true)
+        updateCustomHotkeys()
+    end
+end
+
+local function applyAutomaticPreset(attempt)
+    autoSwitchPresetEvent = nil
+
+    if not g_game.isOnline() or not g_settings.getBoolean("autoSwitchPreset") then
+        return
+    end
+
+    local player = g_game.getLocalPlayer()
+    if not player or not player:getName() or player:getName() == '' then
+        if attempt < 25 then
+            autoSwitchPresetEvent = scheduleEvent(function()
+                applyAutomaticPreset(attempt + 1)
+            end, 200)
+        end
+        return
+    end
+
+    local preset = getAutomaticPreset(player)
+    if not preset then
+        -- The character name is available before vocation information on
+        -- some protocols. Keep waiting so the vocation fallback can resolve.
+        if attempt < 25 then
+            autoSwitchPresetEvent = scheduleEvent(function()
+                applyAutomaticPreset(attempt + 1)
+            end, 200)
+        else
+            g_logger.warning(string.format(
+                "[client_options] Auto-switch found no preset for character '%s' (vocation %s).",
+                player:getName(), tostring(player:getVocation())))
+        end
+        return
+    end
+
+    if preset and (Keybind.currentPreset == preset or Keybind.selectPreset(preset)) then
+        updatePresetWidgets(preset)
+        g_settings.setValue("controls-preset-current", preset)
+
+        if modules.game_actionbar and modules.game_actionbar.selectHotkeySet then
+            if not modules.game_actionbar.selectHotkeySet(preset) then
+                g_logger.warning(string.format("[client_options] Failed to sync action bar hotkey set '%s' on startup.", preset))
             end
         end
     end
+end
+
+function controller:onGameStart()
+    if autoSwitchPresetEvent then
+        removeEvent(autoSwitchPresetEvent)
+    end
+
+    -- onGameStart may fire while g_game still exposes the previous character
+    -- name. Wait for the new local player object before resolving the preset.
+    autoSwitchPresetEvent = scheduleEvent(function()
+        applyAutomaticPreset(1)
+    end, 100)
 
     -- When entering the game, the login screen buttons may have left 'pointerbutton'
     -- entries in the mouse cursor stack (from UIButton:onHoverChange). This makes
@@ -432,6 +533,13 @@ function controller:onGameStart()
     local gameMapPanel = modules.game_interface and modules.game_interface.getMapPanel()
     if gameMapPanel then
         gameMapPanel:setCursorAnimations(options.showAnimatedCursor.value)
+    end
+end
+
+function controller:onGameEnd()
+    if autoSwitchPresetEvent then
+        removeEvent(autoSwitchPresetEvent)
+        autoSwitchPresetEvent = nil
     end
 end
 
