@@ -7,7 +7,7 @@ UIWidget
     anchors.top: parent.top
     height: 60
 
-    QtButton
+    OptionsQtButton
       !text: tr('Wiki')
       anchors.left: parent.left
       anchors.top: parent.top
@@ -16,7 +16,7 @@ UIWidget
       margin-right: 10
       @onClick: g_platform.openUrl("https://github.com/mehah/otclient/wiki")
 
-    QtButton
+    OptionsQtButton
       !text: tr('Info')
       size: 130 20
       margin-top: 5
@@ -33,7 +33,7 @@ UIWidget
     height: 55
     margin-top: 5
 
-    QtButton
+    OptionsQtButton
       !text: tr('Clear Cache')
       size: 130 20
       margin-bottom: 10
@@ -45,7 +45,7 @@ UIWidget
         controller:scheduleEvent(function()
           g_app.restart()
         end, 1000)
-    QtButton
+    OptionsQtButton
       !text: tr('Change language')
       size: 130 20
       margin-top: 5

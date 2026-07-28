@@ -54,6 +54,7 @@ CustomTextWindow < NewMainWindow
       anchors.right: parent.right
       anchors.bottom: parent.bottom
       size: 43 20
+      font: verdana-11px-antialised
       text: Cancel
     Button
       id: buttonApply
@@ -61,7 +62,7 @@ CustomTextWindow < NewMainWindow
       margin-right: 6
       anchors.bottom: parent.bottom
       size: 43 20
-      font: cipsoftFont
+      font: verdana-11px-antialised
       text: Apply
     Button
       id: buttonOk
@@ -69,5 +70,5 @@ CustomTextWindow < NewMainWindow
       margin-right: 6
       anchors.bottom: parent.bottom
       size: 43 20
-      font: cipsoftFont
+      font: verdana-11px-antialised
       text: Ok

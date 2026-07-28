@@ -21,7 +21,7 @@ UIWidget
       text-align: left
       !text: tr('Mouse Control:')
       
-    QtComboBox
+    OptionsComboBox
       id: mouseControlMode
       width: 120
       margin-left: 10
@@ -33,7 +33,7 @@ UIWidget
       $mobile:
         visible: false
         
-    QtComboBox
+    OptionsComboBox
       id: lootControlMode
       width: 120
       margin-left: 10
@@ -185,7 +185,7 @@ UIWidget
         local value = modules.client_options.getOption('walkStairsDelay')
         self:setText(tr('Walk delay after turn: %dms', value))
 
-  QtButton
+  OptionsQtButton
     id: hotkeysButton
     !text: tr('Hotkeys Manager')
     @onClick: modules.game_hotkeys.show()

@@ -172,3 +172,24 @@ QtComboBox < UIComboBox
 
   $disabled:
     image-clip: 0 40 91 20
+
+# Option lists use framed rows so adjacent choices remain visually distinct.
+OptionsComboBoxPopupMenuButton < QtComboBoxPopupMenuButton
+  image-source: /images/ui/panel_flat_astra
+  image-border: 1
+
+OptionsComboBoxPopupMenu < QtComboBoxPopupMenu
+  image-source: /images/ui/combobox_new
+
+OptionsComboBox < QtComboBox
+  size: 91 20
+
+OptionsClassicComboBoxPopupMenuButton < ComboBoxPopupMenuButton
+  image-source: /images/ui/panel_flat_astra
+  image-border: 1
+
+OptionsClassicComboBoxPopupMenu < ComboBoxPopupMenu
+  image-source: /images/ui/combobox_square
+
+OptionsClassicComboBox < ComboBox
+  size: 91 20

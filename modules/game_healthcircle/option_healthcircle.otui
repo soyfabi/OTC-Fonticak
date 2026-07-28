@@ -86,7 +86,7 @@ UIWidget
       color: #c0c0c0ff
       anchors.verticalCenter: parent.verticalCenter
 
-    QtComboBox
+    OptionsComboBox
       id: chooseSkillComboBox
       width: 120
       margin-left: 10
@@ -147,7 +147,7 @@ UIWidget
       color: #c0c0c0ff
       anchors.verticalCenter: parent.verticalCenter
 
-    QtComboBox
+    OptionsComboBox
       id: chooseStatsBarPlacement
       width: 120
       margin-left: 10
@@ -156,7 +156,7 @@ UIWidget
       mouse-scroll: false
       @onTextChange: modules.game_healthcircle.updateStatsBar()
 
-    QtComboBox
+    OptionsComboBox
       id: chooseStatsBarDimension
       width: 120
       margin-left: 10

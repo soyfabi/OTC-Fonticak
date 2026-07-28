@@ -156,7 +156,7 @@ CustomObjectWindow < NewMainWindow
       anchors.right: parent.right
       anchors.bottom: parent.bottom
       size: 43 20
-      font: cipsoftFont
+      font: verdana-11px-antialised
       text: Cancel
     Button
       id: buttonApply
@@ -164,7 +164,7 @@ CustomObjectWindow < NewMainWindow
       anchors.bottom: parent.bottom
       margin-right: 6
       size: 43 20
-      font: cipsoftFont
+      font: verdana-11px-antialised
       text: Apply
     Button
       id: buttonOk
@@ -172,5 +172,5 @@ CustomObjectWindow < NewMainWindow
       anchors.bottom: parent.bottom
       margin-right: 6
       size: 43 20
-      font: cipsoftFont
+      font: verdana-11px-antialised
       text: Ok

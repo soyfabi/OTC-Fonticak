@@ -209,7 +209,7 @@ SpellMainWindow < NewMainWindow
       anchors.right: parent.right
       anchors.bottom: parent.bottom
       size: 43 20
-      font: cipsoftFont
+      font: verdana-11px-antialised
       text: Cancel
 
     Button
@@ -218,7 +218,7 @@ SpellMainWindow < NewMainWindow
       margin-right: 6
       anchors.bottom: parent.bottom
       size: 43 20
-      font: cipsoftFont
+      font: verdana-11px-antialised
       text: Apply
 
     Button
@@ -227,5 +227,5 @@ SpellMainWindow < NewMainWindow
       margin-right: 6
       anchors.bottom: parent.bottom
       size: 43 20
-      font: cipsoftFont
+      font: verdana-11px-antialised
       text: Ok

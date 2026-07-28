@@ -668,7 +668,10 @@ function configureCharacterCategories()
             for subId, subButton in ipairs(button.subCategories) do
                 local subWidget = createSubWidget(widget, subId, subButton)
                 if button.text == "Controls" then
-                    subWidget.Button.Title:setMarginLeft(-5)
+                    -- Leave room for the selection arrow without truncating
+                    -- the longer General/Custom Hotkeys labels.
+                    subWidget.Button.Title:setMarginLeft(4)
+                    subWidget.Button.Title:setMarginRight(16)
                 end
             end
         end

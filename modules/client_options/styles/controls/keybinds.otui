@@ -88,7 +88,7 @@ UIWidget
       type: horizontalBox
       spacing: 5
 
-    QtComboBox
+    OptionsComboBox
       id: list
       width: 320
 

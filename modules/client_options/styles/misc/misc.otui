@@ -22,7 +22,7 @@ UIWidget
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: parent.top
-    ComboBox
+    OptionsClassicComboBox
       id: profile
       margin-top: 3
       anchors.left: parent.left

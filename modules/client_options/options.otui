@@ -33,6 +33,9 @@ SpecialConditionLabelSettings < UIWidget
     image-source: /images/ui/checkbox
     image-clip: 0 0 12 12
 
+OptionsQtButton < QtButton
+  font: verdana-11px-antialised
+
 OptionsCategory < UIWidget
   size: 115 22
   image-source: /images/ui/1pixel_down_frame
@@ -66,16 +69,19 @@ OptionsCategory < UIWidget
         margin-top: 0
     Label
       id: Title
-      anchors.left: Icon.right
-      anchors.verticalCenter: Icon.verticalCenter
-      margin-left: 10
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-left: 12
+      margin-right: 12
+      height: 14
       text-align: center
-      text-auto-resize: true
+      text-auto-resize: false
       !text: tr('General Stats')
       color: #ffffff
-      font: cipsoftFont
+      font: verdana-11px-antialised
       $checked:
-        text-offset: 12 10
+        text-offset: 1 1
       $!checked:
         text-offset: 0 0
     UIWidget
@@ -226,7 +232,7 @@ MainWindow
     margin-left: 10
     margin-bottom: 10
 
-  QtButton
+  OptionsQtButton
     !text: tr('Ok')
     size: 64 20
     anchors.right: parent.right

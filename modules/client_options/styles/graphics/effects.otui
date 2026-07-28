@@ -57,7 +57,7 @@ UIWidget
       color: #c0c0c0ff
       anchors.verticalCenter: parent.verticalCenter
 
-    QtComboBox
+    OptionsComboBox
       id: floorViewMode
       width: 180
       margin-left: 10

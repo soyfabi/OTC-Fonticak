@@ -9,7 +9,7 @@ UIWidget
     color: #c0c0c0ff
     anchors.top: parent.top
 
-  QtComboBox
+  OptionsComboBox
     id: antialiasingMode
     width: 180
     margin-left: 10
