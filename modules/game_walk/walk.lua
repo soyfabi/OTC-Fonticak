@@ -224,7 +224,7 @@ function bindTurnKey(key, dir)
     g_keyboard.bindKeyPress(key, function() turn(dir, true) end, gameRootPanel)
     g_keyboard.bindKeyUp(key, function()
         local player = g_game.getLocalPlayer()
-        if player then player:lockWalk(200) end
+        if player then player:lockWalk(g_settings.getNumber('walkTurnDelay')) end
     end, gameRootPanel)
 end
 

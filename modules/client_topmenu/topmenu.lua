@@ -315,18 +315,22 @@ function updatePing(ping)
             text = 'High lag (??)'
             imagen = nil
         elseif ping >= 500 then
-            text = 'High lag (' .. ping .. ' ms)'
+            text = string.format('High lag ({%d ms, #f05a5a})', ping)
             imagen = '/images/ui/high_ping'
         elseif ping >= 250 then
-            text = 'Medium lag (' .. ping .. ' ms)'
+            text = string.format('Medium lag ({%d ms, #f0a04b})', ping)
             imagen = '/images/ui/medium_ping'
         else
-            text = 'Low lag (' .. ping .. ' ms)'
+            text = string.format('Low lag ({%d ms, #60d394})', ping)
             imagen = '/images/ui/low_ping'
         end
 
         pingImg:setImageSource(imagen)
-        pingPanel:setText(text)
+        if ping >= 0 then
+            pingPanel:setColoredText(text)
+        else
+            pingPanel:setText(text)
+        end
     end
 end
 

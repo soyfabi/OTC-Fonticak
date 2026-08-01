@@ -193,6 +193,16 @@ void ProtocolGame::sendPingBack()
     send(msg);
 }
 
+void ProtocolGame::sendNewPing(const uint32_t pingId, const uint16_t localPing, const uint16_t fps)
+{
+    const auto& msg = std::make_shared<OutputMessage>();
+    msg->addU8(Proto::ClientNewPing);
+    msg->addU32(pingId);
+    msg->addU16(localPing);
+    msg->addU16(fps);
+    send(msg);
+}
+
 void ProtocolGame::sendAutoWalk(const std::vector<Otc::Direction>& path)
 {
     const auto& msg = std::make_shared<OutputMessage>();

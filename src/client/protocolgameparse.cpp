@@ -142,6 +142,9 @@ void ProtocolGame::parseMessage(const InputMessagePtr& msg)
                 case Proto::GameServerExtendedOpcode: // otclient only
                     parseExtendedOpcode(msg);
                     break;
+                case Proto::GameServerNewPing:
+                    parseNewPing(msg);
+                    break;
                 case Proto::GameServerChangeMapAwareRange:
                     parseChangeMapAwareRange(msg);
                     break;
@@ -1349,6 +1352,11 @@ void ProtocolGame::parseSessionEnd(const InputMessagePtr& msg)
 
 void ProtocolGame::parsePing(const InputMessagePtr&) { g_game.processPing(); }
 void ProtocolGame::parsePingBack(const InputMessagePtr&) { g_game.processPingBack(); }
+
+void ProtocolGame::parseNewPing(const InputMessagePtr& msg)
+{
+    g_game.processNewPing(msg->getU32());
+}
 
 void ProtocolGame::parseLoginChallenge(const InputMessagePtr& msg)
 {

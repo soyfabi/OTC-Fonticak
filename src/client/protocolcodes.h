@@ -79,6 +79,7 @@ namespace Proto
         GameServerCreatureTyping = 56,
         GameServerAttachedPaperdoll = 60,
         GameServerDetachPaperdoll = 61,
+        GameServerNewPing = 64,
         GameServerFeatures = 67,
         GameServerFloorDescription = 75,
         GameServerItemsPriceList = 83,
@@ -256,6 +257,7 @@ namespace Proto
         // otclient ONLY
         ClientExtendedOpcode = 50,
         ClientChangeMapAwareRange = 51,
+        ClientNewPing = 64,
 
         // NOTE: add any custom opcodes in this range
         // 51 - 99

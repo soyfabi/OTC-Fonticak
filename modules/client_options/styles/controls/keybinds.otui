@@ -177,24 +177,29 @@ UIWidget
     id: search
     height: 20
     margin-top: 5
-    layout:
-      type: horizontalBox
-      spacing: 6
     
     Label
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
       text-offset: 0 3
       font: verdana-11px-monochrome
       !text: tr('Type to search for a hotkey:')
     
     TextEdit
       id: field
-      width: 300
+      anchors.left: prev.right
+      anchors.right: clear.left
+      anchors.verticalCenter: parent.verticalCenter
+      margin-left: 6
+      margin-right: 4
       @onTextChange: searchActions()
       $mobile:
         width: 140
 
     UIButton
       id: clear
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
       image-source: /images/ui/button-clear-18x18-up
       image-clip: 0 0 20 20
       width: 20

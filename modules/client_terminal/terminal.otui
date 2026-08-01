@@ -130,6 +130,20 @@ UIWindow
       multiline: true
 
   ResizeBorder
+    id: topResizeBorder
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    enabled: false
+
+  ResizeBorder
+    id: leftResizeBorder
+    anchors.left: parent.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    enabled: false
+
+  ResizeBorder
     id: bottomResizeBorder
     anchors.bottom: parent.bottom
     anchors.left: parent.left

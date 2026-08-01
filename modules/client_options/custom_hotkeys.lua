@@ -5,6 +5,7 @@ local spellWindow = nil
 local objectWindow = nil
 local textWindow = nil
 local activeRow = nil
+local customHotkeySearchEvent = nil
 
 local ActionTexts = {
   [HOTKEY_ACTION.USE_YOURSELF] = "(use object on yourself)",
@@ -904,6 +905,14 @@ function assignTextDialog(row)
 end
 
 function searchCustomHotkeys()
+  if customHotkeySearchEvent then
+    removeEvent(customHotkeySearchEvent)
+  end
+
+  customHotkeySearchEvent = scheduleEvent(performCustomHotkeySearch, 50)
+end
+
+function performCustomHotkeySearch()
   local searchField = panels.customHotkeys.search.field
   local searchText = searchField:getText():trim():lower():gsub("%+", "%%+")
   local rows = panels.customHotkeys.tablePanel.keybinds.dataSpace:getChildren()
@@ -926,6 +935,9 @@ function searchCustomHotkeys()
       row:show()
     end
   end
+
+  removeEvent(customHotkeySearchEvent)
+  customHotkeySearchEvent = nil
 end
 
 function resetCustomHotkeys()

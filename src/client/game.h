@@ -43,6 +43,7 @@ protected:
     void processDisconnect();
     void processPing();
     void processPingBack();
+    void processNewPing(uint32_t pingId);
 
     static void processUpdateNeeded(std::string_view signature);
     static void processLoginError(std::string_view error);
@@ -316,6 +317,7 @@ public:
 
     //void reportRuleViolation2();
     void ping();
+    void newPing();
     void setPingDelay(const int delay) { m_pingDelay = delay; }
 
     // otclient only
@@ -496,6 +498,7 @@ private:
     Otc::OperatingSystem_t m_clientCustomOs{ Otc::CLIENTOS_NONE };
     UnjustifiedPoints m_unjustifiedPoints;
     ScheduledEventPtr m_pingEvent;
+    ScheduledEventPtr m_newPingEvent;
     ScheduledEventPtr m_walkEvent;
     ScheduledEventPtr m_checkConnectionEvent;
     Otc::Direction m_lastWalkDir{ Otc::InvalidDirection };
@@ -518,6 +521,7 @@ private:
     uint8_t m_openPvpSituations{ 0 };
     uint16_t m_serverBeat{ 50 };
     uint16_t m_pingDelay{ 1000 };
+    uint16_t m_newPingDelay{ 250 };
     uint16_t m_protocolVersion{ 0 };
     uint16_t m_clientVersion{ 0 };
     uint32_t m_pingSent{ 0 };
@@ -532,6 +536,7 @@ private:
 
     stdext::map<int, ContainerPtr> m_containers;
     stdext::map<int, Vip> m_vips;
+    stdext::map<uint32_t, stdext::timer> m_newPingIds;
     stdext::timer m_pingTimer;
 
     ticks_t m_ping{ -1 };

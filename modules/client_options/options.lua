@@ -363,6 +363,11 @@ function controller:onInit()
             toggleOption('showFps')
         end
     } })
+    Keybind.new("UI", "Show/hide connection ping", "Shift+R", "")
+    Keybind.bind("UI", "Show/hide connection ping", { {
+        type = KEY_DOWN,
+        callback = function() toggleOption('showPing') end
+    } })
 
     Keybind.new("UI", "Show/hide Creature Names and Bars", "Ctrl+N", "")
     Keybind.bind("UI", "Show/hide Creature Names and Bars", {

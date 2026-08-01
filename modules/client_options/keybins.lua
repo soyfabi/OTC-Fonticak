@@ -624,7 +624,7 @@ function searchActions(field, text, oldText)
         removeEvent(actionSearchEvent)
     end
 
-    actionSearchEvent = scheduleEvent(performeSearchActions, 200)
+    actionSearchEvent = scheduleEvent(performeSearchActions, 50)
 end
 
 function performeSearchActions()

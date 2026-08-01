@@ -7,6 +7,11 @@ local LogColors = {
 }
 local MaxLogLines = 128
 local MaxHistory = 1000
+local StartupLogColors = {
+    green = '#60d394',
+    blue = '#58a6ff',
+    orange = '#f0a04b'
+}
 
 local oldenv = getfenv(0)
 setfenv(0, _G)
@@ -127,6 +132,26 @@ local function onCommandChange(textWidget, newText, oldText)
     end
 end
 
+local function colorText(text, color)
+    return string.format('{%s, %s}', text, color)
+end
+
+local function getStartupColoredText(message)
+    if message:starts('GPU ANGLE ') then
+        local versionStart = message:find('vs_5_0', 1, true)
+        if versionStart then
+            return colorText(message:sub(1, versionStart - 1), StartupLogColors.green) ..
+                colorText(message:sub(versionStart), StartupLogColors.blue)
+        end
+    elseif message:starts('OpenGL ') then
+        return colorText(message, StartupLogColors.blue)
+    elseif message:starts('== application started at ') or message:starts('== operating system:') then
+        return colorText(message, StartupLogColors.orange)
+    elseif message:starts('OTClient - ') then
+        return colorText(message, StartupLogColors.green)
+    end
+end
+
 local function onLog(level, message, time)
     if disabled then
         return
@@ -137,7 +162,7 @@ local function onLog(level, message, time)
     end
 
     logLocked = true
-    addLine(message, LogColors[level])
+    addLine(message, LogColors[level], getStartupColoredText(message))
     logLocked = false
 end
 
@@ -204,7 +229,7 @@ function init()
         g_logger.fireOldMessages()
     elseif _G.terminalLines then
         for _, line in pairs(_G.terminalLines) do
-            addLine(line.text, line.color)
+            addLine(line.text, line.color, line.coloredText)
         end
     end
 end
@@ -246,6 +271,8 @@ function popWindow()
         oldSize = terminalWindow:getSize()
         terminalWindow:fill('parent')
         terminalWindow:setOn(false)
+        terminalWindow:getChildById('topResizeBorder'):disable()
+        terminalWindow:getChildById('leftResizeBorder'):disable()
         terminalWindow:getChildById('bottomResizeBorder'):disable()
         terminalWindow:getChildById('rightResizeBorder'):disable()
         terminalWindow:getChildById('titleBar'):hide()
@@ -266,6 +293,8 @@ function popWindow()
             y = g_window.getHeight()
         }
         terminalWindow:setPosition(pos)
+        terminalWindow:getChildById('topResizeBorder'):enable()
+        terminalWindow:getChildById('leftResizeBorder'):enable()
         terminalWindow:getChildById('bottomResizeBorder'):enable()
         terminalWindow:getChildById('rightResizeBorder'):enable()
         terminalWindow:getChildById('titleBar'):show()
@@ -290,10 +319,8 @@ function toggle()
                 if settings.pos then
                     oldPos = settings.pos
                 end
-                if settings.poped then
-                    popWindow()
-                end
             end
+            popWindow()
             firstShown = true
         end
         show()
@@ -340,12 +367,17 @@ function flushLines()
 
         local label = g_ui.createWidget('TerminalLabel', terminalBuffer)
         label:setId('terminalLabel' .. i)
-        label:setText(line.text)
+        if line.coloredText then
+            label:setColoredText(line.coloredText)
+        else
+            label:setText(line.text)
+        end
         label:setColor(line.color)
 
         table.insert(allLines, {
             text = line.text,
-            color = line.color
+            color = line.color,
+            coloredText = line.coloredText
         })
 
         fulltext = fulltext .. '\n' .. line.text
@@ -358,11 +390,12 @@ function flushLines()
     flushEvent = nil
 end
 
-function addLine(text, color)
+function addLine(text, color, coloredText)
     text = string.gsub(text, '\t', '    ')
     table.insert(cachedLines, {
         text = text,
-        color = color
+        color = color,
+        coloredText = coloredText
     })
 
     if terminalWindow:isVisible() and not flushEvent then

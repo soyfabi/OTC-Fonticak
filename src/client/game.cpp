@@ -86,6 +86,13 @@ void Game::resetGameStates()
         m_pingEvent = nullptr;
     }
 
+    if (m_newPingEvent) {
+        m_newPingEvent->cancel();
+        m_newPingEvent = nullptr;
+    }
+
+    m_newPingIds.clear();
+
     if (m_walkEvent) {
         m_walkEvent->cancel();
         m_walkEvent = nullptr;
@@ -180,7 +187,11 @@ void Game::processGameStart()
     // synchronize fight modes with the server
     m_protocolGame->sendChangeFightModes(m_fightMode, m_chaseMode, m_safeFight, m_pvpMode);
 
-    if (g_game.getFeature(Otc::GameClientPing) || g_game.getFeature(Otc::GameExtendedClientPing)) {
+    if (g_game.getFeature(Otc::GameExtendedClientPing)) {
+        m_newPingEvent = g_dispatcher.scheduleEvent([] { g_game.newPing(); }, m_newPingDelay);
+    }
+
+    if (g_game.getFeature(Otc::GameClientPing)) {
         m_pingEvent = g_dispatcher.scheduleEvent([] { g_game.ping(); }, m_pingDelay);
     }
 
@@ -273,6 +284,17 @@ void Game::processPingBack()
         g_logger.error("got an invalid ping from server");
 
     m_pingEvent = g_dispatcher.scheduleEvent([] { g_game.ping(); }, m_pingDelay);
+}
+
+void Game::processNewPing(const uint32_t pingId)
+{
+    const auto it = m_newPingIds.find(pingId);
+    if (it == m_newPingIds.end())
+        return;
+
+    m_ping = it->second.elapsed_millis();
+    m_newPingIds.erase(it);
+    g_lua.callGlobalField("g_game", "onPingBack", m_ping);
 }
 
 void Game::processTextMessage(const Otc::MessageMode mode, const std::string_view text)
@@ -1746,6 +1768,19 @@ void Game::ping()
     m_protocolGame->sendPing();
     ++m_pingSent;
     m_pingTimer.restart();
+}
+
+void Game::newPing()
+{
+    if (!m_protocolGame || !m_protocolGame->isConnected())
+        return;
+
+    static uint32_t pingId = 0;
+    ++pingId;
+    m_newPingIds[pingId] = stdext::timer();
+
+    m_protocolGame->sendNewPing(pingId, static_cast<uint16_t>(m_ping), static_cast<uint16_t>(g_app.getFps()));
+    m_newPingEvent = g_dispatcher.scheduleEvent([] { g_game.newPing(); }, m_newPingDelay);
 }
 
 void Game::changeMapAwareRange(const uint8_t xrange, const uint8_t yrange)

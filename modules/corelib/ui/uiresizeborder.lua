@@ -84,20 +84,24 @@ function UIResizeBorder:onMouseMove(mousePos, mouseMoved)
         local newSize = 0
         if self.vertical then
             local delta = mousePos.y - self:getY() - self:getHeight() / 2
-            newSize = math.min(math.max(parent:getHeight() + delta, self.minimum), self.maximum)
+            local parentHeight = parent:getHeight()
+            newSize = math.min(math.max(parentHeight + delta, self.minimum), self.maximum)
             if self:getAnchorType(AnchorBottom) ~= AnchorNone then
-              newSize = math.min(math.max(parent:getHeight() + delta, self.minimum), self.maximum)
+              newSize = math.min(math.max(parentHeight + delta, self.minimum), self.maximum)
             elseif self:getAnchorType(AnchorTop) ~= AnchorNone then
-              newSize = math.min(math.max(parent:getHeight() - delta, self.minimum), self.maximum)
+              newSize = math.min(math.max(parentHeight - delta, self.minimum), self.maximum)
+              parent:setY(parent:getY() + parentHeight - newSize)
             end
             parent:setHeight(newSize)
         else
             local delta = mousePos.x - self:getX() - self:getWidth() / 2
-            newSize = math.min(math.max(parent:getWidth() + delta, self.minimum), self.maximum)
+            local parentWidth = parent:getWidth()
+            newSize = math.min(math.max(parentWidth + delta, self.minimum), self.maximum)
             if self:getAnchorType(AnchorRight) ~= AnchorNone then
-              newSize = math.min(math.max(parent:getWidth() + delta, self.minimum), self.maximum)
+              newSize = math.min(math.max(parentWidth + delta, self.minimum), self.maximum)
             elseif self:getAnchorType(AnchorLeft) ~= AnchorNone then
-              newSize = math.min(math.max(parent:getWidth() - delta, self.minimum), self.maximum)
+              newSize = math.min(math.max(parentWidth - delta, self.minimum), self.maximum)
+              parent:setX(parent:getX() + parentWidth - newSize)
             end
             parent:setWidth(newSize)
         end
