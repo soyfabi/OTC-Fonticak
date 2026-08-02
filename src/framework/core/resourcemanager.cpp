@@ -295,6 +295,18 @@ bool ResourceManager::writeFileContents(const std::string& fileName, const std::
     return writeFileBuffer(fileName, (const uint8_t*)data.c_str(), data.size());
 }
 
+bool ResourceManager::writeFileContentsToWorkDir(const std::string& fileName, const std::string& data)
+{
+    const auto oldWriteDir = getWriteDir();
+    if (!setWriteDir(getWorkDir()))
+        return false;
+
+    const bool ok = writeFileBuffer(fileName, reinterpret_cast<const uint8_t*>(data.c_str()), static_cast<uint32_t>(data.size()), true);
+    setWriteDir(oldWriteDir);
+    addSearchPath(getWorkDir(), true);
+    return ok;
+}
+
 FileStreamPtr ResourceManager::openFile(const std::string& fileName)
 {
     const std::string fullPath = resolvePath(fileName);

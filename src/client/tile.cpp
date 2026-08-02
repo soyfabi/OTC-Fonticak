@@ -66,7 +66,7 @@ void drawThing(const ThingPtr& thing, const Point& dest, const int flags, uint8_
     }
 }
 
-void Tile::draw(const Point& dest, const int flags, LightView* lightView)
+void Tile::draw(const MapPosInfo& mapRect, const Point& dest, const int flags, LightView* lightView)
 {
     m_lastDrawDest = dest;
 
@@ -75,6 +75,27 @@ void Tile::draw(const Point& dest, const int flags, LightView* lightView)
     if (m_fill != Color::alpha) {
         g_drawPool.addFilledRect(Rect(dest, Size{ g_gameConfig.getSpriteSize() }), m_fill);
         return;
+    }
+
+    // NE/SW diagonals: draw walking creature before ground/items so it stays behind trees/objects
+    if (hasWalkingCreature()) {
+        g_drawPool.setDrawOrder(DrawOrder::THIRD);
+        for (const auto& creature : m_walkingCreatures) {
+            if (creature->getDirection() == Otc::NorthEast || creature->getDirection() == Otc::SouthWest) {
+                const auto& cDest = Point(
+                    dest.x + ((creature->getPosition().x - m_position.x) * g_gameConfig.getSpriteSize() - creature->getDrawElevation()) * g_drawPool.getScaleFactor(),
+                    dest.y + ((creature->getPosition().y - m_position.y) * g_gameConfig.getSpriteSize() - creature->getDrawElevation()) * g_drawPool.getScaleFactor()
+                );
+
+                if (flags == Otc::DrawLights)
+                    creature->drawLight(cDest, lightView);
+                else {
+                    creature->draw(cDest, flags & Otc::DrawThings);
+                    creature->drawInformation(mapRect, cDest + creature->getDrawElevation() * g_drawPool.getScaleFactor(), flags);
+                }
+            }
+        }
+        g_drawPool.resetDrawOrder();
     }
 
     for (const auto& thing : m_things) {
@@ -96,18 +117,18 @@ void Tile::draw(const Point& dest, const int flags, LightView* lightView)
     // after we render 2x2 lying corpses, we must redraw previous creatures/ontop above them
     if (m_tilesRedraw) {
         for (const auto& tile : *m_tilesRedraw) {
-            tile->drawCreature(tile->m_lastDrawDest, flags, true, drawElevation);
+            tile->drawCreature(mapRect, tile->m_lastDrawDest, flags, true, drawElevation);
             tile->drawTop(tile->m_lastDrawDest, flags, true, drawElevation);
         }
     }
 
-    drawCreature(dest, flags, false, drawElevation);
+    drawCreature(mapRect, dest, flags, false, drawElevation);
     drawTop(dest, flags, false, drawElevation);
     drawAttachedEffect(dest, dest, lightView, true);
     drawAttachedParticlesEffect(dest);
 }
 
-void Tile::drawLight(const Point& dest, LightView* lightView) {
+void Tile::drawLight(const MapPosInfo& mapRect, const Point& dest, LightView* lightView) {
     uint8_t drawElevation = 0;
 
     for (const auto& thing : m_things) {
@@ -117,7 +138,7 @@ void Tile::drawLight(const Point& dest, LightView* lightView) {
         updateElevation(thing, drawElevation);
     }
 
-    drawCreature(dest, Otc::DrawLights, true, drawElevation, lightView);
+    drawCreature(mapRect, dest, Otc::DrawLights, true, drawElevation, lightView);
 
     if (m_effects) {
         for (const auto& effect : *m_effects) {
@@ -129,12 +150,30 @@ void Tile::drawLight(const Point& dest, LightView* lightView) {
     drawAttachedLightEffect(dest, lightView);
 }
 
-void Tile::drawCreature(const Point& dest, const int flags, const bool forceDraw, uint8_t drawElevation, LightView* lightView)
+void Tile::drawCreature(const MapPosInfo& mapRect, const Point& dest, const int flags, const bool forceDraw, uint8_t drawElevation, LightView* lightView)
 {
     if (!forceDraw && !m_drawTopAndCreature)
         return;
 
-    const auto& newDest = dest - drawElevation * g_drawPool.getScaleFactor();
+    g_drawPool.setDrawOrder(DrawOrder::THIRD);
+    for (const auto& creature : m_walkingCreatures) {
+        // NE/SW already drawn before ground/items in Tile::draw
+        if (creature->getDirection() == Otc::NorthEast || creature->getDirection() == Otc::SouthWest)
+            continue;
+
+        const auto& cDest = Point(
+            dest.x + ((creature->getPosition().x - m_position.x) * g_gameConfig.getSpriteSize() - creature->getDrawElevation()) * g_drawPool.getScaleFactor(),
+            dest.y + ((creature->getPosition().y - m_position.y) * g_gameConfig.getSpriteSize() - creature->getDrawElevation()) * g_drawPool.getScaleFactor()
+        );
+
+        if (flags == Otc::DrawLights)
+            creature->drawLight(cDest, lightView);
+        else {
+            creature->draw(cDest, flags & Otc::DrawThings);
+            creature->drawInformation(mapRect, cDest + creature->getDrawElevation() * g_drawPool.getScaleFactor(), flags);
+        }
+    }
+    g_drawPool.resetDrawOrder();
 
     bool localPlayerDrawed = false;
     if (hasCreatures()) {
@@ -147,22 +186,9 @@ void Tile::drawCreature(const Point& dest, const int flags, const bool forceDraw
             }
 
             drawThing(thing, dest, flags, drawElevation, lightView);
+            static_cast<Creature*>(thing.get())->drawInformation(mapRect, dest - m_drawElevation * g_drawPool.getScaleFactor(), flags);
         }
     }
-
-    g_drawPool.setDrawOrder(DrawOrder::THIRD);
-    for (const auto& creature : m_walkingCreatures) {
-        const auto& cDest = Point(
-            dest.x + ((creature->getPosition().x - m_position.x) * g_gameConfig.getSpriteSize() - creature->getDrawElevation()) * g_drawPool.getScaleFactor(),
-            dest.y + ((creature->getPosition().y - m_position.y) * g_gameConfig.getSpriteSize() - creature->getDrawElevation()) * g_drawPool.getScaleFactor()
-        );
-
-        if (flags == Otc::DrawLights)
-            creature->drawLight(cDest, lightView);
-        else
-            creature->draw(cDest, flags & Otc::DrawThings);
-    }
-    g_drawPool.resetDrawOrder();
 
     // draw the local character if he is on a virtual tile, that is, his visual position is not the same as the server.
     if (!localPlayerDrawed && g_game.getLocalPlayer() && !g_game.getLocalPlayer()->isWalking() && g_game.getLocalPlayer()->getPosition() == m_position) {
@@ -684,7 +710,7 @@ ThingPtr Tile::getTopMultiUseThing()
     }
 
     for (const auto& thing : m_things) {
-        if (!thing->isGround() && !thing->isGroundBorder() && !thing->isOnTop())
+        if (!thing->isGround() && !thing->isOnTop())
             return thing;
     }
 

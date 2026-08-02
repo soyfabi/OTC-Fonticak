@@ -50,6 +50,8 @@ public:
     // @dontbind
     bool writeFileBuffer(const std::string& fileName, const uint8_t* data, uint32_t size, bool createDirectory = false);
     bool writeFileContents(const std::string& fileName, const std::string& data);
+    // Write relative to the project workdir (used by tools like the OTUI editor).
+    bool writeFileContentsToWorkDir(const std::string& fileName, const std::string& data);
     // @dontbind
     bool writeFileStream(const std::string& fileName, std::iostream& in);
 
