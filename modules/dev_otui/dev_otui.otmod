@@ -5,7 +5,9 @@ Module
   website: none
   sandboxed: true
   scripts: [ otml, dev_otui ]
-  autoload: true
+  // Off by default so a broken/partial load cannot affect login or game UI.
+  // Enable manually in Module Manager, or set autoload: true while developing.
+  autoload: false
   dependencies: [ client_topmenu ]
   @onLoad: init()
   @onUnload: terminate()

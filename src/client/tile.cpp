@@ -66,7 +66,7 @@ void drawThing(const ThingPtr& thing, const Point& dest, const int flags, uint8_
     }
 }
 
-void Tile::draw(const MapPosInfo& mapRect, const Point& dest, const int flags, LightView* lightView)
+void Tile::draw(const Point& dest, const int flags, LightView* lightView)
 {
     m_lastDrawDest = dest;
 
@@ -89,10 +89,8 @@ void Tile::draw(const MapPosInfo& mapRect, const Point& dest, const int flags, L
 
                 if (flags == Otc::DrawLights)
                     creature->drawLight(cDest, lightView);
-                else {
+                else
                     creature->draw(cDest, flags & Otc::DrawThings);
-                    creature->drawInformation(mapRect, cDest + creature->getDrawElevation() * g_drawPool.getScaleFactor(), flags);
-                }
             }
         }
         g_drawPool.resetDrawOrder();
@@ -117,18 +115,18 @@ void Tile::draw(const MapPosInfo& mapRect, const Point& dest, const int flags, L
     // after we render 2x2 lying corpses, we must redraw previous creatures/ontop above them
     if (m_tilesRedraw) {
         for (const auto& tile : *m_tilesRedraw) {
-            tile->drawCreature(mapRect, tile->m_lastDrawDest, flags, true, drawElevation);
+            tile->drawCreature(tile->m_lastDrawDest, flags, true, drawElevation);
             tile->drawTop(tile->m_lastDrawDest, flags, true, drawElevation);
         }
     }
 
-    drawCreature(mapRect, dest, flags, false, drawElevation);
+    drawCreature(dest, flags, false, drawElevation);
     drawTop(dest, flags, false, drawElevation);
     drawAttachedEffect(dest, dest, lightView, true);
     drawAttachedParticlesEffect(dest);
 }
 
-void Tile::drawLight(const MapPosInfo& mapRect, const Point& dest, LightView* lightView) {
+void Tile::drawLight(const Point& dest, LightView* lightView) {
     uint8_t drawElevation = 0;
 
     for (const auto& thing : m_things) {
@@ -138,7 +136,7 @@ void Tile::drawLight(const MapPosInfo& mapRect, const Point& dest, LightView* li
         updateElevation(thing, drawElevation);
     }
 
-    drawCreature(mapRect, dest, Otc::DrawLights, true, drawElevation, lightView);
+    drawCreature(dest, Otc::DrawLights, true, drawElevation, lightView);
 
     if (m_effects) {
         for (const auto& effect : *m_effects) {
@@ -150,7 +148,7 @@ void Tile::drawLight(const MapPosInfo& mapRect, const Point& dest, LightView* li
     drawAttachedLightEffect(dest, lightView);
 }
 
-void Tile::drawCreature(const MapPosInfo& mapRect, const Point& dest, const int flags, const bool forceDraw, uint8_t drawElevation, LightView* lightView)
+void Tile::drawCreature(const Point& dest, const int flags, const bool forceDraw, uint8_t drawElevation, LightView* lightView)
 {
     if (!forceDraw && !m_drawTopAndCreature)
         return;
@@ -168,10 +166,8 @@ void Tile::drawCreature(const MapPosInfo& mapRect, const Point& dest, const int 
 
         if (flags == Otc::DrawLights)
             creature->drawLight(cDest, lightView);
-        else {
+        else
             creature->draw(cDest, flags & Otc::DrawThings);
-            creature->drawInformation(mapRect, cDest + creature->getDrawElevation() * g_drawPool.getScaleFactor(), flags);
-        }
     }
     g_drawPool.resetDrawOrder();
 
@@ -186,7 +182,6 @@ void Tile::drawCreature(const MapPosInfo& mapRect, const Point& dest, const int 
             }
 
             drawThing(thing, dest, flags, drawElevation, lightView);
-            static_cast<Creature*>(thing.get())->drawInformation(mapRect, dest - m_drawElevation * g_drawPool.getScaleFactor(), flags);
         }
     }
 

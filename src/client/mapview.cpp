@@ -146,30 +146,7 @@ void MapView::drawFloor()
 {
     const auto& cameraPosition = m_posInfo.camera;
 
-    uint32_t flags = Otc::DrawThings;
-    if (m_drawNames) { flags |= Otc::DrawNames; }
-    if (m_drawHealthBars) { flags |= Otc::DrawBars; }
-    if (m_drawManaBar) { flags |= Otc::DrawManaBar; }
-    if (m_drawHarmony) { flags |= Otc::DrawHarmony; }
-
-    // Covered status used to be updated in the separate CREATURE_INFORMATION pass.
-    // Keep it fresh here so name colors stay correct while walking.
-    {
-        Position coveredCamera = cameraPosition;
-        const bool alwaysTransparentCover = m_floorViewMode == Otc::ALWAYS_WITH_TRANSPARENCY && coveredCamera.coveredUp(cameraPosition.z - m_floorMin);
-        for (const auto& [uid, creature] : g_map.getCreatures()) {
-            const auto& tile = creature->getTile();
-            if (!tile || !m_posInfo.isInRange(creature->getPosition()))
-                continue;
-
-            bool isCovered = tile->isCovered(alwaysTransparentCover ? m_floorMin : m_cachedFirstVisibleFloor);
-            if (alwaysTransparentCover && isCovered) {
-                const bool inRange = creature->getPosition().isInRange(m_posInfo.camera, g_gameConfig.getTileTransparentFloorViewRange(), g_gameConfig.getTileTransparentFloorViewRange(), true);
-                isCovered = !inRange;
-            }
-            creature->setCovered(isCovered);
-        }
-    }
+    const uint32_t flags = Otc::DrawThings;
 
     for (int_fast8_t z = m_floorMax; z >= m_floorMin; --z) {
         const float fadeLevel = getFadeLevel(z);
@@ -192,7 +169,7 @@ void MapView::drawFloor()
                     g_drawPool.setOpacity(inRange ? .16 : .7);
                 }
 
-                queuedTile->draw(m_posInfo, transformPositionTo2D(queuedTile->getPosition()), queuedFlags);
+                queuedTile->draw(transformPositionTo2D(queuedTile->getPosition()), queuedFlags);
 
                 if (alwaysTransparent)
                     g_drawPool.resetOpacity();
@@ -272,7 +249,7 @@ void MapView::drawLights() {
         }
 
         for (const auto& tile : map.tiles)
-            tile->drawLight(m_posInfo, transformPositionTo2D(tile->getPosition()), m_lightView.get());
+            tile->drawLight(transformPositionTo2D(tile->getPosition()), m_lightView.get());
 
         for (const auto& missile : g_map.getFloorMissiles(z))
             missile->draw(transformPositionTo2D(missile->getPosition()), false, m_lightView.get());

@@ -167,7 +167,7 @@ bool GraphicalApplication::canDrawMap() const {
     if (!m_drawEvents->canDraw(MAP))
         return false;
 
-    static constexpr std::array<DrawPoolType, 4> types{ MAP, LIGHT, FOREGROUND_MAP, CREATURE_INFORMATION };
+    static constexpr std::array<DrawPoolType, 3> types{ MAP, LIGHT, FOREGROUND_MAP };
 
     for (DrawPoolType type : types) {
         if (g_drawPool.isDrawing(type))
