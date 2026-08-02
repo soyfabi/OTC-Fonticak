@@ -8,7 +8,7 @@ end
 local settings = storage[panelName]
 
 -- basic elements
-extrasWindow = UI.createWindow('ExtrasWindow', rootWidget)
+extrasWindow = UI.createWindow('ExtrasWindow')
 extrasWindow:hide()
 extrasWindow.closeButton.onClick = function(widget)
   extrasWindow:hide()
@@ -38,7 +38,9 @@ local addCheckBox = function(id, title, defaultValue, dest, tooltip)
     widget:setOn(not widget:isOn())
     settings[id] = widget:isOn()
     if id == "checkPlayer" then
-      local label = rootWidget.newHealer.targetSettings.vocations.title
+      local rw = g_ui.getRootWidget()
+      local label = rw and rw.newHealer and rw.newHealer.targetSettings and rw.newHealer.targetSettings.vocations and rw.newHealer.targetSettings.vocations.title
+      if not label then return end
       if not widget:isOn() then
         label:setColor("#d9321f")
         label:setTooltip("! WARNING ! \nTurn on check players in extras to use this feature!")

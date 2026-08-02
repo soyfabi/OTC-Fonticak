@@ -3,6 +3,9 @@ local smartWalkDir = nil
 local lastTurn = 0
 local firstStep = true
 
+-- Used by game_bot panels to pause cavebot/attack after manual walking
+lastManualWalk = 0
+
 local keys = {
     { "Up",      North },
     { "Right",   East },
@@ -39,6 +42,11 @@ end
 local function walk(dir)
     if g_keyboard.getModifiers() ~= KeyboardNoModifier then
         return false
+    end
+
+    lastManualWalk = g_clock.millis()
+    if modules.game_interface then
+        modules.game_interface.lastManualWalk = lastManualWalk
     end
 
     local dire = smartWalkDir or dir

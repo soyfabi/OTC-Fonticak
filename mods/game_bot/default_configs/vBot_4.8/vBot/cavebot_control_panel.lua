@@ -22,9 +22,9 @@ CaveBotControlPanel < Panel
     margin-top: 2
     layout:
       type: grid
-      cell-size: 86 20
-      cell-spacing: 1
-      flow: true
+      cell-size: 85 20
+      cell-spacing: 2
+      num-columns: 2
       fit-children: true
 
   HorizontalSeparator

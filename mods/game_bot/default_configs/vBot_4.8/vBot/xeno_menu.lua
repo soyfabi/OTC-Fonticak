@@ -1,6 +1,7 @@
 modules.game_interface.gameRootPanel.onMouseRelease = function(widget, mousePos, mouseButton)
     if mouseButton == 2 then
-        local child = rootWidget:recursiveGetChildByPos(mousePos)
+        local rw = rootWidget or g_ui.getRootWidget()
+        local child = rw and rw:recursiveGetChildByPos(mousePos)
         if child == widget then
             local menu = g_ui.createWidget('PopupMenu')
             menu:setId("blzMenu")

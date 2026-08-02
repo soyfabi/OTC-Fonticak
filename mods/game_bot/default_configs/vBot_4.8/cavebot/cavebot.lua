@@ -4,6 +4,9 @@ local config = nil
 -- ui
 local configWidget = UI.Config()
 local ui = UI.createWidget("CaveBotPanel")
+if not ui or not ui.listPanel then
+  error("CaveBotPanel UI failed to load. Check /cavebot/cavebot.otui was imported.")
+end
 
 ui.list = ui.listPanel.list -- shortcut
 CaveBot.actionList = ui.list

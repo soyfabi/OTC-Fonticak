@@ -1,4 +1,4 @@
-function executeBot(config, storage, tabs, msgCallback, saveConfigCallback, reloadCallback, websockets)
+function executeBot(config, storage, tabs, msgCallback, saveConfigCallback, reloadCallback, websockets, onLoadComplete, onLoadProgress)
   -- load lua and otui files
   local configFiles = g_resources.listDirectoryFiles("/bot/" .. config, true, false)
   local luaFiles = {}
@@ -102,14 +102,28 @@ function executeBot(config, storage, tabs, msgCallback, saveConfigCallback, relo
       setfenv(func, context)
       return func
     end
-    context.dofile = function(file) 
-      local func = assert(loadstring(g_resources.readFileContents("/bot/" .. config .. "/" .. file)))
+    context.dofile = function(file)
+      local relative = tostring(file):gsub("^/+", "")
+      local path = "/bot/" .. config .. "/" .. relative
+      local contents = g_resources.readFileContents(path)
+      if not contents or contents:len() == 0 then
+        error("dofile: empty or missing file: " .. path)
+      end
+      local func = assert(loadstring(contents))
       setfenv(func, context)
       func()
     end
   else
     context.load = function(str) return assert(load(str, nil, nil, context)) end
-    context.dofile = function(file) assert(load(g_resources.readFileContents("/bot/" .. config .. "/" .. file), file, nil, context))() end
+    context.dofile = function(file)
+      local relative = tostring(file):gsub("^/+", "")
+      local path = "/bot/" .. config .. "/" .. relative
+      local contents = g_resources.readFileContents(path)
+      if not contents or contents:len() == 0 then
+        error("dofile: empty or missing file: " .. path)
+      end
+      assert(load(contents, path, nil, context))()
+    end
   end
   context.loadstring = context.load
   context.assert = assert
@@ -127,6 +141,16 @@ function executeBot(config, storage, tabs, msgCallback, saveConfigCallback, relo
   -- classes
   context.g_resources = g_resources
   context.g_game = g_game
+  -- Prefer Bit (Fonticak) but keep bit (OTCv8) available in sandbox
+  if Bit and not context.Bit then
+    context.Bit = Bit
+  end
+  if context.bit and not context.Bit then
+    context.Bit = context.bit
+  end
+  if context.Bit and not context.bit then
+    context.bit = context.Bit
+  end
   context.g_map = g_map
   context.g_ui = g_ui
   context.g_sounds = g_sounds
@@ -152,6 +176,22 @@ function executeBot(config, storage, tabs, msgCallback, saveConfigCallback, relo
   context.OutputMessage = OutputMessage
   context.modules = modules
   context.Directions = Directions
+  context.connect = connect
+  context.disconnect = disconnect
+  context.g_app = g_app
+  context.rootWidget = g_ui.getRootWidget()
+  context.scheduleEvent = scheduleEvent
+  context.removeEvent = removeEvent
+  context.addEvent = addEvent
+  context.cycleEvent = cycleEvent
+  context.onError = function(message)
+    return modules.game_bot.onError(message)
+  end
+
+  -- OTCv8 scripts use tile:hasCreature(); Fonticak/mehah exposes hasCreatures()
+  if Tile and Tile.hasCreatures and not Tile.hasCreature then
+    Tile.hasCreature = Tile.hasCreatures
+  end
 
   -- log functions
   context.info = function(text) return msgCallback("info", tostring(text)) end
@@ -171,12 +211,42 @@ function executeBot(config, storage, tabs, msgCallback, saveConfigCallback, relo
   dofiles("panels")
   G.botContext = nil
 
+  context._loadGeneration = (context._loadGeneration or 0) + 1
+  context._asyncLoadStarted = false
+  context._botLoading = false
+  context.onBotLoadComplete = onLoadComplete
+  context.onBotLoadProgress = onLoadProgress
+
+  context.markBotReady = function()
+    if context._botReady then
+      return
+    end
+    context._botReady = true
+    context._botLoading = false
+
+    -- Fonticak compat for any config (walk speed, grids, Bit aliases)
+    if type(context._applyFonticakCompat) == "function" then
+      local status, err = pcall(context._applyFonticakCompat)
+      if not status then
+        context.error("Fonticak compat: " .. tostring(err))
+      end
+    end
+
+    -- Next frame so bot.lua can assign botExecutor before check() starts
+    if type(context.onBotLoadComplete) == "function" then
+      local cb = context.onBotLoadComplete
+      addEvent(function()
+        cb()
+      end)
+    end
+  end
+
   -- run ui scripts
   for i, file in ipairs(uiFiles) do
     g_ui.importStyle(file)
   end
 
-  -- run lua script
+  -- run lua scripts (configs may start an async queue via loadScriptQueue)
   for i, file in ipairs(luaFiles) do
       if _VERSION == "Lua 5.1" and type(jit) ~= "table" then
         local func = assert(loadstring(g_resources.readFileContents(file)))
@@ -188,8 +258,18 @@ function executeBot(config, storage, tabs, msgCallback, saveConfigCallback, relo
     context.panel = context.mainTab -- reset default tab
   end
 
+  if not context._asyncLoadStarted then
+    context.markBotReady()
+  end
+
   return {
+    isLoading = function()
+      return context._botLoading or not context._botReady
+    end,
     script = function()
+      if context._botLoading or not context._botReady then
+        return
+      end
       context.now = g_clock.millis()
       context.time = g_clock.millis()
 
@@ -360,7 +440,7 @@ function executeBot(config, storage, tabs, msgCallback, saveConfigCallback, relo
       end,
       onOpenChannel = function(channelId, channelName)
         for i, callback in ipairs(context._callbacks.onOpenChannel) do
-          callback(channels)
+          callback(channelId, channelName)
         end
       end,
       onCloseChannel = function(channelId)

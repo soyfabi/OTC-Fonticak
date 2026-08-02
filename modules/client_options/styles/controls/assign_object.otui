@@ -31,7 +31,7 @@ CustomObjectWindow < NewMainWindow
       size: 86 86
       anchors.top: parent.top
       anchors.left: parent.left
-      image-source: /images/ui/panel_flat_astra
+      image-source: /images/ui/panel_flat_border
     UIItem
       id: item
       size: 64 64

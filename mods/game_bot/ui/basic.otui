@@ -1,10 +1,12 @@
 BotButton < Button
   height: 17
   margin-top: 2
+  font: verdana-11px-antialised
 
 BotSwitch < Button
   margin-top: 2
   height: 17
+  font: verdana-11px-antialised
   image-color: green
   $!on:
     image-color: red
@@ -12,6 +14,7 @@ BotSwitch < Button
 SmallBotSwitch < Button
   margin-top: 2
   height: 15
+  font: verdana-11px-antialised
   image-color: green
   $!on:
     image-color: red
@@ -19,6 +22,7 @@ SmallBotSwitch < Button
 BotLabel < Label
   margin-top: 2
   height: 15
+  font: verdana-11px-antialised
   text-auto-resize: true
   text-align: center
   text-wrap: true

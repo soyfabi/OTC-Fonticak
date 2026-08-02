@@ -25,13 +25,6 @@ UI.Container = function(callback, unique, parent, widget)
 
   local oldItems = {}
 
-  local scrollToBottom = function()
-    local scrollbar = widget.scroll
-    if scrollbar and scrollbar.setValue and scrollbar.getMaximum then
-      scrollbar:setValue(scrollbar:getMaximum())
-    end
-  end
-
   local updateItems = function()
     local items = widget:getItems()
 
@@ -64,21 +57,29 @@ UI.Container = function(callback, unique, parent, widget)
     if itemsToShow % 5 ~= 0 then
       itemsToShow = itemsToShow + 5 - itemsToShow % 5
     end
+    -- Keep current scroll; recreating items must not jump to the bottom.
+    local scrollbar = widget.scroll
+    local scrollValue = (scrollbar and scrollbar.getValue) and scrollbar:getValue() or 0
     widget.items:destroyChildren()
     for i = 1, itemsToShow do
-      local widget = g_ui.createWidget("BotItem", widget.items)
+      local itemWidget = g_ui.createWidget("BotItem", widget.items)
       if type(items[i]) == 'number' then
         items[i] = { id = items[i], count = 1 }
       end
       if type(items[i]) == 'table' then
-        widget:setItem(Item.create(items[i].id, items[i].count))
+        itemWidget:setItem(Item.create(items[i].id, items[i].count))
       end
     end
     oldItems = items
     for i, child in ipairs(widget.items:getChildren()) do
       child.onItemChange = updateItems
     end
-    scrollToBottom()
+    if scrollbar and scrollbar.setValue and scrollbar.getMaximum then
+      addEvent(function()
+        if scrollbar:isDestroyed() then return end
+        scrollbar:setValue(math.min(scrollValue, scrollbar:getMaximum()))
+      end)
+    end
   end
 
   widget.getItems = function()

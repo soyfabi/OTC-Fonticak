@@ -124,7 +124,7 @@ local function alarm(file, windowText)
     lastCall = now + 4000 -- alarm.ogg length is 6s
   end
 
-  if modules.game_bot.g_app.getOs() == "windows" and config.flashClient.enabled then
+  if g_app.getOs() == "windows" and config.flashClient.enabled then
     g_window.flash()
   end
   g_window.setTitle(player:getName() .. " - " .. windowText)

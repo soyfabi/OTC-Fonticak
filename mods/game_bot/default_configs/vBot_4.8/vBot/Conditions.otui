@@ -412,14 +412,18 @@ HoldConditions < Panel
 
 ConditionsWindow < MainWindow
   !text: tr('Condition Manager')
-  size: 445 280
+  size: 470 295
+  padding-left: 20
+  padding-right: 20
+  padding-bottom: 18
   @onEscape: self:hide()
 
   CureConditions
     id: Cure
     anchors.top: parent.top
     anchors.left: parent.left
-    margin-top: 7
+    margin-top: 10
+    margin-left: 4
 
   Label
     id: label
@@ -427,14 +431,16 @@ ConditionsWindow < MainWindow
     anchors.left: parent.left
     text: Cure Conditions
     color: #88e3dd
-    margin-left: 10
+    margin-left: 14
+    margin-top: 2
     font: verdana-11px-rounded
 
   HoldConditions
     id: Hold
     anchors.top: parent.top
     anchors.right: parent.right
-    margin-top: 7
+    margin-top: 10
+    margin-right: 4
 
   Label
     id: label
@@ -442,7 +448,8 @@ ConditionsWindow < MainWindow
     anchors.right: parent.right
     text: Hold Conditions
     color: #88e3dd
-    margin-right: 100
+    margin-right: 104
+    margin-top: 2
     font: verdana-11px-rounded
 
   HorizontalSeparator
@@ -458,6 +465,6 @@ ConditionsWindow < MainWindow
     font: cipsoftFont
     anchors.right: parent.right
     anchors.bottom: parent.bottom
-    size: 45 21
+    size: 55 21
     margin-top: 15
     margin-right: 5

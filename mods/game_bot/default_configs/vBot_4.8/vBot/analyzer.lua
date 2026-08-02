@@ -195,8 +195,14 @@ local function clipboardData()
 end
 
 -- create analyzers button
-analyzerButton = modules.game_buttons.buttonsWindow.contentsPanel and modules.game_buttons.buttonsWindow.contentsPanel.buttons.botAnalyzersButton
-analyzerButton = analyzerButton or modules.client_topmenu.getButton("botAnalyzersButton")
+analyzerButton = nil
+if modules.game_buttons and modules.game_buttons.buttonsWindow and modules.game_buttons.buttonsWindow.contentsPanel
+    and modules.game_buttons.buttonsWindow.contentsPanel.buttons then
+  analyzerButton = modules.game_buttons.buttonsWindow.contentsPanel.buttons.botAnalyzersButton
+end
+if not analyzerButton and modules.game_mainpanel and modules.game_mainpanel.getButton then
+  analyzerButton = modules.game_mainpanel.getButton("botAnalyzersButton")
+end
 if analyzerButton then
     analyzerButton:destroy()
 end

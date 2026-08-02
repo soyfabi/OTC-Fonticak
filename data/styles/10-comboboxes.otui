@@ -6,6 +6,8 @@ ComboBoxPopupScrollMenuButton < UIButton
   color: #c0c0c0
   background-color: alpha
   margin: 1
+  image-source: /images/ui/panel_flat_border
+  image-border: 1
 
   $hover !disabled:
     color: #f4f4f4
@@ -27,6 +29,8 @@ ComboBoxPopupMenuButton < UIButton
   color: #c0c0c0
   background-color: alpha
   margin: 1
+  image-source: /images/ui/panel_flat_border
+  image-border: 1
 
   $hover !disabled:
     color: #f4f4f4
@@ -41,13 +45,15 @@ ComboBoxPopupMenu < UIPopupMenu
   image-border: 1
 
 ComboBox < UIComboBox
-  font: Verdana Bold-11px
+  font: verdana-11px-rounded
   color: #c0c0c0
-  text-offset: -15 2
+  text-offset: 3 0
+  text-align: left
   size: 91 20
   image-source: /images/ui/combobox_square
   image-border: 3
   image-border-right: 21
+  padding-right: 24
   image-clip: 0 0 91 20
 
   $hover !disabled:
@@ -115,6 +121,8 @@ QtComboBoxPopupScrollMenuButton < UIButton
   color: #dfdfdf
   background-color: alpha
   margin: 1
+  image-source: /images/ui/panel_flat_border
+  image-border: 1
 
   $hover !disabled:
     color: #dfdfdf
@@ -134,6 +142,8 @@ QtComboBoxPopupMenuButton < UIButton
   text-offset: 5 0
   color: #c0c0c0ff
   background-color: #ffffff00
+  image-source: /images/ui/panel_flat_border
+  image-border: 1
 
   $hover !disabled:
     color: #f4f4f4ff
@@ -175,7 +185,7 @@ QtComboBox < UIComboBox
 
 # Option lists use framed rows so adjacent choices remain visually distinct.
 OptionsComboBoxPopupMenuButton < QtComboBoxPopupMenuButton
-  image-source: /images/ui/panel_flat_astra
+  image-source: /images/ui/panel_flat_border
   image-border: 1
 
 OptionsComboBoxPopupMenu < QtComboBoxPopupMenu
@@ -185,7 +195,7 @@ OptionsComboBox < QtComboBox
   size: 91 20
 
 OptionsClassicComboBoxPopupMenuButton < ComboBoxPopupMenuButton
-  image-source: /images/ui/panel_flat_astra
+  image-source: /images/ui/panel_flat_border
   image-border: 1
 
 OptionsClassicComboBoxPopupMenu < ComboBoxPopupMenu

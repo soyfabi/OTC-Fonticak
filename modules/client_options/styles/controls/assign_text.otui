@@ -30,7 +30,7 @@ CustomTextWindow < NewMainWindow
       anchors.right: parent.right
       margin-top: 6
       height: 22
-      image-source: /images/ui/panel_flat_astra
+      image-source: /images/ui/panel_flat_border
       image-border: 1
       CheckBox
         id: tick

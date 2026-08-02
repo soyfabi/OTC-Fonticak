@@ -35,6 +35,7 @@ gameLeftLockPanel = nil
 
 hookedMenuOptions = {}
 focusReason = {}
+lastManualWalk = 0 -- updated by game_walk; used by game_bot panels
 local lastStopAction = 0
 local mobileConfig = {
     mobileWidthJoystick = 0,

@@ -24,7 +24,9 @@ context.importStyle = function(otml)
     return error("Invalid parameter for importStyle, should be string")
   end
   if otml:find(".otui") and not otml:find("\n") then
-    return g_ui.importStyle(context.configDir .. "/" .. otml)
+    -- normalize "/cavebot/x.otui" → configDir/cavebot/x.otui (avoid // which breaks some clients)
+    local relative = otml:gsub("^/+", "")
+    return g_ui.importStyle(context.configDir .. "/" .. relative)
   end
   return g_ui.importStyleFromString(otml)
 end
@@ -35,11 +37,13 @@ context.addTab = function(name)
     return tab.tabPanel.content
   end
 
-  local newTab = context.tabs:addTab(name, g_ui.createWidget('BotPanel')).tabPanel.content
+  -- Same as OTCv8: only use small font when there are many tabs
+  local smallTabs = #(context.tabs.tabs) >= 5
+  local newTab = context.tabs:addTab(name, g_ui.createWidget("BotPanel")).tabPanel.content
   context.tabs:setOn(true)
-  for k, tab in pairs(context.tabs.tabs) do
-    if string.len(tab:getText()) > 7 then
-      tab:setFont('small-9px')
+  if smallTabs then
+    for _, t in pairs(context.tabs.tabs) do
+      t:setFont("small-9px")
     end
   end
 

@@ -42,6 +42,7 @@ local luaFiles = {
   "antiRs",
   "depot_withdraw",
   "eat_food",
+  "cast_food",
   "equip",
   "exeta",
   "analyzer",
@@ -54,11 +55,17 @@ local luaFiles = {
   "cavebot_control_panel"
 }
 
-for i, file in ipairs(luaFiles) do
-  loadScript(file)
-end
-
-setDefaultTab("Main")
-UI.Separator()
-UI.Label("Private Scripts:")
-UI.Separator()
+-- Load across frames to keep the client responsive on login / config switch
+loadScriptQueue(luaFiles, function(file)
+  local status, err = pcall(function()
+    loadScript(file)
+  end)
+  if not status then
+    warn("[vBot] Failed to load " .. file .. ".lua:\n" .. tostring(err))
+  end
+end, function()
+  setDefaultTab("Main")
+  UI.Separator()
+  UI.Label("Private Scripts:")
+  UI.Separator()
+end)

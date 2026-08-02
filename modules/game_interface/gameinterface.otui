@@ -1,7 +1,7 @@
 GameSidePanel < UIMiniWindowContainer
   image-source: /images/ui/2pixel_up_frame_borderimage
   image-border: 4
-  width: 176
+  width: 198
   layout:
     type: verticalBox
     //spacing: 1

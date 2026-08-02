@@ -599,7 +599,7 @@ Panel
       return
     end
 
-    if modules.game_interface.lastManualWalk + 500 > context.now then
+    if (modules.game_interface.lastManualWalk or 0) + 500 > context.now then
       return
     end
 

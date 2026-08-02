@@ -150,22 +150,22 @@ SpellHealing < FlatPanel
   TextEdit
     id: spellFormula
     anchors.left: spellCondition.left
-    anchors.top: spellCondition.bottom
+    anchors.verticalCenter: castSpell.verticalCenter
     anchors.right: spellValue.right
     font: verdana-11px-rounded
 
   Label
     id: manaSpell
     anchors.left: castSpell.left
-    anchors.top: castSpell.bottom
+    anchors.top: spellFormula.bottom
     text: Mana Cost:
-    margin-top: 8
+    margin-top: 6
     font: verdana-11px-rounded
 
   TextEdit
     id: manaCost
     anchors.left: spellFormula.left
-    anchors.top: spellFormula.bottom
+    anchors.verticalCenter: manaSpell.verticalCenter
     width: 40
     font: verdana-11px-rounded
 

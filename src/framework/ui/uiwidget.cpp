@@ -123,7 +123,7 @@ void UIWidget::drawSelf(const DrawPoolType drawPane)
 
     drawImage(m_rect);
     drawIcon(m_rect);
-    drawText(m_rect);
+    drawText(getPaddingRect());
     drawBorder(m_rect);
 
     if (hasShader())

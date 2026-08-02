@@ -17,7 +17,7 @@ end
 
 local config = storage[panelName]
 
-depositerPanel = UI.createWindow('DepositerPanel', rootWidget)
+depositerPanel = UI.createWindow('DepositerPanel')
 depositerPanel:hide()
 -- basic one
 depositerPanel.CloseButton.onClick = function()

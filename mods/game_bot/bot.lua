@@ -6,6 +6,8 @@ editWindow = nil
 local checkEvent = nil
 local loginRefreshEvent = nil
 local botWatchEvent = nil
+local botLoadGeneration = 0
+local defaultsSynced = false
 
 local botStorage = {}
 local botStorageFile = nil
@@ -18,6 +20,10 @@ local configList = nil
 local enableButton = nil
 local executeEvent = nil
 local statusLabel = nil
+
+function getBotLoadGeneration()
+  return botLoadGeneration
+end
 
 local configManagerUrl = "http://otclient.ovh/configs.php"
 
@@ -142,6 +148,7 @@ function terminate()
 end
 
 function clear()
+  botLoadGeneration = botLoadGeneration + 1
   botExecutor = nil
   removeEvent(checkEvent)
 
@@ -319,6 +326,7 @@ function refresh()
   end
 
   local configName = settings[index].config
+  local loadGen = botLoadGeneration
 
   -- storage
   botStorage = {}
@@ -339,18 +347,35 @@ function refresh()
     botStorage = result
   end
 
-  -- run script
+  statusLabel:setOn(true)
+  statusLabel:setText("Status: loading " .. configName .. "...")
+
+  local function onLoadProgress(done, total)
+    if loadGen ~= botLoadGeneration then
+      return
+    end
+    statusLabel:setOn(true)
+    statusLabel:setText(string.format("Status: loading %s (%d/%d)", configName, done, total))
+  end
+
+  local function onLoadComplete()
+    if loadGen ~= botLoadGeneration then
+      return
+    end
+    updateBotTabsHeight()
+    statusLabel:setOn(false)
+    check()
+  end
+
+  -- run script (heavy configs finish asynchronously across frames)
   local status, result = pcall(function()
-    return executeBot(configName, botStorage, botTabs, message, save, refresh, botWebSockets) end
-  )
+    return executeBot(configName, botStorage, botTabs, message, save, refresh, botWebSockets, onLoadComplete, onLoadProgress)
+  end)
   if not status then
     return onError(result)
   end
 
-  updateBotTabsHeight()
-  statusLabel:setOn(false)
   botExecutor = result
-  check()
 end
 
 function save()
@@ -425,56 +450,77 @@ function edit()
   editWindow:raise()
 end
 
-local function copyFilesRecursively(sourcePath, targetPath)
+local function copyFilesRecursively(sourcePath, targetPath, overwriteExisting)
     local files = g_resources.listDirectoryFiles(sourcePath, true, false, false)
     for _, file in ipairs(files) do
         local baseName = file:split("/")
         baseName = baseName[#baseName]
         local targetFilePath = targetPath .. "/" .. baseName
+
+        -- Never touch user runtime data, even on first install of a missing file
+        -- after the config folder already exists. On brand-new install, overwriteExisting
+        -- is true and these folders are copied once as templates (if present).
+        local protected = targetFilePath:find("/storage/")
+            or targetFilePath:find("/vBot_configs/")
+            or targetFilePath:find("/cavebot_configs/")
+            or targetFilePath:find("/targetbot_configs/")
+
         if g_resources.directoryExists(file) then
             g_resources.makeDir(targetFilePath)
             if not g_resources.directoryExists(targetFilePath) then
                 return onError("Can't create directory: " .. targetFilePath)
             end
-            copyFilesRecursively(file, targetFilePath)
+            copyFilesRecursively(file, targetFilePath, overwriteExisting)
         else
-            local cleanFile = file
-            if file:sub(1,1) == "/" then
-                cleanFile = file:sub(2)
-            end
-            local ok, contents = pcall(function() return g_resources.readFileContents(file) end)
-            if (not ok or not contents or contents:len() == 0) and cleanFile ~= file then
-                ok, contents = pcall(function() return g_resources.readFileContents(cleanFile) end)
-            end
-            if ok and contents and contents:len() > 0 then
-                g_resources.writeFileContents(targetFilePath, contents)
+            local exists = g_resources.fileExists(targetFilePath)
+            if exists and (protected or not overwriteExisting) then
+                -- keep user's file
+            else
+                local cleanFile = file
+                if file:sub(1, 1) == "/" then
+                    cleanFile = file:sub(2)
+                end
+                local ok, contents = pcall(function() return g_resources.readFileContents(file) end)
+                if (not ok or not contents or contents:len() == 0) and cleanFile ~= file then
+                    ok, contents = pcall(function() return g_resources.readFileContents(cleanFile) end)
+                end
+                if ok and contents and contents:len() > 0 then
+                    g_resources.writeFileContents(targetFilePath, contents)
+                end
             end
         end
     end
 end
 
 function createDefaultConfigs()
-    local defaultConfigFiles = g_resources.listDirectoryFiles("default_configs", false, false)
-    for _, configName in ipairs(defaultConfigFiles) do
-        local targetDir = "/bot/" .. configName
-        local isConfigComplete = false
-        if g_resources.directoryExists(targetDir) then
-            local checkFile = targetDir .. (configName == "vBot_4.8" and "/_Loader.lua" or "/main.lua")
-            if g_resources.fileExists(checkFile) then
-                local ok, contents = pcall(function() return g_resources.readFileContents(checkFile) end)
-                if ok and contents and contents:len() > 0 then
-                    isConfigComplete = true
-                end
-            end
-        end
-        if not isConfigComplete then
-            g_resources.makeDir(targetDir)
+    -- Avoid re-walking the whole tree on every login/config switch (was a big hitch).
+    if defaultsSynced then
+        return
+    end
+
+    -- Public configs shipped with the client. Private packs live in private_configs/ and are not copied.
+    local publicConfigs = { "cavebot_1.3", "vBot_4.8" }
+    local available = {}
+    for _, name in ipairs(g_resources.listDirectoryFiles("default_configs", false, false)) do
+        available[name] = true
+    end
+    for _, configName in ipairs(publicConfigs) do
+        if available[configName] then
+            local targetDir = "/bot/" .. configName
             if not g_resources.directoryExists(targetDir) then
-                return onError("Can't create directory: " .. targetDir)
+                g_resources.makeDir(targetDir)
+                if not g_resources.directoryExists(targetDir) then
+                    return onError("Can't create directory: " .. targetDir)
+                end
+                -- Brand new config: install package files once
+                copyFilesRecursively("default_configs/" .. configName, targetDir, true)
+            else
+                -- Existing config: only add missing script files, NEVER overwrite user edits/storage
+                copyFilesRecursively("default_configs/" .. configName, targetDir, false)
             end
-            copyFilesRecursively("default_configs/" .. configName, targetDir)
         end
     end
+    defaultsSynced = true
 end
 
 function uploadConfig()
@@ -751,6 +797,9 @@ function terminateCallbacks()
 end
 
 function safeBotCall(func)
+  if botExecutor and botExecutor.isLoading and botExecutor.isLoading() then
+    return
+  end
   local status, result = pcall(func)
   if not status then
     onError(result)
@@ -943,4 +992,16 @@ end
 function botInventoryChange(player, slot, item, oldItem)
   if botExecutor == nil then return false end
   safeBotCall(function() botExecutor.callbacks.onInventoryChange(player, slot, item, oldItem) end)
+end
+
+-- exports for vBot scripts (modules.game_bot.connect, etc.)
+local frameworkConnect = connect
+local frameworkDisconnect = disconnect
+
+function connect(widget, signals)
+  return frameworkConnect(widget, signals)
+end
+
+function disconnect(widget, signals)
+  return frameworkDisconnect(widget, signals)
 end

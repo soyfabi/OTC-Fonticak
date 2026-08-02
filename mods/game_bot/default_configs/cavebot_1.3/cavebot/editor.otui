@@ -1,6 +1,7 @@
 CaveBotEditorButton < Button
   width: 80
   text-align: center
+  font: verdana-11px-antialised
 
 
 CaveBotEditorPanel < Panel
@@ -20,9 +21,9 @@ CaveBotEditorPanel < Panel
     margin-top: 2
     layout:
       type: grid
-      cell-size: 80 20
-      cell-spacing: 1
-      flow: true
+      cell-size: 85 20
+      cell-spacing: 2
+      num-columns: 2
       fit-children: true
 
   Label

@@ -1,4 +1,4 @@
-setDefaultTab('main')
+setDefaultTab("Main")
 -- locales
 local panelName = "AttackBot"
 local currentSettings

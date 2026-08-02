@@ -25,6 +25,61 @@ function UIWidget:setTitle(title)
     self:setColor("#c0c0c0")
 end
 
+-- OTCv8 accepts setColoredText({text, color, text, color, ...}).
+-- Fonticak C++ only accepts a string: "{text, color}{text, color}...".
+local UIWidget_setColoredText = UIWidget.setColoredText
+local COLORED_TEXT_NAMED_COLORS = {
+    alpha = true, black = true, white = true, red = true, darkRed = true,
+    green = true, darkGreen = true, blue = true, darkBlue = true,
+    pink = true, darkPink = true, yellow = true, darkYellow = true,
+    teal = true, darkTeal = true, gray = true, darkGray = true,
+    lightGray = true, orange = true
+}
+
+local function isColoredTextColorToken(value)
+    if type(value) ~= "string" then
+        return false
+    end
+    if COLORED_TEXT_NAMED_COLORS[value] then
+        return true
+    end
+    local hex = value:match("^#(%x+)$")
+    return hex ~= nil and (#hex == 3 or #hex == 6 or #hex == 8)
+end
+
+local function coloredTextTableToString(data)
+    if #data == 0 then
+        return ""
+    end
+
+    local first = data[1]
+    local second = data[2]
+    -- Already Fonticak segments: {"{a, #fff}", "{b, #0f0}", ...}
+    if type(first) == "string" and first:sub(1, 1) == "{" and
+        (second == nil or (type(second) == "string" and second:sub(1, 1) == "{")) then
+        return table.concat(data)
+    end
+
+    -- OTCv8 alternating pairs: {text, color, text, color, ...}
+    local parts = {}
+    for i = 1, #data, 2 do
+        local text = tostring(data[i] or ""):gsub("}", "")
+        local color = data[i + 1]
+        if color == nil or not isColoredTextColorToken(tostring(color)) then
+            color = "#ffffff"
+        end
+        parts[#parts + 1] = "{" .. text .. ", " .. tostring(color) .. "}"
+    end
+    return table.concat(parts)
+end
+
+function UIWidget:setColoredText(coloredText, dontFireLuaCall)
+    if type(coloredText) == "table" then
+        coloredText = coloredTextTableToString(coloredText)
+    end
+    return UIWidget_setColoredText(self, coloredText, dontFireLuaCall)
+end
+
 function UIWidget:parseColoredText(text, default_color)
     default_color = default_color or "#ffffff"
     local result, last_pos = "", 1

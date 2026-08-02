@@ -42,10 +42,10 @@ context.BotServer.init = function(name, channel)
     end,
     onMessage = function(message, socketId)
       if not context._websockets[socketId] then
-        return g_http.cancel(socketId)
+        return HTTP.cancel(socketId)
       end
       if not context.BotServer._websocket or context.BotServer._websocket.id ~= socketId then
-        return g_http.cancel(socketId)
+        return HTTP.cancel(socketId)
       end
       context.BotServer._wasConnected = true
       if message["type"] == "ping" then

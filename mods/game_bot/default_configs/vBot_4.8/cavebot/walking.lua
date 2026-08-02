@@ -1,12 +1,29 @@
 -- walking
 local expectedDirs = {}
-local isWalking = {}
+local isWalking = false
 local walkPath = {}
 local walkPathIter = 0
+
+-- Fonticak drops mid-step walks when the 2nd arg is false (unlike OTCv8 prewalk).
+-- Pass true so the next step is scheduled like holding a movement key.
+local function botWalk(dir)
+  return g_game.walk(dir, true)
+end
+
+-- Send the next step slightly before the current one ends (prewalk window).
+local function stepDelay(dir)
+  local step = player:getStepDuration(false, dir)
+  if not step or step < 1 then
+    step = 50
+  end
+  local pre = math.min(70, math.floor(step / 3))
+  return CaveBot.Config.get("walkDelay") + math.max(15, step - pre)
+end
 
 CaveBot.resetWalking = function()
   expectedDirs = {}
   walkPath = {}
+  walkPathIter = 0
   isWalking = false
 end
 
@@ -19,16 +36,20 @@ CaveBot.doWalking = function()
   end
   if #expectedDirs >= 3 then
     CaveBot.resetWalking()
+    return false
   end
   local dir = walkPath[walkPathIter]
-  if dir then
-    g_game.walk(dir, false)
+  if not dir then
+    return false
+  end
+
+  local walked = botWalk(dir)
+  if walked then
     table.insert(expectedDirs, dir)
     walkPathIter = walkPathIter + 1
-    CaveBot.delay(CaveBot.Config.get("walkDelay") + player:getStepDuration(false, dir))
-    return true
   end
-  return false
+  CaveBot.delay(stepDelay(dir))
+  return true
 end
 
 -- called when player position has been changed (step has been confirmed by server)
@@ -47,16 +68,12 @@ onPlayerPositionChange(function(newPos, oldPos)
   if not isWalking or not expectedDirs[1] then
     -- some other walk action is taking place (for example use on ladder), wait
     walkPath = {}
-    CaveBot.delay(CaveBot.Config.get("ping") + player:getStepDuration(false, dir) + 150)
+    CaveBot.delay(CaveBot.Config.get("ping") + player:getStepDuration(false, dir) + 100)
     return
   end
 
   if expectedDirs[1] ~= dir then
-    if CaveBot.Config.get("mapClick") then
-      CaveBot.delay(CaveBot.Config.get("walkDelay") + player:getStepDuration(false, dir))
-    else
-      CaveBot.delay(CaveBot.Config.get("mapClickDelay") + player:getStepDuration(false, dir))
-    end
+    CaveBot.delay(stepDelay(dir))
     return
   end
 
@@ -83,11 +100,31 @@ CaveBot.walkTo = function(dest, maxDist, params)
     return ret
   end
 
-  g_game.walk(dir, false)
+  -- Multi-step: use autoWalk for continuous server-side path (OTCv8-like speed)
+  -- without requiring the "Use map click" toggle. Single step still uses walk.
+  if #path > 1 then
+    local ret = autoWalk(path)
+    if ret then
+      isWalking = true
+      expectedDirs = path
+      walkPath = path
+      walkPathIter = 2
+      CaveBot.delay(stepDelay(dir))
+      return true
+    end
+  end
+
+  local walked = botWalk(dir)
+  if not walked then
+    -- Not ready yet; keep trying soon instead of waiting a full step.
+    CaveBot.delay(math.max(15, CaveBot.Config.get("walkDelay")))
+    return true
+  end
+
   isWalking = true
   walkPath = path
   walkPathIter = 2
   expectedDirs = { dir }
-  CaveBot.delay(CaveBot.Config.get("walkDelay") + player:getStepDuration(false, dir))
+  CaveBot.delay(stepDelay(dir))
   return true
 end

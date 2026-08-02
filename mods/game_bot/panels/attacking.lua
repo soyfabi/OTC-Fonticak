@@ -901,7 +901,7 @@ Panel
     if #lootContainers == 0 or not context.storage.looting.enabled then
       return false
     end
-    if modules.game_interface.lastManualWalk + 500 > context.now then
+    if (modules.game_interface.lastManualWalk or 0) + 500 > context.now then
       return true
     end
 
@@ -1113,7 +1113,7 @@ Panel
       end
     end
 
-    if modules.game_interface.lastManualWalk + 500 > context.now then
+    if (modules.game_interface.lastManualWalk or 0) + 500 > context.now then
       return
     end
 

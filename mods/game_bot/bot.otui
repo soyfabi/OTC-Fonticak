@@ -14,7 +14,7 @@ BotTabBar < TabBar
 
 BotTabBarPanel < TabBarPanel
 BotTabBarButton < UIButton
-  size: 17 18
+  height: 18
   image-source: /images/ui/tabbutton_square
   image-color: #dfdfdf
   image-clip: 0 0 98 18
@@ -22,7 +22,8 @@ BotTabBarButton < UIButton
   icon-color: #dfdfdf
   color: #dfdfdf
   anchors.top: parent.top
-  padding: 5
+  padding: 4
+  padding-right: 5
   text-horizontal-auto-resize: true
 
   $first:
@@ -91,7 +92,10 @@ MiniWindow
       margin-top: 2
       margin-left: 2
       margin-right: 75
+      padding-right: 24
       text-offset: 3 0
+      text-align: left
+      font: verdana-11px-rounded
 
     Button
       id: editConfig

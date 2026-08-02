@@ -1,6 +1,6 @@
 local iconTopMenu = nil
--- @ Minimap
-local minimapWidget = nil -- bot fix
+-- Exported for OTCv8/vBot cavebot (modules.game_minimap.minimapWidget)
+minimapWidget = nil
 local otmm = true
 local oldPos = nil
 local fullscreenWidget
@@ -96,6 +96,7 @@ Canary: void ProtocolGame::sendTibiaTime(int32_t time)
 end
 
 function mapController:onInit()
+    minimapWidget = self.ui.minimapBorder.minimap
     self.ui.minimapBorder.minimap:getChildById('floorUpButton'):hide()
     self.ui.minimapBorder.minimap:getChildById('floorDownButton'):hide()
     self.ui.minimapBorder.minimap:getChildById('zoomInButton'):hide()
@@ -111,6 +112,8 @@ function mapController:onGameStart()
     mapController:registerEvents(LocalPlayer, {
         onPositionChange = onPositionChange
     }):execute()
+
+    minimapWidget = self.ui.minimapBorder.minimap
 
     -- Load Map
     g_minimap.clean()
@@ -252,7 +255,10 @@ function resetMap()
 end
 
 function getMiniMapUi()
-    return mapController.ui.minimapBorder.minimap
+    if not minimapWidget and mapController and mapController.ui and mapController.ui.minimapBorder then
+        minimapWidget = mapController.ui.minimapBorder.minimap
+    end
+    return minimapWidget
 end
 
 function extendedView(extendedView)

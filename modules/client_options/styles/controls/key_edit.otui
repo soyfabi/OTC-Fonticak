@@ -17,7 +17,7 @@ MainWindow
     font: verdana-11px-monochrome
     text-align: center
     color: #c0c0c0
-    image-source: /images/ui/panel_flat_astra
+    image-source: /images/ui/panel_flat_border
     image-border: 1
   
   Label
