@@ -4,9 +4,10 @@ local lastAction = 0
 local cavebotAllowance = 0
 local lureEnabled = true
 
--- ui
-local configWidget = UI.Config()
-local ui = UI.createWidget("TargetBotPanel")
+-- ui (parent to current default tab: Target)
+local targetPanel = panel
+local configWidget = UI.Config(targetPanel)
+local ui = UI.createWidget("TargetBotPanel", targetPanel)
 
 ui.list = ui.listPanel.list -- shortcut
 TargetBot.targetList = ui.list

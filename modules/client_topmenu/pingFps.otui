@@ -23,11 +23,15 @@ pingFpsLabel < UIWidget
 
 
 Panel
+  id: pingFpsRoot
   anchors.top: parent.top
   anchors.left: parent.left
   height: 60
   width: 150
-  margin-top: 35
+  margin-top: 2
+  margin-left: 2
+  phantom: true
+  focusable: false
   Panel
     anchors.top: parent.top
     anchors.left: parent.left

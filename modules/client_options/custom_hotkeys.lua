@@ -429,9 +429,14 @@ function addCustomHotkeyRow(hotkeyId, action, data, primary, secondary)
       actionCol.item:getItem():setTier(data.upgradeTier)
     end
     actionCol.item:setVisible(true)
+    -- Square border around the object, same color as the action text
+    actionCol.item:setBorderWidth(1)
+    actionCol.item:setBorderColor(color)
     actionCol:setTextOffset({ x = 28, y = 0 })
   else
     actionCol.item:setVisible(false)
+    actionCol.item:setBorderWidth(0)
+    actionCol.item:setBorderColor('alpha')
     actionCol:setTextOffset({ x = 2, y = 0 })
   end
 
@@ -460,7 +465,9 @@ function newCustomHotkeyAction()
   local menu = g_ui.createWidget('PopupMenu')
   menu:setGameMenu(true)
   menu:addOption(tr('Assign Spell'), function() assignSpellDialog(nil) end)
+  menu:addSeparator()
   menu:addOption(tr('Assign Object'), function() assignObjectDialogEvent(nil) end)
+  menu:addSeparator()
   menu:addOption(tr('Assign Text'), function() assignTextDialog(nil) end)
   menu:display(g_window.getMousePosition())
 end
@@ -474,11 +481,13 @@ function editCustomHotkeyAction(row)
   local isText = (row.actionType == HOTKEY_ACTION.TEXT or row.actionType == HOTKEY_ACTION.TEXT_AUTO)
 
   menu:addOption(isSpell and tr('Edit Spell') or tr('Assign Spell'), function() assignSpellDialog(row) end)
+  menu:addSeparator()
   if isItem and row.hotkeyData and row.hotkeyData.itemId then
     menu:addOption(tr('Edit Object'), function() assignObjectDialog(row, row.hotkeyData.itemId, row.hotkeyData.upgradeTier) end)
   else
     menu:addOption(tr('Assign Object'), function() assignObjectDialogEvent(row) end)
   end
+  menu:addSeparator()
   menu:addOption(isText and tr('Edit Text') or tr('Assign Text'), function() assignTextDialog(row) end)
   menu:addSeparator()
   menu:addOption(tr('Clear Action'), function()

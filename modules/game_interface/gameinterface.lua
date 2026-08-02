@@ -1811,6 +1811,11 @@ function setupViewMode(mode)
     applyMobileMargins()
     currentViewMode = mode
     applyExtendedViewLayout(mode == 2)
+    if modules.client_topmenu and modules.client_topmenu.updatePingWidgetPosition then
+        addEvent(function()
+            modules.client_topmenu.updatePingWidgetPosition()
+        end)
+    end
 end
 
 function limitZoom()

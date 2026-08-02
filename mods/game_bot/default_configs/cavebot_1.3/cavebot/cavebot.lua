@@ -1,9 +1,11 @@
 local cavebotMacro = nil
 local config = nil
 
--- ui
-local configWidget = UI.Config()
-local ui = UI.createWidget("CaveBotPanel")
+-- ui (always parent to Cave; async load can leave context.panel on Main)
+local cavePanel = addTab("Cave")
+setDefaultTab("Cave")
+local configWidget = UI.Config(cavePanel)
+local ui = UI.createWidget("CaveBotPanel", cavePanel)
 
 ui.list = ui.listPanel.list -- shortcut
 CaveBot.actionList = ui.list

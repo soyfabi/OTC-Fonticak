@@ -1,6 +1,8 @@
 GameSidePanel < UIMiniWindowContainer
   image-source: /images/ui/2pixel_up_frame_borderimage
   image-border: 4
+  padding: 3
+  padding-top: 0
   width: 198
   layout:
     type: verticalBox
@@ -292,19 +294,20 @@ UIWidget
       function(self, newMargin)
         local dontStretch = modules.client_options.getOption('dontStretchShrink')
         local actionBars = modules.game_actionbar.getActiveBottomBars()
-        local maxHeight = 118 + (35 * actionBars)
-        local result = math.max(math.min(newMargin, self:getParent():getHeight() - 150), maxHeight)
+        -- Minimum bottom area when dragging the console smaller (~3 chat lines + tabs + input).
+        local minHeight = 125 + (35 * actionBars)
+        local result = math.max(math.min(newMargin, self:getParent():getHeight() - 150), minHeight)
         if dontStretch then
-          result = result > 650 and 650 or (result > 450 and 450 or 200)
+          result = result > 650 and 650 or (result > 450 and 450 or math.max(200, minHeight))
         end
         return result
       end
     @onGeometryChange: |
       function(self)
         local actionBars = modules.game_actionbar.getActiveBottomBars()
-        local maxHeight = 118 + (35 * actionBars)
+        local minHeight = 125 + (35 * actionBars)
         local parentHeight = self:getParent():getHeight()
-        self:setMarginBottom(math.min(math.max(parentHeight - 150, maxHeight), self:getMarginBottom()))
+        self:setMarginBottom(math.min(math.max(parentHeight - 150, minHeight), self:getMarginBottom()))
       end
 
   UIWidget

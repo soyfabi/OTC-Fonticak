@@ -54,6 +54,13 @@ loadScriptQueue(queue, function(entry)
     return
   end
 
+  -- Keep tab sticky across async frames (executor must not steal panel to Main)
+  if entry.kind == "cavebot" then
+    setDefaultTab(cavebotTab)
+  elseif entry.kind == "targetbot" then
+    setDefaultTab(targetingTab)
+  end
+
   local status, err = pcall(function()
     dofile(entry.file)
   end)

@@ -255,7 +255,11 @@ function executeBot(config, storage, tabs, msgCallback, saveConfigCallback, relo
       else
         assert(load(g_resources.readFileContents(file), file, nil, context))()
       end
-    context.panel = context.mainTab -- reset default tab
+    -- Do not reset panel after a script that started async loading: queued
+    -- dofiles would otherwise create CaveBot/TargetBot UI on Main.
+    if not context._asyncLoadStarted then
+      context.panel = context.mainTab -- reset default tab
+    end
   end
 
   if not context._asyncLoadStarted then

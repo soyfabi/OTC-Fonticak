@@ -1,9 +1,11 @@
 local cavebotMacro = nil
 local config = nil
 
--- ui
-local configWidget = UI.Config()
-local ui = UI.createWidget("CaveBotPanel")
+-- ui (always parent to Cave; async load can leave context.panel on Main)
+local cavePanel = addTab("Cave")
+setDefaultTab("Cave")
+local configWidget = UI.Config(cavePanel)
+local ui = UI.createWidget("CaveBotPanel", cavePanel)
 if not ui or not ui.listPanel then
   error("CaveBotPanel UI failed to load. Check /cavebot/cavebot.otui was imported.")
 end

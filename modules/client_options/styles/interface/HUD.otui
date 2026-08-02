@@ -303,6 +303,22 @@ UIWidget
         !text: tr('Show connection ping')
         !tooltip: tr('Display connection speed to the server (milliseconds)')
 
+    SmallReversedQtPanel
+      id: showPingPositionPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+      margin-top: 7
+      height: 22
+      visible: false
+      OptionScaleScroll
+        id: showPingPosition
+        anchors.fill: parent
+        !text: tr('Position Show Ping: Top Left')
+        &minimumScrollValue: 1
+        &maximumScrollValue: 4
+        &scrollSize: 21
+
   VerticalScrollBar
     id: hudScrollBar
     anchors.top: parent.top

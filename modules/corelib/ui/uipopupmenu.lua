@@ -78,11 +78,12 @@ function UIPopupMenu:addOption(optionName, optionCallback, shortcut, disabled)
                     shortcutLabel:getMarginRight()
     end
     optionWidget:setEnabled(not disabled)
-    self:setWidth(math.max(190, math.max(self:getWidth(), width)))
+    -- Fit to content (do not force a large minimum width; that leaves empty space on the right)
+    self:setWidth(math.max(self:getWidth(), width))
 end
 
 function UIPopupMenu:addSeparator()
-    g_ui.createWidget('HorizontalSeparator', self)
+    g_ui.createWidget(self:getStyleName() .. 'Separator', self)
 end
 
 function UIPopupMenu:addText(text)

@@ -15,6 +15,51 @@ return {
         value = false,
         action = function(value, options, controller, panels, extraWidgets)
             modules.client_topmenu.setPingVisible(value)
+            local hud = panels.interfaceHUD
+            local panel = hud and hud:recursiveGetChildById('showPingPositionPanel')
+            if panel then
+                panel:setVisible(value)
+                if value then
+                    panel:setHeight(22)
+                else
+                    panel:setHeight(0)
+                end
+            end
+            -- When enabling, nudge the HUD scrollbar so the new option is visible
+            if value and hud then
+                addEvent(function()
+                    local scroll = hud:recursiveGetChildById('hudScrollBar')
+                    local area = hud:recursiveGetChildById('hudScrollArea')
+                    if area then
+                        area:updateLayout()
+                    end
+                    if panel and area and area.ensureChildVisible then
+                        area:ensureChildVisible(panel)
+                    elseif scroll then
+                        local step = 29 -- panel height 22 + margin 7
+                        scroll:setValue(math.min(scroll:getMaximum(), scroll:getValue() + step))
+                    end
+                end)
+            end
+        end
+    },
+    showPingPosition                  = {
+        value = 1,
+        action = function(value, options, controller, panels, extraWidgets)
+            if modules.client_topmenu and modules.client_topmenu.updatePingWidgetPosition then
+                -- Pass value: setOption saves option.value AFTER this action runs
+                modules.client_topmenu.updatePingWidgetPosition(value)
+            end
+            local labels = {
+                [1] = 'Top Left',
+                [2] = 'Top Right',
+                [3] = 'Bottom Left',
+                [4] = 'Bottom Right'
+            }
+            local widget = panels.interfaceHUD and panels.interfaceHUD:recursiveGetChildById('showPingPosition')
+            if widget then
+                widget:setText(tr('Position Show Ping: %s', labels[value] or 'Top Left'))
+            end
         end
     },
     fullscreen                        = {

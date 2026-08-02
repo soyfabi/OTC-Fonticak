@@ -5,6 +5,7 @@ editWindow = nil
 
 local checkEvent = nil
 local loginRefreshEvent = nil
+local relogRecoveryEvent = nil
 local botWatchEvent = nil
 local botLoadGeneration = 0
 local defaultsSynced = false
@@ -132,6 +133,8 @@ end
 function terminate()
   save()
   clear()
+  removeEvent(relogRecoveryEvent)
+  relogRecoveryEvent = nil
   removeEvent(botWatchEvent)
   botWatchEvent = nil
 
@@ -421,6 +424,10 @@ end
 
 function online()
   botWindow:setupOnStart()
+  -- A character switch can emit onGameStart before the previous onGameEnd.
+  -- Cancel its pending recovery; this login gets a fresh normal load attempt.
+  removeEvent(relogRecoveryEvent)
+  relogRecoveryEvent = nil
   scheduleLoginRefresh()
 end
 
@@ -429,6 +436,18 @@ function offline()
   save()
   clear()
   editWindow:hide()
+
+  -- Some servers complete the next character login before this old-session
+  -- onGameEnd callback finishes. In that order, clear() above removes the new
+  -- bot UI and cancelLoginRefresh() cancels its loader. Recheck shortly after
+  -- the event chain settles and restart only if a new session is already live.
+  removeEvent(relogRecoveryEvent)
+  relogRecoveryEvent = scheduleEvent(function()
+    relogRecoveryEvent = nil
+    if g_game.isOnline() then
+      scheduleLoginRefresh()
+    end
+  end, 500)
 end
 
 function onError(message)

@@ -106,9 +106,10 @@ UIWidget
     margin-top: 7
     height: 22
 
-    OptionCheckBox
+    OptionCheckBoxMarked
       id: enableChatHistory
       !text: tr('Save chat history')
+      !tooltip: tr('Keeps console messages after logout and restores them when you log in again with the same character.')
 
   SmallReversedQtPanel
     anchors.left: parent.left

@@ -1,6 +1,18 @@
 -- @docclass
 UIButton = extends(UIWidget, 'UIButton')
 
+local function releaseButtonCursor(self)
+    if not self.cursorPushed then
+        return
+    end
+    if modules.client_options and modules.client_options.getOption('nativeCursor') then
+        g_window.restoreMouseCursor()
+    else
+        g_mouse.popCursor('pointerbutton')
+    end
+    self.cursorPushed = false
+end
+
 function UIButton.create()
     local button = UIButton.internalCreate()
     button:setFocusable(false)
@@ -13,26 +25,12 @@ function UIButton:onMouseRelease(pos, button)
 end
 
 function UIButton:onDestroy()
-    -- Clean up cursor if it was pushed
-    if self.cursorPushed then
-        if modules.client_options and modules.client_options.getOption('nativeCursor') then
-            g_window.restoreMouseCursor()
-        else
-            g_mouse.popCursor('pointerbutton')
-        end
-        self.cursorPushed = false
-    end
+    releaseButtonCursor(self)
 end
 
 function UIButton:onVisibilityChange(visible)
-    -- When button becomes invisible, pop cursor if it was pushed to avoid stack leaks
-    if not visible and self.cursorPushed then
-        if modules.client_options and modules.client_options.getOption('nativeCursor') then
-            g_window.restoreMouseCursor()
-        else
-            g_mouse.popCursor('pointerbutton')
-        end
-        self.cursorPushed = false
+    if not visible then
+        releaseButtonCursor(self)
     end
 end
 
@@ -41,48 +39,36 @@ function UIButton:onHoverChange(hovered)
         UIWidget.onHoverChange(self, hovered)
         return
     end
-    
+
+    -- Popup menus / drag grab the mouse; always release the hover cursor or it sticks as Link Select
     if g_ui.getDraggingWidget() or g_ui.isMouseGrabbed() then
-        if self.cursorPushed then
-            self.cursorPushed = false
-        end
+        releaseButtonCursor(self)
         UIWidget.onHoverChange(self, hovered)
         return
     end
-    
+
     local nativeCursor = modules.client_options.getOption('nativeCursor')
     local animatedCursor = modules.client_options.getOption('showAnimatedCursor')
-    
+
     -- Animated cursor mode - show pointer button on hover
     if animatedCursor and not nativeCursor then
         if hovered then
-            -- Only push if we haven't already
             if not self.cursorPushed then
                 g_mouse.pushCursor('pointerbutton')
                 self.cursorPushed = true
             end
         else
-            -- Only pop if we pushed
-            if self.cursorPushed then
-                g_mouse.popCursor('pointerbutton')
-                self.cursorPushed = false
-            end
+            releaseButtonCursor(self)
         end
     elseif nativeCursor then
-        -- Native cursor mode - use hand pointer
         if hovered then
             if not self.cursorPushed then
                 g_window.setSystemCursor('hand')
                 self.cursorPushed = true
             end
         else
-            if self.cursorPushed then
-                g_window.restoreMouseCursor()
-                self.cursorPushed = false
-            end
+            releaseButtonCursor(self)
         end
     end
-    -- When both are disabled, use default Tibia cursors (no animation)
-    -- The cursor is already set to default, so we don't need to change it
     UIWidget.onHoverChange(self, hovered)
 end

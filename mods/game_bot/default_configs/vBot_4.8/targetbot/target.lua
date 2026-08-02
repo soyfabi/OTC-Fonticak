@@ -6,9 +6,10 @@ local lureEnabled = true
 local dangerValue = 0
 local looterStatus = ""
 
--- ui
-local configWidget = UI.Config()
-local ui = UI.createWidget("TargetBotPanel")
+-- ui (parent to current default tab: Target, or Cave when joinBot)
+local targetPanel = panel
+local configWidget = UI.Config(targetPanel)
+local ui = UI.createWidget("TargetBotPanel", targetPanel)
 
 ui.list = ui.listPanel.list -- shortcut
 TargetBot.targetList = ui.list

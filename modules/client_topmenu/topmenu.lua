@@ -32,6 +32,141 @@ local zoomOutButton = nil
 local zoomLevel = 2
 
 local managerAccountsButton = nil
+
+-- Playable tile rect inside the map panel (padding + letterbox).
+-- Returns left, top, right, bottom offsets from the map widget edges.
+local function getPlayableMapInsets(map)
+    local padLeft = map:getPaddingLeft() or 0
+    local padTop = map:getPaddingTop() or 0
+    local padRight = map:getPaddingRight() or 0
+    local padBottom = map:getPaddingBottom() or 0
+    local cw = math.max(1, map:getWidth() - padLeft - padRight - 2)
+    local ch = math.max(1, map:getHeight() - padTop - padBottom - 2)
+    local clipX = padLeft + 1
+    local clipY = padTop + 1
+
+    local mapW, mapH = cw, ch
+    if map.isKeepAspectRatioEnabled and map:isKeepAspectRatioEnabled() then
+        local zoom = map.getZoom and map:getZoom() or 11
+        local dim = map.getVisibleDimension and map:getVisibleDimension() or nil
+        local aspect = 15 / 11
+        if dim and dim.width and dim.height and dim.height > 0 then
+            aspect = dim.width / dim.height
+        end
+        local srcW = aspect * zoom
+        local srcH = zoom
+        if srcW < 1 then srcW = 1 end
+        if srcH < 1 then srcH = 1 end
+        local scale = math.min(cw / srcW, ch / srcH)
+        mapW = srcW * scale
+        mapH = srcH * scale
+    end
+
+    local inset = 2
+    local left = math.floor(clipX + (cw - mapW) / 2) + inset
+    local top = math.floor(clipY + (ch - mapH) / 2) + inset
+    local right = math.floor(map:getWidth() - (clipX + (cw - mapW) / 2 + mapW)) + inset
+    local bottom = math.floor(map:getHeight() - (clipY + (ch - mapH) / 2 + mapH)) + inset
+    return left, top, right, bottom
+end
+
+local function getPingCorner(override)
+    if override ~= nil then
+        return math.min(4, math.max(1, tonumber(override) or 1))
+    end
+    local corner = 1
+    if modules.client_options and modules.client_options.getOption then
+        corner = modules.client_options.getOption('showPingPosition') or 1
+    end
+    return math.min(4, math.max(1, tonumber(corner) or 1))
+end
+
+local function refreshPingWidgetPosition(cornerOverride)
+    if not PingWidget or PingWidget:isDestroyed() then
+        return
+    end
+
+    local map = modules.game_interface and modules.game_interface.getMapPanel and modules.game_interface.getMapPanel()
+    if not map then
+        return
+    end
+
+    if PingWidget:getParent() ~= map then
+        PingWidget:setParent(map)
+    end
+
+    local left, top, right, bottom = getPlayableMapInsets(map)
+
+    -- Extended view: keep HUD in the visible playable area (not under side panels)
+    if modules.game_interface.currentViewMode == 2 then
+        local leftPanel = modules.game_interface.getLeftPanel and modules.game_interface.getLeftPanel()
+        if leftPanel and leftPanel:isVisible() and leftPanel:getWidth() > 0 then
+            local leftEdge = leftPanel:getX() + leftPanel:getWidth() - map:getX()
+            left = math.max(left, leftEdge + 2)
+        end
+        local leftExtra = modules.game_interface.getLeftExtraPanel and modules.game_interface.getLeftExtraPanel()
+        if leftExtra and leftExtra:isOn() and leftExtra:isVisible() and leftExtra:getWidth() > 0 then
+            local leftEdge = leftExtra:getX() + leftExtra:getWidth() - map:getX()
+            left = math.max(left, leftEdge + 2)
+        end
+        local rightPanel = modules.game_interface.getRightPanel and modules.game_interface.getRightPanel()
+        if rightPanel and rightPanel:isVisible() and rightPanel:getWidth() > 0 then
+            local rightEdge = map:getX() + map:getWidth() - rightPanel:getX()
+            right = math.max(right, rightEdge + 2)
+        end
+        local topBar = modules.game_interface.getGameTopStatsBar and modules.game_interface.getGameTopStatsBar()
+        if topBar and topBar:isVisible() and topBar:getHeight() > 0 then
+            local topEdge = topBar:getY() + topBar:getHeight() - map:getY()
+            top = math.max(top, topEdge + 2)
+        end
+    end
+
+    local corner = getPingCorner(cornerOverride)
+    PingWidget:breakAnchors()
+    PingWidget:setMarginLeft(0)
+    PingWidget:setMarginTop(0)
+    PingWidget:setMarginRight(0)
+    PingWidget:setMarginBottom(0)
+
+    if corner == 2 then -- Top Right
+        PingWidget:addAnchor(AnchorTop, 'parent', AnchorTop)
+        PingWidget:addAnchor(AnchorRight, 'parent', AnchorRight)
+        PingWidget:setMarginTop(top)
+        PingWidget:setMarginRight(right)
+    elseif corner == 3 then -- Bottom Left
+        PingWidget:addAnchor(AnchorBottom, 'parent', AnchorBottom)
+        PingWidget:addAnchor(AnchorLeft, 'parent', AnchorLeft)
+        PingWidget:setMarginBottom(bottom)
+        PingWidget:setMarginLeft(left)
+    elseif corner == 4 then -- Bottom Right
+        PingWidget:addAnchor(AnchorBottom, 'parent', AnchorBottom)
+        PingWidget:addAnchor(AnchorRight, 'parent', AnchorRight)
+        PingWidget:setMarginBottom(bottom)
+        PingWidget:setMarginRight(right)
+    else -- Top Left
+        PingWidget:addAnchor(AnchorTop, 'parent', AnchorTop)
+        PingWidget:addAnchor(AnchorLeft, 'parent', AnchorLeft)
+        PingWidget:setMarginTop(top)
+        PingWidget:setMarginLeft(left)
+    end
+
+    PingWidget:raise()
+end
+
+local function hookPingGeometry(widget)
+    if not widget or widget._pingFpsGeometryHook then
+        return
+    end
+    widget._pingFpsGeometryHook = true
+    local prev = widget.onGeometryChange
+    widget.onGeometryChange = function(w, oldRect, newRect)
+        if prev then
+            prev(w, oldRect, newRect)
+        end
+        refreshPingWidgetPosition()
+    end
+end
+
 -- private functions
 local function addButton(id, description, icon, callback, panel, toggle, front)
     local class
@@ -199,7 +334,8 @@ function online()
         local pingFeatureAvailable = g_game.getFeature(GameClientPing) or g_game.getFeature(GameExtendedClientPing)
         
         if not PingWidget then
-            PingWidget = g_ui.loadUI("pingFps", modules.game_interface.getMapPanel())
+            local mapPanel = modules.game_interface.getMapPanel()
+            PingWidget = g_ui.loadUI("pingFps", mapPanel)
             MainPingPanel = g_ui.createWidget("testPingPanel", PingWidget:getChildByIndex(1))
             MainPingPanel:setId("ping")
             
@@ -209,6 +345,11 @@ function online()
             mainFpsPanel = g_ui.createWidget("testPingPanel", PingWidget:getChildByIndex(2))
             mainFpsPanel:setId("fps")
             fpsPanel2 = mainFpsPanel:getChildByIndex(2)
+
+            hookPingGeometry(mapPanel)
+            hookPingGeometry(modules.game_interface.getLeftPanel and modules.game_interface.getLeftPanel())
+            hookPingGeometry(modules.game_interface.getLeftExtraPanel and modules.game_interface.getLeftExtraPanel())
+            hookPingGeometry(modules.game_interface.getGameTopStatsBar and modules.game_interface.getGameTopStatsBar())
         end
 
         if showPing and pingFeatureAvailable then
@@ -230,6 +371,7 @@ function online()
         
         local showFps = modules.client_options.getOption('showFps')
         fpsPanel2:setVisible(showFps)
+        refreshPingWidgetPosition()
     end)
 end
 
@@ -340,6 +482,11 @@ function setPingVisible(enable)
         pingPanel:setVisible(enable)
         pingImg:setVisible(enable)
     end
+    refreshPingWidgetPosition()
+end
+
+function updatePingWidgetPosition(cornerOverride)
+    refreshPingWidgetPosition(cornerOverride)
 end
 
 function setFpsVisible(enable)
