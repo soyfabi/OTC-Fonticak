@@ -195,6 +195,10 @@ function init()
         commandTextEdit:focus()
     end
 
+    terminalWindow:getChildById('closeButton').onClick = function()
+        hide()
+    end
+
     g_keyboard.bindKeyPress('Up', function()
         navigateCommand(1)
     end, commandTextEdit)
@@ -276,7 +280,8 @@ function popWindow()
         terminalWindow:getChildById('bottomResizeBorder'):disable()
         terminalWindow:getChildById('rightResizeBorder'):disable()
         terminalWindow:getChildById('titleBar'):hide()
-        terminalWindow:getChildById('terminalScroll'):setMarginTop(0)
+        terminalWindow:getChildById('closeButton'):show()
+        terminalWindow:getChildById('terminalScroll'):setMarginTop(1)
         terminalWindow:getChildById('terminalScroll'):setMarginBottom(0)
         terminalWindow:getChildById('terminalScroll'):setMarginRight(0)
         poped = false
@@ -298,9 +303,10 @@ function popWindow()
         terminalWindow:getChildById('bottomResizeBorder'):enable()
         terminalWindow:getChildById('rightResizeBorder'):enable()
         terminalWindow:getChildById('titleBar'):show()
-        terminalWindow:getChildById('terminalScroll'):setMarginTop(18)
+        terminalWindow:getChildById('closeButton'):show()
+        terminalWindow:getChildById('terminalScroll'):setMarginTop(1)
         terminalWindow:getChildById('terminalScroll'):setMarginBottom(1)
-        terminalWindow:getChildById('terminalScroll'):setMarginRight(1)
+        terminalWindow:getChildById('terminalScroll'):setMarginRight(0)
         terminalWindow:bindRectToParent()
         poped = true
     end

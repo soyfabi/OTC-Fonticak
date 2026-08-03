@@ -13,16 +13,24 @@ local OPEN_FRAMES = {
 
 local MAX_WIDTH = 289
 local BANNER_HEIGHT = 88
-local FRAME_MS = 45
+local FRAME_MS = 35
 local DEFAULT_HOLD_MS = 3000
-local FADE_IN_MS = 400
-local FADE_OUT_MS = 300
-local FADE_INTERVAL_MS = 20
+local FADE_IN_MS = 280
+local FADE_OUT_MS = 220
+local FADE_INTERVAL_MS = 16
 local ICON_SHOW_PROGRESS = 0.25
 local ICON_HIDE_PROGRESS = 0.25
 local BANNER_MARGIN_OFFSET = 10
 local ANIM_OFFSET = 10
 local TOTAL_FRAMES = #OPEN_FRAMES
+-- Slide the whole banner from left into the centered placement.
+local SLIDE_OFFSET = 240
+local SLIDE_IN_MS = 280
+local SLIDE_OUT_MS = 220
+
+local function easeOutQuad(t)
+    return t * (2 - t)
+end
 
 local eventCategory = {
     CLIENT_EVENT_TYPE_SIMPLE = 1,
@@ -446,6 +454,10 @@ function notificationsController:cancelEvent()
         removeEvent(self.event)
         self.event = nil
     end
+    if self.slideEvent then
+        removeEvent(self.slideEvent)
+        self.slideEvent = nil
+    end
 end
 
 function notificationsController:reloadBannerHtml()
@@ -522,8 +534,9 @@ end
 
 function notificationsController:resetBanner()
     local w = self.ui
-    w:setOpacity(1.0)
-    w:setMarginLeft(0)
+    -- Start off-screen to the left and invisible; slide+fade brings it to center.
+    w:setOpacity(0)
+    w:setMarginLeft(-SLIDE_OFFSET)
     w:show()
     self:setContentOpacity(0)
     self:setLeftIconsOpacity(0)
@@ -636,8 +649,75 @@ function notificationsController:processNext()
     end
 
     self.state = "opening"
-    -- Starting Banner ->
+    self:slideFadeIn()
     self:animateOpen(data.holdMs)
+end
+
+function notificationsController:slideFadeIn()
+    if not self.ui or self.ui:isDestroyed() then
+        return
+    end
+    if self.slideEvent then
+        removeEvent(self.slideEvent)
+        self.slideEvent = nil
+    end
+
+    local startTime = g_clock.millis()
+    local startMargin = -SLIDE_OFFSET
+    local function step()
+        if not self.ui or self.ui:isDestroyed() then
+            self.slideEvent = nil
+            return
+        end
+        local t = easeOutQuad(math.min(1, (g_clock.millis() - startTime) / SLIDE_IN_MS))
+        self.ui:setMarginLeft(math.floor(startMargin * (1 - t)))
+        self.ui:setOpacity(t)
+        if t < 1 then
+            self.slideEvent = scheduleEvent(step, FADE_INTERVAL_MS)
+        else
+            self.ui:setMarginLeft(0)
+            self.ui:setOpacity(1)
+            self.slideEvent = nil
+        end
+    end
+    self.slideEvent = scheduleEvent(step, FADE_INTERVAL_MS)
+end
+
+function notificationsController:slideFadeOut(onDone)
+    if not self.ui or self.ui:isDestroyed() then
+        if onDone then
+            onDone()
+        end
+        return
+    end
+    if self.slideEvent then
+        removeEvent(self.slideEvent)
+        self.slideEvent = nil
+    end
+
+    local startTime = g_clock.millis()
+    local startOpacity = self.ui:getOpacity() or 1
+    local function step()
+        if not self.ui or self.ui:isDestroyed() then
+            self.slideEvent = nil
+            if onDone then
+                onDone()
+            end
+            return
+        end
+        local t = easeOutQuad(math.min(1, (g_clock.millis() - startTime) / SLIDE_OUT_MS))
+        self.ui:setOpacity(startOpacity * (1 - t))
+        self.ui:setMarginLeft(math.floor(-SLIDE_OFFSET * 0.55 * t))
+        if t < 1 then
+            self.slideEvent = scheduleEvent(step, FADE_INTERVAL_MS)
+        else
+            self.slideEvent = nil
+            if onDone then
+                onDone()
+            end
+        end
+    end
+    self.slideEvent = scheduleEvent(step, FADE_INTERVAL_MS)
 end
 
 function notificationsController:animateOpen(holdMs)
@@ -671,7 +751,11 @@ function notificationsController:finishOpening(holdMs)
     -- Opening finished. Holding.
     self:setPaperSize(MAX_WIDTH)
     self.widgets.anim:hide()
-    self.ui:setMarginLeft(0)
+    -- Keep whatever slide-in reached; snap to center if already done.
+    if not self.slideEvent then
+        self.ui:setMarginLeft(0)
+        self.ui:setOpacity(1)
+    end
     self.state = "holding"
     self:fadeIn(holdMs)
 end
@@ -741,11 +825,13 @@ function notificationsController:animateClose()
         end
         frame = frame - 1
         if frame < 1 then
-            -- Retract finished. Running Exit.
+            -- Retract finished. Slide/fade out of the screen.
             self:setPaperSize(0)
             anim:setMarginLeft(0)
             anim:setImageSource(OPEN_FRAMES[1])
-            self:exit()
+            self:slideFadeOut(function()
+                self:exit()
+            end)
             return
         end
         local progress = (frame - 1) / (TOTAL_FRAMES - 1)
@@ -764,12 +850,15 @@ end
 
 function notificationsController:exit()
     if not self.ui or self.ui:isDestroyed() then
+        self.state = "idle"
+        self.activeAdvanceKey = nil
+        self:processNext()
         return
     end
     self:cancelEvent()
-    -- Exit finished.
     self.ui:hide()
     self.ui:setOpacity(1)
+    self.ui:setMarginLeft(0)
     self.state = "idle"
     self.activeAdvanceKey = nil
     self:processNext()

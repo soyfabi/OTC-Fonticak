@@ -55,7 +55,8 @@ UIWindow
     color: white
     anchors.top: parent.top
     anchors.left: parent.left
-    anchors.right: parent.right
+    anchors.right: closeButton.left
+    margin-right: 3
     background-color: #ffffff11
     text-align: left
     text-offset: 4 0
@@ -83,11 +84,42 @@ UIWindow
 
   VerticalScrollBar
     id: terminalScroll
-    anchors.top: parent.top
+    anchors.top: closeButton.bottom
     anchors.bottom: parent.bottom
     anchors.right: parent.right
     step: 48
     pixels-scroll: true
+    margin-top: 1
+
+  UIButton
+    id: closeButton
+    !text: tr('X')
+    !tooltip: tr('Close')
+    font: Verdana Bold-11px
+    color: #d0d0d0
+    size: 22 18
+    padding: 0
+    text-align: center
+    // Optical center: bold "X" glyph sits slightly right of geometric center.
+    text-offset: -1 0
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: 0
+    margin-right: 0
+    background-color: #1b2b3dcc
+    border: 1 #13d644aa
+    border-radius: 3
+    change-cursor-image: true
+    cursor: pointer
+
+    $hover:
+      background-color: #6b1f1fcc
+      border: 1 #ff5555cc
+      color: #ffffff
+
+    $pressed:
+      background-color: #3a1010dd
+      text-offset: 0 1
 
   UILabel
     id: commandSymbolLabel
