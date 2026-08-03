@@ -144,6 +144,9 @@ consoleContentPanel = nil
 local extendedViewButtonToggleChat = nil
 local extendedViewButtonShowAlphaChat = nil
 local gameBottomPanel = nil
+-- Tibia-like: Enter in walk (WASD) mode opens a temporary chat (marked with '*')
+-- that returns to WASD after a single message is sent.
+local walkAfterSend = false
 consoleTabBar = nil
 consoleTextEdit = nil
 consoleToggleChat = nil
@@ -357,9 +360,9 @@ function toggleChat()
     if consoleToggleChat.isChecked then
         consoleToggleChat:setText(tr('Chat Off'))
     else
-        consoleToggleChat:setText(tr('Chat On'))
+        consoleToggleChat:setText(walkAfterSend and (tr('Chat On') .. '*') or tr('Chat On'))
     end
-    
+
     updateChatMode()
 end
 
@@ -417,6 +420,7 @@ function switchChat(enabled)
         consoleToggleChat:setTooltip(tr('Disable chat mode, allow to walk using WASD'))
         Keybind.setChatMode(CHAT_MODE.ON)
     else
+        walkAfterSend = false -- leaving chat -> clear temporary state (covers manual button toggle too)
         bindMovingKeys()
         consoleToggleChat:setTooltip(tr('Enable chat mode'))
         Keybind.setChatMode(CHAT_MODE.OFF)
@@ -433,7 +437,15 @@ function switchChatOnCall()
     else
         local message = consoleTextEdit:getText()
         if message == '' then
-            toggleChat()
+            if not isChatEnabled() then
+                -- opening chat from walk mode: temporary ('*') so one Enter sends and returns to WASD
+                walkAfterSend = true
+                toggleChat()
+            else
+                -- empty Enter: cancel temporary chat / disable chat -> back to WASD
+                walkAfterSend = false
+                toggleChat()
+            end
         end
     end
 end
@@ -1631,6 +1643,17 @@ function processMessageMenu(mousePos, mouseButton, creatureName, text, label, ta
 end
 
 function sendCurrentMessage()
+    -- Tibia-like: if chat was opened temporarily from walk mode (see switchChatOnCall),
+    -- a single Enter sends the message and returns to WASD (no extra empty Enter needed).
+    local hadText = #consoleTextEdit:getText() > 0
+    sendCurrentMessageImpl()
+    if hadText and walkAfterSend then
+        walkAfterSend = false
+        toggleChat()
+    end
+end
+
+function sendCurrentMessageImpl()
     local message = consoleTextEdit:getText()
     if #message == 0 then
         return

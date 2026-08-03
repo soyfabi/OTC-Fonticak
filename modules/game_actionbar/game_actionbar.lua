@@ -252,6 +252,103 @@ end
 -- =============================================*/
 
 
+local pendingInventoryItemsUpdate = nil
+
+local function scheduleInventoryItemsUpdate()
+    if pendingInventoryItemsUpdate then
+        return
+    end
+
+    pendingInventoryItemsUpdate = scheduleEvent(function()
+        pendingInventoryItemsUpdate = nil
+        updateInventoryItems()
+    end, 50)
+end
+
+local function normalizeItemCountName(name)
+    if not name or name == '' then
+        return ''
+    end
+    name = name:lower()
+    name = name:gsub('%.+$', ''):gsub('%s+$', ''):gsub('^%s+', '')
+    if #name > 1 and name:sub(-1) == 's' then
+        name = name:sub(1, -2)
+    end
+    return name
+end
+
+local function getActionBarItemName(itemId)
+    if not itemId or itemId == 0 then
+        return nil
+    end
+
+    local ok, item = pcall(function()
+        return Item.create(itemId)
+    end)
+    if not ok or not item then
+        return nil
+    end
+
+    if item.getMarketData then
+        local market = item:getMarketData()
+        if market and market.name and market.name ~= '' then
+            return market.name
+        end
+    end
+
+    if item.getName then
+        return item:getName()
+    end
+
+    return nil
+end
+
+-- Servers without opcode 0xF5 (PlayerInventory) never fill the count cache.
+-- Fall back to the classic "Using one of N ..." status text, like many OT clients.
+local function onSupplyUseTextMessage(mode, text)
+    if type(text) ~= 'string' then
+        return
+    end
+
+    local amount, itemName = text:match('[Uu]sing one of (%d+) (.+)')
+    if not amount or not itemName then
+        return
+    end
+
+    amount = tonumber(amount)
+    if not amount or not player or not player.setInventoryCountCacheEntry then
+        return
+    end
+
+    local needle = normalizeItemCountName(itemName)
+    if needle == '' then
+        return
+    end
+
+    local updated = false
+    for _, actionbar in pairs(activeActionBars) do
+        for _, button in pairs(actionbar.tabBar:getChildren()) do
+            local itemId = button.cache and button.cache.itemId or 0
+            if itemId ~= 0 then
+                local buttonName = normalizeItemCountName(getActionBarItemName(itemId))
+                if buttonName ~= '' and buttonName == needle then
+                    local tier = 0
+                    if g_game.getFeature(GameThingUpgradeClassification) then
+                        tier = button.cache.upgradeTier or 0
+                    end
+                    -- Status text carries the server-side total ("Using one of 97 ...").
+                    player:setInventoryCountCacheEntry(itemId, tier, amount)
+                    updated = true
+                end
+            end
+        end
+    end
+
+    if updated then
+        scheduleInventoryItemsUpdate()
+    end
+end
+
 --- Connects player events
 local function connecting()
     if areEventsConnected then
@@ -262,7 +359,15 @@ local function connecting()
         onManaChange = onUpdateActionBarStatus,
         onSoulChange = onUpdateActionBarStatus,
         onLevelChange = onUpdateLevel,
-        onSpellsChange = onSpellsChange
+        onSpellsChange = onSpellsChange,
+        onInventoryChange = scheduleInventoryItemsUpdate
+    })
+    connect(Container, {
+        -- onOpen covers the initial onAddItems burst when a backpack is opened
+        onOpen = scheduleInventoryItemsUpdate,
+        onAddItem = scheduleInventoryItemsUpdate,
+        onUpdateItem = scheduleInventoryItemsUpdate,
+        onRemoveItem = scheduleInventoryItemsUpdate
     })
     connect(g_game, {
         onItemInfo = onHotkeyItems,
@@ -272,6 +377,8 @@ local function connecting()
         onSpellGroupCooldown = onSpellGroupCooldown,
         updateInventoryItems = updateInventoryItems
     })
+    registerMessageMode(MessageModes.HotkeyUse, onSupplyUseTextMessage)
+    registerMessageMode(MessageModes.Status, onSupplyUseTextMessage)
 
     areEventsConnected = true
 end
@@ -282,11 +389,23 @@ local function disconnecting()
         return
     end
 
+    if pendingInventoryItemsUpdate then
+        removeEvent(pendingInventoryItemsUpdate)
+        pendingInventoryItemsUpdate = nil
+    end
+
     disconnect(LocalPlayer, {
         onManaChange = onUpdateActionBarStatus,
         onSoulChange = onUpdateActionBarStatus,
         onLevelChange = onUpdateLevel,
-        onSpellsChange = onSpellsChange
+        onSpellsChange = onSpellsChange,
+        onInventoryChange = scheduleInventoryItemsUpdate
+    })
+    disconnect(Container, {
+        onOpen = scheduleInventoryItemsUpdate,
+        onAddItem = scheduleInventoryItemsUpdate,
+        onUpdateItem = scheduleInventoryItemsUpdate,
+        onRemoveItem = scheduleInventoryItemsUpdate
     })
     disconnect(g_game, {
         onItemInfo = onHotkeyItems,
@@ -296,6 +415,8 @@ local function disconnecting()
         onSpellGroupCooldown = onSpellGroupCooldown,
         updateInventoryItems = updateInventoryItems
     })
+    unregisterMessageMode(MessageModes.HotkeyUse, onSupplyUseTextMessage)
+    unregisterMessageMode(MessageModes.Status, onSupplyUseTextMessage)
 
     areEventsConnected = false
 end
@@ -397,10 +518,15 @@ function ActionBarController:onGameStart()
     ActionBarController:scheduleEvent(function()
         onMultiUseCooldown()
         onUpdateActionBarStatus()
+        updateInventoryItems()
         updateActionPassive()
         updateVisibleWidgets()
         isLoaded = true
     end, 300, "update_items")
+
+    -- Backpack open + player inventory opcode can arrive after the first pass
+    ActionBarController:scheduleEvent(updateInventoryItems, 800, "update_items_retry")
+    ActionBarController:scheduleEvent(updateInventoryItems, 1500, "update_items_retry2")
 end
 
 function ActionBarController:onGameEnd()
@@ -860,9 +986,22 @@ function onMultiUseCooldown(multiUseCooldown)
 end
 
 function updateInventoryItems(_)
+    local refreshed = false
     for _, widgetList in pairs(cachedItemWidget) do
         for _, widget in pairs(widgetList) do
             updateButtonState(widget)
+            refreshed = true
+        end
+    end
+
+    -- Fallback for login/reconnect when the item cache is still empty
+    if not refreshed then
+        for _, actionbar in pairs(activeActionBars) do
+            for _, button in pairs(actionbar.tabBar:getChildren()) do
+                if button.cache and button.cache.itemId and button.cache.itemId ~= 0 then
+                    updateButtonState(button)
+                end
+            end
         end
     end
 end

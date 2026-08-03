@@ -22,7 +22,20 @@
 
 #include "container.h"
 
+#include "game.h"
 #include "item.h"
+#include "localplayer.h"
+
+namespace {
+void adjustPlayerInventoryCount(const ItemPtr& item, const int32_t delta)
+{
+    if (!item || delta == 0)
+        return;
+
+    if (const auto& player = g_game.getLocalPlayer())
+        player->adjustInventoryCountCache(item->getId(), item->getTier(), delta);
+}
+}
 
 ItemPtr Container::getItem(const int slot)
 {
@@ -61,6 +74,7 @@ void Container::onAddItem(const ItemPtr& item, int slot)
     ++m_size;
 
     updateItemsPositions();
+    adjustPlayerInventoryCount(item, static_cast<int32_t>(item->getCount()));
 
     callLuaField("onSizeChange", m_size);
     callLuaField("onAddItem", slot, item);
@@ -92,6 +106,9 @@ void Container::onUpdateItem(int slot, const ItemPtr& item)
     const auto oldItem = m_items[slot];
     m_items[slot] = item;
     item->setPosition(getSlotPosition(slot));
+    if (oldItem)
+        adjustPlayerInventoryCount(oldItem, -static_cast<int32_t>(oldItem->getCount()));
+    adjustPlayerInventoryCount(item, static_cast<int32_t>(item->getCount()));
 
     callLuaField("onUpdateItem", slot, item, oldItem);
 }
@@ -113,6 +130,7 @@ void Container::onRemoveItem(int slot, const ItemPtr& lastItem)
 
     const auto item = m_items[slot];
     m_items.erase(m_items.begin() + slot);
+    adjustPlayerInventoryCount(item, -static_cast<int32_t>(item->getCount()));
 
     if (lastItem) {
         onAddItem(lastItem, m_firstIndex + m_capacity - 1);

@@ -433,6 +433,13 @@ void LocalPlayer::setInventoryItem(const Otc::InventorySlot inventory, const Ite
     const auto& oldItem = m_inventoryItems[inventory];
     m_inventoryItems[inventory] = item;
 
+    // Only drop the touched item ids so login equipment packets do not wipe
+    // the server inventory snapshot used by Action Bar counts.
+    if (oldItem)
+        invalidateInventoryCountCache(oldItem->getId(), oldItem->getTier());
+    if (item)
+        invalidateInventoryCountCache(item->getId(), item->getTier());
+
     if (item && g_game.getFeature(Otc::GameThingClock) && item->getDurationTime() > 0
             && item->getClothSlot() == static_cast<int>(inventory)){
         // expirestop-only items (e.g. toggled-off magic light wand) are paused
@@ -446,6 +453,46 @@ void LocalPlayer::setInventoryItem(const Otc::InventorySlot inventory, const Ite
 void LocalPlayer::setInventoryCountCache(std::map<std::pair<uint16_t, uint8_t>, uint32_t> counts)
 {
     m_inventoryCountCache = std::move(counts);
+}
+
+void LocalPlayer::setInventoryCountCacheEntry(const uint16_t itemId, const uint8_t tier, const uint32_t count)
+{
+    if (itemId == 0)
+        return;
+
+    const auto key = std::make_pair(itemId, tier);
+    if (count == 0)
+        m_inventoryCountCache.erase(key);
+    else
+        m_inventoryCountCache[key] = count;
+}
+
+void LocalPlayer::adjustInventoryCountCache(const uint16_t itemId, const uint8_t tier, const int32_t delta)
+{
+    if (itemId == 0 || delta == 0)
+        return;
+
+    const auto key = std::make_pair(itemId, tier);
+    const auto it = m_inventoryCountCache.find(key);
+    if (it == m_inventoryCountCache.end()) {
+        if (delta > 0)
+            m_inventoryCountCache[key] = static_cast<uint32_t>(delta);
+        return;
+    }
+
+    const auto next = static_cast<int64_t>(it->second) + delta;
+    if (next <= 0)
+        m_inventoryCountCache.erase(it);
+    else
+        it->second = static_cast<uint32_t>(next);
+}
+
+void LocalPlayer::invalidateInventoryCountCache(const uint16_t itemId, const uint8_t tier)
+{
+    if (itemId == 0)
+        return;
+
+    m_inventoryCountCache.erase(std::make_pair(itemId, tier));
 }
 
 bool LocalPlayer::hasEquippedItemId(const uint16_t itemId, const uint8_t tier)
@@ -474,11 +521,12 @@ uint32_t LocalPlayer::getInventoryCount(const uint16_t itemId, const uint8_t tie
     if (std::cmp_equal(itemId, 0))
         return 0;
 
+    // Server snapshot covers closed backpacks. Keep it updated via
+    // adjustInventoryCountCache / Action Bar use; fall back to a live scan.
     const auto key = std::make_pair(itemId, tier);
     const auto it = m_inventoryCountCache.find(key);
-    if (it != m_inventoryCountCache.end()) {
+    if (it != m_inventoryCountCache.end())
         return it->second;
-    }
 
     uint32_t total = 0;
 

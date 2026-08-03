@@ -55,6 +55,9 @@ public:
     void setPendingGame(const bool pending) { m_pending = pending; }
     void setInventoryItem(Otc::InventorySlot inventory, const ItemPtr& item);
     void setInventoryCountCache(std::map<std::pair<uint16_t, uint8_t>, uint32_t> counts);
+    void setInventoryCountCacheEntry(uint16_t itemId, uint8_t tier, uint32_t count);
+    void adjustInventoryCountCache(uint16_t itemId, uint8_t tier, int32_t delta);
+    void invalidateInventoryCountCache(uint16_t itemId, uint8_t tier);
     void setPremium(bool premium);
     void setRegenerationTime(uint16_t regenerationTime);
     void setOfflineTrainingTime(uint16_t offlineTrainingTime);

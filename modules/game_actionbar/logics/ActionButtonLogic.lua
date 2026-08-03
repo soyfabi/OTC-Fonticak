@@ -301,6 +301,47 @@ end
 -- /*=============================================
 -- =            button behavior             =
 -- =============================================*/
+local function isItemVisibleInOpenContainers(itemId, tier)
+    if not itemId or itemId == 0 then
+        return false
+    end
+
+    for _, container in pairs(g_game.getContainers()) do
+        if container then
+            for _, item in ipairs(container:getItems()) do
+                if item and item:getId() == itemId and item:getTier() == tier then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+-- Keep Action Bar counts correct with backpack closed: the server snapshot is
+-- adjusted here when no open container will report the stack change.
+local function consumeHotkeyInventoryCount(button)
+    if not player or not button or not button.cache or button.cache.itemId == 0 then
+        return
+    end
+    if not player.adjustInventoryCountCache then
+        return
+    end
+
+    local tier = 0
+    if g_game.getFeature(GameThingUpgradeClassification) then
+        tier = button.cache.upgradeTier or 0
+    end
+
+    if isItemVisibleInOpenContainers(button.cache.itemId, tier) then
+        return
+    end
+
+    player:adjustInventoryCountCache(button.cache.itemId, tier, -1)
+    updateInventoryItems()
+end
+
 --- Executes the action assigned to a button
 function onExecuteAction(button, isPress)
     local cache = getButtonCache(button)
@@ -347,14 +388,13 @@ function onExecuteAction(button, isPress)
             g_game.closeContainerByItemId(button.item:getItemId())
         else
             g_game.useInventoryItem(button.item:getItemId())
+            consumeHotkeyInventoryCount(button)
         end
     end
 
     if action == UseTypes["UseOnYourself"] and button.item then
         g_game.useInventoryItemWith(button.item:getItemId(), player, button.item:getItemSubType() or -1)
-        if not g_game.getFeature(GameEnterGameShowAppearance) then -- temp old protocol
-            updateInventoryItems()
-        end
+        consumeHotkeyInventoryCount(button)
     end
 
     if button.item then
@@ -364,6 +404,7 @@ function onExecuteAction(button, isPress)
 
         if action == UseTypes["UseAtCursorPosition"] then
             use_item_at_cursor_position(button)
+            consumeHotkeyInventoryCount(button)
         end
 
         if action == UseTypes["UseOnTarget"] then
@@ -372,6 +413,7 @@ function onExecuteAction(button, isPress)
                 modules.game_interface.startUseWith(button.item:getItem(), button.item:getItemSubType() or -1)
             else
                 g_game.useWith(button.item:getItem(), attackingCreature, button.item:getItemSubType() or -1)
+                consumeHotkeyInventoryCount(button)
             end
         end
     end
