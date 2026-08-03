@@ -877,6 +877,26 @@ function CharacterList.show()
     charactersWindow:raise()
     charactersWindow:focus()
 
+    -- Ensure Up/Down keybinds on the window keep working after logout.
+    -- Other onGameEnd handlers (e.g. topmenu.show) may steal focus afterwards.
+    local function restoreKeyboardFocus()
+        if not charactersWindow or not charactersWindow:isVisible() then
+            return
+        end
+        charactersWindow:raise()
+        charactersWindow:focus()
+        if characterList then
+            local selected = characterList:getFocusedChild()
+            if selected then
+                characterList:focusChild(selected, KeyboardFocusReason)
+            elseif characterList:hasChildren() then
+                characterList:focusChild(characterList:getFirstChild(), KeyboardFocusReason)
+            end
+        end
+    end
+    addEvent(restoreKeyboardFocus)
+    scheduleEvent(restoreKeyboardFocus, 50)
+
     if showHiddenCheckbox then
         setCheckedWithoutCallback(showHiddenCheckbox, getShowHiddenCharacters())
     end

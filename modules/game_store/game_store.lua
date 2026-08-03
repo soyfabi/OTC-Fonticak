@@ -52,6 +52,18 @@ local searchResultCategoryId = "Search Results"
 local entriesPerPage = 26
 local currentPage = 1
 local totalPages = 1
+local pendingOffersFill = nil
+local offersFillToken = 0
+local OFFERS_BATCH_SIZE = 18
+local OFFERS_BATCH_DELAY_MS = 1
+
+local function cancelPendingOffersFill()
+  if pendingOffersFill then
+    removeEvent(pendingOffersFill)
+    pendingOffersFill = nil
+  end
+  offersFillToken = offersFillToken + 1
+end
 
 local function trim(value)
   return (value or ""):gsub("^%s*(.-)%s*$", "%1")
@@ -174,6 +186,8 @@ function create()
 end
 
 function destroy()
+  cancelPendingOffersFill()
+
   if msgWindow then
     msgWindow:destroy()
     msgWindow = nil
@@ -439,6 +453,7 @@ function show()
 end
 
 function hide()
+  cancelPendingOffersFill()
   hideTransferWindow()
   if gameStoreWindow then
     gameStoreWindow:hide()
@@ -575,6 +590,47 @@ function comma_value(n)
   return left .. (num:reverse():gsub("(%d%d%d)", "%1,"):reverse()) .. right
 end
 
+local function createOfferWidget(offersList, offer, categoryId)
+  local widget = g_ui.createWidget("OfferWidget", offersList)
+  local priceWidget = widget:getChildById("price")
+  priceWidget:getChildById("coin"):setOn(false)
+  priceWidget:getChildById("value"):setText(comma_value(offer.price))
+
+  widget:getChildById("name"):setText(offer.name)
+  if offer.count > 1 and offer.categoryId == CATEGORY_ITEM then
+    widget:getChildById("count"):setText(offer.count .. "x")
+    widget:getChildById("count"):show()
+  else
+    widget:getChildById("count"):hide()
+  end
+
+  widget:setId(offer.name)
+  widget.data = offer
+  widget.categoryId = categoryId
+  widget.offerCategoryId = offer.categoryId
+  setOfferVisual(widget:getChildById("imagePanel"), offer)
+  return widget
+end
+
+local function applyAdditionalOffer(widget, offer)
+  local additionalPriceWidget = widget:getChildById("additionalPrice")
+  additionalPriceWidget:getChildById("coin"):setOn(false)
+  additionalPriceWidget:getChildById("value"):setText(comma_value(offer.price))
+  additionalPriceWidget:show()
+
+  local additionalCountWidget = widget:getChildById("additionalCount")
+  additionalCountWidget:setText(offer.count .. "x")
+  additionalCountWidget:show()
+
+  local primaryCountWidget = widget:getChildById("count")
+  if widget.data.count > 1 and widget.data.categoryId == CATEGORY_ITEM then
+    primaryCountWidget:show()
+  else
+    primaryCountWidget:hide()
+  end
+  widget.additionalData = offer
+end
+
 function addCategory(data)
   local categoriesList = gameStoreWindow:getChildById("categoriesList")
   local category
@@ -684,6 +740,8 @@ function selectOffer(self)
 end
 
 function showOffers(id)
+  cancelPendingOffersFill()
+
   local offersCache = offers[id] or {}
   local offersPanel = gameStoreWindow:getChildById("offers")
   local offersList = offersPanel:getChildById("offersList")
@@ -692,53 +750,44 @@ function showOffers(id)
   selectedOffer = nil
   offersPanel:getChildById("offerDetails"):hide()
 
-  for i = 1, #offersCache do
-    local offer = offersCache[i]
-    local widget = offersList:getChildById(offer.name)
+  if #offersCache == 0 then
+    return
+  end
 
-    if widget then
-      local additionalPriceWidget = widget:getChildById("additionalPrice")
-      additionalPriceWidget:getChildById("coin"):setOn(false)
-      additionalPriceWidget:getChildById("value"):setText(comma_value(offer.price))
-      additionalPriceWidget:show()
+  -- Large categories (Decorations, etc.) freeze if every OfferWidget is created
+  -- in one frame. Fill in small batches so the UI stays responsive.
+  local token = offersFillToken
+  local index = 1
+  local widgetsByName = {}
 
-      local additionalCountWidget = widget:getChildById("additionalCount")
-      additionalCountWidget:setText(offer.count .. "x")
-      additionalCountWidget:show()
+  local function fillBatch()
+    pendingOffersFill = nil
+    if token ~= offersFillToken or not gameStoreWindow or not offersList then
+      return
+    end
 
-      local primaryCountWidget = widget:getChildById("count")
-      if widget.data.count > 1 and widget.data.categoryId == CATEGORY_ITEM then
-        primaryCountWidget:show()
+    local last = math.min(index + OFFERS_BATCH_SIZE - 1, #offersCache)
+    for i = index, last do
+      local offer = offersCache[i]
+      local widget = widgetsByName[offer.name]
+      if widget then
+        applyAdditionalOffer(widget, offer)
       else
-        primaryCountWidget:hide()
-      end
-      widget.additionalData = offer
-    else
-      widget = g_ui.createWidget("OfferWidget", offersList)
-      local priceWidget = widget:getChildById("price")
-      priceWidget:getChildById("coin"):setOn(false)
-      priceWidget:getChildById("value"):setText(comma_value(offer.price))
-
-      widget:getChildById("name"):setText(offer.name)
-      if offer.count > 1 and offer.categoryId == CATEGORY_ITEM then
-        widget:getChildById("count"):setText(offer.count .. "x")
-        widget:getChildById("count"):show()
-      else
-        widget:getChildById("count"):hide()
-      end
-
-      widget:setId(offer.name)
-      widget.data = offer
-      widget.categoryId = id
-      widget.offerCategoryId = offer.categoryId
-
-      setOfferVisual(widget:getChildById("imagePanel"), offer)
-
-      if not selectedOffer then
-        selectOffer(widget)
+        widget = createOfferWidget(offersList, offer, id)
+        widgetsByName[offer.name] = widget
+        if not selectedOffer then
+          selectOffer(widget)
+        end
       end
     end
+
+    index = last + 1
+    if index <= #offersCache then
+      pendingOffersFill = scheduleEvent(fillBatch, OFFERS_BATCH_DELAY_MS)
+    end
   end
+
+  fillBatch()
 end
 
 function updateDescription(self)

@@ -158,13 +158,13 @@ local function hookPingGeometry(widget)
         return
     end
     widget._pingFpsGeometryHook = true
-    local prev = widget.onGeometryChange
-    widget.onGeometryChange = function(w, oldRect, newRect)
-        if prev then
-            prev(w, oldRect, newRect)
+    -- Prefer connect(): onGeometryChange may already be a function or a table of
+    -- handlers from other modules; replacing/calling it as a function breaks.
+    connect(widget, {
+        onGeometryChange = function()
+            refreshPingWidgetPosition()
         end
-        refreshPingWidgetPosition()
-    end
+    })
 end
 
 -- private functions
@@ -317,7 +317,11 @@ end
 function show()
     topMenu:show()
     topMenu:raise()
-    topMenu:focus()
+    -- Don't steal keyboard focus from the character list after logout/re-login;
+    -- otherwise Up/Down arrows won't move between characters until the user clicks.
+    if not (modules.client_entergame and CharacterList and CharacterList.isVisible and CharacterList.isVisible()) then
+        topMenu:focus()
+    end
     if modules.game_interface.currentViewMode == 2 then
         modules.game_interface.getRootPanel():addAnchor(AnchorTop, 'topMenu', AnchorBottom)
     end
