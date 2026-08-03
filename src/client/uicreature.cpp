@@ -62,6 +62,36 @@ void UICreature::setOutfit(const Outfit& outfit)
     m_creature->setOutfit(outfit);
     if (m_creature)
         m_creature->setShader(m_shaderName);
+
+    updatePreviewAnimation();
+}
+
+void UICreature::setAnimate(const bool value)
+{
+    m_animate = value;
+    updatePreviewAnimation();
+}
+
+void UICreature::setIdleAnimate(const bool value)
+{
+    m_idleAnimate = value;
+    updatePreviewAnimation();
+}
+
+void UICreature::setStaticWalking(const bool value)
+{
+    m_staticWalking = value;
+    updatePreviewAnimation();
+}
+
+void UICreature::updatePreviewAnimation()
+{
+    if (!m_creature)
+        return;
+
+    // Match Astra store previews: animate/idle-animate drive a looping walk cycle.
+    const bool shouldAnimate = m_animate || m_idleAnimate || m_staticWalking;
+    m_creature->setStaticWalking(shouldAnimate ? 1000 : 0);
 }
 
 Otc::Direction UICreature::getDirection() {
@@ -101,6 +131,12 @@ void UICreature::onStyleApply(const std::string_view styleName, const OTMLNodePt
             getOutfit().setFeet(node->value<int>());
         } else if (node->tag() == "outfit-direction") {
             m_direction = static_cast<Otc::Direction>(node->value<int>());
+        } else if (node->tag() == "animate") {
+            setAnimate(node->value<bool>());
+        } else if (node->tag() == "idle-animate") {
+            setIdleAnimate(node->value<bool>());
+        } else if (node->tag() == "static-walking") {
+            setStaticWalking(node->value<bool>());
         }
     }
     UIWidget::onStyleApply(styleName, styleNode);

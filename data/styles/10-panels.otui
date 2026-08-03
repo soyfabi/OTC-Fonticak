@@ -6,6 +6,12 @@ ScrollablePanel < UIScrollArea
   phantom: true
   auto-focus: first
 
+StoreScrollablePanel < UIScrollArea
+  phantom: true
+  auto-focus: first
+  image-source: /images/ui/panel_flat
+  image-border: 1
+
 FlatPanel < Panel
   image-source: /images/ui/panel_flat
   image-border: 1

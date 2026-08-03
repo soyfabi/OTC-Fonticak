@@ -134,16 +134,31 @@ void Creature::draw(const Rect& destRect, const uint8_t size, const bool center)
         return;
 
     const int baseSprite = g_gameConfig.getSpriteSize();
+    const int exactSize = getExactSize(0, 0, 0);
     const int nativeSize = g_gameConfig.isUseCropSizeForUIDraw()
-        ? getExactSize(0, 0, 0)
-        : std::max<int>(getRealSize(), getExactSize());
-    const int tileCount = 2;
-    const int fbSize = tileCount * baseSprite;
+        ? exactSize
+        : std::max<int>(getRealSize(), exactSize);
+
+    // Keep room for large mounts/outfits so they are not pinned to a corner.
+    const int fbSize = std::max<int>(2 * baseSprite, nativeSize + baseSprite);
 
     g_drawPool.bindFrameBuffer(fbSize); {
-        Point p = center
-            ? Point((fbSize - nativeSize) / 2 + (nativeSize - baseSprite)) + getDisplacement()
-            : Point(fbSize - baseSprite) + getDisplacement();
+        Point p;
+        if (center) {
+            // Sprites grow left/up from the hotspot. Put the approximate
+            // visual center of the outfit in the middle of the framebuffer
+            // (closer to Astra's correctOutfit UI centering).
+            const Point disp = getDisplacement();
+            const int pad = std::max<int>(0, fbSize - nativeSize) / 2;
+            p = Point(pad + nativeSize - baseSprite, pad + nativeSize - baseSprite) + disp;
+
+            // Extra nudge: keep very small looktypes from sitting in the top-left quadrant.
+            if (nativeSize <= baseSprite) {
+                p += Point(baseSprite / 4, baseSprite / 4);
+            }
+        } else {
+            p = Point(fbSize - baseSprite) + getDisplacement();
+        }
 
         internalDraw(p);
         if (isMarked())           internalDraw(p, getMarkedColor());

@@ -1139,6 +1139,10 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UICreature>("setDirection", &UICreature::setDirection);
     g_lua.bindClassMemberFunction<UICreature>("setCenter", &UICreature::setCenter);
     g_lua.bindClassMemberFunction<UICreature>("isCentered", &UICreature::isCentered);
+    g_lua.bindClassMemberFunction<UICreature>("setAnimate", &UICreature::setAnimate);
+    g_lua.bindClassMemberFunction<UICreature>("setIdleAnimate", &UICreature::setIdleAnimate);
+    g_lua.bindClassMemberFunction<UICreature>("setStaticWalking", &UICreature::setStaticWalking);
+    g_lua.bindClassMemberFunction<UICreature>("isAnimating", &UICreature::isAnimating);
 
     g_lua.registerClass<UIMap, UIWidget>();
     g_lua.bindClassStaticFunction<UIMap>("create", [] { return std::make_shared<UIMap>(); });

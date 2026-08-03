@@ -22,4 +22,5 @@ Module
     dofile 'tile'
     dofile 'items'
     dofile 'custom_forge_protocol'
+    dofile 'custom_store_protocol'
     dofiles 'ui'

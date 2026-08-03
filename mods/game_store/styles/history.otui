@@ -1,0 +1,238 @@
+&var-text-color: #dfdfdf
+&var-text-cip-color-white: #f7f7f7
+&var-text-cip-color-highlight: #f4f4f4
+&var-text-cip-color-grey: #909090
+&var-text-cip-color: #c0c0c0
+&var-cip-inactive-color: #707070
+&var-text-cip-color-green: #44ad25
+&var-text-color-disabled: #dfdfdf88
+&var-text-cip-color-orange: #ff9854
+&var-text-cip-color-yellow: #ffda34
+&var-text-cip-color-light-red: #f75f5f
+&var-text-cip-color-blue: #1872c3
+&var-text-cip-color-green-disabled: #255f15
+&var-text-cip-store-disabled: #565656
+&var-text-cip-store-red: #D33C3C
+&var-text-cip-store-red-disabled: #6d2626
+&var-text-cip-store-sale: #ffda34
+&var-text-cip-store-sale-disabled: #6f5f18
+&var-text-cip-store-timed: #1872c3
+&var-text-cip-store-timed-disabled: #183f63
+&var-textlist-selected: #585858
+&var-textlist-even: #414141
+&var-textlist-odd: #484848
+&var-main-font: verdana-11px-antialised
+&var-cip-main-font: Verdana Bold-11px
+&var-cip-font: verdana-11px-antialised
+&var-cip-font-off: verdana-11px-antialised
+&var-cip-font-wheel: Verdana Bold-11px-wheel
+&var-cip-font-mono-rounded: verdana-11px-mono-rounded
+&var-cip-font-rounded-lowspace: verdana-11px-rounded-lowspace
+HistoryLabel < Panel
+  size: 547 15
+  background-color: #353535
+  Label
+    id: date
+    size: 148 15
+    !text: tr('Date')
+    font: $var-cip-font
+    color: $var-text-cip-color
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-left: 3
+    UIWidget
+      size: 255 15
+      id: desc
+  Label
+    id: balance
+    size: 88 15
+    !text: tr('Balance')
+    anchors.top: parent.top
+    anchors.right: next.left
+    text-align: right
+    font: $var-cip-font
+    color: $var-text-cip-color
+    margin-right: 6
+    text-auto-resize: false
+  UIWidget
+    id: coinType
+    size: 12 12
+    image-border: 0
+    image-source: /images/store/icon-tibiacointransferable
+    anchors.right: parent.right
+    anchors.top: parent.top
+    margin-top: 2
+    margin-right: 312
+  UIWidget
+    height: 15
+    anchors.left: prev.right
+    anchors.top: parent.top
+    image-source: /images/ui/separator_vertical
+    margin-left: 3
+  Label
+    id: description
+    size: 255 15
+    !text: tr('Description')
+    font: $var-cip-font
+    color: $var-text-cip-color
+    anchors.top: parent.top
+    anchors.left: prev.right
+    margin-left: 7
+    UIWidget
+      size: 255 15
+      id: desc
+
+HistoryPanel < Panel
+  id: historyPanel
+  anchors.top: parent.top
+  anchors.left: parent.left
+  size: 563 545
+  TextList
+    id: historyListPanel
+    size: 549 510
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 5
+    margin-left: 5
+    padding: 1
+    focusable: false
+    vertical-scrollbar: historyListScrollBar
+    // Textured scrollarea background
+
+    image-source: /images/ui/scrollarea
+    image-border: 1
+    background-color: alpha
+    border-width: 0
+  VerticalScrollBar
+    id: historyListScrollBar
+    anchors.top: prev.top
+    anchors.right: prev.right
+    anchors.bottom: prev.bottom
+    margin: 1 1 1 0
+    step: 15
+    pixels-scroll: true
+    visible: false
+  UIWidget
+    size: 547 17
+    anchors.top: historyListPanel.top
+    anchors.left: historyListPanel.left
+    margin-left: 1
+    border-width-bottom: 1
+    border-color-bottom: #757575
+  UIWidget
+    id: dateButton
+    size: 148 15
+    !text: tr('Date')
+    color: $var-text-cip-color
+    font: $var-cip-font
+    text-offset: 1 -1
+    text-align: leftCenter
+    anchors.top: historyListPanel.top
+    anchors.left: historyListPanel.left
+    margin-top: 1
+    margin-left: 1
+    border-width-bottom: 1
+    border-color-bottom: #292a29
+    background-color: #363636
+    opacity: 1.0
+    $pressed:
+      color: #dfdfdf88
+      opacity: 0.8
+  UIWidget
+    height: 14
+    anchors.left: prev.right
+    anchors.top: historyListPanel.top
+    image-source: /images/ui/separator_vertical
+    margin-top: 1
+  UIWidget
+    id: balanceButton
+    size: 88 15
+    !text: tr('Balance')
+    color: $var-text-cip-color
+    font: $var-cip-font
+    text-offset: 0 -1
+    text-align: center
+    anchors.top: historyListPanel.top
+    anchors.left: prev.right
+    margin-top: 1
+    margin-left: 2
+    border-width-bottom: 1
+    border-color-bottom: #292a29
+    background-color: #363636
+    opacity: 1.0
+    $pressed:
+      color: #dfdfdf88
+      opacity: 0.8
+  UIWidget
+    height: 14
+    anchors.left: prev.right
+    anchors.top: historyListPanel.top
+    image-source: /images/ui/separator_vertical
+    margin-top: 1
+  UIWidget
+    id: descButton
+    size: 255 15
+    !text: tr('Description')
+    font: $var-cip-font
+    color: $var-text-cip-color
+    text-offset: 3 -1
+    text-align: leftCenter
+    anchors.top: historyListPanel.top
+    anchors.left: balanceButton.right
+    margin-top: 1
+    margin-left: 2
+    border-width-bottom: 1
+    border-color-bottom: #292a29
+    background-color: #363636
+    opacity: 1.0
+    $pressed:
+      color: #dfdfdf88
+      opacity: 0.8
+  UIWidget
+    height: 14
+    anchors.left: prev.right
+    anchors.top: historyListPanel.top
+    image-source: /images/ui/separator_vertical
+    margin-top: 1
+  UIWidget
+    size: 50 15
+    anchors.top: historyListPanel.top
+    anchors.left: prev.right
+    margin-top: 1
+    margin-left: 2
+    border-width-bottom: 1
+    border-color-bottom: #292a29
+    background-color: #363636
+    opacity: 1.0
+    $pressed:
+      color: #dfdfdf88
+      opacity: 0.8
+  Button
+    id: previousButton
+    anchors.top: historyListPanel.bottom
+    anchors.left: parent.left
+    margin-top: 5
+    margin-left: 6
+    size: 88 20
+    font: cipsoftFont
+    !text: tr('Previous Page')
+    enabled: true
+  Label
+    id: pageState
+    anchors.top: historyListPanel.bottom
+    anchors.horizontalCenter: parent.horizontalCenter
+    !text: tr('Page 1/1')
+    font: $var-cip-font
+    color: $var-text-cip-color
+    margin-top: 7
+    text-auto-resize: true
+  Button
+    id: nextButton
+    anchors.top: historyListPanel.bottom
+    anchors.right: parent.right
+    margin-top: 5
+    margin-right: 6
+    size: 88 20
+    font: cipsoftFont
+    !text: tr('Next Page')
+    enabled: true

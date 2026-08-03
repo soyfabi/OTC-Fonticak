@@ -45,7 +45,6 @@ Module
     - game_healthcircle
     - game_highscore
     - game_blessing
-    - game_store
     - game_quickloot
     - game_cyclopedia
     - game_creatureinformation

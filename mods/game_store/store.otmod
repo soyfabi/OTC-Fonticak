@@ -1,0 +1,8 @@
+Module
+  name: game_store
+  description: Game Store (Fonticak)
+  author: ZLukSrT#8740 && Christianlb and R!ck
+  sandboxed: true
+  scripts: [ compat, store, classes/Store, classes/Categories, classes/Home, classes/Offers, classes/Gift, classes/Bazaar, storeprotocol ]
+  @onLoad: init()
+  @onUnload: terminate()

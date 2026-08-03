@@ -1,0 +1,85 @@
+&var-text-color: #dfdfdf
+&var-text-cip-color-white: #f7f7f7
+&var-text-cip-color-highlight: #f4f4f4
+&var-text-cip-color-grey: #909090
+&var-text-cip-color: #c0c0c0
+&var-cip-inactive-color: #707070
+&var-text-cip-color-green: #44ad25
+&var-text-color-disabled: #dfdfdf88
+&var-text-cip-color-orange: #ff9854
+&var-text-cip-color-yellow: #ffda34
+&var-text-cip-color-light-red: #f75f5f
+&var-text-cip-color-blue: #1872c3
+&var-text-cip-color-green-disabled: #255f15
+&var-text-cip-store-disabled: #565656
+&var-text-cip-store-red: #D33C3C
+&var-text-cip-store-red-disabled: #6d2626
+&var-text-cip-store-sale: #ffda34
+&var-text-cip-store-sale-disabled: #6f5f18
+&var-text-cip-store-timed: #1872c3
+&var-text-cip-store-timed-disabled: #183f63
+&var-textlist-selected: #585858
+&var-textlist-even: #414141
+&var-textlist-odd: #484848
+&var-main-font: verdana-11px-antialised
+&var-cip-main-font: Verdana Bold-11px
+&var-cip-font: verdana-11px-antialised
+&var-cip-font-off: verdana-11px-antialised
+&var-cip-font-wheel: Verdana Bold-11px-wheel
+&var-cip-font-mono-rounded: verdana-11px-mono-rounded
+&var-cip-font-rounded-lowspace: verdana-11px-rounded-lowspace
+SucessOfferWindow < NewMainWindow
+  size: 350 153
+  id: sucessOfferWindow
+  !text: tr('Purchase completed successfully')
+  @onEscape: completePurchase(nil, true)
+
+  UIWidget
+    id: dragon
+    size: 192 70
+    anchors.top: parent.top
+    anchors.horizontalCenter: parent.horizontalCenter
+    margin-top: -85
+    image-source: /images/ui/dragon-animated
+
+  TextEdit
+    id: description
+    anchors.top: parent.top
+    anchors.left: parent.left
+    size: 200 108
+    margin-top: 12
+    margin-left: 12
+    Label
+      id: message
+      anchors.top: parent.top
+      anchors.left: parent.left
+      font: $var-cip-font
+      color: $var-text-cip-color
+      size: 198 106
+      margin-top: 4
+      margin-left: 2
+      text-wrap: true
+      visible: true
+
+  Button
+    id: confirm
+    size: 108 108
+    anchors.top: parent.top
+    anchors.left: prev.right
+    margin-left: 10
+    margin-top: 12
+    image-source: /images/store/button-blue-big
+    image-clip: 0 0 108 108
+    opacity: 1.0
+    @onClick: modules.game_store.completePurchase(self)
+    $hover !pressed:
+      image-clip: 0 0 108 108
+    $pressed:
+      image-clip: 0 108 108 108
+    UIWidget
+      id: image
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.verticalCenter: parent.verticalCenter
+      size: 108 108
+      phantom: true
+      image-source: /images/store/purchasecomplete_idle

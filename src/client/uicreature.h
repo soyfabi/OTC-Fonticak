@@ -41,6 +41,11 @@ public:
     void setCenter(const bool v) { m_center = v; }
     bool isCentered() { return m_center; }
 
+    void setAnimate(bool value);
+    void setIdleAnimate(bool value);
+    void setStaticWalking(bool value);
+    bool isAnimating() const { return m_animate || m_idleAnimate; }
+
     void setShader(std::string_view name) override;
     bool hasShader() override;
 
@@ -51,6 +56,7 @@ public:
 protected:
     void onStyleApply(std::string_view styleName, const OTMLNodePtr& styleNode) override;
     Outfit getOutfit();
+    void updatePreviewAnimation();
 
     std::string m_shaderName;
     CreaturePtr m_creature;
@@ -58,4 +64,7 @@ protected:
     Otc::Direction m_direction{ Otc::South };
     Outfit m_outfit;
     bool m_center{ true };
+    bool m_animate{ false };
+    bool m_idleAnimate{ false };
+    bool m_staticWalking{ false };
 };

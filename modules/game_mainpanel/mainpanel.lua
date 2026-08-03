@@ -118,6 +118,9 @@ local function createButton_large(id, description, image, callback, special, fro
     button:setTooltip(description)
     button:setImageSource(image)
     button:setImageClip('0 0 108 20')
+    if button.setImageBorder then
+        button:setImageBorder(0)
+    end
     button.onMouseRelease = function(widget, mousePos, mouseButton)
         if widget:containsPoint(mousePos) and mouseButton ~= MouseMidButton then
             callback()
@@ -171,7 +174,7 @@ optionsController = Controller:new()
 optionsController:setUI('mainoptionspanel', modules.game_interface.getMainRightPanel())
 
 function optionsController:onInit()
-    createButton_large('Store shop', tr('Store shop'), '/images/options/store_large', toggleStore,
+    createButton_large('Store shop', tr('Store shop'), '/images/store/button-store-up', toggleStore,
     false, 8)
 
     if not optionPanel then

@@ -1,0 +1,229 @@
+&var-text-color: #dfdfdf
+&var-text-cip-color-white: #f7f7f7
+&var-text-cip-color-highlight: #f4f4f4
+&var-text-cip-color-grey: #909090
+&var-text-cip-color: #c0c0c0
+&var-cip-inactive-color: #707070
+&var-text-cip-color-green: #44ad25
+&var-text-color-disabled: #dfdfdf88
+&var-text-cip-color-orange: #ff9854
+&var-text-cip-color-yellow: #ffda34
+&var-text-cip-color-light-red: #f75f5f
+&var-text-cip-color-blue: #1872c3
+&var-text-cip-color-green-disabled: #255f15
+&var-text-cip-store-disabled: #565656
+&var-text-cip-store-red: #D33C3C
+&var-text-cip-store-red-disabled: #6d2626
+&var-text-cip-store-sale: #ffda34
+&var-text-cip-store-sale-disabled: #6f5f18
+&var-text-cip-store-timed: #1872c3
+&var-text-cip-store-timed-disabled: #183f63
+&var-textlist-selected: #585858
+&var-textlist-even: #414141
+&var-textlist-odd: #484848
+&var-main-font: verdana-11px-antialised
+&var-cip-main-font: Verdana Bold-11px
+&var-cip-font: verdana-11px-antialised
+&var-cip-font-off: verdana-11px-antialised
+&var-cip-font-wheel: Verdana Bold-11px-wheel
+&var-cip-font-mono-rounded: verdana-11px-mono-rounded
+&var-cip-font-rounded-lowspace: verdana-11px-rounded-lowspace
+HomePanel < Panel
+  id: homePanel
+  anchors.top: parent.top
+  anchors.left: parent.left
+  size: 563 545
+  margin-top: -6
+  border-width: 2
+  border-color-top: #646464
+  border-color-left: #646464
+  border-color-right: #363636
+  border-color-bottom: #363636
+
+  Panel
+    id: bannerClip
+    size: 550 200
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 8
+    margin-left: 8
+    margin-right: 8
+    clipping: true
+    phantom: true
+
+    UIWidget
+      id: banners
+      size: 550 200
+      anchors.top: parent.top
+      anchors.left: parent.left
+      image-smooth: true
+      //image-source: /images/store/defaulthome
+
+  UIWidget
+    size: 550 200
+    id: bannerPanel
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 8
+    margin-left: 8
+    margin-right: 8
+    image-source: /images/store/banner-panel
+    phantom: true
+
+  UIWidget
+    size: 16 29
+    id: prevBanner
+    anchors.top: bannerPanel.top
+    anchors.left: bannerPanel.left
+    margin-top: 85
+    margin-left: 15
+    image-source: /images/store/button-featured-offers-left
+    image-clip: 0 0 16 29
+    @onClick: modules.game_store.HomeOffer.showPrevHomeBanner()
+    visible: false
+    phantom: false
+    $hover:
+      image-clip: 0 29 16 29
+
+  UIWidget
+    size: 16 29
+    id: nextBanner
+    anchors.top: bannerPanel.top
+    anchors.right: bannerPanel.right
+    margin-top: 85
+    margin-right: 15
+    image-source: /images/store/button-featured-offers-right
+    image-clip: 0 0 16 29
+    @onClick: modules.game_store.HomeOffer.showNextHomeBanner()
+    visible: false
+    phantom: false
+    $hover:
+      image-clip: 0 29 16 29
+
+  Panel
+    id: mainOffers
+    size: 550 205
+    anchors.top: bannerPanel.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin: 5 8 0 8
+    font: $var-cip-font
+    color: $var-text-cip-color-grey
+    !text: tr('Recently Added')
+    text-offset: 0 2
+    text-align: top
+    image-source: /images/ui/t2pixel-up-frame-borderimage
+    image-border: 25
+
+    TextList
+      id: offersPanel
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      vertical-scrollbar: offerListScrollBar
+      margin: 21 5 5 5
+      padding: 4
+      padding-left: 6
+      image-source: /images/ui/scrollarea
+      image-border: 1
+      background-color: alpha
+      border-width: 0
+      layout:
+        type: grid
+        cell-size: 254 82
+        cell-spacing: 5
+        flow: true
+
+    VerticalScrollBar
+      id: offerListScrollBar
+      anchors.top: prev.top
+      anchors.bottom: prev.bottom
+      anchors.right: prev.right
+      margin-bottom: 1
+      margin-right: 1
+      margin-top: 1
+      step: 10
+  Panel
+    id: discountOffersPanel
+    size: 550 118
+    anchors.top: mainOffers.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin: 5 8 0 8
+    image-source: /images/ui/t2pixel-up-frame-borderimage
+    image-border: 25
+    UIWidget
+      id: discountRerollButton
+      size: 14 14
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 3
+      margin-left: 3
+      image-source: /images/store/store-rerol
+      image-clip: 0 0 14 14
+      !tooltip: tr('Reroll Daily Offers')
+      visible: true
+      $hover !pressed:
+        image-clip: 0 0 14 14
+      $pressed:
+        image-clip: 0 14 14 14
+    Label
+      id: timerLabel
+      anchors.top: parent.top
+      anchors.right: parent.right
+      margin-top: 1
+      margin-right: 5
+      !text: tr('Ends in: 24:00:00')
+      font: $var-cip-font
+      color: $var-text-cip-color-grey
+      text-auto-resize: true
+    Label
+      id: discountOffersLabel
+      anchors.top: parent.top
+      anchors.horizontalCenter: parent.horizontalCenter
+      margin-top: 1
+      !text: tr('Daily Offers')
+      font: $var-cip-font
+      text-auto-resize: true
+
+    TextList
+      id: discountOffers
+      anchors.fill: parent
+      margin: 23 5 5 5
+      size: 535 290
+      padding: 4
+      padding-left: 6
+      vertical-scrollbar: discountOfferListScrollBar
+      image-source: /images/ui/scrollarea
+      image-border: 1
+      background-color: alpha
+      border-width: 0
+      layout:
+        type: grid
+        cell-size: 254 82
+        cell-spacing: 5
+        flow: true
+
+    VerticalScrollBar
+      id: discountOfferListScrollBar
+      anchors.top: prev.top
+      anchors.bottom: prev.bottom
+      anchors.right: prev.right
+      margin-bottom: 1
+      margin-right: 1
+      margin-top: 1
+      step: 10
+
+  UIWidget
+    id: borderImage
+    size: 549 120
+    anchors.top: prev.top
+    anchors.left: prev.left
+    margin-top: -1
+    margin-left: -1
+    image-source: /images/store/rectangle-highlight
+    image-border: 1
+    phantom: true

@@ -37,16 +37,23 @@ TopToggleButton < UIButton
 
 largeToggleButton < UIButton
   size: 108 20
-  image-source: /images/options/store_large
+  image-source: /images/store/button-store-up
   image-clip: 0 0 108 20
-  image-border: 3
+  // Full pre-rendered button; never 9-slice or the ribbon/icon tear.
+  image-border: 0
 
   $pressed:
-    image-clip: 0 20 108 20
+    image-source: /images/store/button-store-down
+    image-clip: 0 0 108 20
 
   $on:
-    image-clip: 0 20 108 20
-	
+    image-source: /images/store/button-store-down
+    image-clip: 0 0 108 20
+
+  $!pressed !on:
+    image-source: /images/store/button-store-up
+    image-clip: 0 0 108 20
+
 MainToggleButton < UIButton
   size: 20 20
   image-source: /images/options/button_empty

@@ -5,13 +5,19 @@ local extendedJSONData = {}
 local maxPacketSize = 65000
 
 function ProtocolGame:onOpcode(opcode, msg)
-    for i, callback in pairs(opcodeCallbacks) do
-        if i == opcode then
-            callback(self, msg)
-            return true
+    local callback = opcodeCallbacks[opcode]
+    if not callback then
+        return false
+    end
+
+    local ok, err = pcall(callback, self, msg)
+    if not ok then
+        g_logger.error(string.format('Opcode 0x%02X handler error: %s', opcode, tostring(err)))
+        if msg and msg.getMessageSize and msg.setReadPos then
+            msg:setReadPos(msg:getMessageSize())
         end
     end
-    return false
+    return true
 end
 
 function ProtocolGame:onExtendedOpcode(opcode, buffer)
@@ -48,9 +54,8 @@ end
 
 function ProtocolGame.registerOpcode(opcode, callback)
     if opcodeCallbacks[opcode] then
-        error('opcode ' .. opcode .. ' already registered will be overriden')
+        g_logger.warning('opcode ' .. opcode .. ' already registered, overriding')
     end
-
     opcodeCallbacks[opcode] = callback
 end
 
