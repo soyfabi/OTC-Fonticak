@@ -343,7 +343,9 @@ const ThingTypeList& ThingTypeManager::getThingTypes(const ThingCategory categor
 const ThingTypePtr& ThingTypeManager::getThingType(const uint16_t id, const ThingCategory category)
 {
     if (category >= ThingLastCategory || id >= m_thingTypes[category].size()) {
-        g_logger.error("invalid thing type client id {} in category {}", id, static_cast<uint8_t>(category));
+        // ThingInvalidCategory + id 0 is the default empty Outfit; not a real lookup error.
+        if (!(category == ThingInvalidCategory && id == 0))
+            g_logger.error("invalid thing type client id {} in category {}", id, static_cast<uint8_t>(category));
         return m_nullThingType;
     }
     return m_thingTypes[category][id];
@@ -351,7 +353,8 @@ const ThingTypePtr& ThingTypeManager::getThingType(const uint16_t id, const Thin
 
 ThingType* ThingTypeManager::getRawThingType(uint16_t id, ThingCategory category) {
     if (category >= ThingLastCategory || id >= m_thingTypes[category].size()) {
-        g_logger.error("invalid thing type client id {} in category {}", id, static_cast<uint8_t>(category));
+        if (!(category == ThingInvalidCategory && id == 0))
+            g_logger.error("invalid thing type client id {} in category {}", id, static_cast<uint8_t>(category));
         return nullptr;
     }
     return m_thingTypes[category][id].get();

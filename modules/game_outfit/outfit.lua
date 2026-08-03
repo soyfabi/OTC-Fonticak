@@ -892,7 +892,7 @@ function showMounts(searchText)
     button.outfit:setCenter(true)
     button.name:setText(mountData[2])
     if button.name:isTextWraped() then
-      button.outfit:setMarginBottom(18)
+      button.outfit:setMarginBottom(24)
     end
 
     local storeOffer = tonumber(mountData[3]) or 0

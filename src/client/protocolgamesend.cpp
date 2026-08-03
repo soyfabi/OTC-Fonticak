@@ -47,7 +47,12 @@ void ProtocolGame::sendExtendedOpcode(const uint8_t opcode, const std::string& b
         msg->addString(buffer);
         send(msg);
     } else {
-        g_logger.error("Unable to send extended opcode {}, extended opcodes are not enabled", opcode);
+        // Many 8.60 servers never send the opcode-0 handshake; avoid spamming the terminal.
+        static bool warned = false;
+        if (!warned) {
+            g_logger.warning("Extended opcodes are not enabled by the server; send attempts will be ignored.");
+            warned = true;
+        }
     }
 }
 

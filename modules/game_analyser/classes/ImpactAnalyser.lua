@@ -471,8 +471,20 @@ function ImpactAnalyser:updateMinuteData()
 		
 		-- Update the graphs if we're in session mode
 		if ImpactAnalyser.sessionMode then
-			ImpactAnalyser.window.contentsPanel.graphDpsPanel:addValue(1, minuteDPS)
-			ImpactAnalyser.window.contentsPanel.graphHealPanel:addValue(1, minuteHPS)
+			local dpsGraph = ImpactAnalyser.window.contentsPanel.graphDpsPanel
+			local healGraph = ImpactAnalyser.window.contentsPanel.graphHealPanel
+			if dpsGraph:getGraphsCount() == 0 then
+				dpsGraph:createGraph()
+				dpsGraph:setLineWidth(1, 1)
+				dpsGraph:setLineColor(1, "#f75f5f")
+			end
+			if healGraph:getGraphsCount() == 0 then
+				healGraph:createGraph()
+				healGraph:setLineWidth(1, 1)
+				healGraph:setLineColor(1, "#5ff775")
+			end
+			dpsGraph:addValue(1, minuteDPS)
+			healGraph:addValue(1, minuteHPS)
 		end
 		
 		ImpactAnalyser.lastMinuteUpdate = now

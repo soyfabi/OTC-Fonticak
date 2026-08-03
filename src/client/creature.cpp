@@ -411,6 +411,9 @@ void Creature::internalDraw(Point dest, const Color& color)
             }
 
             const auto& datType = getThingType();
+            if (!datType)
+                return;
+
             const bool useFramebuffer = !replaceColorShader && hasShader() && g_shaders.getShaderById(m_shaderId)->useFramebuffer();
 
             const auto& drawCreature = [&](const Point& dest) {
@@ -455,7 +458,11 @@ void Creature::internalDraw(Point dest, const Color& color)
 
             // outfit is a creature imitating an item or the invisible effect
         } else {
-            int animationPhases = getThingType()->getAnimationPhases();
+            auto* thingType = getThingType();
+            if (!thingType)
+                return;
+
+            int animationPhases = thingType->getAnimationPhases();
             int animateTicks = g_gameConfig.getItemTicksPerFrame();
 
             // when creature is an effect we cant render the first and last animation phase,
@@ -466,7 +473,7 @@ void Creature::internalDraw(Point dest, const Color& color)
             }
 
             int animationPhase = 0;
-            if (auto* animator = getThingType()->getIdleAnimator(); animator && m_outfit.isItem()) {
+            if (auto* animator = thingType->getIdleAnimator(); animator && m_outfit.isItem()) {
                 animationPhase = animator->getPhase();
             } else if (animationPhases > 1) {
                 animationPhase = (g_clock.millis() % (static_cast<long long>(animateTicks) * animationPhases)) / animateTicks;
@@ -477,7 +484,7 @@ void Creature::internalDraw(Point dest, const Color& color)
 
             if (!replaceColorShader && hasShader())
                 g_drawPool.setShaderProgram(g_shaders.getShaderById(m_shaderId), true/*, shaderAction*/);
-            getThingType()->draw(dest - (getDisplacement() * g_drawPool.getScaleFactor()), 0, 0, 0, 0, animationPhase, color);
+            thingType->draw(dest - (getDisplacement() * g_drawPool.getScaleFactor()), 0, 0, 0, 0, animationPhase, color);
         }
     }
 
@@ -902,13 +909,15 @@ void Creature::setDirection(const Otc::Direction direction)
 
 void Creature::setOutfit(const Outfit& outfit, bool fireEvent)
 {
-    if (m_outfit == outfit)
-        return;
-
     Outfit newOutfit = outfit;
     if (newOutfit.isInvalid()) {
         newOutfit.setCategory(newOutfit.getAuxId() > 0 ? ThingCategoryItem : ThingCategoryCreature);
     }
+
+    // Compare after normalizing category so Lua outfits without "category" don't
+    // force a setOutfit every frame (Invalid vs Creature) or skip fixing Invalid.
+    if (m_outfit == newOutfit)
+        return;
 
     const Outfit oldOutfit = m_outfit;
 
@@ -924,7 +933,7 @@ void Creature::setOutfit(const Outfit& outfit, bool fireEvent)
 
     const auto thingType = getThingType();
     if (!thingType) {
-        g_logger.error("Creature::setOutfit - Invalid thing type for creature {}.", getId());
+        // Empty / unknown outfits are common in UI previews; don't spam the log.
         m_outfit = oldOutfit;
         return;
     }
@@ -1194,7 +1203,14 @@ const Light& Creature::getLight() const
 }
 
 ThingType* Creature::getThingType() const {
-    return g_things.getRawThingType(m_outfit.isCreature() ? m_outfit.getId() : m_outfit.getAuxId(), m_outfit.getCategory());
+    if (m_outfit.isInvalid() || m_outfit.getCategory() >= ThingLastCategory)
+        return nullptr;
+
+    const uint16_t id = m_outfit.isCreature() ? m_outfit.getId() : m_outfit.getAuxId();
+    if (id == 0)
+        return nullptr;
+
+    return g_things.getRawThingType(id, m_outfit.getCategory());
 }
 
 ThingType* Creature::getMountThingType() const {

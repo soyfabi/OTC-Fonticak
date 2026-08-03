@@ -35,7 +35,15 @@ void UICreature::drawSelf(const DrawPoolType drawPane)
     if (m_creature) {
         if (m_creature->getOutfit() != m_outfit) {
             m_creature->setOutfit(m_outfit, false);
+            // Keep widget outfit in sync with the normalized creature outfit (category).
+            m_outfit = m_creature->getOutfit();
         }
+
+        if (m_outfit.isInvalid())
+            return;
+        const uint16_t outfitId = m_outfit.isCreature() ? m_outfit.getId() : m_outfit.getAuxId();
+        if (outfitId == 0)
+            return;
 
         m_creature->setMarked(m_imageColor);
         m_creature->draw(getPaddingRect(), m_creatureSize, m_center);
@@ -53,13 +61,13 @@ void UICreature::setCreature(const CreaturePtr& creature) {
 
 void UICreature::setOutfit(const Outfit& outfit)
 {
-    m_outfit = outfit;
-
     if (!m_creature)
         m_creature = std::make_shared<Creature>();
 
     m_creature->setDirection(m_direction);
     m_creature->setOutfit(outfit);
+    // Prefer the normalized outfit (valid category) stored on the creature.
+    m_outfit = m_creature->getOutfit();
     if (m_creature)
         m_creature->setShader(m_shaderName);
 

@@ -28,11 +28,13 @@
 
 int push_luavalue(const Outfit& outfit)
 {
-    g_lua.createTable(0, 8);
+    g_lua.createTable(0, 9);
     g_lua.pushInteger(outfit.getId());
     g_lua.setField("type");
     g_lua.pushInteger(outfit.getAuxId());
     g_lua.setField("auxType");
+    g_lua.pushInteger(static_cast<int>(outfit.getCategory()));
+    g_lua.setField("category");
     if (g_game.getFeature(Otc::GamePlayerAddons)) {
         g_lua.pushInteger(outfit.getAddons());
         g_lua.setField("addons");
@@ -104,6 +106,26 @@ bool luavalue_cast(const int index, Outfit& outfit)
         outfit.setAura(g_lua.popInteger());
         g_lua.getField("shaders", index);
         outfit.setShader(g_lua.popString());
+    }
+
+    // Category is often omitted by Lua tables; without it outfit stays ThingInvalidCategory (4)
+    // and Creature::getThingType logs "invalid thing type client id 0 in category 4".
+    g_lua.getField("category", index);
+    if (!g_lua.isNil(-1)) {
+        const auto category = static_cast<ThingCategory>(g_lua.popInteger());
+        if (category < ThingLastCategory)
+            outfit.setCategory(category);
+        else
+            outfit.setCategory(outfit.getId() != 0 ? ThingCategoryCreature
+                : (outfit.getAuxId() != 0 ? ThingCategoryItem : ThingCategoryCreature));
+    } else {
+        g_lua.pop(1);
+        if (outfit.getId() != 0)
+            outfit.setCategory(ThingCategoryCreature);
+        else if (outfit.getAuxId() != 0)
+            outfit.setCategory(ThingCategoryItem);
+        else
+            outfit.setCategory(ThingCategoryCreature);
     }
 
     return true;

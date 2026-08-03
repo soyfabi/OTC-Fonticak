@@ -88,7 +88,8 @@ PresetButton < UIButton
     size: 64 64
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.verticalCenter: parent.verticalCenter
-    margin-bottom: 13
+    margin-bottom: 20
+    margin-left: -10
     idle-animate: true
     phantom: true
 
@@ -97,8 +98,8 @@ PresetButton < UIButton
     size: 64 64
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.verticalCenter: parent.verticalCenter
-    margin-bottom: 13
-    margin-left: 32
+    margin-bottom: 20
+    margin-left: 22
     idle-animate: true
     phantom: true
     visible: false
@@ -132,7 +133,8 @@ SelectionButton < UIButton
     size: 64 64
     anchors.verticalCenter: parent.verticalCenter
     anchors.horizontalCenter: parent.horizontalCenter
-    margin-bottom: 13
+    margin-bottom: 20
+    margin-left: -10
     idle-animate: true
   
   Label
@@ -223,6 +225,10 @@ OutfitWindow < MainWindow
         size: 128 128
         anchors.verticalCenter: parent.verticalCenter
         anchors.horizontalCenter: parent.horizontalCenter
+        // Hotspot-centered draw sits low on the floor tiles; nudge up/left
+        // so the outfit reads more centered in the preview panel.
+        margin-top: -28
+        margin-left: -24
         idle-animate: true
 
       UICreature
@@ -230,7 +236,8 @@ OutfitWindow < MainWindow
         size: 128 128
         anchors.verticalCenter: parent.verticalCenter
         anchors.horizontalCenter: parent.horizontalCenter
-        margin-left: 65
+        margin-top: -28
+        margin-left: 41
         idle-animate: true
 
       UIButton
