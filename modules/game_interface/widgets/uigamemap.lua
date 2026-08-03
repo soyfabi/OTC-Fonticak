@@ -87,9 +87,19 @@ function UIGameMap:onDrop(widget, mousePos)
     return true
 end
 
-function UIGameMap:onMousePress()
+function UIGameMap:onMousePress(mousePos, mouseButton)
     if not self:isDragging() then
         self.allowNextRelease = true
+    end
+
+    -- Mark look-combo as soon as the second button goes down so a fast
+    -- dual release still looks instead of auto-walking.
+    if mouseButton == MouseLeftButton or mouseButton == MouseRightButton then
+        local other = mouseButton == MouseLeftButton and MouseRightButton or MouseLeftButton
+        if g_mouse.isPressed(other) then
+            self.blockNextLeftWalk = true
+            self.lookComboHandled = false
+        end
     end
 end
 
@@ -99,6 +109,12 @@ end
 
 function UIGameMap:onMouseRelease(mousePosition, mouseButton)
     if not self.allowNextRelease then
+        -- Still consume a leftover left release after left+right look.
+        if mouseButton == MouseLeftButton and self.blockNextLeftWalk then
+            self.blockNextLeftWalk = false
+            self.lookComboHandled = false
+            return true
+        end
         return true
     end
 

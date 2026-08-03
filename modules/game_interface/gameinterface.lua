@@ -957,9 +957,51 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
     local smartLeftClick = modules.client_options.getOption('smartLeftClick')
     local classicControls = modules.client_options.getOption('classicControl')
 
+    local function markLookCombo()
+        local map = gameMapPanel or getMapPanel()
+        if map then
+            map.blockNextLeftWalk = true
+            map.lookComboHandled = true
+        end
+    end
+
+    local function consumeLookComboLeftRelease()
+        local map = gameMapPanel or getMapPanel()
+        if not map or not map.blockNextLeftWalk then
+            return false
+        end
+        local alreadyLooked = map.lookComboHandled
+        map.blockNextLeftWalk = false
+        map.lookComboHandled = false
+        return true, alreadyLooked
+    end
+
+    -- Left+Right look must win over loot/use/walk. Classic loot modes used to handle
+    -- right-click before this check, so the other button's release often auto-walked.
+    local bothButtonsLook = keyboardModifiers == KeyboardNoModifier and lookThing and
+        ((g_mouse.isPressed(MouseLeftButton) and mouseButton == MouseRightButton) or
+         (g_mouse.isPressed(MouseRightButton) and mouseButton == MouseLeftButton))
+    if bothButtonsLook then
+        markLookCombo()
+        g_game.look(lookThing)
+        return true
+    end
+
+    -- Leftover left release after a look combo (or fast dual-release race).
+    if mouseButton == MouseLeftButton and keyboardModifiers == KeyboardNoModifier then
+        local consumed, alreadyLooked = consumeLookComboLeftRelease()
+        if consumed then
+            if not alreadyLooked and lookThing then
+                g_game.look(lookThing)
+            end
+            return true
+        end
+    end
+
     -- Classic controls: right-click on NPC says "hi"
-    if creatureThing and creatureThing:isNpc() and mouseButton == MouseRightButton and 
-    keyboardModifiers == KeyboardNoModifier and 
+    if creatureThing and creatureThing:isNpc() and mouseButton == MouseRightButton and
+    keyboardModifiers == KeyboardNoModifier and
+    not g_mouse.isPressed(MouseLeftButton) and
     g_game.getClientVersion() < 1511 then
         -- In classic controls, always allow NPC interaction
         -- In non-classic controls, check the talkOnRightClick option
@@ -1451,10 +1493,6 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
             (mouseButton == MouseLeftButton or mouseButton == MouseRightButton) then
             g_game.look(lookThing)
             return true
-        elseif lookThing and ((g_mouse.isPressed(MouseLeftButton) and mouseButton == MouseRightButton) or
-                (g_mouse.isPressed(MouseRightButton) and mouseButton == MouseLeftButton)) then
-            g_game.look(lookThing)
-            return true
         elseif useThing and keyboardModifiers == KeyboardCtrlModifier and
             (mouseButton == MouseLeftButton or mouseButton == MouseRightButton) then
             createThingMenu(menuPosition, lookThing, useThing, creatureThing)
@@ -1474,6 +1512,14 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
     player:stopAutoWalk()
 
     if autoWalkPos and keyboardModifiers == KeyboardNoModifier and mouseButton == MouseLeftButton then
+        -- Left+right look already consumed; never walk on the leftover left release.
+        local map = gameMapPanel or getMapPanel()
+        if map and map.blockNextLeftWalk then
+            map.blockNextLeftWalk = false
+            map.lookComboHandled = false
+            return true
+        end
+
         -- In Classic Control with Loot: Left option, we want to avoid walking when trying to loot
         local classicControl = modules.client_options.getOption('classicControl')
         local lootControlMode = modules.client_options.getOption('lootControlMode')
