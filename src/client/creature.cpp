@@ -134,31 +134,15 @@ void Creature::draw(const Rect& destRect, const uint8_t size, const bool center)
         return;
 
     const int baseSprite = g_gameConfig.getSpriteSize();
-    const int exactSize = getExactSize(0, 0, 0);
-    const int nativeSize = g_gameConfig.isUseCropSizeForUIDraw()
-        ? exactSize
-        : std::max<int>(getRealSize(), exactSize);
-
-    // Keep room for large mounts/outfits so they are not pinned to a corner.
-    const int fbSize = std::max<int>(2 * baseSprite, nativeSize + baseSprite);
+    // Fixed 2×2 tile canvas — same virtual space Astra's correctOutfit uses
+    // (maps the outfit hotspot into the middle of the UI square).
+    const int fbSize = 2 * baseSprite;
 
     g_drawPool.bindFrameBuffer(fbSize); {
-        Point p;
-        if (center) {
-            // Sprites grow left/up from the hotspot. Put the approximate
-            // visual center of the outfit in the middle of the framebuffer
-            // (closer to Astra's correctOutfit UI centering).
-            const Point disp = getDisplacement();
-            const int pad = std::max<int>(0, fbSize - nativeSize) / 2;
-            p = Point(pad + nativeSize - baseSprite, pad + nativeSize - baseSprite) + disp;
-
-            // Extra nudge: keep very small looktypes from sitting in the top-left quadrant.
-            if (nativeSize <= baseSprite) {
-                p += Point(baseSprite / 4, baseSprite / 4);
-            }
-        } else {
-            p = Point(fbSize - baseSprite) + getDisplacement();
-        }
+        // Sprites grow left/up from the tile origin. Anchor on the bottom-right
+        // cell so the preview fills the square instead of sitting top-left.
+        // exactSize-based offsets push small mounts/outfits into the corner.
+        const Point p = Point(fbSize - baseSprite) + getDisplacement();
 
         internalDraw(p);
         if (isMarked())           internalDraw(p, getMarkedColor());
@@ -166,7 +150,16 @@ void Creature::draw(const Rect& destRect, const uint8_t size, const bool center)
     }
 
     Rect out = destRect;
-    if (size > 0) out = Rect(destRect.topLeft(), Size(size, size));
+    if (size > 0) {
+        if (center && (destRect.width() != size || destRect.height() != size)) {
+            out = Rect(
+                destRect.left() + (destRect.width() - static_cast<int>(size)) / 2,
+                destRect.top() + (destRect.height() - static_cast<int>(size)) / 2,
+                size, size);
+        } else {
+            out = Rect(destRect.topLeft(), Size(size, size));
+        }
+    }
     g_drawPool.releaseFrameBuffer(out);
 }
 
