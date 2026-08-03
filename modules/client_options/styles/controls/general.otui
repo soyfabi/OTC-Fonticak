@@ -19,7 +19,7 @@ UIWidget
       color: #c0c0c0ff
       anchors.verticalCenter: parent.verticalCenter
       text-align: left
-      !text: tr('Mouse Control:')
+      !text: tr('Mouse Preset:')
       
     OptionsComboBox
       id: mouseControlMode
@@ -44,6 +44,223 @@ UIWidget
       visible: false
 
   SmallReversedQtPanel
+    id: keyboardDelayGroup
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 42
+
+    OptionCheckBoxMarked
+      id: useDefaultKeyboardDelay
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      height: 20
+      !text: tr('Use Default Keyboard Delay (250 ms)')
+      !tooltip: tr('Use the slider to increase or to lower your keyboard delay. A higher keyboard delay might be helpful for players experiencing movement problems when using very fast characters.')
+
+    OptionScaleScroll
+      id: keyboardDelay
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+      margin-top: -1
+      height: 22
+      text-offset: 18 1
+      color: #df9f4fff
+      !text: tr('Keyboard Delay: 50 ms')
+      &minimumScrollValue: 10
+      &maximumScrollValue: 250
+      &scrollSize: 21
+      @onSetup: |
+        local value = modules.client_options.getOption('keyboardDelay')
+        self:setText(tr('Keyboard Delay: %s ms', value))
+        self:setColor('#df9f4fff')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionScaleScroll
+      id: walkTurnDelay
+      !text: tr('Walk delay after turn: 0 ms')
+      anchors.fill: parent
+      &minimumScrollValue: 0
+      &maximumScrollValue: 500
+      &scrollSize: 21
+      @onSetup: |
+        local value = modules.client_options.getOption('walkTurnDelay')
+        self:setText(tr('Walk delay after turn: %s ms', value))
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionScaleScroll
+      id: walkFirstStepDelay
+      !text: tr('Walk delay after first step: 50 ms')
+      anchors.fill: parent
+      &minimumScrollValue: 0
+      &maximumScrollValue: 500
+      &scrollSize: 21
+      @onSetup: |
+        local value = modules.client_options.getOption('walkFirstStepDelay')
+        self:setText(tr('Walk delay after first step: %s ms', value))
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionScaleScroll
+      id: walkCtrlTurnDelay
+      !text: tr('Walk delay after ctrl turn: 0 ms')
+      anchors.fill: parent
+      &minimumScrollValue: 0
+      &maximumScrollValue: 500
+      &scrollSize: 21
+      @onSetup: |
+        local value = modules.client_options.getOption('walkCtrlTurnDelay')
+        self:setText(tr('Walk delay after ctrl turn: %s ms', value))
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionScaleScroll
+      id: walkTeleportDelay
+      !text: tr('Walk delay after teleport: 0 ms')
+      anchors.fill: parent
+      &minimumScrollValue: 0
+      &maximumScrollValue: 500
+      &scrollSize: 21
+      @onSetup: |
+        local value = modules.client_options.getOption('walkTeleportDelay')
+        self:setText(tr('Walk delay after teleport: %s ms', value))
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionScaleScroll
+      id: walkStairsDelay
+      !text: tr('Walk delay after floor change: 0 ms')
+      anchors.fill: parent
+      &minimumScrollValue: 0
+      &maximumScrollValue: 500
+      &scrollSize: 21
+      @onSetup: |
+        local value = modules.client_options.getOption('walkStairsDelay')
+        self:setText(tr('Walk delay after floor change: %s ms', value))
+
+  SmallReversedQtPanel
+    id: turnOptionsGroup
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 48
+
+    Label
+      id: turnModifierLabel
+      anchors.left: parent.left
+      anchors.top: parent.top
+      height: 22
+      margin-left: 18
+      color: #c0c0c0ff
+      !text: tr('To Rotate Your Character Hold:')
+      text-auto-resize: true
+
+    QtCheckBox
+      id: turnModifierCtrl
+      anchors.left: turnModifierLabel.right
+      anchors.verticalCenter: turnModifierLabel.verticalCenter
+      margin-left: 10
+      width: 52
+      color: #c0c0c0ff
+      !text: tr('Ctrl')
+      @onCheckChange: modules.client_options.onTurnModifierCheckChange(self)
+
+    QtCheckBox
+      id: turnModifierShift
+      anchors.left: prev.right
+      anchors.verticalCenter: turnModifierLabel.verticalCenter
+      margin-left: 4
+      width: 56
+      color: #c0c0c0ff
+      !text: tr('Shift')
+      @onCheckChange: modules.client_options.onTurnModifierCheckChange(self)
+
+    QtCheckBox
+      id: turnModifierAlt
+      anchors.left: prev.right
+      anchors.verticalCenter: turnModifierLabel.verticalCenter
+      margin-left: 4
+      width: 48
+      color: #c0c0c0ff
+      !text: tr('Alt')
+      @onCheckChange: modules.client_options.onTurnModifierCheckChange(self)
+
+    UIWidget
+      id: turnModifierHelp
+      image-source: /images/icons/show_gui_help_grey
+      size: 12 12
+      anchors.right: parent.right
+      anchors.verticalCenter: turnModifierLabel.verticalCenter
+      margin-right: 3
+      !tooltip: tr('Choose one modifier key used with arrow keys to turn your character instead of walking.')
+
+    OptionCheckBoxMarked
+      id: alwaysTurnTowardsMoveDirection
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: turnModifierLabel.bottom
+      margin-top: 4
+      height: 14
+      text-offset: 18 0
+      !text: tr('Always turn towards the direction of movement')
+      !tooltip: tr('When checked, the character will always turn in the direction it\ntries to walk, even if it targets a tile that cannot be walked on.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+  
+    OptionCheckBoxMarked
+      id: smartWalk
+      !text: tr('Diagonal movement (Smart Walk)')
+      !tooltip: tr('Will detect when to use diagonal step based on the\nkeys you are pressing')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+  
+    OptionCheckBox
+      id: moveStack
+      !text: tr('Press CTRL to Drag Complete Stacks')
+      !tooltip: tr('Unchecked (default): hold Ctrl while dragging to move the full stack.\nChecked: dragging moves the full stack without holding Ctrl.\nShift always moves only 1.')
+
+  SmallReversedQtPanel
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
@@ -52,7 +269,8 @@ UIWidget
   
     OptionCheckBox
       id: autoChaseOverride
-      !text: tr('Allow auto chase override')
+      !text: tr('Disable auto chase while walking')
+      !tooltip: tr('When checked, manual walking cancels chase mode if you are attacking.')
 
   SmallReversedQtPanel
     anchors.left: parent.left
@@ -72,118 +290,10 @@ UIWidget
     margin-top: 7
     height: 22
   
-    OptionCheckBox
-      id: moveStack
-      !text: tr('Move stacks directly')
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-  
-    OptionCheckBoxMarked
-      id: smartWalk
-      !text: tr('Enable smart walking')
-      !tooltip: tr('Will detect when to use diagonal step based on the\nkeys you are pressing')
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-  
-    OptionCheckBoxMarked
-      id: alwaysTurnTowardsMoveDirection
-      !text: tr('Always turn towards the direction of movement')
-      !tooltip: tr('When checked, the character will always turn in the direction it\ntries to walk, even if it targets a tile that cannot be walked on.')
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-  
     OptionCheckBoxMarked
       id: openMinimized
       !text: tr('Open containers minimized')
       !tooltip: tr('When checked, containers will open showing only one row and can still be resized manually.')
-
-  SmallReversedQtPanel
-    id: hotkeyDelay_label
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-
-    OptionScaleScroll
-      id: hotkeyDelay
-      !text: tr('Hotkey delay: 30ms')
-      anchors.fill: parent
-      &minimumScrollValue: 30
-      &maximumScrollValue: 250
-      &scrollSize: 21
-      @onSetup: |
-        local value = modules.client_options.getOption('hotkeyDelay')
-        self:setText(tr('Hotkey delay: %dms', value))
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-
-    OptionScaleScroll
-      id: walkTurnDelay
-      !text: tr('Walk delay after turn: 50ms')
-      anchors.fill: parent
-      &minimumScrollValue: 10
-      &maximumScrollValue: 500
-      &scrollSize: 21
-      @onSetup: |
-        local value = modules.client_options.getOption('walkTurnDelay')
-        self:setText(tr('Walk delay after turn: %dms', value))
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-
-    OptionScaleScroll
-      id: walkTeleportDelay
-      !text: tr('Walk delay after teleport: 200ms')
-      anchors.fill: parent
-      &minimumScrollValue: 50
-      &maximumScrollValue: 500
-      &scrollSize: 21
-      @onSetup: |
-        local value = modules.client_options.getOption('walkTeleportDelay')
-        self:setText(tr('Walk delay after turn: %dms', value))
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-
-    OptionScaleScroll
-      id: walkStairsDelay
-      !text: tr('Walk delay after floor change: 200ms')
-      anchors.fill: parent
-      &minimumScrollValue: 50
-      &maximumScrollValue: 500
-      &scrollSize: 21
-      @onSetup: |
-        local value = modules.client_options.getOption('walkStairsDelay')
-        self:setText(tr('Walk delay after turn: %dms', value))
 
   OptionsQtButton
     id: hotkeysButton

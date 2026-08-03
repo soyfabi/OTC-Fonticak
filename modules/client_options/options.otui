@@ -105,10 +105,20 @@ OptionCheckBoxMarked < OptionCheckBox
   UIWidget
     id: toolTipWidget
     image-source: /images/icons/show_gui_help_grey
-    size: 12 12  
+    size: 12 12
     anchors.right: parent.right
     anchors.verticalCenter: parent.verticalCenter
     margin-right: 3
+
+  @onSetup: |
+    -- Parent !tooltip is applied after children onSetup; sync on next tick.
+    scheduleEvent(function()
+      if self:isDestroyed() then return end
+      local tip = self:getTooltip()
+      if tip and tip:len() > 0 and self.toolTipWidget then
+        self.toolTipWidget:setTooltip(tip)
+      end
+    end, 1)
 
 OptionScaleScroll < Label
   anchors.left: parent.left

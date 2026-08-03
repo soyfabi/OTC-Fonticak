@@ -504,7 +504,7 @@ function doKeyCombo(keyCombo)
         return
     end
 
-    if g_clock.millis() - lastHotkeyTime < modules.client_options.getOption('hotkeyDelay') then
+    if g_clock.millis() - lastHotkeyTime < modules.client_options.getKeyboardDelay() then
         return
     end
     lastHotkeyTime = g_clock.millis()

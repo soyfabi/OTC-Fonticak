@@ -175,7 +175,11 @@ function init()
 end
 
 function bindKeys()
-    gameRootPanel:setAutoRepeatDelay(50)
+    if type(applyKeyboardDelay) == 'function' then
+        applyKeyboardDelay()
+    else
+        gameRootPanel:setAutoRepeatDelay(50)
+    end
 
     g_keyboard.bindKeyPress('Ctrl+=', function()
         gameMapPanel:zoomIn()

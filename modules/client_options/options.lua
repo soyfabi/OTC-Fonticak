@@ -1,5 +1,6 @@
 local options = dofile("data_options")
 local autoSwitchPresetEvent = nil
+local turnModifierIds = { 'turnModifierCtrl', 'turnModifierShift', 'turnModifierAlt' }
 
 panels = {
     generalPanel = nil,
@@ -230,6 +231,21 @@ local function setup()
         mouseControlMode = 2
     end
     setOption('mouseControlMode', mouseControlMode, true)
+
+    -- Keep only one turn modifier selected (Ctrl / Shift / Alt).
+    local selectedTurn = nil
+    for _, id in ipairs(turnModifierIds) do
+        if options[id] and options[id].value then
+            if selectedTurn then
+                setOption(id, false, true)
+            else
+                selectedTurn = id
+            end
+        end
+    end
+    if not selectedTurn then
+        setOption('turnModifierCtrl', true, true)
+    end
     
     -- Schedule combobox updates to ensure they happen after UI setup is complete
     scheduleEvent(function()
@@ -548,6 +564,55 @@ function controller:onGameEnd()
     end
 end
 
+function onTurnModifierCheckChange(widget)
+    if not widget or widget._turnModifierLock then
+        return
+    end
+
+    local parent = widget:getParent()
+    if not parent then
+        return
+    end
+
+    -- Radio-style: keep exactly one modifier selected.
+    if not widget:isChecked() then
+        local anyOther = false
+        for _, id in ipairs(turnModifierIds) do
+            if id ~= widget:getId() then
+                local other = parent:getChildById(id)
+                if other and other:isChecked() then
+                    anyOther = true
+                    break
+                end
+            end
+        end
+        if not anyOther then
+            widget._turnModifierLock = true
+            widget:setChecked(true)
+            widget._turnModifierLock = false
+            return
+        end
+        setOption(widget:getId(), false)
+        return
+    end
+
+    for _, id in ipairs(turnModifierIds) do
+        if id ~= widget:getId() then
+            local other = parent:getChildById(id)
+            if other then
+                other._turnModifierLock = true
+                if other:isChecked() then
+                    other:setChecked(false)
+                end
+                other._turnModifierLock = false
+            end
+            setOption(id, false)
+        end
+    end
+
+    setOption(widget:getId(), true)
+end
+
 function setOption(key, value, force)
     if not modules.game_interface then
         return
@@ -572,9 +637,10 @@ function setOption(key, value, force)
     for _, panel in pairs(panels) do
         local widget = panel:recursiveGetChildById(key)
         if widget then
-            if widget:getStyle().__class == 'UICheckBox' then
+            local styleClass = widget:getStyle().__class
+            if styleClass == 'UICheckBox' or styleClass == 'QtCheckBox' then
                 widget:setChecked(value)
-            elseif widget:getStyle().__class == 'UIScrollBar' then
+            elseif styleClass == 'UIScrollBar' then
                 widget:setValue(value)
             elseif widget:recursiveGetChildById('valueBar') then
                 widget:recursiveGetChildById('valueBar'):setValue(value)
@@ -603,6 +669,13 @@ function getOption(key)
         return nil
     end
     return option.value
+end
+
+function getKeyboardDelay()
+    if getOption('useDefaultKeyboardDelay') then
+        return 250
+    end
+    return getOption('keyboardDelay') or 50
 end
 
 function show()

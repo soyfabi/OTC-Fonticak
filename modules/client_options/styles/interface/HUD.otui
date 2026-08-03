@@ -264,6 +264,17 @@ UIWidget
       margin-top: 7
       height: 22
       OptionCheckBox
+        id: showConditionInfo
+        !text: tr('Show Condition Information')
+        !tooltip: tr('When enabled, hovering a condition icon shows its description.\nWhen disabled, no tooltip is shown.')
+
+    SmallReversedQtPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+      margin-top: 7
+      height: 22
+      OptionCheckBox
         id: showCustomisableStatusBars
         !text: tr('Show Customisable Status Bars')
         !tooltip: tr('Check this box to show the status bars for your character\'s most \nimportant attributes: their health and their mana. \nIf you have enabled this option and you right-click on the status \nbars field, a menu will open up which allows you to individualise \nyour status bars even further: \n* You can switch your status bars to one of the four sides \naround your game window. \n* You can display your status bars in different styles. \n* Additionally, you can decide to show the progress bars for \none, several or all of your skills or your experience level. If \nyou place your mouse pointer on one of the bars, a tooltip \nwill open up which shows your progress to the next skill or \nlevel in percent.')

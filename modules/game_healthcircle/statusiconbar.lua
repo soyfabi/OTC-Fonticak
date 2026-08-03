@@ -32,6 +32,29 @@ local function getConditionIconSize()
     return CONDITION_ICON_SIZES[sizeValue] or CONDITION_ICON_SIZES[2]
 end
 
+local function getConditionTooltipText(condition, showInfoOverride)
+    if not condition then
+        return ''
+    end
+
+    local showInfo = showInfoOverride
+    if showInfo == nil then
+        showInfo = true
+        if modules.client_options and modules.client_options.getOption then
+            local optionValue = modules.client_options.getOption('showConditionInfo')
+            if optionValue ~= nil then
+                showInfo = optionValue
+            end
+        end
+    end
+
+    if not showInfo then
+        return ''
+    end
+
+    return condition.tooltip or condition.tooltipBar or ''
+end
+
 local SETTINGS_FILE = '/settings_conditions_hud.json'
 local DECORATIVE_CHILD_COUNT = 2
 local SELECTED_COLOR = '#585858'
@@ -725,7 +748,7 @@ function StatusIconBar.updateWidgetHeight()
     StatusIconBar.updatePosition()
 end
 
-function StatusIconBar.refreshIcons()
+function StatusIconBar.refreshIcons(showInfoOverride)
     if not statusIconPanel then
         return
     end
@@ -784,7 +807,7 @@ function StatusIconBar.refreshIcons()
         end
 
         applyIconWidgetStyle(container, condition)
-        container:setTooltip(condition.tooltip or '')
+        container:setTooltip(getConditionTooltipText(condition, showInfoOverride))
         container.realHeight = container:getHeight()
 
         if isNew then

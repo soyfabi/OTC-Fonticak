@@ -201,7 +201,81 @@ return {
     alwaysTurnTowardsMoveDirection    = true,
     autoChaseOverride                 = true,
     talkOnRightClick                  = false,
+    -- Unchecked (default): hold Ctrl to move the full stack.
+    -- Checked: move the full stack without holding Ctrl.
     moveStack                         = false,
+    useDefaultKeyboardDelay           = {
+        value = false,
+        action = function(value, options, controller, panels, extraWidgets)
+            local delay = value and 250 or (options.keyboardDelay and options.keyboardDelay.value or 50)
+            if type(applyKeyboardDelay) == 'function' then
+                applyKeyboardDelay(delay)
+            elseif modules.game_interface and modules.game_interface.getRootPanel then
+                local panel = modules.game_interface.getRootPanel()
+                if panel then
+                    panel:setAutoRepeatDelay(delay)
+                end
+            end
+            local delayWidget = panels.generalPanel and panels.generalPanel:recursiveGetChildById('keyboardDelay')
+            if delayWidget then
+                delayWidget:setEnabled(not value)
+                delayWidget:setOpacity(value and 0.5 or 1.0)
+            end
+        end
+    },
+    keyboardDelay                     = {
+        value = 50,
+        action = function(value, options, controller, panels, extraWidgets)
+            panels.generalPanel:recursiveGetChildById('keyboardDelay'):setText(
+                tr('Keyboard Delay: %s ms', value))
+            local delayWidget = panels.generalPanel:recursiveGetChildById('keyboardDelay')
+            if delayWidget then
+                delayWidget:setColor('#df9f4fff')
+            end
+            if options.useDefaultKeyboardDelay and options.useDefaultKeyboardDelay.value then
+                return
+            end
+            if type(applyKeyboardDelay) == 'function' then
+                applyKeyboardDelay(value)
+            elseif modules.game_interface and modules.game_interface.getRootPanel then
+                local panel = modules.game_interface.getRootPanel()
+                if panel then
+                    panel:setAutoRepeatDelay(value)
+                end
+            end
+        end
+    },
+    turnModifierCtrl                  = {
+        value = true,
+        action = function(value, options, controller, panels, extraWidgets)
+            -- Rebind after option.value is updated by setOption.
+            scheduleEvent(function()
+                if type(rebindTurnKeys) == 'function' then
+                    rebindTurnKeys()
+                end
+            end, 1)
+        end
+    },
+    turnModifierShift                 = {
+        value = false,
+        action = function(value, options, controller, panels, extraWidgets)
+            scheduleEvent(function()
+                if type(rebindTurnKeys) == 'function' then
+                    rebindTurnKeys()
+                end
+            end, 1)
+        end
+    },
+    turnModifierAlt                   = {
+        value = false,
+        action = function(value, options, controller, panels, extraWidgets)
+            scheduleEvent(function()
+                if type(rebindTurnKeys) == 'function' then
+                    rebindTurnKeys()
+                end
+            end, 1)
+        end
+    },
     showStatusMessagesInConsole       = true,
     showEventMessagesInConsole        = true,
     showInfoMessagesInConsole         = true,
@@ -345,33 +419,38 @@ return {
         end
     },
     walkTurnDelay                     = {
-        value = 100,
+        value = 0,
         action = function(value, options, controller, panels, extraWidgets)
-            panels.generalPanel:recursiveGetChildById('walkTurnDelay'):setText(string.format(
-                'Walk delay after turn: %sms',
-                value))
+            panels.generalPanel:recursiveGetChildById('walkTurnDelay'):setText(
+                tr('Walk delay after turn: %s ms', value))
+        end
+    },
+    walkFirstStepDelay                = {
+        value = 50,
+        action = function(value, options, controller, panels, extraWidgets)
+            panels.generalPanel:recursiveGetChildById('walkFirstStepDelay'):setText(
+                tr('Walk delay after first step: %s ms', value))
+        end
+    },
+    walkCtrlTurnDelay                 = {
+        value = 0,
+        action = function(value, options, controller, panels, extraWidgets)
+            panels.generalPanel:recursiveGetChildById('walkCtrlTurnDelay'):setText(
+                tr('Walk delay after ctrl turn: %s ms', value))
         end
     },
     walkTeleportDelay                 = {
-        value = 50,
+        value = 0,
         action = function(value, options, controller, panels, extraWidgets)
-            panels.generalPanel:recursiveGetChildById('walkTeleportDelay'):setText(string.format(
-                'Walk delay after teleport: %sms',
-                value))
+            panels.generalPanel:recursiveGetChildById('walkTeleportDelay'):setText(
+                tr('Walk delay after teleport: %s ms', value))
         end
     },
     walkStairsDelay                   = {
-        value = 50,
+        value = 0,
         action = function(value, options, controller, panels, extraWidgets)
-            panels.generalPanel:recursiveGetChildById('walkStairsDelay'):setText(string.format(
-                'Walk delay after floor change: %sms',
-                value))
-        end
-    },
-    hotkeyDelay                       = {
-        value = 70,
-        action = function(value, options, controller, panels, extraWidgets)
-            panels.generalPanel:recursiveGetChildById('hotkeyDelay'):setText(string.format('Hotkey delay: %sms', value))
+            panels.generalPanel:recursiveGetChildById('walkStairsDelay'):setText(
+                tr('Walk delay after floor change: %s ms', value))
         end
     },
     crosshair                         = {
@@ -587,6 +666,15 @@ return {
             local labels = {[1] = 'Small', [2] = 'Medium', [3] = 'Large'}
             panels.interfaceHUD:recursiveGetChildById('conditionIconSize'):setText(
                 tr('Condition Icon Size: %s', labels[value] or 'Medium'))
+        end
+    },
+    showConditionInfo                 = {
+        value = true,
+        action = function(value, options, controller, panels, extraWidgets)
+            -- Pass the new value explicitly: setOption updates option.value AFTER this action.
+            if modules.game_healthcircle and modules.game_healthcircle.StatusIconBar then
+                modules.game_healthcircle.StatusIconBar.refreshIcons(value)
+            end
         end
     },
     showLeftExtraPanel                = {
