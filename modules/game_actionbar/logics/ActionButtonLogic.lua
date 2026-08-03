@@ -505,22 +505,29 @@ function updateButtonState(button)
         local isItemEquipped = player:hasEquippedItemId(button.cache.itemId, tier)
         local itemCount = player:getInventoryCount(button.cache.itemId, tier)
 
-        if g_game.getFeature(GameEnterGameShowAppearance) then -- fix old protocol
+        -- Dim missing items on all protocols (GameEnterGameShowAppearance is only
+        -- enabled from 12.00+, so Fonticak 8.60 never reached the gray overlay).
+        if button.item.gray then
+            button.item.gray:setVisible(itemCount == 0)
+        end
+
+        if g_game.getFeature(GameEnterGameShowAppearance) then
             if button.cache.actionType == UseTypes["Equip"] then
                 button.item:setChecked(itemCount ~= 0 and isItemEquipped)
             end
-
-            button.item.gray:setVisible(itemCount == 0)
         end
         if button.item.setDisplayCount then
             if modules.client_options.getOption('showHKObjectsBars') then
+                -- 0 is a valid display value (missing stack); -1 clears the override
                 button.item:setDisplayCount(itemCount)
+            elseif button.item.clearDisplayCount then
+                button.item:clearDisplayCount()
             else
-                button.item:setDisplayCount(0)
+                button.item:setDisplayCount(-1)
             end
         else
             if modules.client_options.getOption('showHKObjectsBars') then
-                button.item:setItemCount(itemCount)
+                button.item:setItemCount(math.max(itemCount, 0))
             else
                 button.item:setItemCount(1)
             end

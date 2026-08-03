@@ -1082,6 +1082,7 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIItem>("setShowDuration", &UIItem::setShowDuration);
     g_lua.bindClassMemberFunction<UIItem>("setShowCharges", &UIItem::setShowCharges);
     g_lua.bindClassMemberFunction<UIItem>("setDisplayCount", &UIItem::setDisplayCount);
+    g_lua.bindClassMemberFunction<UIItem>("clearDisplayCount", &UIItem::clearDisplayCount);
     g_lua.bindClassMemberFunction<UIItem>("clearItem", &UIItem::clearItem);
     g_lua.bindClassMemberFunction<UIItem>("getItemId", &UIItem::getItemId);
     g_lua.bindClassMemberFunction<UIItem>("getItemCount", &UIItem::getItemCount);

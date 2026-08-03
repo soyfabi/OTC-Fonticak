@@ -58,10 +58,13 @@ void UIItem::drawSelf(const DrawPoolType drawPane)
         const auto itemCountFont = g_gameConfig.getItemCountFont();
         const auto& countFont = itemCountFont ? itemCountFont : m_font;
 
-        const int displayCount = m_displayCount > 0 ? m_displayCount
+        const bool hasDisplayOverride = m_displayCount >= 0;
+        const int displayCount = hasDisplayOverride ? m_displayCount
                                : (m_item->isStackable() ? m_item->getCount() : 0);
-        const bool shouldDrawCount = m_displayCount > 0 ? (displayCount >= 1) : (displayCount > 1);
-        if (countFont && m_alwaysShowCount && shouldDrawCount) {
+        // Override (including 0) is used by Action Bar to show missing stacks.
+        const bool shouldDrawCount = hasDisplayOverride ? m_alwaysShowCount
+                               : (displayCount > 1);
+        if (countFont && shouldDrawCount) {
             static constexpr Color STACK_COLOR(191, 191, 191);
             std::string countText;
             if (displayCount < 1000) {
@@ -107,7 +110,7 @@ void UIItem::drawSelf(const DrawPoolType drawPane)
 void UIItem::setItemId(const int id)
 {
     m_itemId = id;
-    m_displayCount = 0;
+    m_displayCount = -1;
 
     if (id == 0)
         m_item = nullptr;
@@ -139,7 +142,7 @@ void UIItem::setItemSubType(const int subType)
 void UIItem::setItem(const ItemPtr& item)
 {
     m_item = item;
-    m_displayCount = 0;
+    m_displayCount = -1;
     if (item)
         m_itemId = item->getClientId();
 

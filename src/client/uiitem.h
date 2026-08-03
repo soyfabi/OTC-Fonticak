@@ -39,7 +39,8 @@ public:
     void setShowCount(const bool value) { m_alwaysShowCount = value; }
     void setShowDuration(const bool value) { m_showDuration = value; repaint(); }
     void setShowCharges(const bool value) { m_showCharges = value; repaint(); }
-    void setDisplayCount(int count) { m_displayCount = count; }
+    void setDisplayCount(int count) { m_displayCount = count; repaint(); }
+    void clearDisplayCount() { m_displayCount = -1; repaint(); }
     void setVirtual(const bool virt) { m_virtual = virt; }
     void setFlipDirection(const uint8_t direction) { m_flipDirection = direction; repaint(); }
     void clearItem() { setItemId(0); }
@@ -68,6 +69,6 @@ protected:
     bool m_alwaysShowCount{ true };
     bool m_showDuration{ false };
     bool m_showCharges{ false };
-    int m_displayCount{ 0 };
+    int m_displayCount{ -1 }; // -1 = use item stack; >= 0 forces that count (including 0)
     uint8_t m_flipDirection{ 0 }; // 0 = none, 1 = horizontal, 2 = vertical
 };

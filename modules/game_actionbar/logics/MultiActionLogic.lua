@@ -290,7 +290,15 @@ local function renderSlotOnWidget(widget, slotData, isMainButton, slotIndex)
         widget.cache.actionType = UseTypes[useTypeName] or UseTypes["Use"]
 
         local itemCount = player and player:getInventoryCount(widget.cache.itemId, widget.cache.upgradeTier) or 0
-        widget.item:setItemCount(itemCount)
+        widget.item:setItemCount(math.max(itemCount, 0))
+        if widget.item.setDisplayCount and modules.client_options.getOption('showHKObjectsBars') then
+            widget.item:setDisplayCount(itemCount)
+        elseif widget.item.clearDisplayCount then
+            widget.item:clearDisplayCount()
+        end
+        if widget.item.gray then
+            widget.item.gray:setVisible(itemCount == 0)
+        end
         if widget.item.text and widget.item.text.gray then
             widget.item.text.gray:setVisible(itemCount == 0)
         end
