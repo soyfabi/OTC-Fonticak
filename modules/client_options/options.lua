@@ -671,11 +671,22 @@ function getOption(key)
     return option.value
 end
 
+function resetWalkAndKeyboardDelays()
+    -- Defaults from data_options.lua (walk delays + keyboard delay only).
+    setOption('keyboardDelay', 120, true)
+    setOption('useDefaultKeyboardDelay', true, true)
+    setOption('walkTurnDelay', 100, true)
+    setOption('walkFirstStepDelay', 80, true)
+    setOption('walkCtrlTurnDelay', 100, true)
+    setOption('walkTeleportDelay', 200, true)
+    setOption('walkStairsDelay', 200, true)
+end
+
 function getKeyboardDelay()
     if getOption('useDefaultKeyboardDelay') then
         return 250
     end
-    return getOption('keyboardDelay') or 50
+    return getOption('keyboardDelay') or 120
 end
 
 function show()

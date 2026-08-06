@@ -205,9 +205,9 @@ return {
     -- Checked: move the full stack without holding Ctrl.
     moveStack                         = false,
     useDefaultKeyboardDelay           = {
-        value = false,
+        value = true,
         action = function(value, options, controller, panels, extraWidgets)
-            local delay = value and 250 or (options.keyboardDelay and options.keyboardDelay.value or 50)
+            local delay = value and 250 or (options.keyboardDelay and options.keyboardDelay.value or 120)
             if type(applyKeyboardDelay) == 'function' then
                 applyKeyboardDelay(delay)
             elseif modules.game_interface and modules.game_interface.getRootPanel then
@@ -219,18 +219,21 @@ return {
             local delayWidget = panels.generalPanel and panels.generalPanel:recursiveGetChildById('keyboardDelay')
             if delayWidget then
                 delayWidget:setEnabled(not value)
-                delayWidget:setOpacity(value and 0.5 or 1.0)
+                delayWidget:setOpacity(1.0)
+                -- Red when using default (slider locked); orange when custom delay is active.
+                delayWidget:setColor(value and '#ff4444ff' or '#df9f4fff')
             end
         end
     },
     keyboardDelay                     = {
-        value = 50,
+        value = 120,
         action = function(value, options, controller, panels, extraWidgets)
             panels.generalPanel:recursiveGetChildById('keyboardDelay'):setText(
                 tr('Keyboard Delay: %s ms', value))
             local delayWidget = panels.generalPanel:recursiveGetChildById('keyboardDelay')
             if delayWidget then
-                delayWidget:setColor('#df9f4fff')
+                local useDefault = options.useDefaultKeyboardDelay and options.useDefaultKeyboardDelay.value
+                delayWidget:setColor(useDefault and '#ff4444ff' or '#df9f4fff')
             end
             if options.useDefaultKeyboardDelay and options.useDefaultKeyboardDelay.value then
                 return
@@ -419,35 +422,35 @@ return {
         end
     },
     walkTurnDelay                     = {
-        value = 0,
+        value = 100,
         action = function(value, options, controller, panels, extraWidgets)
             panels.generalPanel:recursiveGetChildById('walkTurnDelay'):setText(
                 tr('Walk delay after turn: %s ms', value))
         end
     },
     walkFirstStepDelay                = {
-        value = 50,
+        value = 80,
         action = function(value, options, controller, panels, extraWidgets)
             panels.generalPanel:recursiveGetChildById('walkFirstStepDelay'):setText(
                 tr('Walk delay after first step: %s ms', value))
         end
     },
     walkCtrlTurnDelay                 = {
-        value = 0,
+        value = 100,
         action = function(value, options, controller, panels, extraWidgets)
             panels.generalPanel:recursiveGetChildById('walkCtrlTurnDelay'):setText(
                 tr('Walk delay after ctrl turn: %s ms', value))
         end
     },
     walkTeleportDelay                 = {
-        value = 0,
+        value = 200,
         action = function(value, options, controller, panels, extraWidgets)
             panels.generalPanel:recursiveGetChildById('walkTeleportDelay'):setText(
                 tr('Walk delay after teleport: %s ms', value))
         end
     },
     walkStairsDelay                   = {
-        value = 0,
+        value = 200,
         action = function(value, options, controller, panels, extraWidgets)
             panels.generalPanel:recursiveGetChildById('walkStairsDelay'):setText(
                 tr('Walk delay after floor change: %s ms', value))

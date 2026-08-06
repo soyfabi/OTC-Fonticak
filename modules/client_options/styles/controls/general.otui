@@ -69,14 +69,17 @@ UIWidget
       height: 22
       text-offset: 18 1
       color: #df9f4fff
-      !text: tr('Keyboard Delay: 50 ms')
+      !text: tr('Keyboard Delay: 120 ms')
       &minimumScrollValue: 10
       &maximumScrollValue: 250
       &scrollSize: 21
       @onSetup: |
         local value = modules.client_options.getOption('keyboardDelay')
+        local useDefault = modules.client_options.getOption('useDefaultKeyboardDelay')
         self:setText(tr('Keyboard Delay: %s ms', value))
-        self:setColor('#df9f4fff')
+        self:setColor(useDefault and '#ff4444ff' or '#df9f4fff')
+        self:setEnabled(not useDefault)
+        self:setOpacity(1.0)
 
   SmallReversedQtPanel
     anchors.left: parent.left
@@ -87,7 +90,7 @@ UIWidget
 
     OptionScaleScroll
       id: walkTurnDelay
-      !text: tr('Walk delay after turn: 0 ms')
+      !text: tr('Walk delay after turn: 100 ms')
       anchors.fill: parent
       &minimumScrollValue: 0
       &maximumScrollValue: 500
@@ -105,7 +108,7 @@ UIWidget
 
     OptionScaleScroll
       id: walkFirstStepDelay
-      !text: tr('Walk delay after first step: 50 ms')
+      !text: tr('Walk delay after first step: 80 ms')
       anchors.fill: parent
       &minimumScrollValue: 0
       &maximumScrollValue: 500
@@ -123,7 +126,7 @@ UIWidget
 
     OptionScaleScroll
       id: walkCtrlTurnDelay
-      !text: tr('Walk delay after ctrl turn: 0 ms')
+      !text: tr('Walk delay after ctrl turn: 100 ms')
       anchors.fill: parent
       &minimumScrollValue: 0
       &maximumScrollValue: 500
@@ -141,7 +144,7 @@ UIWidget
 
     OptionScaleScroll
       id: walkTeleportDelay
-      !text: tr('Walk delay after teleport: 0 ms')
+      !text: tr('Walk delay after teleport: 200 ms')
       anchors.fill: parent
       &minimumScrollValue: 0
       &maximumScrollValue: 500
@@ -159,7 +162,7 @@ UIWidget
 
     OptionScaleScroll
       id: walkStairsDelay
-      !text: tr('Walk delay after floor change: 0 ms')
+      !text: tr('Walk delay after floor change: 200 ms')
       anchors.fill: parent
       &minimumScrollValue: 0
       &maximumScrollValue: 500
@@ -302,5 +305,12 @@ UIWidget
     anchors.top: prev.bottom
     anchors.left: parent.left
     margin-top: 12
-
     size: 120 20
+
+  OptionsQtButton
+    id: resetWalkKeyboardDelayButton
+    !text: tr('Reset')
+    @onClick: modules.client_options.resetWalkAndKeyboardDelays()
+    anchors.top: prev.top
+    anchors.right: parent.right
+    size: 80 20
