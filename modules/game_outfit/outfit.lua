@@ -93,8 +93,50 @@ local globalRandomMount = nil
 local lastFocusPreset = nil
 local renamePresetWindow = nil
 local showFamiliarCheck = nil
+local editingPresetIndex = nil
 
 ignoreNextOutfitWindow = 0
+
+local function nowTimestamp()
+  return os.time()
+end
+
+local function formatPresetTime(ts)
+  ts = tonumber(ts)
+  if not ts or ts <= 0 then
+    return tr('Unknown')
+  end
+  return os.date('%Y-%m-%d %H:%M', ts)
+end
+
+local function getPresetBaseName(data)
+  if type(data) == 'string' then
+    return data
+  end
+  return (data and data.name) or 'Preset'
+end
+
+local function getPresetDisplayName(index, data)
+  return string.format('%d. %s', index, getPresetBaseName(data))
+end
+
+local function getPresetTooltip(data)
+  local created = formatPresetTime(data and data.createdAt)
+  local updated = formatPresetTime(data and (data.updatedAt or data.createdAt))
+  return tr('Created: %s\nLast edit: %s', created, updated)
+end
+
+local function ensurePresetTimestamps(data)
+  if not data then
+    return
+  end
+  if not data.createdAt then
+    data.createdAt = nowTimestamp()
+  end
+  if not data.updatedAt then
+    data.updatedAt = data.createdAt
+  end
+end
 
 local presetList = {}
 local pendingStoreTryOn = nil
@@ -562,6 +604,7 @@ function destroy()
 
     currentColorBox = nil
     lastFocusPreset = nil
+    editingPresetIndex = nil
 
     if appearanceGroup then
       appearanceGroup:destroy()
@@ -619,12 +662,15 @@ end
 
 function newPreset()
   local outfitPreset = presetList["customiseCharacterPresets"]
+  local now = nowTimestamp()
   outfitPreset[#outfitPreset + 1] = {
     ["mount"] = {
       ["color"] = { ["detail"] = tempOutfit.mountFeet, ["head"] = tempOutfit.mountHead, ["legs"] = tempOutfit.mountLegs, ["torso"] = tempOutfit.mountBody},
       ["id"] = window.configure.mount.mountCheck:isChecked() and tempOutfit.mount or 0
     },
     ["name"] = "Preset",
+    ["createdAt"] = now,
+    ["updatedAt"] = now,
     ["outfit"] = {
       ["color"] = { ["detail"] = tempOutfit.feet, ["head"] = tempOutfit.head, ["legs"] = tempOutfit.legs, ["torso"] = tempOutfit.body},
       ["id"] = tempOutfit.type,
@@ -639,20 +685,25 @@ function newPreset()
 end
 
 function savePreset()
-  if not lastFocusPreset then
+  if not lastFocusPreset and not editingPresetIndex then
     return
   end
-  local widgetIndex = lastFocusPreset:getActionId()
+  local widgetIndex = editingPresetIndex or (lastFocusPreset and lastFocusPreset:getActionId())
   local outfitPreset = presetList["customiseCharacterPresets"]
   
   if outfitPreset and outfitPreset[widgetIndex] then
-    local currentName = outfitPreset[widgetIndex]["name"]
+    local current = outfitPreset[widgetIndex]
+    ensurePresetTimestamps(current)
+    local currentName = current["name"]
+    local createdAt = current["createdAt"] or nowTimestamp()
     outfitPreset[widgetIndex] = {
       ["mount"] = {
         ["color"] = { ["detail"] = tempOutfit.mountFeet, ["head"] = tempOutfit.mountHead, ["legs"] = tempOutfit.mountLegs, ["torso"] = tempOutfit.mountBody},
         ["id"] = window.configure.mount.mountCheck:isChecked() and tempOutfit.mount or 0
       },
       ["name"] = currentName,
+      ["createdAt"] = createdAt,
+      ["updatedAt"] = nowTimestamp(),
       ["outfit"] = {
         ["color"] = { ["detail"] = tempOutfit.feet, ["head"] = tempOutfit.head, ["legs"] = tempOutfit.legs, ["torso"] = tempOutfit.body},
         ["id"] = tempOutfit.type,
@@ -661,10 +712,42 @@ function savePreset()
       },
       ["summon"] = { ["id"] = showFamiliarCheck:isChecked() and tempOutfit.familiar or 0}
     }
-    
-    lastFocusPreset.outfit:setOutfit(getPresetOutfit(outfitPreset[widgetIndex]))
+
+    local focusAfterSave = widgetIndex
+    editingPresetIndex = focusAfterSave
     saveSettings()
+
+    -- Return to presets view with updated thumbnail.
+    if appearanceGroup then
+      appearanceGroup:selectWidget(window.appearance.presetCheck)
+    else
+      showPresets()
+    end
   end
+end
+
+function editPreset()
+  if not lastFocusPreset then
+    return
+  end
+
+  editingPresetIndex = lastFocusPreset:getActionId()
+  window.appearance.grayHover:setVisible(false)
+  window.presetBar.saveButton:setEnabled(true)
+  window.presetBar.editButton:setEnabled(false)
+
+  -- Jump to outfit list so the player can change type/addons/colors, then Save.
+  if appearanceGroup then
+    appearanceGroup:selectWidget(window.appearance.outfitCheck)
+  end
+
+  -- Keep Save available while editing from the Outfit tab.
+  window.presetBar:setVisible(true)
+  window.presetBar.newButton:setEnabled(false)
+  window.presetBar.renameButton:setEnabled(false)
+  window.presetBar.deleteButton:setEnabled(false)
+  window.presetBar.saveButton:setEnabled(true)
+  window.presetBar.editButton:setEnabled(false)
 end
 
 function deletePreset()
@@ -675,7 +758,8 @@ function deletePreset()
   local widgetIndex = lastFocusPreset:getActionId()
   table.remove( presetList["customiseCharacterPresets"], widgetIndex)
   window.presetBar.renameButton:setEnabled(false)
-  -- window.presetBar.saveButton:setEnabled(false)
+  window.presetBar.saveButton:setEnabled(false)
+  window.presetBar.editButton:setEnabled(false)
   window.presetBar.deleteButton:setEnabled(false)
   window.okButton:setEnabled(true)
   lastFocusPreset:setBorderColor("alpha")
@@ -683,6 +767,7 @@ function deletePreset()
   updateAppearanceText("preset", "None")
   g_settings.set('outfit_lastPresetName', '')
   lastFocusPreset = nil
+  editingPresetIndex = nil
   showPresets()
   saveSettings()
 end
@@ -692,21 +777,30 @@ function renamePreset()
     return
   end
 
+  local presetData = presetList["customiseCharacterPresets"][lastFocusPreset:getActionId()]
+  local baseName = getPresetBaseName(presetData)
+
 	window:hide()
 	renamePresetWindow = g_ui.loadUI('renamePreset', g_ui.getRootWidget())
 	renamePresetWindow:setText("Rename Preset")
 	renamePresetWindow.contentPanel.text:setVisible(false)
 
-  renamePresetWindow.contentPanel.target:setText(lastFocusPreset.name:getText())
+  renamePresetWindow.contentPanel.target:setText(baseName)
 	renamePresetWindow.contentPanel.okButton.onClick = function()
 		local text = renamePresetWindow.contentPanel.target:getText()
 		if #text == 0 then
 			text = "Preset"
 		end
 
-    updateAppearanceText("preset", text)
-    lastFocusPreset.name:setText(text)
-    presetList["customiseCharacterPresets"][lastFocusPreset:getActionId()]["name"] = text
+    local index = lastFocusPreset:getActionId()
+    presetList["customiseCharacterPresets"][index]["name"] = text
+    ensurePresetTimestamps(presetList["customiseCharacterPresets"][index])
+    presetList["customiseCharacterPresets"][index]["updatedAt"] = nowTimestamp()
+
+    local displayName = getPresetDisplayName(index, presetList["customiseCharacterPresets"][index])
+    updateAppearanceText("preset", displayName)
+    lastFocusPreset.name:setText(displayName)
+    lastFocusPreset:setTooltip(getPresetTooltip(presetList["customiseCharacterPresets"][index]))
 		renamePresetWindow:destroy()
 		window:show()
     saveSettings()
@@ -739,13 +833,26 @@ function onHidePresetWindow()
   window.presetList.selectionList:destroyChildren()
   window.presetList:setVisible(false)
   window.ScrollBar:setVisible(true)
-  window.filter_outfits:setVisible(true)
-  window.presetBar:setVisible(false)
   window.okButton:setEnabled(true)
-  window.presetBar.renameButton:setEnabled(false)
-  -- window.presetBar.saveButton:setEnabled(false)
-  window.presetBar.deleteButton:setEnabled(false)
   window.appearance.grayHover:setVisible(false)
+
+  if editingPresetIndex then
+    -- Keep Save bar visible while editing; hide filter to avoid overlap.
+    window.filter_outfits:setVisible(false)
+    window.presetBar:setVisible(true)
+    window.presetBar.newButton:setEnabled(false)
+    window.presetBar.renameButton:setEnabled(false)
+    window.presetBar.deleteButton:setEnabled(false)
+    window.presetBar.editButton:setEnabled(false)
+    window.presetBar.saveButton:setEnabled(true)
+  else
+    window.filter_outfits:setVisible(true)
+    window.presetBar:setVisible(false)
+    window.presetBar.renameButton:setEnabled(false)
+    window.presetBar.saveButton:setEnabled(false)
+    window.presetBar.editButton:setEnabled(false)
+    window.presetBar.deleteButton:setEnabled(false)
+  end
 end
 
 function showPresets()
@@ -755,14 +862,22 @@ function showPresets()
   window.filter_outfits:setVisible(false)
   window.presetList:setVisible(true)
   window.presetBar:setVisible(true)
+  window.presetBar.newButton:setEnabled(true)
+
+  local focusIndex = editingPresetIndex
+  editingPresetIndex = nil
+  lastFocusPreset = nil
 
   local outfitPreset = presetList["customiseCharacterPresets"]
-  for i, data in pairs(outfitPreset) do
+  local focusedWidget = nil
+  for i, data in ipairs(outfitPreset) do
+    ensurePresetTimestamps(data)
     local widget = g_ui.createWidget("PresetButton", window.presetList.selectionList)
 
     widget:setActionId(i)
     widget.outfit:setOutfit(getPresetOutfit(data))
-    widget.name:setText(data["name"])
+    widget.name:setText(getPresetDisplayName(i, data))
+    widget:setTooltip(getPresetTooltip(data))
 
     local summonId = data["summon"] and (tonumber(data["summon"]["id"]) or 0) or 0
     if summonId > 0 then
@@ -779,9 +894,28 @@ function showPresets()
     end
 
     widget.onClick = onPresetSelect
+    if focusIndex and i == focusIndex then
+      focusedWidget = widget
+    end
   end
 
   window.presetList.selectionList:focusChild(nil)
+  window.presetBar.renameButton:setEnabled(false)
+  window.presetBar.saveButton:setEnabled(false)
+  window.presetBar.editButton:setEnabled(false)
+  window.presetBar.deleteButton:setEnabled(false)
+
+  if focusedWidget then
+    -- Re-select without wiping the outfit the player just edited/saved.
+    lastFocusPreset = focusedWidget
+    lastFocusPreset:setBorderColor("white")
+    lastFocusPreset:setBorderWidth("1")
+    window.presetBar.renameButton:setEnabled(true)
+    window.presetBar.saveButton:setEnabled(false)
+    window.presetBar.editButton:setEnabled(true)
+    window.presetBar.deleteButton:setEnabled(true)
+    updateAppearanceText('preset', focusedWidget.name:getText())
+  end
 end
 
 function showOutfits(searchText)
@@ -1077,7 +1211,8 @@ function onPresetSelect(widget)
   end
 
   window.presetBar.renameButton:setEnabled(true)
-  -- window.presetBar.saveButton:setEnabled(true)
+  window.presetBar.saveButton:setEnabled(false)
+  window.presetBar.editButton:setEnabled(true)
   window.presetBar.deleteButton:setEnabled(true)
   window.appearance.grayHover:setVisible(true)
 
@@ -1454,6 +1589,11 @@ function loadSettings()
 			return false
 		end
 		presetList = result
+		if presetList and presetList["customiseCharacterPresets"] then
+			for _, data in ipairs(presetList["customiseCharacterPresets"]) do
+				ensurePresetTimestamps(data)
+			end
+		end
 		return true
   else
     loadDefaultSettings()
@@ -1572,6 +1712,71 @@ function paste()
     end
   end
   configureAddons(tempOutfit.addons)
+end
+
+function randomizeColors()
+  tempOutfit.head = math.random(0, 132)
+  tempOutfit.body = math.random(0, 132)
+  tempOutfit.legs = math.random(0, 132)
+  tempOutfit.feet = math.random(0, 132)
+
+  updatePreview()
+
+  if colorBoxGroup and colorModeGroup then
+    local colorMode = colorModeGroup:getSelectedWidget():getId()
+    if colorMode == "HeadButton" then
+      colorBoxGroup:selectWidget(window.appearance.panelcolor["colorBox" .. (tempOutfit.head or 0)])
+    elseif colorMode == "PrimaryButton" then
+      colorBoxGroup:selectWidget(window.appearance.panelcolor["colorBox" .. (tempOutfit.body or 0)])
+    elseif colorMode == "SecondaryButton" then
+      colorBoxGroup:selectWidget(window.appearance.panelcolor["colorBox" .. (tempOutfit.legs or 0)])
+    elseif colorMode == "DetailButton" then
+      colorBoxGroup:selectWidget(window.appearance.panelcolor["colorBox" .. (tempOutfit.feet or 0)])
+    end
+  end
+end
+
+function randomizeOutfit()
+  local owned = {}
+  for _, data in pairs(ServerData.outfits) do
+    local storeMode = getOutfitStoreInfo(data)
+    if storeMode == 0 then
+      table.insert(owned, data)
+    end
+  end
+
+  if #owned == 0 then
+    return
+  end
+
+  local data = owned[math.random(1, #owned)]
+  tempOutfit.type = tonumber(data[1]) or tempOutfit.type
+  tempOutfit.addons = tonumber(data[3]) or 0
+
+  configureAddons(tempOutfit.addons)
+  updatePreview()
+  updateAppearanceText("outfit", data[2])
+
+  if window and window.ScrollBar and window.ScrollBar.selectionList then
+    local widget = window.ScrollBar.selectionList[data[1]]
+    if widget then
+      window.ScrollBar.selectionList:focusChild(widget)
+      window.ScrollBar.selectionList:ensureChildVisible(widget, {x = 0, y = 196})
+    end
+  end
+end
+
+function onRandomizeClick(widget)
+  local menu = g_ui.createWidget('PopupMenu')
+  menu:addOption(tr('Randomize Outfit'), function()
+    randomizeOutfit()
+  end)
+  menu:addOption(tr('Randomize Colors'), function()
+    randomizeColors()
+  end)
+
+  local pos = { x = widget:getX(), y = widget:getY() + widget:getHeight() }
+  menu:display(pos)
 end
 
 function accept()

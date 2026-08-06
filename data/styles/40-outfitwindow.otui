@@ -422,55 +422,74 @@ OutfitWindow < MainWindow
     padding-right: 2
     visible: false
     
-    UIButton
+    Button
       id: newButton
       size: 43 20
       anchors.top: parent.top
       anchors.left: parent.left
       margin-top: 4
-      margin-left: 48
-      image-source: /images/ui/new-button
-      image-clip: 0 0 43 20
+      margin-left: 6
+      padding: 0
+      text-offset: 0 1
+      text-align: center
+      !text: tr('New')
       @onClick: modules.game_outfit.newPreset()
 
-      $pressed:
-        image-clip: 0 20 43 20
-    
-    UIButton
+    Button
       id: renameButton
       size: 43 20
       anchors.top: parent.top
       anchors.left: newButton.right
       margin-top: 4
-      margin-left: 6
-      image-source: /images/ui/rename-button
-      image-clip: 0 20 43 20
+      margin-left: 4
+      padding: 0
+      text-offset: 0 1
+      text-align: center
       enabled: false
+      !text: tr('Rename')
       @onClick: modules.game_outfit.renamePreset()
 
-      $disabled:
-        image-clip: 0 0 43 20
-
-      $pressed:
-        image-clip: 0 40 43 20
-        
-    UIButton
-      id: deleteButton
+    Button
+      id: editButton
       size: 43 20
       anchors.top: parent.top
       anchors.left: renameButton.right
       margin-top: 4
-      margin-left: 6
-      image-source: /images/ui/delete-button
-      image-clip: 0 20 43 20
+      margin-left: 4
+      padding: 0
+      text-offset: 0 1
+      text-align: center
       enabled: false
+      !text: tr('Edit')
+      @onClick: modules.game_outfit.editPreset()
+
+    Button
+      id: saveButton
+      size: 43 20
+      anchors.top: parent.top
+      anchors.left: editButton.right
+      margin-top: 4
+      margin-left: 4
+      padding: 0
+      text-offset: 0 1
+      text-align: center
+      enabled: false
+      !text: tr('Save')
+      @onClick: modules.game_outfit.savePreset()
+
+    Button
+      id: deleteButton
+      size: 43 20
+      anchors.top: parent.top
+      anchors.left: saveButton.right
+      margin-top: 4
+      margin-left: 4
+      padding: 0
+      text-offset: 0 1
+      text-align: center
+      enabled: false
+      !text: tr('Delete')
       @onClick: modules.game_outfit.deletePreset()
-
-      $disabled:
-        image-clip: 0 0 43 20
-
-      $pressed:
-        image-clip: 0 40 43 20
 
   WindowCyclopedia
     id: filter_outfits
@@ -1041,38 +1060,6 @@ OutfitWindow < MainWindow
         num-columns: 19
 
     UIButton
-      id: copyall
-      size: 54 28
-      anchors.bottom: next.top
-      anchors.right: next.right
-      margin-bottom: 3
-      image-source: /images/ui/copy-all
-      image-clip: 0 0 54 28
-      @onClick: modules.game_outfit.copyAll()
-
-      $pressed:
-        image-clip: 0 28 54 28
-
-      $checked:
-        image-clip: 0 28 54 28
-
-    UIButton
-      id: copycolours
-      size: 54 28
-      anchors.bottom: next.top
-      anchors.right: next.right
-      margin-bottom: 3
-      image-source: /images/ui/copy-colours
-      image-clip: 0 0 54 28
-      @onClick: modules.game_outfit.copyColours()
-
-      $pressed:
-        image-clip: 0 28 54 28
-
-      $checked:
-        image-clip: 0 28 54 28
-
-    UIButton
       id: paste
       size: 54 28
       anchors.bottom: parent.bottom
@@ -1088,6 +1075,49 @@ OutfitWindow < MainWindow
 
       $disabled:
         image-clip: 0 0 54 28
+
+    UIButton
+      id: copycolours
+      size: 54 28
+      anchors.bottom: paste.top
+      anchors.right: paste.right
+      margin-bottom: 3
+      image-source: /images/ui/copy-colours
+      image-clip: 0 0 54 28
+      @onClick: modules.game_outfit.copyColours()
+
+      $pressed:
+        image-clip: 0 28 54 28
+
+      $checked:
+        image-clip: 0 28 54 28
+
+    UIButton
+      id: copyall
+      size: 54 28
+      anchors.bottom: copycolours.top
+      anchors.right: copycolours.right
+      margin-bottom: 3
+      image-source: /images/ui/copy-all
+      image-clip: 0 0 54 28
+      @onClick: modules.game_outfit.copyAll()
+
+      $pressed:
+        image-clip: 0 28 54 28
+
+      $checked:
+        image-clip: 0 28 54 28
+
+    Button
+      id: randomizeButton
+      width: 54
+      height: 28
+      anchors.bottom: copyall.top
+      anchors.right: copyall.right
+      margin-bottom: 3
+      text-align: center
+      !text: tr('Randomize')
+      @onClick: modules.game_outfit.onRandomizeClick(self)
 
     FlatPanel
       id: panelbar
