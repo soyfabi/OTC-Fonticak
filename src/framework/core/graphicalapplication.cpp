@@ -279,6 +279,10 @@ void GraphicalApplication::run()
                 g_lua.callGlobalField("g_app", "onFps", fps);
             });
         }
+
+        // Soft-cap when unfocused to avoid burning CPU in the background.
+        if (!g_window.hasFocus())
+            stdext::millisleep(33);
     }
 #endif
     mapThread.wait();

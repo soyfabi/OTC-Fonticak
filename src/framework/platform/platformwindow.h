@@ -27,6 +27,8 @@
 #include <framework/global.h>
 #include <framework/graphics/declarations.h>
 
+#include <atomic>
+
  // Forward declaration
 class Color;
 
@@ -128,6 +130,7 @@ public:
     bool hasFocus() { return m_focused; }
 
     bool vsyncEnabled() const { return m_vsync; }
+    bool hasVerticalSyncApplied() const { return m_vsyncApplied.load(); }
 
     void setOnClose(const std::function<void()>& onClose) { m_onClose = onClose; }
     void setOnResize(const OnResizeCallback& onResize) { m_onResize = onResize; }
@@ -169,6 +172,7 @@ protected:
     bool m_fullscreen{ false };
     bool m_maximized{ false };
     bool m_vsync{ false };
+    std::atomic_bool m_vsyncApplied{ false };
     float m_displayDensity{ DEFAULT_DISPLAY_DENSITY };
 
     std::function<void()> m_onClose;

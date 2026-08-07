@@ -3,6 +3,25 @@ return {
         value = true,
         action = function(value, options, controller, panels, extraWidgets)
             g_window.setVerticalSync(value)
+            if value then
+                -- Let the driver pace frames; fall back to a software cap if vsync did not apply.
+                g_app.setMaxFps(0)
+                scheduleEvent(function()
+                    if not modules.client_options.getOption('vsync') then
+                        return
+                    end
+                    if g_window.hasVerticalSyncApplied and not g_window.hasVerticalSyncApplied() then
+                        g_app.setMaxFps(100)
+                    end
+                end, 150)
+            else
+                local maxFps = options.backgroundFrameRate and options.backgroundFrameRate.value or 100
+                local v = maxFps
+                if maxFps <= 0 or maxFps >= 501 then
+                    v = 0
+                end
+                g_app.setMaxFps(v)
+            end
         end
     },
     showFps                           = {
@@ -313,7 +332,7 @@ return {
     },
     openMinimized                     = false,
     backgroundFrameRate               = {
-        value = 501,
+        value = 100,
         action = function(value, options, controller, panels, extraWidgets)
             local text, v = value, value
             if value <= 0 or value >= 501 then
@@ -322,6 +341,13 @@ return {
             end
 
             panels.graphicsPanel:recursiveGetChildById('backgroundFrameRate'):setText(tr('Game framerate limit: %s', text))
+
+            -- VSync already paces rendering; do not fight it with an unlimited software loop.
+            if options.vsync and options.vsync.value then
+                g_app.setMaxFps(0)
+                return
+            end
+
             g_app.setMaxFps(v)
         end
     },
@@ -537,7 +563,7 @@ return {
         end
     },
     hdGraphics                        = {
-        value = true,
+        value = false,
         action = function(value, options, controller, panels, extraWidgets)
             if g_sprites and g_sprites.setScaleFactor then
                 g_sprites.setScaleFactor(value and 2 or 1)

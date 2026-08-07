@@ -495,6 +495,9 @@ void BrowserWindow::swapBuffers() {
 }
 
 void BrowserWindow::setVerticalSync(bool enable) {
+    m_vsync = enable;
+    // Browser/WebGL typically paces via requestAnimationFrame; mark as applied when enabled.
+    m_vsyncApplied = enable;
 }
 
 std::string BrowserWindow::getClipboardText() {

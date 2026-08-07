@@ -111,7 +111,7 @@ UIWidget
     OptionCheckBoxMarked
       id: hdGraphics
       !text: tr('Enable HD Graphics')
-      !tooltip: tr('Upscales classic 32x32 sprites with xBRZ')
+      !tooltip: tr('Upscales classic 32x32 sprites with xBRZ. Increases CPU/RAM usage.')
 
   SmallReversedQtPanel
     anchors.left: parent.left

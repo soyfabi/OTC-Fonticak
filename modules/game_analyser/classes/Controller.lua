@@ -13,6 +13,28 @@ if not ControllerAnalyser then
     ControllerAnalyser.__index = ControllerAnalyser
 end
 
+local function isAnalyserVisible(analyser)
+    return analyser and analyser.window and analyser.window:isVisible()
+end
+
+function ControllerAnalyser:stopEvents()
+    if ControllerAnalyser.eventGraph then
+        ControllerAnalyser.eventGraph:cancel()
+        ControllerAnalyser.eventGraph = nil
+    end
+    if ControllerAnalyser.event250 then
+        ControllerAnalyser.event250:cancel()
+        ControllerAnalyser.event250 = nil
+    end
+    if ControllerAnalyser.event1000 then
+        ControllerAnalyser.event1000:cancel()
+        ControllerAnalyser.event1000 = nil
+    end
+    if ControllerAnalyser.event2000 then
+        ControllerAnalyser.event2000:cancel()
+        ControllerAnalyser.event2000 = nil
+    end
+end
 
 function ControllerAnalyser:startEvent()
 	if HuntingAnalyser then
@@ -40,10 +62,7 @@ function ControllerAnalyser:startEvent()
 		PartyHuntAnalyser.session = os.time()
 	end
 
-	if ControllerAnalyser.eventGraph then ControllerAnalyser.eventGraph:cancel() end
-	if ControllerAnalyser.event250 then ControllerAnalyser.event250:cancel() end
-	if ControllerAnalyser.event1000 then ControllerAnalyser.event1000:cancel() end
-	if ControllerAnalyser.event2000 then ControllerAnalyser.event2000:cancel() end
+    ControllerAnalyser:stopEvents()
 
     ControllerAnalyser.event250 = cycleEvent(function()
         if g_game.isOnline() then
@@ -65,10 +84,10 @@ function ControllerAnalyser:startEvent()
             if ImpactAnalyser then
                 ImpactAnalyser:updateWindow()
             end
-            if InputAnalyser then
+            if isAnalyserVisible(InputAnalyser) then
                 InputAnalyser:checkDPS()
             end
-            if XPAnalyser then
+            if isAnalyserVisible(XPAnalyser) then
                 XPAnalyser:checkExpHour()
             end
             if DropTrackerAnalyser then
@@ -81,7 +100,7 @@ function ControllerAnalyser:startEvent()
 	end, 1000)
 	ControllerAnalyser.event2000 = cycleEvent(function()
         if g_game.isOnline() then
-            if InputAnalyser then
+            if isAnalyserVisible(InputAnalyser) then
                 InputAnalyser:updateWindow()
             end
             if SupplyAnalyser then
@@ -91,13 +110,13 @@ function ControllerAnalyser:startEvent()
 	end, 2000)
 	ControllerAnalyser.eventGraph = cycleEvent(function()
         if g_game.isOnline() then
-            if LootAnalyser then
+            if isAnalyserVisible(LootAnalyser) then
                 LootAnalyser:updateGraphics()
             end
-            if SupplyAnalyser then
+            if isAnalyserVisible(SupplyAnalyser) then
                 SupplyAnalyser:updateGraphics()
             end
-            if XPAnalyser then
+            if isAnalyserVisible(XPAnalyser) then
                 XPAnalyser:updateWindow()
             end
         end

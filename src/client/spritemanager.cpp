@@ -27,6 +27,7 @@
 #include "spriteappearances.h"
 #include "thingtypemanager.h"
 #include "framework/core/asyncdispatcher.h"
+#include "framework/core/eventdispatcher.h"
 #include "framework/core/filestream.h"
 #include "framework/core/graphicalapplication.h"
 #include "framework/core/resourcemanager.h"
@@ -279,8 +280,11 @@ void SpriteManager::setScaleFactor(int factor)
     m_scaleFactor = factor;
     g_gameConfig.setSpriteScaleFactor(static_cast<uint8_t>(factor));
 
-    if (g_things.isDatLoaded())
-        g_things.unloadTextures();
+    if (g_things.isDatLoaded()) {
+        g_mainDispatcher.addEvent([] {
+            g_things.unloadTextures();
+        });
+    }
 }
 
 ImagePtr SpriteManager::upscaleSprite(const ImagePtr& sprite, int scaleFactor) const
@@ -292,40 +296,60 @@ ImagePtr SpriteManager::upscaleSprite(const ImagePtr& sprite, int scaleFactor) c
     if (sprite->getBpp() != 4)
         return sprite;
 
-    const int sourceWidth = sprite->getWidth();
-    const int sourceHeight = sprite->getHeight();
-    const int targetWidth = sourceWidth * scaleFactor;
-    const int targetHeight = sourceHeight * scaleFactor;
-    const int pixelCount = sourceWidth * sourceHeight;
+    // Protect against allocation/processing failures inside xBRZ upscale.
+    try {
+        const int sourceWidth = sprite->getWidth();
+        const int sourceHeight = sprite->getHeight();
+        const int targetWidth = sourceWidth * scaleFactor;
+        const int targetHeight = sourceHeight * scaleFactor;
+        const int pixelCount = sourceWidth * sourceHeight;
 
-    std::vector<uint32_t> sourcePixels(pixelCount);
-    const std::vector<uint8_t>& sourceData = sprite->getPixels();
-    for (int i = 0; i < pixelCount; ++i) {
-        const int offset = i * 4;
-        sourcePixels[i] = (static_cast<uint32_t>(sourceData[offset + 3]) << 24) |
-                          (static_cast<uint32_t>(sourceData[offset + 0]) << 16) |
-                          (static_cast<uint32_t>(sourceData[offset + 1]) << 8) |
-                          static_cast<uint32_t>(sourceData[offset + 2]);
+        if (sourceWidth <= 0 || sourceHeight <= 0 || targetWidth <= 0 || targetHeight <= 0)
+            return sprite;
+
+        std::vector<uint32_t> sourcePixels(pixelCount);
+        const std::vector<uint8_t>& sourceData = sprite->getPixels();
+        for (int i = 0; i < pixelCount; ++i) {
+            const int offset = i * 4;
+            sourcePixels[i] = (static_cast<uint32_t>(sourceData[offset + 3]) << 24) |
+                              (static_cast<uint32_t>(sourceData[offset + 0]) << 16) |
+                              (static_cast<uint32_t>(sourceData[offset + 1]) << 8) |
+                              static_cast<uint32_t>(sourceData[offset + 2]);
+        }
+
+        std::vector<uint32_t> targetPixels(static_cast<size_t>(targetWidth) * targetHeight);
+        xbrz::scale(scaleFactor, sourcePixels.data(), targetPixels.data(), sourceWidth, sourceHeight, xbrz::ColorFormat::ARGB);
+
+        auto upscaledImage = std::make_shared<Image>(Size(targetWidth, targetHeight));
+        std::vector<uint8_t>& targetData = upscaledImage->getPixels();
+        bool hasTransparentPixel = false;
+        for (size_t i = 0; i < targetPixels.size(); ++i) {
+            const uint32_t pixel = targetPixels[i];
+            const size_t offset = i * 4;
+            targetData[offset + 0] = static_cast<uint8_t>((pixel >> 16) & 0xFF);
+            targetData[offset + 1] = static_cast<uint8_t>((pixel >> 8) & 0xFF);
+            targetData[offset + 2] = static_cast<uint8_t>(pixel & 0xFF);
+            targetData[offset + 3] = static_cast<uint8_t>((pixel >> 24) & 0xFF);
+            hasTransparentPixel = hasTransparentPixel || targetData[offset + 3] != 0xFF;
+        }
+        upscaledImage->setTransparentPixel(sprite->hasTransparentPixel() || hasTransparentPixel);
+
+        return upscaledImage;
+    } catch (const std::bad_alloc&) {
+        static bool s_warned = false;
+        if (!s_warned) {
+            s_warned = true;
+            g_logger.warning("HD Graphics: out of memory during xBRZ upscale — falling back to original sprite");
+        }
+        return sprite;
+    } catch (const std::exception& e) {
+        static bool s_warned = false;
+        if (!s_warned) {
+            s_warned = true;
+            g_logger.warning("HD Graphics: upscale failed ({}) — falling back to original sprite", e.what());
+        }
+        return sprite;
     }
-
-    std::vector<uint32_t> targetPixels(targetWidth * targetHeight);
-    xbrz::scale(scaleFactor, sourcePixels.data(), targetPixels.data(), sourceWidth, sourceHeight, xbrz::ColorFormat::ARGB);
-
-    auto upscaledImage = std::make_shared<Image>(Size(targetWidth, targetHeight));
-    std::vector<uint8_t>& targetData = upscaledImage->getPixels();
-    bool hasTransparentPixel = false;
-    for (size_t i = 0; i < targetPixels.size(); ++i) {
-        const uint32_t pixel = targetPixels[i];
-        const size_t offset = i * 4;
-        targetData[offset + 0] = static_cast<uint8_t>((pixel >> 16) & 0xFF);
-        targetData[offset + 1] = static_cast<uint8_t>((pixel >> 8) & 0xFF);
-        targetData[offset + 2] = static_cast<uint8_t>(pixel & 0xFF);
-        targetData[offset + 3] = static_cast<uint8_t>((pixel >> 24) & 0xFF);
-        hasTransparentPixel = hasTransparentPixel || targetData[offset + 3] != 0xFF;
-    }
-    upscaledImage->setTransparentPixel(sprite->hasTransparentPixel() || hasTransparentPixel);
-
-    return upscaledImage;
 }
 
 uint16_t readU16FromBuffer(const uint8_t* data, size_t& offset) {

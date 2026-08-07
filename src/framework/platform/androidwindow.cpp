@@ -334,7 +334,13 @@ void AndroidWindow::swapBuffers() {
 }
 
 void AndroidWindow::setVerticalSync(bool enable) {
-    eglSwapInterval(m_eglDisplay, enable ? 1 : 0);
+    m_vsync = enable;
+    m_vsyncApplied = false;
+    if (eglSwapInterval(m_eglDisplay, enable ? 1 : 0) == EGL_TRUE) {
+        m_vsyncApplied = enable;
+    } else {
+        g_logger.warning("VSync requested but eglSwapInterval failed");
+    }
 }
 
 std::string AndroidWindow::getClipboardText() {
