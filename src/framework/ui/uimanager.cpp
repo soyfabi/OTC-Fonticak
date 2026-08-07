@@ -165,8 +165,10 @@ void UIManager::inputEvent(const InputEvent& event)
 
             // first fire dragging move
             if (m_draggingWidget) {
-                if (m_draggingWidget->onDragMove(event.mousePos, event.mouseMoved))
+                if (m_draggingWidget->onDragMove(event.mousePos, event.mouseMoved)) {
+                    g_drawPool.repaint(DrawPoolType::FOREGROUND);
                     break;
+                }
             }
 
             if (m_pressedWidget) {

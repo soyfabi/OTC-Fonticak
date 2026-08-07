@@ -122,8 +122,15 @@ bool Client::canDraw(const DrawPoolType type) const
         case DrawPoolType::MAP:
             return g_game.isOnline();
 
-        case DrawPoolType::FOREGROUND:
-            return g_drawPool.get(type)->canRepaint();
+        case DrawPoolType::FOREGROUND: {
+            // FOREGROUND is intentionally capped (~10 FPS) to save CPU, but while
+            // dragging windows that makes the UI feel like ~5-10 FPS. Force a
+            // refresh so drag follows the mouse at the display refresh rate.
+            const auto pool = g_drawPool.get(type);
+            if (g_ui.getDraggingWidget())
+                pool->repaint();
+            return pool->canRepaint();
+        }
 
         case DrawPoolType::CREATURE_INFORMATION:
         case DrawPoolType::FOREGROUND_MAP:
