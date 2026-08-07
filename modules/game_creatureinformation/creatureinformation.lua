@@ -74,7 +74,11 @@ local function onChangeName(creature, name, oldName)
     end
 
     infoWidget.name:setText(name)
-    infoWidget.name:setVisible(gameMapPanel:isDrawingNames())
+    if creature:isLocalPlayer() and gameMapPanel.isDrawingPlayerNames then
+        infoWidget.name:setVisible(gameMapPanel:isDrawingPlayerNames())
+    else
+        infoWidget.name:setVisible(gameMapPanel:isDrawingNames())
+    end
 end
 
 local function onCovered(creature, isCovered, oldIsCovered)
@@ -173,10 +177,19 @@ function toggleInformation()
 
     localPlayer:getWidgetInformation().manaBar:setVisible(gameMapPanel:isDrawingManaBar())
 
+    local drawPlayerNames = gameMapPanel.isDrawingPlayerNames and gameMapPanel:isDrawingPlayerNames() or gameMapPanel:isDrawingNames()
+    local drawPlayerBars = gameMapPanel.isDrawingPlayerBars and gameMapPanel:isDrawingPlayerBars() or gameMapPanel:isDrawingHealthBars()
+
     local spectators = modules.game_interface.getMapPanel():getSpectators()
     for _, creature in ipairs(spectators) do
-        creature:getWidgetInformation().name:setVisible(gameMapPanel:isDrawingNames())
-        creature:getWidgetInformation().lifeBar:setVisible(gameMapPanel:isDrawingHealthBars())
+        local info = creature:getWidgetInformation()
+        if creature:isLocalPlayer() then
+            info.name:setVisible(drawPlayerNames)
+            info.lifeBar:setVisible(drawPlayerBars)
+        else
+            info.name:setVisible(gameMapPanel:isDrawingNames())
+            info.lifeBar:setVisible(gameMapPanel:isDrawingHealthBars())
+        end
     end
 end
 

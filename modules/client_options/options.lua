@@ -95,18 +95,19 @@ local extraWidgets = {
 }
 
 local function toggleDisplays()
-    if options['displayNames'].value and options['displayHealth'].value and options['displayMana'].value and options['displayHarmony'].value then
+    local manaKey = options['showOwnMana'] and 'showOwnMana' or 'displayMana'
+    if options['displayNames'].value and options['displayHealth'].value and options[manaKey].value and options['displayHarmony'].value then
         setOption('displayNames', false)
     elseif options['displayHealth'].value then
         setOption('displayHealth', false)
-        setOption('displayMana', false)
+        setOption(manaKey, false)
         setOption('displayHarmony', false)
     else
         if not options['displayNames'].value and not options['displayHealth'].value then
             setOption('displayNames', true)
         else
             setOption('displayHealth', true)
-            setOption('displayMana', true)
+            setOption(manaKey, true)
             setOption('displayHarmony', true)
         end
     end
@@ -162,6 +163,16 @@ local function setupComboBox()
         setOption('antialiasingMode', comboBox:getCurrentOption().data)
     end
 
+    local sizeBox = panels.interfaceHUD and panels.interfaceHUD:recursiveGetChildById('sizeBox')
+    if sizeBox then
+        sizeBox:addOption(tr('Small Size'), 1)
+        sizeBox:addOption(tr('Default Size'), 2)
+        sizeBox:addOption(tr('Large Size'), 3)
+        sizeBox.onOptionChange = function(comboBox, option)
+            setOption('sizeBox', comboBox.currentIndex)
+        end
+    end
+
 
     for k, t in pairs({ 'Normal', 'Fade', 'Locked', 'Always', 'Always with transparency' }) do
         floorViewModeCombobox:addOption(t, k - 1)
@@ -207,7 +218,7 @@ local function setup()
     for k, obj in pairs(options) do
         local v = obj.value
 
-        if k ~= 'classicControl' and k ~= 'smartLeftClick' and k ~= 'mouseControlMode' then
+        if k ~= 'classicControl' and k ~= 'smartLeftClick' and k ~= 'mouseControlMode' and k ~= 'showHealthManaCircle' then
             if type(v) == 'boolean' then
                 local value = g_settings.getBoolean(k)
                 setOption(k, value, true)
@@ -218,6 +229,18 @@ local function setup()
                 local value = g_settings.getString(k)
                 setOption(k, value, true)
             end
+        end
+    end
+
+    -- Sync arc master checkbox from individual HP/MP without forcing arcs off/on.
+    if options.showHealthManaCircle and options.healthCheckBox and options.manaCheckBox then
+        local bothOn = options.healthCheckBox.value and options.manaCheckBox.value
+        options.showHealthManaCircle.value = bothOn
+        g_settings.set('showHealthManaCircle', bothOn)
+        local hud = panels.interfaceHUD
+        local master = hud and hud:recursiveGetChildById('showHealthManaCircle')
+        if master then
+            master:setChecked(bothOn)
         end
     end
     
@@ -628,8 +651,12 @@ function setOption(key, value, force)
         return
     end
 
+    -- Update value before action so helpers like applyOwnHUD/applyOtherHUD
+    -- read the new state (otherwise toggles apply inverted / stale values).
+    option.value = value
+
     if option.action then
-        option.action(value, options, controller, panels, extraWidgets)
+        option.action(value, options, controller, panels, extraWidgets, force)
     end
 
 
@@ -649,7 +676,6 @@ function setOption(key, value, force)
         end
     end
 
-    option.value = value
     g_settings.set(key, value)
 end
 
@@ -669,6 +695,82 @@ function getOption(key)
         return nil
     end
     return option.value
+end
+
+function applyOwnHUD(opts, panelTable)
+    opts = opts or options
+    panelTable = panelTable or panels
+    local map = panelTable.gameMapPanel
+    if not map then
+        return
+    end
+
+    local ownEnabled = opts.ownHUDCharacter and opts.ownHUDCharacter.value
+    if not ownEnabled then
+        if map.setDrawPlayerBars then map:setDrawPlayerBars(false) end
+        if map.setDrawPlayerNames then map:setDrawPlayerNames(false) end
+        map:setDrawManaBar(false)
+        map:setDrawHarmony(false)
+        if g_gameConfig.isDrawingInformationByWidget() and modules.game_creatureinformation then
+            modules.game_creatureinformation.toggleInformation()
+        end
+        return
+    end
+
+    local showBars = opts.showOwnBars and opts.showOwnBars.value
+    local showHealth = opts.showOwnHealth and opts.showOwnHealth.value
+    local showName = opts.showOwnName and opts.showOwnName.value
+    local showMana = opts.showOwnMana and opts.showOwnMana.value
+    local showHarmony = opts.displayHarmony and opts.displayHarmony.value
+
+    -- Each of Health / Mana / Harmony is independent.
+    -- Show Bars is only a master switch for those three.
+    if not showBars then
+        if map.setDrawPlayerBars then map:setDrawPlayerBars(false) end
+        map:setDrawManaBar(false)
+        map:setDrawHarmony(false)
+    else
+        if map.setDrawPlayerBars then
+            map:setDrawPlayerBars(showHealth)
+        end
+        map:setDrawManaBar(showMana)
+        map:setDrawHarmony(showHarmony)
+    end
+    if map.setDrawPlayerNames then
+        map:setDrawPlayerNames(showName)
+    end
+
+    -- Keep legacy displayMana key in sync.
+    if opts.displayMana then
+        opts.displayMana.value = showMana
+        g_settings.set('displayMana', showMana)
+    end
+
+    if g_gameConfig.isDrawingInformationByWidget() and modules.game_creatureinformation then
+        modules.game_creatureinformation.toggleInformation()
+    end
+end
+
+function applyOtherHUD(opts, panelTable)
+    opts = opts or options
+    panelTable = panelTable or panels
+    local map = panelTable.gameMapPanel
+    if not map then
+        return
+    end
+
+    local othersEnabled = opts.otherHUDCreatures and opts.otherHUDCreatures.value
+    if not othersEnabled then
+        map:setDrawNames(false)
+        map:setDrawHealthBars(false)
+    else
+        map:setDrawNames(opts.displayNames and opts.displayNames.value)
+        map:setDrawHealthBars(opts.displayHealth and opts.displayHealth.value)
+    end
+
+    if g_gameConfig.isDrawingInformationByWidget() and modules.game_creatureinformation then
+        modules.game_creatureinformation.toggleInformation()
+    end
 end
 
 function resetWalkAndKeyboardDelays()
@@ -754,11 +856,11 @@ function toggle()
 end
 
 function addTab(name, panel, icon)
-    print("to prevent the error use Ex = g_ui.loadUI('option_healthcircle',modules.client_options:getPanel()) ")
+    -- deprecated: options use addButton categories instead of tabs
 end
 
 function removeTab(v)
-    print("to prevent the error use Ex   modules.client_options.addButton('Interface', 'HP/MP Circle', optionPanel)")
+    -- deprecated: options use addButton categories instead of tabs
 end
 
 local function toggleSubCategories(parent, isOpen)

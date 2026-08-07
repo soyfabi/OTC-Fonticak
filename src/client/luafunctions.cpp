@@ -1167,6 +1167,8 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMap>("setDrawLights", &UIMap::setDrawLights);
     g_lua.bindClassMemberFunction<UIMap>("setLimitVisibleDimension", &UIMap::setLimitVisibleDimension);
     g_lua.bindClassMemberFunction<UIMap>("setDrawManaBar", &UIMap::setDrawManaBar);
+    g_lua.bindClassMemberFunction<UIMap>("setDrawPlayerBars", &UIMap::setDrawPlayerBars);
+    g_lua.bindClassMemberFunction<UIMap>("setDrawPlayerNames", &UIMap::setDrawPlayerNames);
     g_lua.bindClassMemberFunction<UIMap>("setKeepAspectRatio", &UIMap::setKeepAspectRatio);
     g_lua.bindClassMemberFunction<UIMap>("setShader", static_cast<void (UIMap::*)(std::string_view, float, float)>(&UIMap::setShader));
     g_lua.bindClassMemberFunction<UIMap>("getShader", &UIMap::getShader);
@@ -1181,6 +1183,8 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMap>("isDrawingLights", &UIMap::isDrawingLights);
     g_lua.bindClassMemberFunction<UIMap>("isLimitedVisibleDimension", &UIMap::isLimitedVisibleDimension);
     g_lua.bindClassMemberFunction<UIMap>("isDrawingManaBar", &UIMap::isDrawingManaBar);
+    g_lua.bindClassMemberFunction<UIMap>("isDrawingPlayerBars", &UIMap::isDrawingPlayerBars);
+    g_lua.bindClassMemberFunction<UIMap>("isDrawingPlayerNames", &UIMap::isDrawingPlayerNames);
     g_lua.bindClassMemberFunction<UIMap>("isLimitVisibleRangeEnabled", &UIMap::isLimitVisibleRangeEnabled);
     g_lua.bindClassMemberFunction<UIMap>("isKeepAspectRatioEnabled", &UIMap::isKeepAspectRatioEnabled);
     g_lua.bindClassMemberFunction<UIMap>("isInRange", &UIMap::isInRange);

@@ -114,6 +114,10 @@ void UIMap::setLimitVisibleDimension(const bool enable) { m_mapView->setLimitVis
 
 void UIMap::setDrawManaBar(const bool enable) { m_mapView->setDrawManaBar(enable); }
 
+void UIMap::setDrawPlayerBars(const bool enable) { m_mapView->setDrawPlayerBars(enable); }
+
+void UIMap::setDrawPlayerNames(const bool enable) { m_mapView->setDrawPlayerNames(enable); }
+
 void UIMap::setDrawHarmony(const bool enable) { m_mapView->setDrawHarmony(enable); }
 
 void UIMap::setShader(std::string_view name, float fadein, float fadeout) { m_mapView->setShader(name, fadein, fadeout); }
@@ -131,6 +135,10 @@ bool UIMap::isDrawingLights() { return m_mapView->isDrawingLights(); }
 bool UIMap::isLimitedVisibleDimension() { return m_mapView->isLimitedVisibleDimension(); }
 
 bool UIMap::isDrawingManaBar() { return m_mapView->isDrawingManaBar(); }
+
+bool UIMap::isDrawingPlayerBars() { return m_mapView->isDrawingPlayerBars(); }
+
+bool UIMap::isDrawingPlayerNames() { return m_mapView->isDrawingPlayerNames(); }
 
 bool UIMap::isSwitchingShader() { return m_mapView->isSwitchingShader(); }
 

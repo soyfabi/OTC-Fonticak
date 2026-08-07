@@ -32,7 +32,7 @@ return {
     },
     showPing                          = {
         value = false,
-        action = function(value, options, controller, panels, extraWidgets)
+        action = function(value, options, controller, panels, extraWidgets, force)
             modules.client_topmenu.setPingVisible(value)
             local hud = panels.interfaceHUD
             local panel = hud and hud:recursiveGetChildById('showPingPositionPanel')
@@ -44,8 +44,8 @@ return {
                     panel:setHeight(0)
                 end
             end
-            -- When enabling, nudge the HUD scrollbar so the new option is visible
-            if value and hud then
+            -- When enabling from the UI, nudge scrollbar. Skip bootstrap (force).
+            if value and hud and not force then
                 addEvent(function()
                     local scroll = hud:recursiveGetChildById('hudScrollBar')
                     local area = hud:recursiveGetChildById('hudScrollArea')
@@ -410,10 +410,93 @@ return {
             panels.gameMapPanel:setDrawLights(options.enableLights.value)
         end
     },
+    ownHUDCharacter                   = {
+        value = true,
+        action = function(value, options, controller, panels, extraWidgets)
+            local hud = panels.interfaceHUD
+            local children = { 'showOwnBars', 'showOwnName', 'showOwnHealth', 'showOwnMana', 'displayHarmony' }
+            if hud then
+                for _, id in ipairs(children) do
+                    local w = hud:recursiveGetChildById(id)
+                    if w then
+                        w:setEnabled(value)
+                    end
+                end
+            end
+            if modules.client_options and modules.client_options.applyOwnHUD then
+                modules.client_options.applyOwnHUD(options, panels)
+            end
+        end
+    },
+    showOwnBars                       = {
+        value = true,
+        action = function(value, options, controller, panels, extraWidgets)
+            if modules.client_options and modules.client_options.applyOwnHUD then
+                modules.client_options.applyOwnHUD(options, panels)
+            end
+        end
+    },
+    showOwnName                       = {
+        value = true,
+        action = function(value, options, controller, panels, extraWidgets)
+            if modules.client_options and modules.client_options.applyOwnHUD then
+                modules.client_options.applyOwnHUD(options, panels)
+            end
+        end
+    },
+    showOwnHealth                     = {
+        value = true,
+        action = function(value, options, controller, panels, extraWidgets)
+            if modules.client_options and modules.client_options.applyOwnHUD then
+                modules.client_options.applyOwnHUD(options, panels)
+            end
+        end
+    },
+    showOwnMana                       = {
+        value = (function()
+            if g_settings.exists('showOwnMana') then
+                return g_settings.getBoolean('showOwnMana')
+            end
+            if g_settings.exists('displayMana') then
+                return g_settings.getBoolean('displayMana')
+            end
+            return true
+        end)(),
+        action = function(value, options, controller, panels, extraWidgets)
+            if modules.client_options and modules.client_options.applyOwnHUD then
+                modules.client_options.applyOwnHUD(options, panels)
+            end
+            if g_gameConfig.isDrawingInformationByWidget() then
+                modules.game_creatureinformation.toggleInformation()
+            end
+        end
+    },
+    otherHUDCreatures                 = {
+        value = true,
+        action = function(value, options, controller, panels, extraWidgets)
+            local hud = panels.interfaceHUD
+            local children = { 'displayNames', 'displayHealth' }
+            if hud then
+                for _, id in ipairs(children) do
+                    local w = hud:recursiveGetChildById(id)
+                    if w then
+                        w:setEnabled(value)
+                    end
+                end
+            end
+            if modules.client_options and modules.client_options.applyOtherHUD then
+                modules.client_options.applyOtherHUD(options, panels)
+            end
+        end
+    },
     displayNames                      = {
         value = true,
         action = function(value, options, controller, panels, extraWidgets)
-            panels.gameMapPanel:setDrawNames(value)
+            if modules.client_options and modules.client_options.applyOtherHUD then
+                modules.client_options.applyOtherHUD(options, panels)
+            else
+                panels.gameMapPanel:setDrawNames(value)
+            end
 
             if g_gameConfig.isDrawingInformationByWidget() then
                 modules.game_creatureinformation.toggleInformation()
@@ -423,7 +506,11 @@ return {
     displayHealth                     = {
         value = true,
         action = function(value, options, controller, panels, extraWidgets)
-            panels.gameMapPanel:setDrawHealthBars(value)
+            if modules.client_options and modules.client_options.applyOtherHUD then
+                modules.client_options.applyOtherHUD(options, panels)
+            else
+                panels.gameMapPanel:setDrawHealthBars(value)
+            end
 
             if g_gameConfig.isDrawingInformationByWidget() then
                 modules.game_creatureinformation.toggleInformation()
@@ -433,7 +520,15 @@ return {
     displayMana                       = {
         value = true,
         action = function(value, options, controller, panels, extraWidgets)
-            panels.gameMapPanel:setDrawManaBar(value)
+            -- Legacy key: keep in sync with showOwnMana / own HUD.
+            if options.showOwnMana then
+                options.showOwnMana.value = value
+            end
+            if modules.client_options and modules.client_options.applyOwnHUD then
+                modules.client_options.applyOwnHUD(options, panels)
+            else
+                panels.gameMapPanel:setDrawManaBar(value)
+            end
 
             if g_gameConfig.isDrawingInformationByWidget() then
                 modules.game_creatureinformation.toggleInformation()
@@ -443,7 +538,98 @@ return {
     displayHarmony                     = {
         value = true,
         action = function(value, options, controller, panels, extraWidgets)
-            panels.gameMapPanel:setDrawHarmony(value)
+            if modules.client_options and modules.client_options.applyOwnHUD then
+                modules.client_options.applyOwnHUD(options, panels)
+            else
+                panels.gameMapPanel:setDrawHarmony(value)
+            end
+        end
+    },
+    showHealthManaCircle              = {
+        value = not g_settings.getBoolean('healthcircle_hpcircle') and not g_settings.getBoolean('healthcircle_mpcircle'),
+        action = function(value, options, controller, panels, extraWidgets)
+            -- Convenience master: toggles both health and mana arcs together.
+            modules.client_options.setOption('healthCheckBox', value and true or false, true)
+            modules.client_options.setOption('manaCheckBox', value and true or false, true)
+        end
+    },
+    healthCheckBox                    = {
+        value = not g_settings.getBoolean('healthcircle_hpcircle'),
+        action = function(value, options, controller, panels, extraWidgets)
+            if modules.game_healthcircle then
+                modules.game_healthcircle.setHealthCircle(value)
+            end
+            if options.showHealthManaCircle and options.manaCheckBox then
+                local bothOn = value and options.manaCheckBox.value
+                options.showHealthManaCircle.value = bothOn
+                g_settings.set('showHealthManaCircle', bothOn)
+                local hud = panels.interfaceHUD
+                local master = hud and hud:recursiveGetChildById('showHealthManaCircle')
+                if master then
+                    master:setChecked(bothOn)
+                end
+            end
+        end
+    },
+    manaCheckBox                      = {
+        value = not g_settings.getBoolean('healthcircle_mpcircle'),
+        action = function(value, options, controller, panels, extraWidgets)
+            if modules.game_healthcircle then
+                modules.game_healthcircle.setManaCircle(value)
+            end
+            if options.showHealthManaCircle and options.healthCheckBox then
+                local bothOn = options.healthCheckBox.value and value
+                options.showHealthManaCircle.value = bothOn
+                g_settings.set('showHealthManaCircle', bothOn)
+                local hud = panels.interfaceHUD
+                local master = hud and hud:recursiveGetChildById('showHealthManaCircle')
+                if master then
+                    master:setChecked(bothOn)
+                end
+            end
+        end
+    },
+    experienceCheckBox                = {
+        value = g_settings.getBoolean('healthcircle_expcircle'),
+        action = function(value, options, controller, panels, extraWidgets)
+            if modules.game_healthcircle then
+                modules.game_healthcircle.setExpCircle(value)
+            end
+        end
+    },
+    skillCheckBox                     = {
+        value = g_settings.getBoolean('healthcircle_skillcircle'),
+        action = function(value, options, controller, panels, extraWidgets)
+            if modules.game_healthcircle then
+                modules.game_healthcircle.setSkillCircle(value)
+            end
+        end
+    },
+    sizeBox                           = {
+        value = (function()
+            if g_settings.exists('sizeBox') then
+                local v = g_settings.getNumber('sizeBox')
+                if v >= 1 and v <= 3 then
+                    return v
+                end
+            end
+            if g_settings.exists('healthcircle_style') then
+                return math.max(1, math.min(3, g_settings.getNumber('healthcircle_style') + 1))
+            end
+            return 2
+        end)(),
+        action = function(value, options, controller, panels, extraWidgets)
+            local index = tonumber(value) or 2
+            if index < 1 then index = 1 end
+            if index > 3 then index = 3 end
+            if modules.game_healthcircle and modules.game_healthcircle.setArcStyle then
+                modules.game_healthcircle.setArcStyle(index - 1)
+            end
+            local hud = panels.interfaceHUD
+            local box = hud and hud:recursiveGetChildById('sizeBox')
+            if box and box.setCurrentIndex then
+                box:setCurrentIndex(index, true)
+            end
         end
     },
     displayText                       = {
@@ -806,19 +992,45 @@ return {
         end
     },
     distFromCenScrollbar              = {
-        value = 0,
+        value = (function()
+            if g_settings.exists('distFromCenScrollbar') then
+                return g_settings.getNumber('distFromCenScrollbar')
+            end
+            if g_settings.exists('healthcircle_distfromcenter') then
+                return g_settings.getNumber('healthcircle_distfromcenter')
+            end
+            return 0
+        end)(),
         action = function(value, options, controller, panels, extraWidgets)
-            local bar = modules.game_healthcircle.optionPanel:recursiveGetChildById('distFromCenScrollbar')
-            bar:setText(tr('Distance: %s', bar:recursiveGetChildById('valueBar'):getValue()))
-            modules.game_healthcircle.setDistanceFromCenter(bar:recursiveGetChildById('valueBar'):getValue())
+            local hud = panels.interfaceHUD
+            local bar = hud and hud:recursiveGetChildById('distFromCenScrollbar')
+            if bar then
+                bar:setText(tr('Distance: %s', value))
+            end
+            if modules.game_healthcircle then
+                modules.game_healthcircle.setDistanceFromCenter(value)
+            end
         end
     },
     opacityScrollbar                  = {
-        value = 0,
+        value = (function()
+            if g_settings.exists('opacityScrollbar') then
+                return g_settings.getNumber('opacityScrollbar')
+            end
+            if g_settings.exists('healthcircle_opacity') then
+                return math.floor(g_settings.getNumber('healthcircle_opacity') * 100)
+            end
+            return 35
+        end)(),
         action = function(value, options, controller, panels, extraWidgets)
-            local bar = modules.game_healthcircle.optionPanel:recursiveGetChildById('opacityScrollbar')
-            bar:setText(tr('Opacity: %s', bar:recursiveGetChildById('valueBar'):getValue() / 100))
-            modules.game_healthcircle.setCircleOpacity(bar:recursiveGetChildById('valueBar'):getValue() / 100)
+            local hud = panels.interfaceHUD
+            local bar = hud and hud:recursiveGetChildById('opacityScrollbar')
+            if bar then
+                bar:setText(tr('Opacity: %s', value / 100))
+            end
+            if modules.game_healthcircle then
+                modules.game_healthcircle.setCircleOpacity(value / 100)
+            end
         end
     },
     profile                           = {

@@ -86,6 +86,12 @@ public:
     void setDrawManaBar(const bool enable) { m_drawManaBar = enable; }
     bool isDrawingManaBar() const { return m_drawManaBar; }
 
+    void setDrawPlayerBars(const bool enable) { m_drawPlayerBars = enable; }
+    bool isDrawingPlayerBars() const { return m_drawPlayerBars; }
+
+    void setDrawPlayerNames(const bool enable) { m_drawPlayerNames = enable; }
+    bool isDrawingPlayerNames() const { return m_drawPlayerNames; }
+
     void setDrawHarmony(const bool enable) { m_drawHarmony = enable; }
     bool isDrawingHarmony() const { return m_drawHarmony; }
 
@@ -263,6 +269,8 @@ private:
     bool m_shaderSwitchDone{ true };
     bool m_drawHealthBars{ true };
     bool m_drawManaBar{ true };
+    bool m_drawPlayerBars{ true };
+    bool m_drawPlayerNames{ true };
     bool m_drawNames{ true };
     bool m_smooth{ true };
     bool m_follow{ true };

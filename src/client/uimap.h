@@ -45,6 +45,8 @@ public:
     void setDrawLights(bool enable);
     void setLimitVisibleDimension(bool enable);
     void setDrawManaBar(bool enable);
+    void setDrawPlayerBars(bool enable);
+    void setDrawPlayerNames(bool enable);
     void setDrawHarmony(bool enable);
     void setShader(std::string_view name, float fadein, float fadeout);
     void setMinimumAmbientLight(float intensity);
@@ -54,6 +56,8 @@ public:
     bool isDrawingLights();
     bool isLimitedVisibleDimension();
     bool isDrawingManaBar();
+    bool isDrawingPlayerBars();
+    bool isDrawingPlayerNames();
     bool isSwitchingShader();
     void setShadowFloorIntensity(float intensity);
     std::vector<CreaturePtr> getSpectators(bool multiFloor = false);

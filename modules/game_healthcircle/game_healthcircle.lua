@@ -27,12 +27,14 @@ manaShieldImageSizeThin = 0
 manaShieldCircleOffsetX = -52
 manaShieldCircleOffsetY = 7
 
-optionPanel = nil
-
-isHealthCircle = not g_settings.getBoolean('healthcircle_hpcircle')
-isManaCircle = not g_settings.getBoolean('healthcircle_mpcircle')
-isExpCircle = g_settings.getBoolean('healthcircle_expcircle')
-isSkillCircle = g_settings.getBoolean('healthcircle_skillcircle')
+isHealthCircle = g_settings.exists('healthCheckBox') and g_settings.getBoolean('healthCheckBox') or
+    not g_settings.getBoolean('healthcircle_hpcircle')
+isManaCircle = g_settings.exists('manaCheckBox') and g_settings.getBoolean('manaCheckBox') or
+    not g_settings.getBoolean('healthcircle_mpcircle')
+isExpCircle = g_settings.exists('experienceCheckBox') and g_settings.getBoolean('experienceCheckBox') or
+    g_settings.getBoolean('healthcircle_expcircle')
+isSkillCircle = g_settings.exists('skillCheckBox') and g_settings.getBoolean('skillCheckBox') or
+    g_settings.getBoolean('healthcircle_skillcircle')
 skillTypes = g_settings.getNode('healthcircle_skilltypes')
 skillsLoaded = false
 
@@ -716,12 +718,102 @@ chooseStatsBarDimension = nil
 chooseStatsBarPlacement = nil
 distFromCenScrollbar = nil
 opacityScrollbar = nil
+sizeBox = nil
+
+local arcStyleConfigs = {
+    [0] = { prefix = "" },
+    [1] = { prefix = "" },
+    [2] = { prefix = "" }
+}
+
+local function normalizeArcStyle(value)
+    value = tonumber(value) or 1
+    value = math.floor(value)
+    if not arcStyleConfigs[value] then
+        return 1
+    end
+    return value
+end
+
+local function getInitialArcStyle()
+    local sizeBoxValue = tonumber(g_settings.getNumber('sizeBox')) or 0
+    if sizeBoxValue >= 1 and sizeBoxValue <= 3 then
+        return normalizeArcStyle(sizeBoxValue - 1)
+    end
+    return normalizeArcStyle(g_settings.getNumber('healthcircle_style'))
+end
+
+local currentArcStyle = getInitialArcStyle()
+
+local function getArcStyleConfig(style)
+    return arcStyleConfigs[normalizeArcStyle(style or currentArcStyle)]
+end
+
+local function getArcImagePath(name, state, style)
+    local config = getArcStyleConfig(style)
+    return "/data/images/game/healthcircle/" .. config.prefix .. name .. "_" .. state
+end
+
+local function setArcImage(widget, name, state, style)
+    if widget then
+        widget:setImageSource(getArcImagePath(name, state, style))
+    end
+end
+
+local function getHudOptionPanel()
+    if modules.client_options and modules.client_options.panels then
+        return modules.client_options.panels.interfaceHUD
+    end
+    return nil
+end
+
+function handleShowArc(value)
+    value = toboolean(value)
+
+    if value then
+        isHealthCircle = true
+        isManaCircle = true
+        if healthCheckBox then healthCheckBox:setChecked(true) end
+        if manaCheckBox then manaCheckBox:setChecked(true) end
+        g_settings.set('healthcircle_hpcircle', false)
+        g_settings.set('healthcircle_mpcircle', false)
+        setHealthCircle(true)
+        setManaCircle(true)
+    else
+        setHealthCircle(false)
+        setManaCircle(false)
+    end
+end
+
+function setArcStyle(value)
+    currentArcStyle = normalizeArcStyle(value)
+
+    setArcImage(healthCircle, "left", "empty")
+    setArcImage(healthCircleFront, "left", "full")
+    setArcImage(manaCircle, "right", "empty")
+    setArcImage(manaCircleFront, "right", "full")
+    setArcImage(manaShieldCircle, "right_extra", "empty")
+    setArcImage(manaShieldCircleFront, "right_extra", "full")
+    setArcImage(expCircle, "top", "empty")
+    setArcImage(expCircleFront, "top", "full")
+    setArcImage(skillCircle, "bottom", "empty")
+    setArcImage(skillCircleFront, "bottom", "full")
+
+    imageSizeBroad = healthCircle and healthCircle:getHeight() or 0
+    imageSizeThin = healthCircle and healthCircle:getWidth() or 0
+    whenMapResizeChange()
+    if StatusIconBar and type(StatusIconBar.updatePosition) == 'function' then
+        StatusIconBar.updatePosition()
+    end
+    g_settings.set('healthcircle_style', currentArcStyle)
+end
 
 function addToOptionsModule()
-    -- Add to options module
-    optionPanel = g_ui.loadUI('option_healthcircle', modules.client_options:getPanel())
+    optionPanel = getHudOptionPanel()
+    if not optionPanel then
+        return
+    end
 
-    -- UI values
     healthCheckBox = optionPanel:recursiveGetChildById('healthCheckBox')
     manaCheckBox = optionPanel:recursiveGetChildById('manaCheckBox')
     experienceCheckBox = optionPanel:recursiveGetChildById('experienceCheckBox')
@@ -731,49 +823,61 @@ function addToOptionsModule()
     chooseStatsBarPlacement = optionPanel:recursiveGetChildById('chooseStatsBarPlacement')
     distFromCenScrollbar = optionPanel:recursiveGetChildById('distFromCenScrollbar')
     opacityScrollbar = optionPanel:recursiveGetChildById('opacityScrollbar')
+    sizeBox = optionPanel:recursiveGetChildById('sizeBox')
 
-    -- ComboBox start values
-    chooseSkillComboBox:addOption('Magic Level', 'magic')
-    chooseSkillComboBox:addOption('Fist Fighting', 'fist')
-    chooseSkillComboBox:addOption('Club Fighting', 'club')
-    chooseSkillComboBox:addOption('Sword Fighting', 'sword')
-    chooseSkillComboBox:addOption('Axe Fighting', 'axe')
-    chooseSkillComboBox:addOption('Distance Fighting', 'distance')
-    chooseSkillComboBox:addOption('Shielding', 'shielding')
-    chooseSkillComboBox:addOption('Fishing', 'fishing')
+    if chooseSkillComboBox and #(chooseSkillComboBox.options or {}) == 0 then
+        chooseSkillComboBox:addOption('Magic Level', 'magic')
+        chooseSkillComboBox:addOption('Fist Fighting', 'fist')
+        chooseSkillComboBox:addOption('Club Fighting', 'club')
+        chooseSkillComboBox:addOption('Sword Fighting', 'sword')
+        chooseSkillComboBox:addOption('Axe Fighting', 'axe')
+        chooseSkillComboBox:addOption('Distance Fighting', 'distance')
+        chooseSkillComboBox:addOption('Shielding', 'shielding')
+        chooseSkillComboBox:addOption('Fishing', 'fishing')
+    end
 
-    chooseStatsBarPlacement:addOption(tr('Top'), 'top')
-    chooseStatsBarPlacement:addOption(tr('Bottom'), 'bottom')
+    if chooseStatsBarPlacement and #(chooseStatsBarPlacement.options or {}) == 0 then
+        chooseStatsBarPlacement:addOption(tr('Top'), 'top')
+        chooseStatsBarPlacement:addOption(tr('Bottom'), 'bottom')
+    end
 
-    chooseStatsBarDimension:addOption(tr('Hide'), 'hide')
-    chooseStatsBarDimension:addOption(tr('Compact'), 'compact')
-    chooseStatsBarDimension:addOption(tr('Default'), 'default')
-    chooseStatsBarDimension:addOption(tr('Large'), 'large')
-    chooseStatsBarDimension:addOption(tr('Parallel'), 'parallel')
+    if chooseStatsBarDimension and #(chooseStatsBarDimension.options or {}) == 0 then
+        chooseStatsBarDimension:addOption(tr('Hide'), 'hide')
+        chooseStatsBarDimension:addOption(tr('Compact'), 'compact')
+        chooseStatsBarDimension:addOption(tr('Default'), 'default')
+        chooseStatsBarDimension:addOption(tr('Large'), 'large')
+        chooseStatsBarDimension:addOption(tr('Parallel'), 'parallel')
+    end
 
     statsBarMenuLoaded = true
 
-    chooseStatsBarDimension:setCurrentOptionByData(g_settings.getString('statsbar_dimension'), true)
-    chooseStatsBarPlacement:setCurrentOptionByData(g_settings.getString('statsbar_placement'), true)
+    if chooseStatsBarDimension then
+        chooseStatsBarDimension:setCurrentOptionByData(g_settings.getString('statsbar_dimension'), true)
+    end
+    if chooseStatsBarPlacement then
+        chooseStatsBarPlacement:setCurrentOptionByData(g_settings.getString('statsbar_placement'), true)
+    end
 
-    -- Set values
-    healthCheckBox:setChecked(isHealthCircle)
-    manaCheckBox:setChecked(isManaCircle)
-    experienceCheckBox:setChecked(isExpCircle)
-    skillCheckBox:setChecked(isSkillCircle)
-
-    -- Prevent skill overwritten before initialize
     skillsLoaded = true
 
-    distFromCenScrollbar:setText(tr('Distance') .. ': ' .. distanceFromCenter)
-    distFromCenScrollbar:setValue(distanceFromCenter)
-    opacityScrollbar:setText(tr('Opacity') .. ': ' .. opacityCircle)
-    opacityScrollbar:setValue(opacityCircle * 100)
-    modules.client_options.addButton("Interface", "HP/MP Circle", optionPanel)
+    if sizeBox and #(sizeBox.options or {}) == 0 then
+        sizeBox:addOption(tr('Small Size'), 1)
+        sizeBox:addOption(tr('Default Size'), 2)
+        sizeBox:addOption(tr('Large Size'), 3)
+    end
+    if sizeBox then
+        local idx = g_settings.getNumber('sizeBox')
+        if idx < 1 or idx > 3 then
+            idx = currentArcStyle + 1
+        end
+        sizeBox:setCurrentIndex(idx)
+    end
+
+    setArcStyle(currentArcStyle)
 end
 
 function updateStatsBar()
-    if statsBarMenuLoaded then
+    if statsBarMenuLoaded and chooseStatsBarDimension and chooseStatsBarPlacement then
         modules.game_interface.updateStatsBar(chooseStatsBarDimension:getCurrentOption().data,
             chooseStatsBarPlacement:getCurrentOption().data)
     end
@@ -784,10 +888,20 @@ function setPlayerValues()
     if not skillType then
         skillType = 'magic'
     end
-    chooseSkillComboBox:setCurrentOptionByData(skillType, true)
+    if chooseSkillComboBox then
+        chooseSkillComboBox:setCurrentOptionByData(skillType, true)
+    end
 end
 
 function setStatsBarOption(dimension, placement)
+    if not chooseStatsBarDimension or not chooseStatsBarPlacement then
+        optionPanel = getHudOptionPanel()
+        if optionPanel then
+            chooseStatsBarDimension = optionPanel:recursiveGetChildById('chooseStatsBarDimension')
+            chooseStatsBarPlacement = optionPanel:recursiveGetChildById('chooseStatsBarPlacement')
+        end
+    end
+
     if not chooseStatsBarDimension or not chooseStatsBarPlacement then
         return
     end
@@ -820,7 +934,6 @@ function destroyOptionsModule()
     opacityScrollbar = nil
     chooseStatsBarDimension = nil
     chooseStatsBarPlacement = nil
-
-    modules.client_options.removeButton("Interface", "HP/MP Circle")
+    sizeBox = nil
     optionPanel = nil
 end

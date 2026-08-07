@@ -280,7 +280,21 @@ void MapView::drawCreatureInformation() {
 
         creature->setCovered(isCovered);
 
-        creature->drawInformation(m_posInfo, transformPositionTo2D(creature->getPosition()), flags);
+        uint32_t creatureFlags = flags;
+        if (creature->isLocalPlayer()) {
+            // Own HUD is independent from Other Creatures (displayNames / displayHealth).
+            if (m_drawPlayerBars)
+                creatureFlags |= Otc::DrawBars;
+            else
+                creatureFlags &= ~Otc::DrawBars;
+
+            if (m_drawPlayerNames)
+                creatureFlags |= Otc::DrawNames;
+            else
+                creatureFlags &= ~Otc::DrawNames;
+        }
+
+        creature->drawInformation(m_posInfo, transformPositionTo2D(creature->getPosition()), creatureFlags);
     }
 }
 

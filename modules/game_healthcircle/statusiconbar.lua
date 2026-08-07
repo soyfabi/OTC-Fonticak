@@ -511,7 +511,7 @@ function ConditionsHUD.setupHudList()
 
     local firstChild = listWidget:getChildByIndex(1)
     if firstChild then
-        listWidget:focusChild(firstChild, ActiveFocusReason)
+        -- Select without focusing: focusing scrolls the parent HUD scrollbar down.
         ConditionsHUD.selectedWidget = firstChild
         ConditionsHUD.refreshRowStyles()
     end

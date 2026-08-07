@@ -1,6 +1,16 @@
 UIWidget
   anchors.fill: parent
   visible: false
+  @onVisibilityChange: |
+    if self:isVisible() then
+      scheduleEvent(function()
+        if self:isDestroyed() then return end
+        local scroll = self:recursiveGetChildById('hudScrollBar')
+        if scroll then
+          scroll:setValue(0)
+        end
+      end, 1)
+    end
 
   UIScrollArea
     id: hudScrollArea
@@ -11,70 +21,346 @@ UIWidget
     margin-right: 14
     vertical-scrollbar: hudScrollBar
 
-    SmallReversedQtPanel
+    QtPanel
+      id: ownOtherPanel
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: parent.top
-  
-      height: 22
-    
-      OptionCheckBox
-        id: displayNames
-        !text: tr('Display creature names')
-  
+      height: 190
+      margin-top: 2
+
+      Panel
+        id: ownColumn
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        width: 230
+        margin-left: 2
+        margin-top: 2
+        margin-bottom: 6
+
+        SmallReversedQtPanel
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          height: 22
+
+          OptionCheckBox
+            id: ownHUDCharacter
+            !text: tr('Show HUD for Own Character')
+
+        SmallReversedQtPanel
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: prev.bottom
+          margin-top: 4
+          margin-left: 16
+          height: 22
+
+          OptionCheckBox
+            id: showOwnBars
+            !text: tr('Show Bars')
+
+        SmallReversedQtPanel
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: prev.bottom
+          margin-top: 4
+          margin-left: 16
+          height: 22
+
+          OptionCheckBox
+            id: showOwnName
+            !text: tr('Show Name')
+
+        SmallReversedQtPanel
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: prev.bottom
+          margin-top: 4
+          margin-left: 16
+          height: 22
+
+          OptionCheckBox
+            id: showOwnHealth
+            !text: tr('Show Health')
+
+        SmallReversedQtPanel
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: prev.bottom
+          margin-top: 4
+          margin-left: 16
+          height: 22
+
+          OptionCheckBox
+            id: showOwnMana
+            !text: tr('Show Mana')
+
+        SmallReversedQtPanel
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: prev.bottom
+          margin-top: 4
+          margin-left: 16
+          height: 22
+
+          OptionCheckBoxMarked
+            id: displayHarmony
+            !text: tr('Show Harmony')
+            !tooltip: tr('Can be enabled only in version 15.00 or higher')
+
+      VerticalSeparator
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.left: ownColumn.right
+        margin-top: 6
+        margin-bottom: 6
+        margin-left: 4
+
+      Panel
+        id: otherColumn
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.left: prev.right
+        anchors.right: parent.right
+        margin-left: 6
+        margin-top: 2
+        margin-bottom: 6
+        margin-right: 2
+
+        SmallReversedQtPanel
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: parent.top
+          height: 22
+
+          OptionCheckBox
+            id: otherHUDCreatures
+            !text: tr('Show HUD for Other Creatures')
+
+        SmallReversedQtPanel
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: prev.bottom
+          margin-top: 4
+          margin-left: 16
+          height: 22
+
+          OptionCheckBox
+            id: displayNames
+            !text: tr('Show Name')
+
+        SmallReversedQtPanel
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: prev.bottom
+          margin-top: 4
+          margin-left: 16
+          height: 22
+
+          OptionCheckBox
+            id: displayHealth
+            !text: tr('Show Health')
+
+    QtPanel
+      id: arcsPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+      height: 210
+      margin-top: 7
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        margin-top: 2
+        height: 22
+
+        OptionCheckBox
+          id: showHealthManaCircle
+          !text: tr('Show Health/Mana Arcs')
+          !tooltip: tr('Enable both health and mana arcs around your character.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBox
+          id: healthCheckBox
+          !text: tr('Health')
+          !tooltip: tr('Show health red circle.')
+          anchors.left: parent.left
+          anchors.right: parent.horizontalCenter
+          anchors.top: parent.top
+          margin-right: 4
+
+        OptionCheckBox
+          id: manaCheckBox
+          !text: tr('Mana')
+          !tooltip: tr('Show mana blue circle.')
+          anchors.left: parent.horizontalCenter
+          anchors.right: parent.right
+          anchors.top: parent.top
+          margin-left: 4
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBox
+          id: experienceCheckBox
+          !text: tr('Experience')
+          !tooltip: tr('Show experience yellow circle.')
+          anchors.left: parent.left
+          anchors.right: parent.horizontalCenter
+          anchors.top: parent.top
+          margin-right: 4
+
+        OptionCheckBox
+          id: skillCheckBox
+          !text: tr('Skill')
+          !tooltip: tr('Show skill purple circle.')
+          anchors.left: parent.horizontalCenter
+          anchors.right: parent.right
+          anchors.top: parent.top
+          margin-left: 4
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 28
+
+        Label
+          !text: tr('Skill')
+          anchors.left: parent.left
+          margin-left: 18
+          anchors.verticalCenter: parent.verticalCenter
+          color: #c0c0c0ff
+          width: 36
+
+        OptionsComboBox
+          id: chooseSkillComboBox
+          width: 120
+          anchors.left: prev.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-left: 4
+          mouse-scroll: false
+          @onTextChange: modules.game_healthcircle.setSkillType(self:getCurrentOption().data)
+
+        Label
+          !text: tr('Size')
+          anchors.left: prev.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-left: 12
+          color: #c0c0c0ff
+          width: 32
+
+        OptionsComboBox
+          id: sizeBox
+          width: 110
+          anchors.left: prev.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-left: 4
+          mouse-scroll: false
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionScaleScroll
+          id: distFromCenScrollbar
+          !text: tr('Distance')
+          !tooltip: tr('Set distance from center.')
+          anchors.fill: parent
+          &minimumScrollValue: 0
+          &maximumScrollValue: 100
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionScaleScroll
+          id: opacityScrollbar
+          !text: tr('Opacity')
+          !tooltip: tr('Set circle opacity.')
+          anchors.fill: parent
+          &minimumScrollValue: 0
+          &maximumScrollValue: 100
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 28
+
+        Label
+          !text: tr('Bars')
+          anchors.left: parent.left
+          margin-left: 18
+          anchors.verticalCenter: parent.verticalCenter
+          color: #c0c0c0ff
+          width: 36
+
+        OptionsComboBox
+          id: chooseStatsBarPlacement
+          width: 90
+          anchors.left: prev.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-left: 4
+          mouse-scroll: false
+          @onTextChange: modules.game_healthcircle.updateStatsBar()
+
+        OptionsComboBox
+          id: chooseStatsBarDimension
+          width: 90
+          anchors.left: prev.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-left: 6
+          mouse-scroll: false
+          @onTextChange: modules.game_healthcircle.updateStatsBar()
+
     SmallReversedQtPanel
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: prev.bottom
       margin-top: 7
       height: 22
-    
-      OptionCheckBox
-        id: displayHealth
-        !text: tr('Display creature health bars')
-  
-    SmallReversedQtPanel
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.top: prev.bottom
-      margin-top: 7
-      height: 22
-    
-      OptionCheckBox
-        id: displayMana
-        !text: tr('Display player mana bar')
-  
-    SmallReversedQtPanel
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.top: prev.bottom
-      margin-top: 7
-      height: 22
-  
-      OptionCheckBoxMarked
-        id: displayHarmony
-        !text: tr('Display player Harmony bar')
-        !tooltip: tr('Can be enabled only in version 15.00 or higher')
-  
-    SmallReversedQtPanel
-      anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.top: prev.bottom
-      margin-top: 7
-      height: 22
-  
+
       $!mobile:
         height: 0
         margin-top: 0
         visible: false
-    
+
       OptionCheckBox
         id: rightJoystick
         !text: tr('Joystick in RightPanel')
-  
+
         $!mobile:
           visible: false
-        
+
     SmallReversedQtPanel
       anchors.left: parent.left
       anchors.right: parent.right
@@ -87,7 +373,7 @@ UIWidget
         &minimumScrollValue: 1
         &maximumScrollValue: 5
         &scrollSize: 21
-  
+
     SmallReversedQtPanel
       anchors.left: parent.left
       anchors.right: parent.right
@@ -100,36 +386,36 @@ UIWidget
         &minimumScrollValue: 1
         &maximumScrollValue: 9
         &scrollSize: 21
-  
+
     SmallReversedQtPanel
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: prev.bottom
       margin-top: 7
       height: 22
-  
+
       OptionScaleScroll
         id: staticTextScale
         anchors.fill: parent
         &minimumScrollValue: 1
         &maximumScrollValue: 9
         &scrollSize: 21
-  
+
     SmallReversedQtPanel
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: prev.bottom
       margin-top: 7
       height: 22
-  
+
       OptionScaleScroll
         id: animatedTextScale
         anchors.fill: parent
         &minimumScrollValue: 1
         &maximumScrollValue: 9
         &scrollSize: 21
-  
-  
+
+
     HorizontalSeparator
       anchors.top: prev.bottom
       anchors.left: parent.left
@@ -161,7 +447,7 @@ UIWidget
       $mobile:
         margin-left: -5
 
-  
+
     CheckBox
       id: hudMasterCheckBox
       size: 12 12
@@ -242,8 +528,8 @@ UIWidget
       $pressed:
         image-source: /images/ui/buttons/automap-button-movedown-down
 
- 
-  
+
+
     SmallReversedQtPanel
       anchors.left: parent.left
       anchors.right: parent.right
@@ -278,8 +564,8 @@ UIWidget
         id: showCustomisableStatusBars
         !text: tr('Show Customisable Status Bars')
         !tooltip: tr('Check this box to show the status bars for your character\'s most \nimportant attributes: their health and their mana. \nIf you have enabled this option and you right-click on the status \nbars field, a menu will open up which allows you to individualise \nyour status bars even further: \n* You can switch your status bars to one of the four sides \naround your game window. \n* You can display your status bars in different styles. \n* Additionally, you can decide to show the progress bars for \none, several or all of your skills or your experience level. If \nyou place your mouse pointer on one of the bars, a tooltip \nwill open up which shows your progress to the next skill or \nlevel in percent.')
-  
-  
+
+
     SmallReversedQtPanel
       anchors.left: parent.left
       anchors.right: parent.right
