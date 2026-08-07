@@ -760,7 +760,7 @@ void ThingType::draw(const Point& dest, const int layer, const int xPattern, con
     const auto& textureOffset = textureData.pos[frameIndex].offsets;
     const auto& textureRect = textureData.pos[frameIndex].rects;
 
-    const Rect screenRect(dest + (textureOffset - (m_displacement * g_gameConfig.getSpriteScaleFactor()) - (m_size.toPoint() - Point(1)) * g_gameConfig.getSpriteSize()) * g_drawPool.getScaleFactor(), textureRect.size() * g_drawPool.getScaleFactor());
+    const Rect screenRect(dest + (textureOffset - getDisplacement() - (m_size.toPoint() - Point(1)) * g_gameConfig.getSpriteSize()) * g_drawPool.getScaleFactor(), textureRect.size() * g_drawPool.getScaleFactor());
 
     if (drawThings && texture) {
         const auto& newColor = m_opacity < 1.0f ? Color(color, m_opacity) : color;
@@ -1000,6 +1000,21 @@ uint32_t ThingType::getTextureIndex(const int l, const int x, const int y, const
     return ((l * m_numPatternZ + z)
         * m_numPatternY + y)
         * m_numPatternX + x;
+}
+
+Point ThingType::getDisplacement() const
+{
+    return m_displacement * g_gameConfig.getSpriteScaleFactor();
+}
+
+int ThingType::getDisplacementX() const
+{
+    return getDisplacement().x;
+}
+
+int ThingType::getDisplacementY() const
+{
+    return getDisplacement().y;
 }
 
 int ThingType::getExactSize(const int layer, const int xPattern, const int yPattern, const int zPattern, const int animationPhase)

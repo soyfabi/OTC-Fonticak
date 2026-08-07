@@ -14,23 +14,41 @@ function terminate()
         onGameEnd = offline
     })
     offline()
-end
-
-function online()
-    if g_game.getFeature(GamePlayerMounts) then
-        Keybind.new("Movement", "Mount/dismount", "Ctrl+R", "")
-        Keybind.bind("Movement", "Mount/dismount", {
-            {
-              type = KEY_DOWN,
-              callback = toggleMount,
-            }
-          })
+    if Keybind.defaultKeybinds['Movement_Mount/dismount'] then
+        Keybind.delete('Movement', 'Mount/dismount')
     end
 end
 
+local function getGameRootPanel()
+    if modules.game_interface and modules.game_interface.getRootPanel then
+        return modules.game_interface.getRootPanel()
+    end
+    return nil
+end
+
+function online()
+    if not g_game.getFeature(GamePlayerMounts) then
+        return
+    end
+
+    -- Register once; reconnects only need re-bind to the (new) game root panel.
+    local index = 'Movement_Mount/dismount'
+    if not Keybind.defaultKeybinds[index] then
+        Keybind.new('Movement', 'Mount/dismount', 'Ctrl+R', '')
+    end
+
+    local gameRootPanel = getGameRootPanel()
+    Keybind.bind('Movement', 'Mount/dismount', {
+        {
+            type = KEY_DOWN,
+            callback = toggleMount,
+        }
+    }, gameRootPanel)
+end
+
 function offline()
-    if g_game.getFeature(GamePlayerMounts) then
-        Keybind.delete("Movement", "Mount/dismount")
+    if Keybind.defaultKeybinds['Movement_Mount/dismount'] then
+        Keybind.unbind('Movement', 'Mount/dismount')
     end
 end
 

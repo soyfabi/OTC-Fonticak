@@ -84,14 +84,15 @@ public:
     Animator* getIdleAnimator() const { return m_idleAnimator; }
 
     const Size& getSize() { return m_size; }
-    const Point& getDisplacement() { return m_displacement; }
+    // Displacement from .dat is in base-sprite pixels; scaled for HD in the .cpp.
+    Point getDisplacement() const;
     const Light& getLight() { return m_light; }
     const MarketData& getMarketData() { return m_market; }
     const std::vector<NPCData>& getNpcSaleData() { return m_npcData; }
     int getMeanPrice();
 
-    int getDisplacementX() { return getDisplacement().x; }
-    int getDisplacementY() { return getDisplacement().y; }
+    int getDisplacementX() const;
+    int getDisplacementY() const;
     int getElevation() { return m_elevation; }
 
     uint16_t getGroundSpeed() { return m_groundSpeed; }

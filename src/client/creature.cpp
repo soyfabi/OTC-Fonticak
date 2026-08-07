@@ -133,34 +133,61 @@ void Creature::draw(const Rect& destRect, const uint8_t size, const bool center)
     if (!canDraw())
         return;
 
-    const int baseSprite = g_gameConfig.getSpriteSize();
-    // Fixed 2×2 tile canvas — same virtual space Astra's correctOutfit uses
-    // (maps the outfit hotspot into the middle of the UI square).
-    const int fbSize = 2 * baseSprite;
+    // Port of AstraClient DrawQueue::correctOutfit(oldScaling=false):
+    // - Scale is always based on a fixed 2×spriteSize virtual window.
+    // - Drawing itself is NOT clipped to that window (large mounts can overflow).
+    // We emulate that with a larger FB and by mapping the virtual window into dest.
+    const int spriteSize = g_gameConfig.getSpriteSize();
+    const int virtualSize = 2 * spriteSize;
+
+    int fbSize = virtualSize;
+    if (m_outfit.hasMount()) {
+        // Keep overflow room so mounts are not hard-clipped by the FB (Astra draws unclipped).
+        const int exactSize = getExactSize(0, 0, 0);
+        fbSize = std::max({ virtualSize * 2, exactSize + spriteSize, 4 * spriteSize });
+        fbSize = ((fbSize + spriteSize - 1) / spriteSize) * spriteSize;
+        if ((fbSize % 2) != 0)
+            fbSize += spriteSize;
+    }
+
+    const Point origin(fbSize / 2, fbSize / 2);
 
     g_drawPool.bindFrameBuffer(fbSize); {
-        // Sprites grow left/up from the tile origin. Anchor on the bottom-right
-        // cell so the preview fills the square instead of sitting top-left.
-        // exactSize-based offsets push small mounts/outfits into the corner.
-        const Point p = Point(fbSize - baseSprite) + getDisplacement();
-
+        // Origin at FB center == Astra Outfit::draw(Point(0,0)).
+        const Point p = origin + getDisplacement();
         internalDraw(p);
         if (isMarked())           internalDraw(p, getMarkedColor());
         else if (isHighlighted()) internalDraw(p, getHighlightColor());
     }
 
-    Rect out = destRect;
+    Rect target = destRect;
     if (size > 0) {
         if (center && (destRect.width() != size || destRect.height() != size)) {
-            out = Rect(
+            target = Rect(
                 destRect.left() + (destRect.width() - static_cast<int>(size)) / 2,
                 destRect.top() + (destRect.height() - static_cast<int>(size)) / 2,
                 size, size);
         } else {
-            out = Rect(destRect.topLeft(), Size(size, size));
+            target = Rect(destRect.topLeft(), Size(size, size));
         }
     }
-    g_drawPool.releaseFrameBuffer(out);
+
+    const int destSide = std::min(target.width(), target.height());
+    if (destSide <= 0)
+        return;
+
+    // Same scale Astra uses: dest / (2 * spriteSize).
+    const float scale = static_cast<float>(destSide) / static_cast<float>(virtualSize);
+    const int outSide = std::max(1, static_cast<int>(fbSize * scale + 0.5f));
+
+    // Align the virtual window (center ± spriteSize) with the target square.
+    const int fbVirtualLeft = fbSize / 2 - spriteSize;
+    const int targetLeft = target.left() + (target.width() - destSide) / 2;
+    const int targetTop = target.top() + (target.height() - destSide) / 2;
+    const int outLeft = targetLeft - static_cast<int>(fbVirtualLeft * scale + 0.5f);
+    const int outTop = targetTop - static_cast<int>(fbVirtualLeft * scale + 0.5f);
+
+    g_drawPool.releaseFrameBuffer(Rect(outLeft, outTop, outSide, outSide));
 }
 
 void Creature::drawInformation(const MapPosInfo& mapRect, const Point& dest, const int drawFlags)
@@ -397,7 +424,13 @@ void Creature::internalDraw(Point dest, const Color& color)
         // outfit is a real creature
         if (m_outfit.isCreature()) {
             if (m_outfit.hasMount()) {
-                dest -= getMountThingType()->getDisplacement() * g_drawPool.getScaleFactor();
+                auto* mountType = getMountThingType();
+                auto* outfitType = getThingType();
+                if (!mountType || !outfitType)
+                    return;
+
+                // Astra: dest -= mountDisp; draw mount; dest += outfitDisp (not mountDisp).
+                dest -= mountType->getDisplacement() * g_drawPool.getScaleFactor();
 
                 if (!replaceColorShader && hasMountShader()) {
                     g_drawPool.setShaderProgram(g_shaders.getShaderById(m_mountShaderId), true/*, [this]()-> void {
@@ -405,9 +438,9 @@ void Creature::internalDraw(Point dest, const Color& color)
                         m_mountShader->setUniformValue(ShaderManager::MOUNT_ID_UNIFORM, m_outfit.getMount());
                     }*/);
                 }
-                getMountThingType()->draw(dest, 0, m_numPatternX, 0, 0, getCurrentAnimationPhase(true), color);
+                mountType->draw(dest, 0, m_numPatternX, 0, 0, getCurrentAnimationPhase(true), color);
 
-                dest += getDisplacement() * g_drawPool.getScaleFactor();
+                dest += outfitType->getDisplacement() * g_drawPool.getScaleFactor();
             }
 
             const auto& datType = getThingType();
@@ -1153,7 +1186,7 @@ uint16_t Creature::getStepDuration(const bool ignoreDiagonal, const Otc::Directi
 Point Creature::getDisplacement() const
 {
     if (m_outfit.isEffect())
-        return { 8 };
+        return Point(8, 8) * g_gameConfig.getSpriteScaleFactor();
 
     if (m_outfit.isItem())
         return {};
@@ -1171,7 +1204,7 @@ bool Creature::isInsideOffset(const Point& offset)
 int Creature::getDisplacementX() const
 {
     if (m_outfit.isEffect())
-        return 8;
+        return 8 * g_gameConfig.getSpriteScaleFactor();
 
     if (m_outfit.isItem())
         return 0;
@@ -1185,7 +1218,7 @@ int Creature::getDisplacementX() const
 int Creature::getDisplacementY() const
 {
     if (m_outfit.isEffect())
-        return 8;
+        return 8 * g_gameConfig.getSpriteScaleFactor();
 
     if (m_outfit.isItem())
         return 0;
@@ -1252,7 +1285,7 @@ int Creature::getExactSize(int layer, int /*xPattern*/, int yPattern, int zPatte
     if (m_exactSize > 0)
         return m_exactSize;
 
-    uint8_t exactSize = 0;
+    int exactSize = 0;
     if (m_outfit.isCreature()) {
         const int layers = getLayers();
 
@@ -1270,11 +1303,20 @@ int Creature::getExactSize(int layer, int /*xPattern*/, int yPattern, int zPatte
             for (layer = 0; layer < layers; ++layer)
                 exactSize = std::max<int>(exactSize, Thing::getExactSize(layer, 0, yPattern, zPattern, 0));
         }
+
+        // Mount sprites are a separate looktype — include them so UI FBs do not crop large mounts.
+        if (m_outfit.hasMount()) {
+            if (auto* mountType = getMountThingType()) {
+                exactSize = std::max<int>(exactSize, mountType->getExactSize());
+            }
+        }
     } else {
         exactSize = getThingType()->getExactSize();
     }
 
-    return m_exactSize = std::max<uint8_t>(exactSize, g_gameConfig.getSpriteSize());
+    exactSize = std::max<int>(exactSize, g_gameConfig.getSpriteSize());
+    m_exactSize = static_cast<uint8_t>(std::min(exactSize, 255));
+    return m_exactSize;
 }
 
 void Creature::setMountShader(const std::string_view name) {

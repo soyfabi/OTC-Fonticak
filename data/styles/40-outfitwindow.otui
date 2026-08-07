@@ -225,10 +225,9 @@ OutfitWindow < MainWindow
         size: 128 128
         anchors.verticalCenter: parent.verticalCenter
         anchors.horizontalCenter: parent.horizontalCenter
-        // Hotspot-centered draw sits low on the floor tiles; nudge up/left
-        // so the outfit reads more centered in the preview panel.
-        margin-top: -28
-        margin-left: -24
+        // Nudge toward the floor hotspot (left + slightly up), matching Astra visual placement.
+        margin-top: -30
+        margin-left: -50
         idle-animate: true
 
       UICreature
@@ -236,8 +235,8 @@ OutfitWindow < MainWindow
         size: 128 128
         anchors.verticalCenter: parent.verticalCenter
         anchors.horizontalCenter: parent.horizontalCenter
-        margin-top: -28
-        margin-left: 41
+        margin-top: -10
+        margin-left: 47
         idle-animate: true
 
       UIButton

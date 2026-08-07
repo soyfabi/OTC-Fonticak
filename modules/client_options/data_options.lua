@@ -218,7 +218,12 @@ return {
             end
             local delayWidget = panels.generalPanel and panels.generalPanel:recursiveGetChildById('keyboardDelay')
             if delayWidget then
-                delayWidget:setEnabled(not value)
+                -- Keep the label enabled so $disabled does not override text color.
+                local valueBar = delayWidget:recursiveGetChildById('valueBar')
+                if valueBar then
+                    valueBar:setEnabled(not value)
+                end
+                delayWidget:setEnabled(true)
                 delayWidget:setOpacity(1.0)
                 -- Red when using default (slider locked); orange when custom delay is active.
                 delayWidget:setColor(value and '#ff4444ff' or '#df9f4fff')

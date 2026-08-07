@@ -63,7 +63,7 @@ protected:
     uint8_t m_creatureSize{ 0 };
     Otc::Direction m_direction{ Otc::South };
     Outfit m_outfit;
-    bool m_center{ true };
+    bool m_center{ false };
     bool m_animate{ false };
     bool m_idleAnimate{ false };
     bool m_staticWalking{ false };

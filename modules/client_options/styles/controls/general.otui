@@ -77,9 +77,13 @@ UIWidget
         local value = modules.client_options.getOption('keyboardDelay')
         local useDefault = modules.client_options.getOption('useDefaultKeyboardDelay')
         self:setText(tr('Keyboard Delay: %s ms', value))
-        self:setColor(useDefault and '#ff4444ff' or '#df9f4fff')
-        self:setEnabled(not useDefault)
+        self:setEnabled(true)
         self:setOpacity(1.0)
+        self:setColor(useDefault and '#ff4444ff' or '#df9f4fff')
+        local valueBar = self:recursiveGetChildById('valueBar')
+        if valueBar then
+          valueBar:setEnabled(not useDefault)
+        end
 
   SmallReversedQtPanel
     anchors.left: parent.left
