@@ -925,6 +925,14 @@ local function autoAssignSpell(spellName)
         end
     end
 
+    local showAnimation = true
+    if modules.client_options and modules.client_options.getOption then
+        showAnimation = modules.client_options.getOption('showSpellAnimation')
+        if showAnimation == nil then
+            showAnimation = true
+        end
+    end
+
     for barId = 1, 9 do
         local actionbar = actionBars[barId]
         if actionbar then
@@ -935,10 +943,15 @@ local function autoAssignSpell(spellName)
                         ApiJson.createOrUpdateText(barId, buttonId, spellName, true)
                         local button = actionbar.tabBar:getChildById(barId .. "." .. buttonId)
                         if button then
-                            flySpellAnimation(spellName, button, function()
+                            if showAnimation then
+                                flySpellAnimation(spellName, button, function()
+                                    updateButton(button)
+                                    ApiJson.saveData()
+                                end)
+                            else
                                 updateButton(button)
                                 ApiJson.saveData()
-                            end)
+                            end
                         else
                             ApiJson.saveData()
                         end
@@ -955,6 +968,16 @@ end
 function onUpdateLevel(localPlayer, level, levelPercent, oldLevel, oldLevelPercent)
     if level ~= oldLevel then
         onUpdateActionBarStatus()
+        local autoAssign = true
+        if modules.client_options and modules.client_options.getOption then
+            autoAssign = modules.client_options.getOption('autoAssignSpell')
+            if autoAssign == nil then
+                autoAssign = true
+            end
+        end
+        if not autoAssign then
+            return
+        end
         local vocationId = localPlayer:getVocation()
         local vocationSpells = spellsByVocation[vocationId]
         if vocationSpells then
@@ -1139,7 +1162,9 @@ function updateVisibleOptions(type, value)
             elseif type == 'parameter' and button.parameterText then
                 button.parameterText:setVisible(value)
             elseif type == 'tooltip' then
-                setupButtonTooltip(button, false)
+                local isEmpty = not button.cache or not button.cache.actionType
+                    or button.cache.actionType == 0
+                setupButtonTooltip(button, isEmpty)
             elseif type == 'amount' then
                 updateButtonState(button)
             end

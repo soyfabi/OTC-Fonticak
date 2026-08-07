@@ -172,7 +172,7 @@ UIWidget
     OptionCheckBoxMarked
       id: graphicalCooldown
       !text: tr('Show Graphical Cooldown')
-      !tooltip: tr('Display visual cooldown animation on action buttons')
+      !tooltip: tr('Shows cooldown on action buttons: the icon starts dark and\nclears as a golden / moves from top-left to bottom-right,\nwith a soft yellow sparkle when ready.')
 
   SmallReversedQtPanel
     anchors.left: parent.left
@@ -194,9 +194,33 @@ UIWidget
     height: 22
 
     OptionCheckBoxMarked
+      id: showSpellAnimation
+      !text: tr('Show Spell Animation')
+      !tooltip: tr('When you unlock a spell by leveling up, play a short animation\nof the spell icon flying into an empty action bar slot.\nRequires Auto Assign Spell.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBoxMarked
       id: actionTooltip
       !text: tr('Show Action Button Tooltip')
       !tooltip: tr('Display tooltips when hovering over action buttons')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBoxMarked
+      id: autoAssignSpell
+      !text: tr('Auto Assign Spell')
+      !tooltip: tr('When you unlock a spell by leveling up, automatically place it\non the first empty action bar slot. Disable to keep your bars unchanged.')
 
   SmallReversedQtPanel
     anchors.left: parent.left
@@ -328,14 +352,13 @@ UIWidget
       anchors.top: clearLeftBar3.bottom
       margin-right: 0
       margin-top: 3
-      @onClick: modules.game_actionbar.resetAction(7)
+      @onClick: modules.game_actionbar.resetAction(9)
 
   OptionsQtButton
-    id: clearRightBar3
-    !text: tr('reset')
-    width: 60
-    height: 18
-    anchors.right: parent.right
+    id: resetActionBarsButton
+    !text: tr('Reset')
+    !tooltip: tr('Reset all Action Bars options to their default values.')
+    @onClick: modules.client_options.resetActionBars()
     anchors.bottom: parent.bottom
-    margin-top: 3
-    @onClick: modules.game_actionbar.resetActionBars()
+    anchors.right: parent.right
+    size: 80 20

@@ -1240,6 +1240,8 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIProgressRect>("start", &UIProgressRect::start);
     g_lua.bindClassMemberFunction<UIProgressRect>("showTime", &UIProgressRect::showTime);
     g_lua.bindClassMemberFunction<UIProgressRect>("showProgress", &UIProgressRect::showProgress);
+    g_lua.bindClassMemberFunction<UIProgressRect>("setProgressStyle", &UIProgressRect::setProgressStyle);
+    g_lua.bindClassMemberFunction<UIProgressRect>("getProgressStyle", &UIProgressRect::getProgressStyle);
     g_lua.bindClassMemberFunction<UIProgressRect>("getTimeElapsed", &UIProgressRect::getTimeElapsed);
     g_lua.bindClassMemberFunction<UIProgressRect>("getDuration", &UIProgressRect::getDuration);
 

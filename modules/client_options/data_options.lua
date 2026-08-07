@@ -1140,6 +1140,12 @@ return {
             modules.game_actionbar.toggleCooldownOption()
         end,
     },
+    showSpellAnimation = {
+        value = true,
+    },
+    autoAssignSpell = {
+        value = true,
+    },
     actionBarShowBottom1 = {
         value = true,
         action = function(value)

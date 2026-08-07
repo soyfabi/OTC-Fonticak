@@ -784,6 +784,29 @@ function resetWalkAndKeyboardDelays()
     setOption('walkStairsDelay', 200, true)
 end
 
+function resetActionBars()
+    setOption('allActionBar13', true, true)
+    setOption('actionBarShowBottom1', true, true)
+    setOption('actionBarShowBottom2', false, true)
+    setOption('actionBarShowBottom3', false, true)
+    setOption('allActionBar46', false, true)
+    setOption('actionBarShowLeft1', false, true)
+    setOption('actionBarShowLeft2', false, true)
+    setOption('actionBarShowLeft3', false, true)
+    setOption('allActionBar79', false, true)
+    setOption('actionBarShowRight1', false, true)
+    setOption('actionBarShowRight2', false, true)
+    setOption('actionBarShowRight3', false, true)
+    setOption('showAssignedHKButton', true, true)
+    setOption('showHKObjectsBars', true, true)
+    setOption('showSpellParameters', true, true)
+    setOption('graphicalCooldown', true, true)
+    setOption('cooldownSecond', true, true)
+    setOption('showSpellAnimation', true, true)
+    setOption('autoAssignSpell', true, true)
+    setOption('actionTooltip', true, true)
+end
+
 function getKeyboardDelay()
     if getOption('useDefaultKeyboardDelay') then
         return 250

@@ -686,15 +686,27 @@ function setupButtonTooltip(button, isEmpty)
         return true
     end
 
+    if not button or not button.item then
+        return true
+    end
+
+    -- Honour Action Bars → Show Action Button Tooltip.
+    if not modules.client_options.getOption('actionTooltip') then
+        if button.item.removeTooltip then
+            button.item:removeTooltip()
+        else
+            button.item:setTooltip('')
+        end
+        return true
+    end
+
     local cache = getButtonCache(button)
     if isEmpty then
         local tooltip = "Action Button " .. button:getId()
         local hotkeyDesc = cache.hotkey ~= nil and cache.hotkey or "None"
         tooltip = tooltip .. "\n\nAction:  " .. "None"
         tooltip = tooltip .. "\nHotkeys:  " .. hotkeyDesc
-        if button.item then
-            button.item:setTooltip(tooltip)
-        end
+        button.item:setTooltip(tooltip)
         return true
     end
 
@@ -809,6 +821,9 @@ end
 function updateCooldown(button, timeMs)
     button.cooldown:showTime(modules.client_options.getOption("cooldownSecond"))
     button.cooldown:showProgress(modules.client_options.getOption("graphicalCooldown"))
+    if button.cooldown.setProgressStyle then
+        button.cooldown:setProgressStyle(1) -- FrameCharge
+    end
     button.cooldown:setDuration(timeMs)
     button.cooldown:start()
 end
@@ -1515,7 +1530,17 @@ function onDragItemLeave(self, mousePos, button)
         return true
     end
 
-    local destButtonCache = destButton.cache
+    -- Snapshot destination BEFORE updateButton mutates destButton.cache in place.
+    -- Without this, swapping writes the moved item back into the source slot (duplicate).
+    local destButtonCache = {
+        actionType = destButton.cache and destButton.cache.actionType or 0,
+        param = destButton.cache and destButton.cache.param or "",
+        sendAutomatic = destButton.cache and destButton.cache.sendAutomatic or false,
+        specialAction = destButton.cache and destButton.cache.specialAction or nil,
+        itemId = destButton.cache and destButton.cache.itemId or 0,
+        upgradeTier = destButton.cache and destButton.cache.upgradeTier or 0,
+        isPassive = destButton.cache and destButton.cache.isPassive or false
+    }
 
     button.cache = getButtonCache(button)
     local itemId = button.cache.itemId
@@ -1525,15 +1550,14 @@ function onDragItemLeave(self, mousePos, button)
     local sourceHasMulti = hasMultiActions(button.cache.multiActions)
 
     if sourceHasMulti then
-        local destHasMulti = destButtonCache and hasMultiActions(destButtonCache.multiActions) or false
+        local destHasMulti = hasMultiActions(destButton.cache and destButton.cache.multiActions)
         if destHasMulti then
             resetDragWidget(self, button)
             return
         end
-        local destHasSingleAction = destButtonCache and
-                                        ((destButtonCache.actionType == UseTypes["chatText"] and
-                                            destButtonCache.param and destButtonCache.param ~= "") or
-                                            (destButtonCache.itemId and destButtonCache.itemId > 100))
+        local destHasSingleAction = (destButtonCache.actionType == UseTypes["chatText"] and
+                                        destButtonCache.param and destButtonCache.param ~= "") or
+                                        (destButtonCache.itemId and destButtonCache.itemId > 100)
         if destHasSingleAction then
             resetDragWidget(self, button)
             return true
@@ -1566,10 +1590,10 @@ function onDragItemLeave(self, mousePos, button)
         end
     end
 
-    local cachedItem = cachedItemWidget[destButtonCache.itemId]
+    cachedItem = cachedItemWidget[destButtonCache.itemId]
     if cachedItem then
         for index, widget in pairs(cachedItem) do
-            if button == widget then
+            if destButton == widget then
                 table.remove(cachedItem, index)
             end
         end

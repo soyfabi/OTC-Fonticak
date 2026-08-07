@@ -26,6 +26,12 @@
 
 #include "framework/core/declarations.h"
 
+enum class ProgressRectStyle : uint8_t
+{
+    Classic = 0,
+    FrameCharge = 1
+};
+
 class UIProgressRect final : public UIWidget
 {
 public:
@@ -41,6 +47,8 @@ public:
     void start();
     void showTime(bool showTime);
     void showProgress(bool showProgress);
+    void setProgressStyle(uint8_t style);
+    uint8_t getProgressStyle() const { return static_cast<uint8_t>(m_progressStyle); }
     uint32_t getTimeElapsed();
     uint32_t getDuration() { return m_duration; }
 
@@ -48,16 +56,25 @@ protected:
     void onStyleApply(std::string_view styleName, const OTMLNodePtr& styleNode) override;
 
 private:
-    void scheduleNextUpdate();
+    void scheduleNextUpdate(int intervalMs);
     void updateProgress();
     void updateText(uint32_t remainingTimeMs);
+    void startFinishFlash();
+    void updateFlash();
+    void drawClassicProgress(const Rect& drawRect) const;
+    void drawFrameChargeProgress(const Rect& drawRect) const;
+    void drawFinishFlash(const Rect& drawRect) const;
+    void drawDiagonalDarkReveal(const Rect& drawRect, float progress) const;
+    static Point diagonalPoint(const Rect& rect, float progress);
 
     float m_percent{ 0 };
     ScheduledEventPtr m_updateEvent{ nullptr };
     uint32_t m_duration{ 0 };
     uint32_t m_timeElapsed{ 0 };
     ticks_t m_startTime{ 0 };
+    ticks_t m_flashEnd{ 0 };
     bool m_showTime{ true };
     bool m_showProgress{ true };
     bool m_running{ false };
+    ProgressRectStyle m_progressStyle{ ProgressRectStyle::FrameCharge };
 };
