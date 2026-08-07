@@ -23,6 +23,32 @@ local analyserWindows = {
   bossButton = 'styles/boss'
 }
 
+local analyserConfigWindows = {
+  lootButton = 'styles/lootTarget',
+  impactButton = 'styles/dpshpsTarget',
+  xpButton = 'styles/xpTarget',
+  dropButton = 'styles/dropTarget'
+}
+
+function getConfigPopupWindow(buttonId)
+  local window = configPopupWindow[buttonId]
+  if window then
+    return window
+  end
+
+  local style = analyserConfigWindows[buttonId]
+  if not style then
+    return nil
+  end
+
+  window = g_ui.displayUI(style)
+  if window then
+    window:hide()
+    configPopupWindow[buttonId] = window
+  end
+  return window
+end
+
 -- Utility function to get combat name from effect ID
 function getCombatName(effectId)
   if not effectId then
@@ -102,18 +128,6 @@ function init()
     lockButton:setMarginRight(2)  -- Same margin as in miniwindow style
     lockButton:setMarginTop(0)
   end
-
-  configPopupWindow["lootButton"] = g_ui.displayUI('styles/lootTarget')
-  configPopupWindow["lootButton"]:hide()
-
-  configPopupWindow["impactButton"] = g_ui.displayUI('styles/dpshpsTarget')
-  configPopupWindow["impactButton"]:hide()
-
-  configPopupWindow["xpButton"] = g_ui.displayUI('styles/xpTarget')
-  configPopupWindow["xpButton"]:hide()
-
-  configPopupWindow["dropButton"] = g_ui.displayUI('styles/dropTarget')
-  configPopupWindow["dropButton"]:hide()
 
   huntingButton = analyserMiniWindow:recursiveGetChildById("huntingButton")
   lootButton = analyserMiniWindow:recursiveGetChildById("lootButton")
@@ -195,6 +209,13 @@ function init()
 end
 
 function terminate()
+  if ControllerAnalyser and ControllerAnalyser.stopEvents then
+    ControllerAnalyser:stopEvents()
+  end
+  if PartyHuntAnalyser and PartyHuntAnalyser.stopEvent then
+    PartyHuntAnalyser:stopEvent()
+  end
+
   if analyserButton then
     analyserButton:destroy()
     analyserButton = nil
@@ -297,9 +318,25 @@ function onlineAnalyser()
   startNewSession(true)
 
   loadGainAndWastConfigJson()
+
+  if partyMemberCheckEvent then
+    partyMemberCheckEvent:cancel()
+  end
+  partyMemberCheckEvent = cycleEvent(checkPartyMembersChange, 5000)
 end
 
 function offlineAnalyser()
+  if ControllerAnalyser and ControllerAnalyser.stopEvents then
+    ControllerAnalyser:stopEvents()
+  end
+  if PartyHuntAnalyser and PartyHuntAnalyser.stopEvent then
+    PartyHuntAnalyser:stopEvent()
+  end
+  if partyMemberCheckEvent then
+    partyMemberCheckEvent:cancel()
+    partyMemberCheckEvent = nil
+  end
+
   -- Only save if we have a valid player and can still write to filesystem
   local player = g_game.getLocalPlayer()
   if player then

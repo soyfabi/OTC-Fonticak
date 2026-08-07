@@ -57,8 +57,15 @@ local function createWheelButton()
   return nil
 end
 
-function init()
+local function ensureWheelWindow()
+  if wheelWindow then
+    return wheelWindow
+  end
+
   wheelWindow = g_ui.displayUI('wheel')
+  if not wheelWindow then
+    return nil
+  end
   mainPanel = wheelWindow:getChildById('mainPanel')
 
   wheelOfDestinyWindow = g_ui.loadUI('styles/wheelMenu', mainPanel)
@@ -66,10 +73,10 @@ function init()
 
   gemAtelierWindow = g_ui.loadUI('styles/gemMenu', mainPanel)
   gemAtelierWindow:hide()
-  
+
   local affinitiesBox = gemAtelierWindow:recursiveGetChildById('affinitiesBox')
   local qualitiesBox = gemAtelierWindow:recursiveGetChildById('qualitiesBox')
-  
+
   if affinitiesBox then
     affinitiesBox.onOptionChange = function(widget, text, data)
       if GemAtelier and GemAtelier.onSortAffinity then
@@ -77,7 +84,7 @@ function init()
       end
     end
   end
-  
+
   if qualitiesBox then
     qualitiesBox.onOptionChange = function(widget, text, data)
       if GemAtelier and GemAtelier.onSortQuality then
@@ -94,8 +101,6 @@ function init()
 
   renamePresetWindow = g_ui.displayUI('styles/renamePreset')
   renamePresetWindow:hide()
-
-  loadConfigJson()
 
   selectedNewPresetRadio = UIRadioGroup.create()
   selectedNewPresetRadio:addWidget(newPresetWindow.contentPanel.useEmpty)
@@ -118,14 +123,26 @@ function init()
   loadMenu('wheelMenu')
   toggleTabBarButtons('informationButton')
   hide()
+
+  return wheelWindow
+end
+
+local function onDestinyWheel(...)
+  ensureWheelWindow()
+  WheelOfDestiny.onDestinyWheel(...)
+end
+
+function init()
+  loadConfigJson()
+
   connect(g_game, {
     onGameEnd = onGameEnd,
     onGameStart = WheelOfDestiny.loadWheelPresets,
-    onDestinyWheel = WheelOfDestiny.onDestinyWheel,
+    onDestinyWheel = onDestinyWheel,
     --onUnlockGem = GemAtelier.onUnlockGem, --disabled because it's in TODO
     onResourceBalance = onResourceBalance,
   })
-  
+
   wheelButton = createWheelButton()
   setWheelButtonState(false)
 end
@@ -134,7 +151,7 @@ function terminate()
   disconnect(g_game, {
     onGameEnd = onGameEnd,
     onGameStart = WheelOfDestiny.loadWheelPresets,
-    onDestinyWheel = WheelOfDestiny.onDestinyWheel,
+    onDestinyWheel = onDestinyWheel,
     --onUnlockGem = GemAtelier.onUnlockGem, --disabled because it's in TODO
     onResourceBalance = onResourceBalance
   })
@@ -144,14 +161,51 @@ function terminate()
     wheelButton = nil
   end
 
+  if selectedNewPresetRadio then
+    selectedNewPresetRadio:destroy()
+    selectedNewPresetRadio = nil
+  end
+
   if wheelWindow then
     wheelWindow:destroy()
     wheelWindow = nil
   end
+
+  if newPresetWindow then
+    newPresetWindow:destroy()
+    newPresetWindow = nil
+  end
+
+  if renamePresetWindow then
+    renamePresetWindow:destroy()
+    renamePresetWindow = nil
+  end
+
+  if exportCodeWindow then
+    exportCodeWindow:destroy()
+    exportCodeWindow = nil
+  end
+
+  if deletePresetWindow then
+    deletePresetWindow:destroy()
+    deletePresetWindow = nil
+  end
+
+  if checkSavePresetWindow then
+    checkSavePresetWindow:destroy()
+    checkSavePresetWindow = nil
+  end
+
+  mainPanel = nil
+  wheelOfDestinyWindow = nil
+  gemAtelierWindow = nil
+  fragmentWindow = nil
+  wheelPanel = nil
+  centerReferencePoint = nil
 end
 
 function toggle()
-  if not wheelWindow then
+  if not ensureWheelWindow() then
     return
   end
 
@@ -190,15 +244,20 @@ function hide()
 end
 
 function onGameEnd()
-  hide()
   WheelOfDestiny.saveWheelPresets()
 
-  newPresetWindow:hide()
-  renamePresetWindow:hide()
+  if not wheelWindow then
+    WheelOfDestiny.currentPreset = {}
+    return
+  end
 
-  if exportCodeWindow then
-    exportCodeWindow:destroy()
-    exportCodeWindow = nil
+  hide()
+
+  if newPresetWindow then
+    newPresetWindow:hide()
+  end
+  if renamePresetWindow then
+    renamePresetWindow:hide()
   end
 
   if exportCodeWindow then
@@ -217,6 +276,10 @@ function onGameEnd()
 end
 
 function show()
+  if not ensureWheelWindow() then
+    return
+  end
+
   if requestOpenWheel() then
     setWheelButtonState(true)
   end
@@ -340,7 +403,7 @@ function toggleTabBarButtons(selectedButtonId)
 end
 
 function onResourceBalance()
-  if not wheelWindow:isVisible() then
+  if not wheelWindow or not wheelWindow:isVisible() then
     return true
   end
   local player = g_game.getLocalPlayer()

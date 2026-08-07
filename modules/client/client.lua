@@ -1,5 +1,6 @@
 local musicFilename = 'sounds/startup'
 local musicChannel = nil
+local startupGameSignalsConnected = false
 if g_sounds then
     musicChannel = g_sounds.getChannel(SoundChannels.Music)
 end
@@ -13,20 +14,31 @@ function setMusic(filename)
     end
 end
 
+local function onStartupGameStart()
+    if musicChannel then
+        musicChannel:stop(3)
+    end
+end
+
+local function onStartupGameEnd()
+    if g_sounds then
+        g_sounds.stopAll()
+        if musicChannel then
+            musicChannel:enqueue(musicFilename, 3)
+        end
+    end
+end
+
 function startup()
     if musicChannel then
         musicChannel:enqueue(musicFilename, 3)
-        connect(g_game, {
-            onGameStart = function()
-                musicChannel:stop(3)
-            end
-        })
-        connect(g_game, {
-            onGameEnd = function()
-                g_sounds.stopAll()
-                musicChannel:enqueue(musicFilename, 3)
-            end
-        })
+        if not startupGameSignalsConnected then
+            connect(g_game, {
+                onGameStart = onStartupGameStart,
+                onGameEnd = onStartupGameEnd
+            })
+            startupGameSignalsConnected = true
+        end
     end
 
     -- Check for startup errors
@@ -79,4 +91,13 @@ function terminate()
             onRun = startup,
         })
     end
+
+    if startupGameSignalsConnected then
+        disconnect(g_game, {
+            onGameStart = onStartupGameStart,
+            onGameEnd = onStartupGameEnd
+        })
+        startupGameSignalsConnected = false
+    end
+    musicChannel = nil
 end

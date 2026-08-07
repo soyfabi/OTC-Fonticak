@@ -113,9 +113,16 @@ function PartyHuntAnalyser.create()
 	end
 end
 
+function PartyHuntAnalyser:stopEvent()
+	if PartyHuntAnalyser.event then
+		PartyHuntAnalyser.event:cancel()
+		PartyHuntAnalyser.event = nil
+	end
+end
+
 function PartyHuntAnalyser:startEvent()
 	PartyHuntAnalyser.session = os.time()
-	if PartyHuntAnalyser.event then PartyHuntAnalyser.event:cancel() end
+	PartyHuntAnalyser:stopEvent()
 end
 
 function PartyHuntAnalyser:reset()

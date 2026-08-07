@@ -59,7 +59,7 @@ int Http::get(const std::string& url, int timeout)
         timeout = 2;
     int operationId = m_operationId++;
 
-    asio::post(m_ios, [&, url, timeout, operationId] {
+    asio::post(m_ios, [this, url, timeout, operationId] {
         auto result = std::make_shared<HttpResult>();
         result->url = url;
         result->operationId = operationId;
@@ -95,7 +95,7 @@ int Http::post(const std::string& url, const std::string& data, int timeout, boo
     }
 
     int operationId = m_operationId++;
-    asio::post(m_ios, [&, url, data, timeout, isJson, checkContentLength, operationId] {
+    asio::post(m_ios, [this, url, data, timeout, isJson, checkContentLength, operationId] {
         auto result = std::make_shared<HttpResult>();
         result->url = url;
         result->operationId = operationId;
@@ -127,13 +127,13 @@ int Http::download(const std::string& url, const std::string& path, int timeout)
         timeout = 2;
 
     int operationId = m_operationId++;
-    asio::post(m_ios, [&, url, path, timeout, operationId] {
+    asio::post(m_ios, [this, url, path, timeout, operationId] {
         auto result = std::make_shared<HttpResult>();
         result->url = url;
         result->operationId = operationId;
         m_operations[operationId] = result;
         const auto& session = std::make_shared<HttpSession>(m_ios, url, m_userAgent, m_enable_time_out_on_read_write, m_custom_header, timeout,
-                                                     false, true, result, [&, path](HttpResult_ptr result) {
+                                                     false, true, result, [this, path, operationId](HttpResult_ptr result) {
             if (!result->finished) {
                 g_dispatcher.addEvent([result] {
                     g_lua.callGlobalField("g_http", "onDownloadProgress", result->operationId, result->url, result->progress, result->speed);
@@ -167,12 +167,12 @@ int Http::ws(const std::string& url, int timeout)
         timeout = 2;
     int operationId = m_operationId++;
 
-    asio::post(m_ios, [&, url, timeout, operationId] {
+    asio::post(m_ios, [this, url, timeout, operationId] {
         auto result = std::make_shared<HttpResult>();
         result->url = url;
         result->operationId = operationId;
         m_operations[operationId] = result;
-        const auto& session = std::make_shared<WebsocketSession>(m_ios, url, m_userAgent, m_enable_time_out_on_read_write, timeout, result, [&, result](WebsocketCallbackType type, std::string message) {
+        const auto& session = std::make_shared<WebsocketSession>(m_ios, url, m_userAgent, m_enable_time_out_on_read_write, timeout, result, [this, result](WebsocketCallbackType type, std::string message) {
             g_dispatcher.addEvent([result, type, message] {
                 if (type == WebsocketCallbackType::OPEN) {
                     g_lua.callGlobalField("g_http", "onWsOpen", result->operationId, message);
@@ -186,6 +186,7 @@ int Http::ws(const std::string& url, int timeout)
             });
             if (type == WebsocketCallbackType::CLOSE) {
                 m_websockets.erase(result->operationId);
+                m_operations.erase(result->operationId);
             }
         });
         m_websockets[result->operationId] = session;
@@ -197,7 +198,7 @@ int Http::ws(const std::string& url, int timeout)
 
 bool Http::wsSend(int operationId, const std::string& message)
 {
-    asio::post(m_ios, [&, operationId, message] {
+    asio::post(m_ios, [this, operationId, message] {
         const auto wit = m_websockets.find(operationId);
         if (wit == m_websockets.end()) {
             return;
@@ -215,7 +216,7 @@ bool Http::wsClose(const int operationId)
 
 bool Http::cancel(int id)
 {
-    asio::post(m_ios, [&, id] {
+    asio::post(m_ios, [this, id] {
         const auto wit = m_websockets.find(id);
         if (wit != m_websockets.end()) {
             wit->second->close();
