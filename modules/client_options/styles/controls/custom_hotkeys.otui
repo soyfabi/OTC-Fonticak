@@ -271,10 +271,11 @@ UIWidget
       !text: tr('New Action')
       visible: true
 
-    SmallButton
+    OptionsQtButton
       id: reset
+      !text: tr('Reset')
+      !tooltip: tr('Remove all custom hotkeys from the current chat mode preset.')
       anchors.top: parent.top
       anchors.right: parent.right
-      width: 45
       margin-top: 8
-      !text: tr('Reset')
+      size: 80 20

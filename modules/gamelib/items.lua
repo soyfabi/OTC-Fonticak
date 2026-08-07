@@ -109,7 +109,18 @@ function ItemsDatabase.getColorForRarity(rarity)
     return ItemsDatabase.rarityColors[rarity] or TextColors.white
 end
 
-function ItemsDatabase.setColorLootMessage(text)
+function ItemsDatabase.setColorLootMessage(text, defaultColor)
+    if type(text) ~= 'string' then
+        return text
+    end
+
+    -- CIP loot messages use green as the base color; rarity only recolors item names.
+    if text:find('^Loot of ') or text:find('^Loot de ') then
+        defaultColor = TextColors.green
+    else
+        defaultColor = defaultColor or TextColors.white
+    end
+
     local function coloringLootName(match)
         local id, itemName = match:match("(%d+)|(.+)")
         if not id or not itemName then
@@ -119,12 +130,12 @@ function ItemsDatabase.setColorLootMessage(text)
 
         local itemId = tonumber(id)
         if not itemId then
-            return itemName or match
+            return "{" .. (itemName or match) .. ", " .. defaultColor .. "}"
         end
 
         local thingType = g_things.getThingType(itemId, ThingCategoryItem)
         if not thingType then
-            return itemName
+            return "{" .. itemName .. ", " .. defaultColor .. "}"
         end
 
         local itemInfo = thingType:getMeanPrice()
@@ -132,10 +143,12 @@ function ItemsDatabase.setColorLootMessage(text)
             local color = ItemsDatabase.getColorForRarity(getColorForValue(itemInfo))
             return "{" .. itemName .. ", " .. color .. "}"
         else
-            return itemName
+            return "{" .. itemName .. ", " .. defaultColor .. "}"
         end
     end
-    return text:gsub("{(.-)}", coloringLootName)
+
+    local colored = text:gsub("{(.-)}", coloringLootName)
+    return colored
 end
 
 function ItemsDatabase.getTierClip(tier)

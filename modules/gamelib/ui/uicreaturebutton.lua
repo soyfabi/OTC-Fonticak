@@ -99,13 +99,32 @@ function UICreatureButton:update()
     end
     color = self.isHovered and color.hovered or color.notHovered
 
-    if self.isHovered or self.isTarget or self.isFollowed then
+    if not self.creature then
+        return
+    end
+
+    if self.isTarget then
+        if modules.game_battle and modules.game_battle.applyCreatureTargetVisual then
+            modules.game_battle.applyCreatureTargetVisual(self.creature, color, true)
+        else
+            self.creature:showStaticSquare(color)
+        end
+        self:getChildById('creature'):setBorderWidth(1)
+        self:getChildById('creature'):setBorderColor(color)
+        self:getChildById('label'):setColor(color)
+    elseif self.isHovered or self.isFollowed then
         self.creature:showStaticSquare(color)
+        if self.creature.setMarked then
+            self.creature:setMarked('white')
+        end
         self:getChildById('creature'):setBorderWidth(1)
         self:getChildById('creature'):setBorderColor(color)
         self:getChildById('label'):setColor(color)
     else
         self.creature:hideStaticSquare()
+        if self.creature.setMarked then
+            self.creature:setMarked('white')
+        end
         self:getChildById('creature'):setBorderWidth(0)
         self:getChildById('label'):setColor(color)
     end

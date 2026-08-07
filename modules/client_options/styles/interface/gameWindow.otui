@@ -1,0 +1,362 @@
+UIWidget
+  anchors.fill: parent
+  visible: false
+
+  UIScrollArea
+    id: gameWindowScrollArea
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    margin-right: 14
+    margin-bottom: 28
+    vertical-scrollbar: gameWindowScrollBar
+
+    QtPanel
+      id: showMessagesPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      height: 264
+      margin-top: 2
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        margin-top: 2
+        height: 22
+
+        OptionCheckBox
+          id: showMessages
+          !text: tr('Show Messages')
+
+        UIWidget
+          image-source: /images/skin/show-gui-help-grey
+          size: 12 12
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-right: 3
+          !tooltip: tr('Master switch for messages shown in the game window.\nIf disabled, on-screen messages are hidden, but they can still\nappear in the console unless turned off there.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBox
+          id: showPrivateMessagesInConsole
+          !text: tr('Show Private Messages')
+          !tooltip: tr('When enabled, private messages appear in the console\n(Local Chat, or an open private tab). When disabled,\nincoming private messages are hidden from the console.')
+          anchors.left: parent.left
+          anchors.right: parent.horizontalCenter
+          anchors.top: parent.top
+          margin-right: 4
+
+        OptionCheckBox
+          id: showPrivateMessagesOnScreen
+          !text: tr('Show On Screen')
+          !tooltip: tr('Shows incoming private messages as blue text in the\ngame window. Independent from the console option.\nRequires Show Messages to be enabled.')
+          anchors.left: parent.horizontalCenter
+          anchors.right: parent.right
+          anchors.top: parent.top
+          margin-left: 4
+          margin-right: 16
+
+        UIWidget
+          image-source: /images/skin/show-gui-help-grey
+          size: 12 12
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-right: 3
+          !tooltip: tr('Show Private Messages: show or hide PMs in the console.\nShow On Screen: also show PMs as blue text in the game window.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBox
+          id: potionSoundEffect
+          !text: tr('Show Potion Sound Effects')
+
+        UIWidget
+          image-source: /images/skin/show-gui-help-grey
+          size: 12 12
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-right: 3
+          !tooltip: tr('When you use a potion, a short effect text appears next to your\ncharacter in the game window (the potion "sound" cue). If disabled,\nthat on-map effect is no longer shown.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBox
+          id: showSpells
+          !text: tr('Show Spells')
+
+        UIWidget
+          image-source: /images/skin/show-gui-help-grey
+          size: 12 12
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-right: 3
+          !tooltip: tr('When you cast a spell, the magic words are shown next to your\ncharacter in the game window. Disable to hide your own spell texts.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBox
+          id: spellsOthers
+          !text: tr('Show Spells of Others')
+
+        UIWidget
+          image-source: /images/skin/show-gui-help-grey
+          size: 12 12
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-right: 3
+          !tooltip: tr('When another character casts a spell, their magic words appear in\nyour game window. Disable to hide other players\' spell texts.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBox
+          id: showHotkeyMessagesInConsole
+          !text: tr('Show Hotkey Usage Notifications')
+
+        UIWidget
+          image-source: /images/skin/show-gui-help-grey
+          size: 12 12
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-right: 3
+          !tooltip: tr('When you use an item with a hotkey or action button (for example\na potion or rune), the client shows a short notice like how many\nare left. Example: "Using one of 50 mana potions...".\nDisable this to hide those notices.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBox
+          id: showLootMessagesOnScreen
+          !text: tr('Show Loot Messages')
+
+        UIWidget
+          image-source: /images/skin/show-gui-help-grey
+          size: 12 12
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-right: 3
+          !tooltip: tr('Shows loot messages in the game window when you kill a creature\nor loot its items. Disable to hide loot text on screen (console loot\ncan still appear depending on console options).')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBox
+          id: showBoostedMessagesInConsole
+          !text: tr('Show Boosted Creature')
+
+        UIWidget
+          image-source: /images/skin/show-gui-help-grey
+          size: 12 12
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-right: 3
+          !tooltip: tr('On login, shows the current boosted creature message in the game\nwindow. Disable if you do not want that notification.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBox
+          id: trainingProgress
+          !text: tr('Show Offline Training Progress')
+
+        UIWidget
+          image-source: /images/skin/show-gui-help-grey
+          size: 12 12
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-right: 3
+          !tooltip: tr('If offline training is active, progress is shown in the game window\nwhen you log in. Disable to hide that message.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        margin-bottom: 6
+        height: 22
+
+        OptionCheckBox
+          id: storeNotification
+          !text: tr('Show Store Notifications in Combat')
+
+        UIWidget
+          image-source: /images/skin/show-gui-help-grey
+          size: 12 12
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-right: 3
+          !tooltip: tr('If a delayed Store purchase completes while you are in combat,\nthe confirmation can appear in the game window. Disable to hide\nthose store notifications on screen.')
+
+    SmallReversedQtPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+      margin-top: 7
+      height: 22
+
+      OptionCheckBox
+        id: displayText
+        !text: tr('Show Textual Effects')
+
+      UIWidget
+        image-source: /images/skin/show-gui-help-grey
+        size: 12 12
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 3
+        !tooltip: tr('Whenever creatures or your character lose hit points or gain\nexperience, small numbers appear over their heads in the game\nwindow. Disable this if you prefer not to see that effect.')
+
+    SmallReversedQtPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+      margin-top: 7
+      height: 22
+
+      OptionCheckBox
+        id: lootHighlight
+        !text: tr('Show Loot Highlighting')
+
+      UIWidget
+        image-source: /images/skin/show-gui-help-grey
+        size: 12 12
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 3
+        !tooltip: tr('When enabled, dead creatures that still contain loot are visually\nhighlighted in the game window. Requires a rebuilt client for the\nfilter to apply to new corpses.')
+
+    SmallReversedQtPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+      margin-top: 7
+      height: 22
+
+      OptionCheckBox
+        id: combatFrames
+        !text: tr('Show Combat Frames')
+
+      UIWidget
+        image-source: /images/skin/show-gui-help-grey
+        size: 12 12
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 3
+        !tooltip: tr('Shows coloured frames around creatures during fights against\nmonsters. Disable if you do not want combat frames.')
+
+    SmallReversedQtPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+      margin-top: 7
+      height: 22
+
+      OptionCheckBox
+        id: pvpFrames
+        !text: tr('Show PvP Frames')
+
+      UIWidget
+        image-source: /images/skin/show-gui-help-grey
+        size: 12 12
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 3
+        !tooltip: tr('Shows coloured frames that indicate PvP situations around players\nand related creatures. Disable if you do not want PvP frames.')
+
+    SmallReversedQtPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+      margin-top: 7
+      height: 32
+
+      Label
+        !text: tr('Mark Target Visually:')
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        margin-left: 5
+        color: #c0c0c0ff
+
+      OptionsComboBox
+        id: markTargetVisually
+        width: 150
+        margin-left: 10
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.left: prev.right
+        mouse-scroll: false
+
+      UIWidget
+        image-source: /images/skin/show-gui-help-grey
+        size: 12 12
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 3
+        !tooltip: tr('How your attack target is marked in the game window:\nFrame & Highlight, Frame Only, Highlight Only, or None.')
+
+  VerticalScrollBar
+    id: gameWindowScrollBar
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    margin-bottom: 28
+    step: 28
+    pixels-scroll: true
+
+  OptionsQtButton
+    id: resetGameWindowButton
+    !text: tr('Reset')
+    !tooltip: tr('Reset all Game Window options to their default values.')
+    @onClick: modules.client_options.resetGameWindow()
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    margin-right: 14
+    margin-bottom: 2
+    size: 80 20

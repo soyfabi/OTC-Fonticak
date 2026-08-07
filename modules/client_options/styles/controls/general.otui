@@ -312,9 +312,10 @@ UIWidget
     size: 120 20
 
   OptionsQtButton
-    id: resetWalkKeyboardDelayButton
+    id: resetControlsButton
     !text: tr('Reset')
-    @onClick: modules.client_options.resetWalkAndKeyboardDelays()
+    !tooltip: tr('Reset all Controls options to their default values.')
+    @onClick: modules.client_options.resetControls()
     anchors.top: prev.top
     anchors.right: parent.right
     size: 80 20

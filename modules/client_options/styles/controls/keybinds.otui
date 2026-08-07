@@ -281,11 +281,12 @@ UIWidget
       visible: false
       @onClick : newHotkeyAction()
 
-    SmallButton
+    OptionsQtButton
       id: reset
+      !text: tr('Reset')
+      !tooltip: tr('Reset all General Hotkeys of the current preset to their default keys.')
+      @onClick: resetActions()
       anchors.top: parent.top
       anchors.right: parent.right
-      width: 45
       margin-top: 8
-      !text: tr('Reset')
-      @onClick : resetActions()
+      size: 80 20

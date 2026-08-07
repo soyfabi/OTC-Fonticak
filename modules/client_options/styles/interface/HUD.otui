@@ -19,6 +19,7 @@ UIWidget
     anchors.right: parent.right
     anchors.bottom: parent.bottom
     margin-right: 14
+    margin-bottom: 28
     vertical-scrollbar: hudScrollBar
 
     QtPanel
@@ -621,5 +622,17 @@ UIWidget
     anchors.top: parent.top
     anchors.right: parent.right
     anchors.bottom: parent.bottom
+    margin-bottom: 28
     step: 16
     pixels-scroll: true
+
+  OptionsQtButton
+    id: resetHUDButton
+    !text: tr('Reset')
+    !tooltip: tr('Reset all HUD options to their default values.')
+    @onClick: modules.client_options.resetHUD()
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    margin-right: 14
+    margin-bottom: 2
+    size: 80 20

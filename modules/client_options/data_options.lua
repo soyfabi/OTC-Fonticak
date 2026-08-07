@@ -309,9 +309,66 @@ return {
     showTimestampsInConsole           = true,
     showLevelsInConsole               = true,
     showPrivateMessagesInConsole      = true,
-    showOthersStatusMessagesInConsole = false,
-    showPrivateMessagesOnScreen       = true,
-    showLootMessagesOnScreen          = true,
+    showOthersStatusMessagesInConsole = true,
+    showPrivateMessagesOnScreen       = {
+        value = true
+    },
+    showLootMessagesOnScreen          = {
+        value = true
+    },
+    showMessages                      = {
+        value = true,
+        action = function(value, options, controller, panels, extraWidgets)
+            if modules.client_options and modules.client_options.applyShowMessagesCascade then
+                modules.client_options.applyShowMessagesCascade(value)
+            end
+        end
+    },
+    potionSoundEffect                 = {
+        value = true
+    },
+    showSpells                        = {
+        value = true
+    },
+    spellsOthers                      = {
+        value = true
+    },
+    showHotkeyMessagesInConsole       = {
+        value = true
+    },
+    showBoostedMessagesInConsole      = {
+        value = true
+    },
+    trainingProgress                  = {
+        value = true
+    },
+    storeNotification                 = {
+        value = true
+    },
+    lootHighlight                     = {
+        value = true
+    },
+    combatFrames                      = {
+        value = true
+    },
+    pvpFrames                         = {
+        value = true
+    },
+    markTargetVisually                = {
+        value = 1,
+        action = function(value, options, controller, panels, extraWidgets)
+            local index = tonumber(value) or 1
+            if index < 1 then index = 1 end
+            if index > 4 then index = 4 end
+            local box = panels.interfaceGameWindow and panels.interfaceGameWindow:recursiveGetChildById('markTargetVisually')
+            if box and box.setCurrentIndex then
+                box:setCurrentIndex(index, true)
+            end
+            if modules.game_battle and modules.game_battle.refreshTargetMark then
+                modules.game_battle.refreshTargetMark()
+            end
+        end
+    },
     enableChatHistory                 = true,
     showHighlightedUnderline          = {
         value = false,

@@ -9,12 +9,26 @@ panels = {
     gameMapPanel = nil,
     graphicsEffectsPanel = nil,
     interfaceHUD = nil,
+    interfaceGameWindow = nil,
     interface = nil,
     misc = nil,
     miscHelp = nil,
     keybindsPanel = nil,
     customHotkeys = nil
 }
+
+local GAME_WINDOW_MESSAGE_CHILDREN = {
+    'showPrivateMessagesOnScreen',
+    'potionSoundEffect',
+    'showSpells',
+    'spellsOthers',
+    'showHotkeyMessagesInConsole',
+    'showLootMessagesOnScreen',
+    'showBoostedMessagesInConsole',
+    'trainingProgress',
+    'storeNotification'
+}
+local showMessagesCascadeLock = false
 
 -- Hook into application exit to ensure settings are saved
 local function onAppExit()
@@ -44,6 +58,9 @@ local buttons = { {
     subCategories = { {
         text = "HUD",
         open = "interfaceHUD"
+    }, {
+        text = "Game Window",
+        open = "interfaceGameWindow"
     }, {
         text = "Console",
         open = "interfaceConsole"
@@ -170,6 +187,17 @@ local function setupComboBox()
         sizeBox:addOption(tr('Large Size'), 3)
         sizeBox.onOptionChange = function(comboBox, option)
             setOption('sizeBox', comboBox.currentIndex)
+        end
+    end
+
+    local markTargetBox = panels.interfaceGameWindow and panels.interfaceGameWindow:recursiveGetChildById('markTargetVisually')
+    if markTargetBox then
+        markTargetBox:addOption(tr('Frame & Highlight'), 1)
+        markTargetBox:addOption(tr('Frame Only'), 2)
+        markTargetBox:addOption(tr('Highlight Only'), 3)
+        markTargetBox:addOption(tr('None'), 4)
+        markTargetBox.onOptionChange = function(comboBox, option)
+            setOption('markTargetVisually', comboBox.currentIndex)
         end
     end
 
@@ -348,6 +376,7 @@ function controller:onInit()
     panels.interface = g_ui.loadUI('styles/interface/interface', controller.ui.optionsTabContent)
     panels.interfaceConsole = g_ui.loadUI('styles/interface/console', controller.ui.optionsTabContent)
     panels.interfaceHUD = g_ui.loadUI('styles/interface/HUD', controller.ui.optionsTabContent)
+    panels.interfaceGameWindow = g_ui.loadUI('styles/interface/gameWindow', controller.ui.optionsTabContent)
     panels.actionbars = g_ui.loadUI('styles/interface/actionbars', controller.ui.optionsTabContent)
 
     panels.soundPanel = g_ui.loadUI('styles/sound/audio', controller.ui.optionsTabContent)
@@ -359,6 +388,9 @@ function controller:onInit()
 
     configureCharacterCategories()
     addEvent(setup)
+    g_game.shouldShowLootHighlightEffect = shouldShowLootHighlightEffect
+    g_game.shouldShowCombatFrames = shouldShowCombatFrames
+    g_game.shouldShowPvpFrames = shouldShowPvpFrames
     
     -- Add a special delayed event to update comboboxes after everything is loaded
     scheduleEvent(function()
@@ -433,6 +465,10 @@ function controller:onTerminate()
 
     -- Make sure all settings are saved before terminating
     g_settings.save()
+
+    g_game.shouldShowLootHighlightEffect = nil
+    g_game.shouldShowCombatFrames = nil
+    g_game.shouldShowPvpFrames = nil
     
     -- Disconnect from app exit
     disconnect(g_app, { onExit = onAppExit })
@@ -641,6 +677,11 @@ function setOption(key, value, force)
         return
     end
 
+    -- Ignore checkbox events fired while visually syncing Show Messages children.
+    if showMessagesCascadeLock then
+        return
+    end
+
     local option = options[key]
     if option == nil then
         g_logger.warning(string.format("[client_options] Attempted to set unknown option: '%s'", key))
@@ -660,19 +701,33 @@ function setOption(key, value, force)
     end
 
 
-    -- change value for keybind updates
+    -- Sync checkbox/scrollbar widgets across panels that share the same option id.
+    -- Do not touch ComboBoxes here: setCurrentIndex/setCurrentOption retriggers
+    -- onOptionChange and can freeze (e.g. mouseControlMode).
     for _, panel in pairs(panels) do
-        local widget = panel:recursiveGetChildById(key)
-        if widget then
-            local styleClass = widget:getStyle().__class
-            if styleClass == 'UICheckBox' or styleClass == 'QtCheckBox' then
-                widget:setChecked(value)
-            elseif styleClass == 'UIScrollBar' then
-                widget:setValue(value)
-            elseif widget:recursiveGetChildById('valueBar') then
-                widget:recursiveGetChildById('valueBar'):setValue(value)
+        if panel and not panel:isDestroyed() then
+            local widget = panel:recursiveGetChildById(key)
+            if widget then
+                local styleClass = widget:getStyle().__class
+                if styleClass == 'UICheckBox' or styleClass == 'QtCheckBox' then
+                    -- Keep Show Messages children visually unchecked while master is off
+                    -- (only in Game Window panel; Console shares some option ids).
+                    if panel == panels.interfaceGameWindow
+                        and key ~= 'showMessages'
+                        and table.contains(GAME_WINDOW_MESSAGE_CHILDREN, key)
+                        and options.showMessages and not options.showMessages.value then
+                        widget:setChecked(false)
+                        widget:setEnabled(false)
+                        widget:setOpacity(0.5)
+                    else
+                        widget:setChecked(value)
+                    end
+                elseif styleClass == 'UIScrollBar' then
+                    widget:setValue(value)
+                elseif widget:recursiveGetChildById('valueBar') then
+                    widget:recursiveGetChildById('valueBar'):setValue(value)
+                end
             end
-            break
         end
     end
 
@@ -695,6 +750,18 @@ function getOption(key)
         return nil
     end
     return option.value
+end
+
+-- Safe boolean read for modules that must not treat nil as "on".
+function getBoolOption(key, defaultValue)
+    local value = getOption(key)
+    if value == nil then
+        if defaultValue == nil then
+            return false
+        end
+        return defaultValue and true or false
+    end
+    return value and true or false
 end
 
 function applyOwnHUD(opts, panelTable)
@@ -773,15 +840,122 @@ function applyOtherHUD(opts, panelTable)
     end
 end
 
-function resetWalkAndKeyboardDelays()
-    -- Defaults from data_options.lua (walk delays + keyboard delay only).
-    setOption('keyboardDelay', 120, true)
-    setOption('useDefaultKeyboardDelay', true, true)
-    setOption('walkTurnDelay', 100, true)
-    setOption('walkFirstStepDelay', 80, true)
-    setOption('walkCtrlTurnDelay', 100, true)
-    setOption('walkTeleportDelay', 200, true)
-    setOption('walkStairsDelay', 200, true)
+function applyShowMessagesCascade(enabled)
+    local panel = panels.interfaceGameWindow
+    if not panel then
+        return
+    end
+
+    showMessagesCascadeLock = true
+    for _, id in ipairs(GAME_WINDOW_MESSAGE_CHILDREN) do
+        local widget = panel:recursiveGetChildById(id)
+        if widget then
+            widget:setEnabled(enabled)
+            if enabled then
+                local stored = options[id] and options[id].value
+                if stored ~= nil then
+                    widget:setChecked(stored and true or false)
+                end
+                widget:setOpacity(1.0)
+            else
+                -- Visual only: look unchecked while master is off, keep option.value.
+                widget:setChecked(false)
+                widget:setOpacity(0.5)
+            end
+        end
+    end
+    showMessagesCascadeLock = false
+end
+
+function resetGameWindow()
+    setOption('displayText', true, true)
+    setOption('showMessages', true, true)
+    setOption('showPrivateMessagesInConsole', true, true)
+    setOption('showPrivateMessagesOnScreen', true, true)
+    setOption('potionSoundEffect', true, true)
+    setOption('showSpells', true, true)
+    setOption('spellsOthers', true, true)
+    setOption('showHotkeyMessagesInConsole', true, true)
+    setOption('showLootMessagesOnScreen', true, true)
+    setOption('lootHighlight', true, true)
+    setOption('showBoostedMessagesInConsole', true, true)
+    setOption('trainingProgress', true, true)
+    setOption('storeNotification', true, true)
+    setOption('combatFrames', true, true)
+    setOption('pvpFrames', true, true)
+    setOption('markTargetVisually', 1, true)
+end
+
+function resetConsole()
+    setOption('showInfoMessagesInConsole', true, true)
+    setOption('showEventMessagesInConsole', true, true)
+    setOption('showStatusMessagesInConsole', true, true)
+    setOption('showOthersStatusMessagesInConsole', true, true)
+    setOption('showTimestampsInConsole', true, true)
+    setOption('showLevelsInConsole', true, true)
+    setOption('enableChatHistory', true, true)
+    setOption('showHighlightedUnderline', false, true)
+end
+
+function resetHUD()
+    setOption('ownHUDCharacter', true, true)
+    setOption('showOwnBars', true, true)
+    setOption('showOwnName', true, true)
+    setOption('showOwnHealth', true, true)
+    setOption('showOwnMana', true, true)
+    setOption('displayHarmony', true, true)
+    setOption('otherHUDCreatures', true, true)
+    setOption('displayNames', true, true)
+    setOption('displayHealth', true, true)
+
+    -- Arcs: Health + Mana on; Experience/Skill off (CIP-like defaults).
+    setOption('healthCheckBox', true, true)
+    setOption('manaCheckBox', true, true)
+    setOption('showHealthManaCircle', true, true)
+    setOption('experienceCheckBox', false, true)
+    setOption('skillCheckBox', false, true)
+    setOption('sizeBox', 2, true)
+    setOption('distFromCenScrollbar', 0, true)
+    setOption('opacityScrollbar', 35, true)
+
+    setOption('showCustomisableStatusBars', true, true)
+    setOption('showStatusBars', true, true)
+    setOption('displayText', true, true)
+    setOption('showPing', false, true)
+    setOption('showPingPosition', 1, true)
+    setOption('showConditionInfo', true, true)
+    setOption('conditionIconSize', 2, true)
+
+    local hudScaleDefault = g_platform.isMobile() and 2 or 0
+    setOption('hudScale', hudScaleDefault, true)
+    setOption('creatureInformationScale', hudScaleDefault, true)
+    setOption('staticTextScale', hudScaleDefault, true)
+    setOption('animatedTextScale', hudScaleDefault, true)
+
+    if g_platform.isMobile() then
+        setOption('rightJoystick', false, true)
+    end
+end
+
+function shouldShowLootHighlightEffect()
+    if g_settings.exists('lootHighlight') then
+        return g_settings.getBoolean('lootHighlight')
+    end
+    return getBoolOption('lootHighlight', true)
+end
+
+function shouldShowCombatFrames()
+    if g_settings.exists('combatFrames') then
+        return g_settings.getBoolean('combatFrames')
+    end
+    return getBoolOption('combatFrames', true)
+end
+
+function shouldShowPvpFrames()
+    if g_settings.exists('pvpFrames') then
+        return g_settings.getBoolean('pvpFrames')
+    end
+    return getBoolOption('pvpFrames', true)
 end
 
 function resetActionBars()
@@ -805,6 +979,45 @@ function resetActionBars()
     setOption('showSpellAnimation', true, true)
     setOption('autoAssignSpell', true, true)
     setOption('actionTooltip', true, true)
+end
+
+function resetInterface()
+    setOption('enableHighlightMouseTarget', true, true)
+    setOption('nativeCursor', false, true)
+    setOption('showAnimatedCursor', true, true)
+    setOption('showDragIcon', true, true)
+    setOption('showLeftPanel', true, true)
+    setOption('showRightExtraPanel', false, true)
+    setOption('showSpellGroupCooldowns', true, true)
+    setOption('showInfoBanner', true, true)
+    setOption('crosshair', 'default', true)
+    setOption('framesRarity', 'frames', true)
+    setOption('showExpiryInInvetory', true, true)
+    setOption('showExpiryInContainers', true, true)
+    setOption('showExpiryOnUnusedItems', true, true)
+end
+
+function resetControls()
+    setOption('mouseControlMode', 0, true)
+    setOption('lootControlMode', 0, true)
+    setOption('smartWalk', false, true)
+    setOption('alwaysTurnTowardsMoveDirection', true, true)
+    setOption('autoChaseOverride', true, true)
+    setOption('talkOnRightClick', false, true)
+    setOption('moveStack', false, true)
+    setOption('openMinimized', false, true)
+    resetWalkAndKeyboardDelays()
+end
+
+function resetWalkAndKeyboardDelays()
+    -- Defaults from data_options.lua (walk delays + keyboard delay only).
+    setOption('keyboardDelay', 120, true)
+    setOption('useDefaultKeyboardDelay', true, true)
+    setOption('walkTurnDelay', 100, true)
+    setOption('walkFirstStepDelay', 80, true)
+    setOption('walkCtrlTurnDelay', 100, true)
+    setOption('walkTeleportDelay', 200, true)
+    setOption('walkStairsDelay', 200, true)
 end
 
 function getKeyboardDelay()

@@ -997,20 +997,27 @@ function addPrivateText(text, speaktype, name, isPrivateCommand, creatureName)
 
     local privateTab = getTab(name)
     if privateTab == nil then
-        if (modules.client_options.getOption('showPrivateMessagesInConsole') and not focus) or
-            (isPrivateCommand and not privateTab) then
-            privateTab = defaultTab
-        else
+        if speaktype.npcChat then
             privateTab = addTab(name, focus)
             channels[name] = name
+        elseif isPrivateCommand then
+            privateTab = addTab(name, focus)
+            channels[name] = name
+        elseif modules.client_options.getOption('showPrivateMessagesInConsole') then
+            privateTab = defaultTab
+        else
+            return
         end
-       if privateTab then
+        if privateTab then
             privateTab.npcChat = speaktype.npcChat
         end
     elseif focus and privateTab then
         consoleTabBar:selectTab(privateTab)
     end
-    addTabText(text, speaktype, privateTab, creatureName)
+
+    if privateTab then
+        addTabText(text, speaktype, privateTab, creatureName)
+    end
 end
 
 function addText(text, speaktype, tabName, creatureName)
@@ -1910,18 +1917,113 @@ function onTalk(name, level, mode, message, channelId, creaturePos)
         channelId = violationsChannelId
     end
 
-    if (mode == MessageModes.Say or mode == MessageModes.Whisper or mode == MessageModes.Yell or mode == MessageModes.Spell or
-        mode == MessageModes.MonsterSay or mode == MessageModes.MonsterYell or mode == MessageModes.NpcFrom or mode ==
-        MessageModes.BarkLow or mode == MessageModes.BarkLoud or mode == MessageModes.NpcFromStartBlock) and creaturePos then
-        local staticText = StaticText.create()
-        local staticMessage = message
-        if isNpcMode then
-            staticMessage = getHighlightedText(staticMessage, speaktype.color, "#1f9ffe")
-            staticText:setColor(speaktype.color)
+    local modeNum = tonumber(mode) or mode
+
+    -- Fail closed: if live option OR settings says false, treat as off.
+    local function isOptionEnabled(key, defaultValue)
+        local sawValue = false
+        if modules.client_options and modules.client_options.getOption then
+            local v = modules.client_options.getOption(key)
+            if v ~= nil then
+                if not v then
+                    return false
+                end
+                sawValue = true
+            end
+        end
+        if g_settings.exists(key) then
+            if not g_settings.getBoolean(key) then
+                return false
+            end
+            sawValue = true
+        end
+        if sawValue then
+            return true
+        end
+        return defaultValue and true or false
+    end
+
+    local function isPotionSoundMessage(msg)
+        if type(msg) ~= 'string' then
+            return false
+        end
+        local lower = msg:lower():trim()
+        return lower:find('^aa+h') ~= nil
+            or lower:find('^yikes') ~= nil
+            or lower:find('^gulp') ~= nil
+            or lower:find('^oops') ~= nil
+    end
+
+    local function isSpellWordsMessage(msg)
+        if type(msg) ~= 'string' or msg == '' then
+            return false
+        end
+        local lower = msg:lower():trim()
+        if Spells and Spells.getSpellByWords and Spells.getSpellByWords(lower) then
+            return true
+        end
+        -- Fallback for custom-server spells not in SpellInfo.
+        return lower:find('^exori') ~= nil
+            or lower:find('^exura') ~= nil
+            or lower:find('^utevo') ~= nil
+            or lower:find('^exevo') ~= nil
+            or lower:find('^utani') ~= nil
+            or lower:find('^utito') ~= nil
+            or lower:find('^utamo') ~= nil
+            or lower:find('^exana') ~= nil
+            or lower:find('^exeta') ~= nil
+            or lower:find('^adevo') ~= nil
+            or lower:find('^adana') ~= nil
+            or lower:find('^adura') ~= nil
+            or lower:find('^adori') ~= nil
+            or lower:find('^exiba') ~= nil
+            or lower:find('^exiva') ~= nil
+            or lower:find('^revelio') ~= nil
+    end
+
+    if (modeNum == MessageModes.Say or modeNum == MessageModes.Whisper or modeNum == MessageModes.Yell or modeNum == MessageModes.Spell or
+        modeNum == MessageModes.MonsterSay or modeNum == MessageModes.MonsterYell or modeNum == MessageModes.NpcFrom or modeNum ==
+        MessageModes.BarkLow or modeNum == MessageModes.BarkLoud or modeNum == MessageModes.NpcFromStartBlock or
+        modeNum == MessageModes.Potion) and creaturePos then
+
+        local allowStaticText = true
+        local localName = (g_game.getCharacterName() or ''):lower()
+        local isOwn = name and localName ~= '' and name:lower() == localName
+
+        local isSpellMode = modeNum == MessageModes.Spell
+        local isPotionMode = modeNum == MessageModes.Potion
+            or modeNum == MessageModes.BarkLow
+            or modeNum == MessageModes.BarkLoud
+        -- Many OT servers send spells/potions as MonsterSay (orange) instead of Spell/Bark/Potion.
+        -- showSpells: only YOUR spell texts (even if the server mis-tags them as MonsterSay).
+        -- spellsOthers: only real Spell mode from other players — never monster chatter.
+        -- potionSoundEffect: potion bark texts (Aaaah...) / Bark/Potion modes.
+        local ownSpell = isOwn and (isSpellMode or isSpellWordsMessage(message))
+        local otherSpell = (not isOwn) and isSpellMode
+        local potionLike = isPotionMode or isPotionSoundMessage(message)
+
+        if ownSpell then
+            allowStaticText = isOptionEnabled('showMessages', true)
+                and isOptionEnabled('showSpells', true)
+        elseif otherSpell then
+            allowStaticText = isOptionEnabled('showMessages', true)
+                and isOptionEnabled('spellsOthers', true)
+        elseif potionLike then
+            allowStaticText = isOptionEnabled('showMessages', true)
+                and isOptionEnabled('potionSoundEffect', true)
         end
 
-        staticText:addMessage(name, mode, staticMessage)
-        g_map.addStaticText(staticText, creaturePos)
+        if allowStaticText then
+            local staticText = StaticText.create()
+            local staticMessage = message
+            if isNpcMode then
+                staticMessage = getHighlightedText(staticMessage, speaktype.color, "#1f9ffe")
+                staticText:setColor(speaktype.color)
+            end
+
+            staticText:addMessage(name, modeNum, staticMessage)
+            g_map.addStaticText(staticText, creaturePos)
+        end
     end
 
     local defaultMessage = mode <= 3 and true or false
@@ -1942,9 +2044,16 @@ function onTalk(name, level, mode, message, channelId, creaturePos)
     elseif mode == MessageModes.RVRContinue then
         addText(composedMessage, speaktype, name .. '\'...', name)
     elseif speaktype.private then
-        addPrivateText(composedMessage, speaktype, name, false, name)
-        if modules.client_options.getOption('showPrivateMessagesOnScreen') and speaktype ~=
-            SpeakTypesSettings.privateNpcToPlayer then
+        local isIncomingPm = mode == MessageModes.PrivateFrom or mode == MessageModes.GamemasterPrivateFrom
+        local showInConsole = modules.client_options.getOption('showPrivateMessagesInConsole')
+        local showOnScreen = modules.client_options.getOption('showPrivateMessagesOnScreen')
+
+        -- NPC / outgoing always go to console; incoming PMs only if the option is on.
+        if not isIncomingPm or showInConsole or speaktype.npcChat then
+            addPrivateText(composedMessage, speaktype, name, false, name)
+        end
+
+        if isIncomingPm and showOnScreen and speaktype ~= SpeakTypesSettings.privateNpcToPlayer then
             modules.game_textmessage.displayPrivateMessage(name .. ':\n' .. message)
         end
     else

@@ -2033,9 +2033,71 @@ function attackNext(previous)
 end
 
 -- Connector Callbacks
+local function clearCreatureTargetVisual(creature)
+    if not creature then
+        return
+    end
+    creature:hideStaticSquare()
+    if creature.setMarked then
+        creature:setMarked('white')
+    end
+end
+
+function getMarkTargetMode()
+    local mode = 1
+    if modules.client_options and modules.client_options.getOption then
+        mode = tonumber(modules.client_options.getOption('markTargetVisually')) or 1
+    end
+    if mode < 1 then mode = 1 end
+    if mode > 4 then mode = 4 end
+    return mode
+end
+
+-- mode: 1 Frame&Highlight, 2 Frame Only, 3 Highlight Only, 4 None
+function applyCreatureTargetVisual(creature, color, isActive)
+    if not creature then
+        return
+    end
+
+    clearCreatureTargetVisual(creature)
+    if not isActive then
+        return
+    end
+
+    local mode = getMarkTargetMode()
+    if mode == 4 then
+        return
+    end
+
+    local wantFrame = (mode == 1 or mode == 2)
+    local wantHighlight = (mode == 1 or mode == 3)
+
+    if wantFrame then
+        creature:showStaticSquare(color)
+    end
+    if wantHighlight and creature.setMarked then
+        creature:setMarked(color)
+    end
+end
+
+function refreshTargetMark()
+    local attacking = g_game.getAttackingCreature()
+    if attacking then
+        applyCreatureTargetVisual(attacking, UICreatureButton.getCreatureButtonColors().onTargeted.notHovered, true)
+    end
+
+    for _, instance in pairs(BattleListManager.instances) do
+        for _, battleButton in pairs(instance.battleButtons) do
+            if battleButton.isTarget then
+                updateBattleButton(battleButton)
+            end
+        end
+    end
+end
+
 function onAttack(creature) -- Update battleButton once you're attacking a target
     if lastCreatureSelected then
-        lastCreatureSelected:hideStaticSquare()
+        clearCreatureTargetVisual(lastCreatureSelected)
         lastCreatureSelected = nil
     end
 
@@ -2066,7 +2128,7 @@ function onAttack(creature) -- Update battleButton once you're attacking a targe
 
     -- If no battle button was found in any instance, show static square on creature
     if not foundBattleButton and creature then
-        creature:showStaticSquare(UICreatureButton.getCreatureButtonColors().onTargeted.notHovered)
+        applyCreatureTargetVisual(creature, UICreatureButton.getCreatureButtonColors().onTargeted.notHovered, true)
     end
 
     lastCreatureSelected = creature
@@ -2074,7 +2136,7 @@ end
 
 function onFollow(creature) -- Update battleButton once you're following a target
     if lastCreatureSelected then
-        lastCreatureSelected:hideStaticSquare()
+        clearCreatureTargetVisual(lastCreatureSelected)
         lastCreatureSelected = nil
     end
 
@@ -2276,7 +2338,7 @@ function onCreaturePositionChange(creature, newPos, oldPos) -- Update battleButt
                                         battleButton:setVisible(canBeSeen(creature))
 
                                         if lastCreatureSelected == creature and not battleButton:isVisible() then
-                                            lastCreatureSelected:hideStaticSquare()
+                                            clearCreatureTargetVisual(lastCreatureSelected)
                                             lastCreatureSelected = nil
                                         end
 

@@ -72,39 +72,6 @@ UIWidget
     anchors.top: prev.bottom
     margin-top: 7
     height: 22
-  
-    OptionCheckBox
-      id: showPrivateMessagesInConsole
-      !text: tr('Show private messages')
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-  
-    OptionCheckBox
-      id: showPrivateMessagesOnScreen
-      !text: tr('Show private messages on screen')
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-  
-    OptionCheckBox
-      id: showLootMessagesOnScreen
-      !text: tr('Show loot messages on screen')
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
 
     OptionCheckBoxMarked
       id: enableChatHistory
@@ -121,3 +88,13 @@ UIWidget
     OptionCheckBox
       id: showHighlightedUnderline
       !text: tr('Show highlighted text underline')
+
+  OptionsQtButton
+    id: resetConsoleButton
+    !text: tr('Reset')
+    !tooltip: tr('Reset all Console options to their default values.')
+    @onClick: modules.client_options.resetConsole()
+    anchors.top: prev.bottom
+    anchors.right: parent.right
+    margin-top: 12
+    size: 80 20

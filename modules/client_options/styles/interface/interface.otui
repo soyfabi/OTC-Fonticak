@@ -127,14 +127,12 @@ UIWidget
     anchors.right: parent.right
     anchors.top: prev.bottom
     margin-top: 7
-    height: 86
+    height: 32
 
     Label
-      !text: 'Colourise Loot Value: '
+      !text: tr('Colourise Loot Value:')
       anchors.left: parent.left
-      anchors.top: parent.top
-      margin-left: 10
-      margin-top: -25
+      margin-left: 18
       color: #c0c0c0ff
       anchors.verticalCenter: parent.verticalCenter
 
@@ -142,37 +140,61 @@ UIWidget
       id: frames
       width: 120
       margin-left: 10
-      anchors.verticalCenter: prev.verticalCenter
+      anchors.verticalCenter: parent.verticalCenter
       anchors.left: prev.right
       mouse-scroll: false
 
-      
     UIWidget
-      id: toolTipWidget
       image-source: /images/icons/show_gui_help_grey
-      size: 12 12  
+      size: 12 12
       anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
       margin-right: 3
-      !tooltip: tr('If you select Frames or Corners, your loot will be marked with \ndifferent colours in loot messages, containers and the Bestiary.\n\nThe colour depends on the loot value, which can be determined in\n the Items Cyclopedia, either using the NPC buy value, the average\n Market price or your own preferred value.')
-      
+      !tooltip: tr('If you select Frames or Corners, your loot will be marked with\ndifferent colours in loot messages, containers and the Bestiary.\n\nThe colour depends on the loot value, which can be determined in\nthe Items Cyclopedia, either using the NPC buy value, the average\nMarket price or your own preferred value.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
     OptionCheckBoxMarked
       id: showExpiryInInvetory
-      anchors.top: frames.bottom
-      margin-top: 5
       !text: tr('Show Expiry In Inventory')
-      !tooltip: tr('Check this box to see how much time or how many charges are left \non your equipped items')
+      !tooltip: tr('Check this box to see how much time or how many charges are left\non your equipped items')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
 
     OptionCheckBoxMarked
       id: showExpiryInContainers
-      anchors.top: prev.bottom
-      margin-top: 5
       !text: tr('Show Expiry In Containers')
-      !tooltip: tr('Check this box to see how mmuch time or how many charges the \nitems in your open containers have left')
+      !tooltip: tr('Check this box to see how much time or how many charges the\nitems in your open containers have left')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
 
     OptionCheckBoxMarked
       id: showExpiryOnUnusedItems
-      anchors.top: prev.bottom
-      margin-top: 5
       !text: tr('Show Expiry On Unused Items')
-      !tooltip: tr('Check this box to see how much time or how many charges are left\n on items that have not been used yet')
+      !tooltip: tr('Check this box to see how much time or how many charges are left\non items that have not been used yet')
       enabled: false
+
+  OptionsQtButton
+    id: resetInterfaceButton
+    !text: tr('Reset')
+    !tooltip: tr('Reset all Interface options to their default values.')
+    @onClick: modules.client_options.resetInterface()
+    anchors.top: prev.bottom
+    anchors.right: parent.right
+    margin-top: 12
+    size: 80 20

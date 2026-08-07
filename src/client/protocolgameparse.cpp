@@ -45,6 +45,60 @@
 #include <fmt/format.h>
 #include <framework/util/stats.h>
 #include <functional>
+#include <framework/luaengine/luainterface.h>
+
+namespace
+{
+constexpr int LootHighlightEffectId = 252;
+
+bool shouldShowLootHighlightEffect()
+{
+    const int rets = g_lua.luaCallGlobalField("g_game", "shouldShowLootHighlightEffect");
+    if (rets <= 0)
+        return true;
+
+    bool shouldDraw = true;
+    if (g_lua.isBoolean())
+        shouldDraw = g_lua.popBoolean();
+    else
+        g_lua.pop(1);
+
+    if (rets > 1)
+        g_lua.pop(rets - 1);
+
+    return shouldDraw;
+}
+
+bool shouldDrawMagicEffect(const int effectId)
+{
+    if (effectId != LootHighlightEffectId)
+        return true;
+
+    return shouldShowLootHighlightEffect();
+}
+
+bool shouldShowCreatureFrame(const CreaturePtr& creature)
+{
+    if (!creature)
+        return false;
+
+    const char* field = creature->isPlayer() ? "shouldShowPvpFrames" : "shouldShowCombatFrames";
+    const int rets = g_lua.luaCallGlobalField("g_game", field);
+    if (rets <= 0)
+        return true;
+
+    bool shouldShow = true;
+    if (g_lua.isBoolean())
+        shouldShow = g_lua.popBoolean();
+    else
+        g_lua.pop(1);
+
+    if (rets > 1)
+        g_lua.pop(rets - 1);
+
+    return shouldShow;
+}
+} // namespace
 
 static bool usesModernImbuementWindow()
 {
@@ -1909,6 +1963,8 @@ void ProtocolGame::parseMagicEffect(const InputMessagePtr& msg)
 
                 case Otc::MAGIC_EFFECTS_CREATE_EFFECT: {
                     const uint16_t effectId = g_game.getFeature(Otc::GameEffectU16) ? msg->getU16() : msg->getU8();
+                    if (!shouldDrawMagicEffect(effectId))
+                        continue;
                     if (!g_things.isValidDatId(effectId, ThingCategoryEffect)) {
                         g_logger.traceError("invalid effect id {}", effectId);
                         continue;
@@ -1947,6 +2003,9 @@ void ProtocolGame::parseMagicEffect(const InputMessagePtr& msg)
     if (g_game.getClientVersion() <= 750) {
         effectId += 1; //hack to fix effects in earlier clients
     }
+
+    if (!shouldDrawMagicEffect(effectId))
+        return;
 
     if (!g_things.isValidDatId(effectId, ThingCategoryEffect)) {
         g_logger.traceError("invalid effect id {}", effectId);
@@ -2155,7 +2214,8 @@ void ProtocolGame::parseCreatureMark(const InputMessagePtr& msg)
         return;
     }
 
-    creature->addTimedSquare(color);
+    if (shouldShowCreatureFrame(creature))
+        creature->addTimedSquare(color);
 }
 
 void ProtocolGame::parseTrappers(const InputMessagePtr& msg)
@@ -3832,7 +3892,8 @@ void ProtocolGame::parseCreaturesMark(const InputMessagePtr& msg)
     }
 
     if (isLegacyProtocol) {
-        creature->addTimedSquare(squareColor);
+        if (shouldShowCreatureFrame(creature))
+            creature->addTimedSquare(squareColor);
         return;
     }
 
@@ -3841,6 +3902,9 @@ void ProtocolGame::parseCreaturesMark(const InputMessagePtr& msg)
         creature->removeTimedSquare();
         return;
     }
+
+    if (!shouldShowCreatureFrame(creature))
+        return;
 
     if (squareType == 2) {
         creature->showStaticSquare(Color::from8bit(squareColor != 0 ? squareColor : 1));
@@ -4359,7 +4423,9 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
                     break;
                 case 4: // Loot Highlight
                 {
-                    const auto& attachedEffect = AttachedEffect::create(252, ThingCategoryEffect);
+                    if (!shouldShowLootHighlightEffect())
+                        break;
+                    const auto& attachedEffect = AttachedEffect::create(LootHighlightEffectId, ThingCategoryEffect);
                     if (attachedEffect) {
                         attachedEffect->setPermanent(true);
                         attachedEffect->setOnTop(true);

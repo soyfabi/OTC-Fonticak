@@ -1,12 +1,15 @@
 UIWidget
   anchors.fill: parent
   visible: false
-  QtButton
+
+  OptionsQtButton
     id: reset
-    text: "Reset"
-    anchors.right: parent.right
-    anchors.bottom: parent.bottom
+    !text: tr('Reset')
+    !tooltip: tr('Reset control buttons visibility and order to their default values.')
     @onClick: reset()
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    size: 80 20
 
   Panel
     id: panelDisplayedButtons
