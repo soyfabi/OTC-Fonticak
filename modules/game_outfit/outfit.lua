@@ -325,13 +325,25 @@ end
 
 function onShowFamiliarChange(checkBox, checked)
   g_settings.set('outfit_showFamiliar', checked)
-  previewFamiliar:setVisible(checked)
-  updatePreview()
   if checked then
-    previewCreature:setMarginRight(63)
-  else
-    previewCreature:setMarginRight(0)
+    local familiarId = tonumber(tempOutfit and tempOutfit.familiar) or 0
+    if familiarId == 0 and tempFamiliar then
+      familiarId = tonumber(tempFamiliar.type) or 0
+    end
+    if familiarId == 0 and ServerData and ServerData.familiars then
+      for _, familiarData in ipairs(ServerData.familiars) do
+        familiarId = tonumber(familiarData[1]) or 0
+        if familiarId > 0 then
+          break
+        end
+      end
+    end
+    if familiarId > 0 then
+      tempOutfit.familiar = familiarId
+      tempFamiliar = { type = familiarId }
+    end
   end
+  updatePreview()
 end
 
 function onShowAuraChange(checkBox, checked)
@@ -490,8 +502,12 @@ function create(player, outfitList, creatureMount, mountList, familiarList, wing
   showFamiliarCheck.onCheckChange = onShowFamiliarChange
   showAuraCheck.onCheckChange = onShowAuraChange
 
-  showFamiliarCheck:setEnabled(not table.empty(familiarList))
-  if table.empty(familiarList) then
+  local familiarId = tonumber(currentOutfit.familiar) or 0
+  local hasFamiliarList = type(familiarList) == 'table' and not table.empty(familiarList)
+  local hasFamiliarOptions = hasFamiliarList or familiarId > 0 or g_game.getFeature(GamePlayerFamiliars)
+  -- Keep Show Familiar clickable when familiars are supported / available.
+  showFamiliarCheck:setEnabled(hasFamiliarOptions)
+  if not hasFamiliarList and familiarId == 0 then
     window.appearance.familiarCheck:setEnabled(false)
   else
     window.appearance.familiarCheck:setEnabled(true)
@@ -1171,14 +1187,12 @@ function onPresetSelect(widget)
 
   if (tempOutfit.familiar or 0) > 0 then
     showFamiliarCheck:setChecked(true)
-    previewFamiliar:setOutfit({type = tempOutfit.familiar})
   else
     showFamiliarCheck:setChecked(false)
   end
 
   if (tempOutfit.aura or 0) > 0 then
     showAuraCheck:setChecked(true)
-    previewFamiliar:setOutfit({type = tempOutfit.aura})
   else
     showAuraCheck:setChecked(false)
   end
@@ -1292,11 +1306,7 @@ function onFamiliarSelect(list, focusedChild, unfocusedChild, reason)
     local mountType = tonumber(focusedChild:getId())
     tempOutfit.familiar = mountType
     tempFamiliar.type = mountType
-
-    if showFamiliarCheck:isChecked() then
-      updatePreview()
-    end
-
+    updatePreview()
     updateAppearanceText("familiar", focusedChild.name:getText())
   end
 end
@@ -1458,7 +1468,6 @@ end
 function updatePreview(onlyMount)
   local direction = previewCreature and previewCreature:getDirection() or 0
   local previewOutfit = tempOutfit and table.copy(tempOutfit) or {}
-  local previewOFamiliar = tempFamiliar and table.copy(tempFamiliar) or {}
 
   if previewCreature then
     previewCreature:show()
@@ -1468,13 +1477,27 @@ function updatePreview(onlyMount)
     previewOutfit.mount = 0
   end
 
-  if showFamiliarCheck and showFamiliarCheck:isChecked() == false then
-    previewOFamiliar.type = 0
-    previewOFamiliar.familiar = 0
-  elseif tempOutfit then
-    local tempFamiliar = {type = tempOutfit.familiar}
-    if previewFamiliar then
-      previewFamiliar:setOutfit(tempFamiliar)
+  -- Familiar is a separate UICreature beside the character (not part of outfit draw).
+  local familiarId = 0
+  if showFamiliarCheck and showFamiliarCheck:isChecked() then
+    familiarId = tonumber(tempOutfit and tempOutfit.familiar) or 0
+    if familiarId == 0 and tempFamiliar then
+      familiarId = tonumber(tempFamiliar.type) or 0
+    end
+  end
+  if previewFamiliar then
+    if familiarId > 0 then
+      previewFamiliar:setOutfit({ type = familiarId })
+      previewFamiliar:setVisible(true)
+      previewFamiliar:setDirection(direction)
+      if previewCreature then
+        previewCreature:setMarginRight(63)
+      end
+    else
+      previewFamiliar:setVisible(false)
+      if previewCreature then
+        previewCreature:setMarginRight(0)
+      end
     end
   end
 

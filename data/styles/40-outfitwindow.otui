@@ -373,6 +373,8 @@ OutfitWindow < MainWindow
         anchors.verticalCenter: parent.verticalCenter
         margin-left: 4
         change-cursor-image: false
+        $disabled:
+          color: #707070
         $hover !disabled:
           color: $var-text-cip-color
 

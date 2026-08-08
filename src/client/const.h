@@ -571,7 +571,7 @@ namespace Otc
         GameAllowCustomBotScripts = 120,
         GameColorizedLootValue = 121,
         GameAllowPreWalk = 122,
-        GamePlayerFamiliars = 123,
+        // 123 reserved (Astra GameQuickLootFlags) — do not reuse
         GameTileAddThingWithStackpos = 124,
         GameMapCache = 125,
         GameForgeSkillStats = 126,
@@ -582,6 +582,8 @@ namespace Otc
         GameItemTierByte = 131,
         GameProficiency = 132,
         GameEffectSource = 133,
+        // Align with Fantoner/Astra negotiated feature id
+        GamePlayerFamiliars = 138,
         LastGameFeature
     };
 

@@ -3152,9 +3152,9 @@ void ProtocolGame::parseFloorChangeDown(const InputMessagePtr& msg)
 
 void ProtocolGame::parseOpenOutfitWindow(const InputMessagePtr& msg) const
 {
-    const auto& currentOutfit = getOutfit(msg);
+    auto currentOutfit = getOutfit(msg);
 
-    // mount color bytes are required here regardless of having one
+    // mount color bytes are required here regardless of having one (Tibia 12.81+)
     if (g_game.getClientVersion() >= 1281) {
         if (currentOutfit.getMount() == 0) {
             msg->getU8(); //head
@@ -3162,8 +3162,11 @@ void ProtocolGame::parseOpenOutfitWindow(const InputMessagePtr& msg) const
             msg->getU8(); //legs
             msg->getU8(); //feet
         }
+    }
 
-        msg->getU16(); // current familiar looktype
+    // Current familiar looktype: official 12.81+ and custom 8.60 servers with GamePlayerFamiliars
+    if (g_game.getFeature(Otc::GamePlayerFamiliars)) {
+        currentOutfit.setFamiliar(msg->getU16());
     }
 
     std::vector<std::tuple<uint16_t, std::string, uint8_t, uint8_t>> outfitList;
