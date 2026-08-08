@@ -87,6 +87,15 @@ void Connection::close()
     }
 }
 
+void Connection::setKeepAlive(const bool enabled)
+{
+    if (!m_socket.is_open())
+        return;
+
+    std::error_code ec;
+    m_socket.set_option(asio::socket_base::keep_alive(enabled), ec);
+}
+
 void Connection::connect(const std::string_view host, const uint16_t port, const std::function<void()>& connectCallback)
 {
     m_connected = false;

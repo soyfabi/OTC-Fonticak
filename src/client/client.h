@@ -22,6 +22,7 @@
 
 #pragma once
 #include "declarations.h"
+#include "const.h"
 #include "framework/core/graphicalapplication.h"
 
 class Client : public ApplicationDrawEvents
@@ -49,6 +50,7 @@ public:
     float getMissileAlpha() const { return m_missileAlpha; }
     void setMissileAlpha(const float v) { m_missileAlpha = v; }
 
+    float getSpellEffectAlpha(Otc::MagicEffectSources source) const;
     float getOwnSpellEffectAlpha() const { return m_ownSpellEffectAlpha; }
     void setOwnSpellEffectAlpha(const float v) { m_ownSpellEffectAlpha = v; }
 

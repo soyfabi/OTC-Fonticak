@@ -226,6 +226,7 @@ GameMultiSpr = 129
 GameVocationMonk = 130
 GameItemTierByte = 131
 GameProficiency = 132
+GameEffectSource = 133
 
 TextColors = {
     red = '#f55e5e',    -- '#c83200'

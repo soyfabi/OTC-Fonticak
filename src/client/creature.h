@@ -83,6 +83,7 @@ public:
     void onStartAttachEffect(const AttachedEffectPtr& effect) override;
     void onDispatcherAttachEffect(const AttachedEffectPtr& effect) override;
     void onStartDetachEffect(const AttachedEffectPtr& effect) override;
+    void drawAttachedEffect(const Point& originalDest, const Point& dest, LightView* lightView, bool isOnTop);
 
     void addTimedSquare(uint8_t color);
     void removeTimedSquare() { m_showTimedSquare = false; }

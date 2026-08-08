@@ -168,6 +168,12 @@ if not short_text then
   end
 end
 
+-- Astra store scripts expect m_settings / client_settings.
+m_settings = m_settings or modules.client_options
+if not modules.client_settings then
+  modules.client_settings = modules.client_options
+end
+
 if HTTP and not HTTP.downloadConditionalImage then
   function HTTP.downloadConditionalImage(url, data, callback)
     if callback then

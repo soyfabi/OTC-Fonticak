@@ -177,7 +177,9 @@ BuyOfferWindow < NewMainWindow
       font: $var-cip-font
       color: $var-text-cip-color
       text-offset: 18 -2
-      @onCheckChange: modules.client_settings.setOption(self:getId(), not self:isChecked())
+      @onCheckChange: |
+        -- Checked = "Do not show again" => disable ask-before-buy.
+        modules.client_options.setOption('storeAskBeforeBuyingProducts', not self:isChecked())
 
       $!enabled:
         color: $var-text-cip-color-grey

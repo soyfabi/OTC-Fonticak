@@ -187,12 +187,14 @@ QtComboBox < UIComboBox
 OptionsComboBoxPopupMenuButton < QtComboBoxPopupMenuButton
   image-source: /images/ui/panel_flat_border
   image-border: 1
+  font: Verdana Bold-11px
 
 OptionsComboBoxPopupMenu < QtComboBoxPopupMenu
   image-source: /images/ui/combobox_new
 
 OptionsComboBox < QtComboBox
   size: 91 20
+  font: Verdana Bold-11px
 
 OptionsClassicComboBoxPopupMenuButton < ComboBoxPopupMenuButton
   image-source: /images/ui/panel_flat_border

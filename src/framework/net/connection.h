@@ -55,6 +55,7 @@ public:
     void read_some(const RecvCallback& callback);
 
     void setErrorCallback(const ErrorCallback& errorCallback) { m_errorCallback = errorCallback; }
+    void setKeepAlive(bool enabled);
 
     int getIp();
     std::error_code getError() const { return m_error; }

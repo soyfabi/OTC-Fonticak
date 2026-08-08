@@ -24,8 +24,12 @@ local pingPanel
 local MainPingPanel
 local mainFpsPanel
 local fpsPanel2
+local fpsImg
 local PingWidget
 local pingImg
+
+-- Match ping icon (17) + margin-right (2) so FPS lines up with "Low lag" text.
+local PING_ICON_OFFSET = 19
 
 local zoomInButton = nil
 local zoomOutButton = nil
@@ -79,6 +83,15 @@ local function getPingCorner(override)
         corner = modules.client_options.getOption('showPingPosition') or 1
     end
     return math.min(4, math.max(1, tonumber(corner) or 1))
+end
+
+local function syncFpsLabelAlign()
+    if not fpsPanel2 or fpsPanel2:isDestroyed() then
+        return
+    end
+    local pingVisible = pingPanel and not pingPanel:isDestroyed() and pingPanel:isVisible()
+        and pingImg and not pingImg:isDestroyed() and pingImg:isVisible()
+    fpsPanel2:setMarginLeft(pingVisible and PING_ICON_OFFSET or 0)
 end
 
 local function refreshPingWidgetPosition(cornerOverride)
@@ -348,7 +361,14 @@ function online()
             
             mainFpsPanel = g_ui.createWidget("testPingPanel", PingWidget:getChildByIndex(2))
             mainFpsPanel:setId("fps")
+            fpsImg = mainFpsPanel:getChildByIndex(1)
             fpsPanel2 = mainFpsPanel:getChildByIndex(2)
+            if fpsImg then
+                fpsImg:setVisible(false)
+                fpsImg:setWidth(0)
+                fpsImg:setHeight(0)
+                fpsImg:setMarginRight(0)
+            end
 
             hookPingGeometry(mapPanel)
             hookPingGeometry(modules.game_interface.getLeftPanel and modules.game_interface.getLeftPanel())
@@ -375,6 +395,7 @@ function online()
         
         local showFps = modules.client_options.getOption('showFps')
         fpsPanel2:setVisible(showFps)
+        syncFpsLabelAlign()
         refreshPingWidgetPosition()
     end)
 end
@@ -423,10 +444,17 @@ function updateFps(fps)
         fpsLabel:setText(text)
     end
 
-    local text = fps .. ' fps'
+    local color
+    if fps >= 80 then
+        color = '#60d394'
+    elseif fps >= 30 then
+        color = '#f0a04b'
+    else
+        color = '#f05a5a'
+    end
     if fpsPanel2 and fpsPanel2:isVisible() then
         if g_game.isOnline() then
-            fpsPanel2:setText(text)
+            fpsPanel2:setColoredText(string.format('{%d, %s}{ fps, #ffffff}', fps, color))
         end
     end
 
@@ -486,6 +514,7 @@ function setPingVisible(enable)
         pingPanel:setVisible(enable)
         pingImg:setVisible(enable)
     end
+    syncFpsLabelAlign()
     refreshPingWidgetPosition()
 end
 
@@ -498,6 +527,7 @@ function setFpsVisible(enable)
     if fpsPanel2 then
         fpsPanel2:setVisible(enable)
     end
+    syncFpsLabelAlign()
 end
 
 function setPlayersOnline(value)

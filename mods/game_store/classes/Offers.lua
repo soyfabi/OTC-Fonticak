@@ -1000,7 +1000,7 @@ function buyStoreOffer(generalOffer, selectedOffer)
 		return modules.game_store.onRequestPurchaseData(selectedOffer.id, OFFER_BUY_TYPE_HIRELING)
 	end
 
-	if not m_settings.getOption('storeAskBeforeBuyingProducts') then
+	if not modules.client_options.getOption('storeAskBeforeBuyingProducts') then
 		return modules.game_store.onBuyOffer(buyOfferWindow.okBuyButton, selectedOffer.id, generalOffer.offerType)
 	end
 
@@ -1014,6 +1014,11 @@ function buyStoreOffer(generalOffer, selectedOffer)
 	buyOfferWindow:show(true)
 	g_client.setInputLockWidget(buyOfferWindow)
 	buyOfferWindow.productWarning:setText(tr('Do you want to buy the product "%dx %s"?', selectedOffer.count, generalOffer.name))
+
+	local askButton = buyOfferWindow:recursiveGetChildById("storeAskBeforeBuyingProducts")
+	if askButton then
+		askButton:setChecked(not modules.client_options.getOption('storeAskBeforeBuyingProducts'))
+	end
 
 	buyOfferWindow.description.offerName:setText(tr('%dx %s', selectedOffer.count, generalOffer.name))
 	buyOfferWindow.description.offerPrice:setText(tr('Price: %d', selectedOffer.price))

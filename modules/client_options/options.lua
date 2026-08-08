@@ -12,6 +12,7 @@ panels = {
     interfaceGameWindow = nil,
     interface = nil,
     misc = nil,
+    miscGameplay = nil,
     miscHelp = nil,
     keybindsPanel = nil,
     customHotkeys = nil
@@ -45,10 +46,10 @@ local buttons = { {
     icon = "/images/icons/icon_controls",
     open = "generalPanel",
     subCategories = { {
-        text = "General Hotkeys",
+        text = "General Hotk...",
         open = "keybindsPanel"
     }, {
-        text = "Custom Hotkeys",
+        text = "Custom Hotk...",
         open = "customHotkeys"
     } }
 }, {
@@ -91,13 +92,10 @@ local buttons = { {
     text = "Misc.",
     icon = "/images/icons/icon_misc",
     open = "misc",
-    subCategories = { --[[ {
-        text = "GamePlay",
-        open = "GamePlay"
-    },  {
-        text = "Screenshots",
-        open = "Screenshots"
-    }, ]] {
+    subCategories = { {
+        text = "Gameplay",
+        open = "miscGameplay"
+    }, {
         text = "Help",
         open = "miscHelp"
     } }
@@ -333,10 +331,10 @@ local function setup()
         end
     end, 100)
 
-    local talkOnRightClick = panels.generalPanel:recursiveGetChildById('talkOnRightClick')
+    local talkOnRightClick = panels.miscGameplay and panels.miscGameplay:recursiveGetChildById('talkOnRightClick')
     if talkOnRightClick then
         local parent = talkOnRightClick:getParent()
-       if g_game.getClientVersion() > 1511 then
+        if g_game.getClientVersion() > 1511 then
             parent:setVisible(false)
             parent:setHeight(0)
             parent:setMarginTop(0)
@@ -382,6 +380,7 @@ function controller:onInit()
     panels.soundPanel = g_ui.loadUI('styles/sound/audio', controller.ui.optionsTabContent)
 
     panels.misc = g_ui.loadUI('styles/misc/misc', controller.ui.optionsTabContent)
+    panels.miscGameplay = g_ui.loadUI('styles/misc/gameplay', controller.ui.optionsTabContent)
     panels.miscHelp = g_ui.loadUI('styles/misc/help', controller.ui.optionsTabContent)
 
     self.ui:hide()
@@ -613,6 +612,13 @@ function controller:onGameStart()
     local gameMapPanel = modules.game_interface and modules.game_interface.getMapPanel()
     if gameMapPanel then
         gameMapPanel:setCursorAnimations(options.showAnimatedCursor.value)
+    end
+
+    if options.optimiseConnectionStability then
+        setOption('optimiseConnectionStability', options.optimiseConnectionStability.value, true)
+    end
+    if type(applyAsyncTextureLoading) == 'function' then
+        applyAsyncTextureLoading()
     end
 end
 
@@ -958,6 +964,35 @@ function shouldShowPvpFrames()
     return getBoolOption('pvpFrames', true)
 end
 
+function resetGraphics()
+    setOption('antialiasingMode', 2, true) -- Smooth Retro
+    setOption('fullscreen', false, true)
+    setOption('vsync', true, true)
+    setOption('showFps', false, true)
+    setOption('backgroundFrameRate', 100, true)
+    setOption('optimizeFps', true, true)
+    setOption('forceEffectOptimization', false, true)
+    setOption('asyncTxtLoading', false, true)
+    setOption('hdGraphics', false, true)
+    setOption('dontStretchShrink', false, true)
+end
+
+function resetEffects()
+    setOption('enableLights', true, true)
+    setOption('ambientLight', 0, true)
+    setOption('shadowFloorIntensity', 30, true)
+    setOption('floorFading', 500, true)
+    setOption('floorViewMode', 1, true)
+    setOption('drawEffectOnTop', false, true)
+    setOption('limitVisibleDimension', false, true)
+    setOption('floatingEffect', false, true)
+    setOption('setMissileAlphaScroll', 100, true)
+    setOption('setOwnSpellEffectAlphaScroll', 100, true)
+    setOption('setOtherPlayerSpellEffectAlphaScroll', 100, true)
+    setOption('setCreatureSpellEffectAlphaScroll', 100, true)
+    setOption('setBossAreaCreatureEffectAlphaScroll', 100, true)
+end
+
 function resetActionBars()
     setOption('allActionBar13', true, true)
     setOption('actionBarShowBottom1', true, true)
@@ -1002,11 +1037,54 @@ function resetControls()
     setOption('lootControlMode', 0, true)
     setOption('smartWalk', false, true)
     setOption('alwaysTurnTowardsMoveDirection', true, true)
-    setOption('autoChaseOverride', true, true)
-    setOption('talkOnRightClick', false, true)
     setOption('moveStack', false, true)
     setOption('openMinimized', false, true)
     resetWalkAndKeyboardDelays()
+end
+
+function resetGameplay()
+    setOption('allowInspect', false, true)
+    setOption('autoChaseOverride', true, true)
+    setOption('talkOnRightClick', false, true)
+    setOption('quickAllCorpses', false, true)
+end
+
+function applyAsyncTextureLoading()
+    if not g_app or not g_app.setLoadingAsyncTexture then
+        return
+    end
+
+    -- Quick Login prioritizes entering the world ASAP (async textures).
+    -- Graphics "Async texture loading" also requests async. Either one enables it.
+    local wantAsync = false
+    if options.quickLogin and options.quickLogin.value then
+        wantAsync = true
+    end
+    if options.asyncTxtLoading and options.asyncTxtLoading.value then
+        wantAsync = true
+    end
+
+    -- Protobuf always forces async; encrypted clients block it (handled in C++).
+    if g_game and g_game.isUsingProtobuf and g_game.isUsingProtobuf() then
+        wantAsync = true
+    elseif g_app.isEncrypted and g_app.isEncrypted() then
+        wantAsync = false
+        local asyncWidget = panels.graphicsPanel and panels.graphicsPanel:recursiveGetChildById('asyncTxtLoading')
+        if asyncWidget then
+            asyncWidget:setEnabled(false)
+            asyncWidget:setChecked(false)
+        end
+    end
+
+    g_app.setLoadingAsyncTexture(wantAsync)
+end
+
+function resetMisc()
+    setOption('storeAskBeforeBuyingProducts', true, true)
+    setOption('stowContainer', true, true)
+    setOption('stayLoggedInforSession', false, true)
+    setOption('optimiseConnectionStability', true, true)
+    setOption('quickLogin', true, true)
 end
 
 function resetWalkAndKeyboardDelays()
@@ -1142,6 +1220,8 @@ local function createSubWidget(parent, subId, subButton)
     subWidget:setId(subId)
     subWidget.Button.Icon:setIcon(subButton.icon)
     subWidget.Button.Title:setText(subButton.text)
+    subWidget.Button.Title:setFont('Verdana Bold-11px')
+    subWidget.Button.Title:setHeight(15)
     subWidget:setVisible(false)
     subWidget.open = subButton.open
     subWidget.callbackFunc = subButton.callbackFunc
@@ -1202,9 +1282,9 @@ function configureCharacterCategories()
 
             for subId, subButton in ipairs(button.subCategories) do
                 local subWidget = createSubWidget(widget, subId, subButton)
-                if button.text == "Controls" then
+                if button.text == "Controls" or subButton.text == "Control Butt..." then
                     -- Leave room for the selection arrow without truncating
-                    -- the longer General/Custom Hotkeys labels.
+                    -- longer labels (General/Custom Hotk..., Control Butt...).
                     subWidget.Button.Title:setMarginLeft(4)
                     subWidget.Button.Title:setMarginRight(16)
                 end

@@ -218,8 +218,47 @@ return {
     },
     smartWalk                         = false,
     alwaysTurnTowardsMoveDirection    = true,
+    allowInspect                      = false,
     autoChaseOverride                 = true,
     talkOnRightClick                  = false,
+    quickAllCorpses                   = false,
+    storeAskBeforeBuyingProducts      = true,
+    stowContainer                     = true,
+    stayLoggedInforSession            = {
+        value = false,
+        action = function(value)
+            g_settings.set('staylogged', value and true or false)
+            if EnterGame and EnterGame.setStayLoggedChecked then
+                EnterGame.setStayLoggedChecked(value and true or false)
+            elseif modules.client_entergame and modules.client_entergame.setStayLoggedChecked then
+                modules.client_entergame.setStayLoggedChecked(value and true or false)
+            end
+        end
+    },
+    optimiseConnectionStability       = {
+        value = true,
+        action = function(value)
+            if g_game and g_game.setConnectionStabilityOptimisation then
+                g_game.setConnectionStabilityOptimisation(value and true or false)
+            elseif g_game and g_game.setPingDelay then
+                -- Fallback before C++ rebuild: keep-alive ping interval only.
+                g_game.setPingDelay(value and 1000 or 5000)
+                if g_game.setNewPingDelay then
+                    g_game.setNewPingDelay(value and 250 or 2000)
+                end
+            end
+        end
+    },
+    quickLogin                        = {
+        value = true,
+        action = function()
+            if type(applyAsyncTextureLoading) == 'function' then
+                applyAsyncTextureLoading()
+            elseif modules.client_options and modules.client_options.applyAsyncTextureLoading then
+                modules.client_options.applyAsyncTextureLoading()
+            end
+        end
+    },
     -- Unchecked (default): hold Ctrl to move the full stack.
     -- Checked: move the full stack without holding Ctrl.
     moveStack                         = false,
@@ -799,7 +838,7 @@ return {
         value = true,
     },
     antialiasingMode                  = {
-        value = 1,
+        value = 2, -- Smooth Retro
         action = function(value, options, controller, panels, extraWidgets)
             panels.gameMapPanel:setAntiAliasingMode(value)
             panels.graphicsPanel:recursiveGetChildById('antialiasingMode'):setCurrentOptionByData(value, true)
@@ -866,14 +905,23 @@ return {
         action = function(value, options, controller, panels, extraWidgets)
             if g_game.isUsingProtobuf() then
                 value = true
+                options.asyncTxtLoading.value = true
             elseif g_app.isEncrypted() then
                 local asyncWidget = panels.graphicsPanel:recursiveGetChildById('asyncTxtLoading')
-                asyncWidget:setEnabled(false)
-                asyncWidget:setChecked(false)
-                return
+                if asyncWidget then
+                    asyncWidget:setEnabled(false)
+                    asyncWidget:setChecked(false)
+                end
+                options.asyncTxtLoading.value = false
             end
 
-            g_app.setLoadingAsyncTexture(value)
+            if type(applyAsyncTextureLoading) == 'function' then
+                applyAsyncTextureLoading()
+            elseif modules.client_options and modules.client_options.applyAsyncTextureLoading then
+                modules.client_options.applyAsyncTextureLoading()
+            else
+                g_app.setLoadingAsyncTexture(value)
+            end
         end
     },
     hudScale                          = {
@@ -1005,47 +1053,65 @@ return {
         end
     },
     setEffectAlphaScroll              = {
+        -- Removed from Effects UI; keep full opacity (Own Spell Effects replaces it).
         value = 100,
         action = function(value, options, controller, panels, extraWidgets)
-            g_client.setEffectAlpha(value / 100)
-            panels.graphicsEffectsPanel:recursiveGetChildById('setEffectAlphaScroll'):setText(tr('Opacity Effect: %s%%',
-                value))
+            g_client.setEffectAlpha(1)
         end
     },
     setMissileAlphaScroll             = {
         value = 100,
         action = function(value, options, controller, panels, extraWidgets)
+            if value < 10 then value = 10 end
             g_client.setMissileAlpha(value / 100)
-            panels.graphicsEffectsPanel:recursiveGetChildById('setMissileAlphaScroll'):setText(tr(
-                'Opacity Missile: %s%%', value))
+            local widget = panels.graphicsEffectsPanel:recursiveGetChildById('setMissileAlphaScroll')
+            if widget then
+                widget:setText(tr('Opacity Missile: %s%%', value))
+            end
         end
     },
     setOwnSpellEffectAlphaScroll = {
         value = 100,
         action = function(value, options, controller, panels, extraWidgets)
+            if value < 10 then value = 10 end
             if g_client then g_client.setOwnSpellEffectAlpha(value / 100) end
-            panels.graphicsEffectsPanel:recursiveGetChildById('setOwnSpellEffectAlphaScroll'):setText(tr('Own Spell Effects: %s%%', value))
+            local widget = panels.graphicsEffectsPanel:recursiveGetChildById('setOwnSpellEffectAlphaScroll')
+            if widget then
+                widget:setText(tr('Own Spell Effects: %s%%', value))
+            end
         end
     },
     setOtherPlayerSpellEffectAlphaScroll = {
         value = 100,
         action = function(value, options, controller, panels, extraWidgets)
+            if value < 10 then value = 10 end
             if g_client then g_client.setOtherPlayerSpellEffectAlpha(value / 100) end
-            panels.graphicsEffectsPanel:recursiveGetChildById('setOtherPlayerSpellEffectAlphaScroll'):setText(tr("Other Players' Effects: %s%%", value))
+            local widget = panels.graphicsEffectsPanel:recursiveGetChildById('setOtherPlayerSpellEffectAlphaScroll')
+            if widget then
+                widget:setText(tr("Other Players' Effects: %s%%", value))
+            end
         end
     },
     setCreatureSpellEffectAlphaScroll = {
         value = 100,
         action = function(value, options, controller, panels, extraWidgets)
+            if value < 10 then value = 10 end
             if g_client then g_client.setCreatureSpellEffectAlpha(value / 100) end
-            panels.graphicsEffectsPanel:recursiveGetChildById('setCreatureSpellEffectAlphaScroll'):setText(tr('Creature Spell Effects: %s%%', value))
+            local widget = panels.graphicsEffectsPanel:recursiveGetChildById('setCreatureSpellEffectAlphaScroll')
+            if widget then
+                widget:setText(tr('Creature Spell Effects: %s%%', value))
+            end
         end
     },
     setBossAreaCreatureEffectAlphaScroll = {
         value = 100,
         action = function(value, options, controller, panels, extraWidgets)
+            if value < 10 then value = 10 end
             if g_client then g_client.setBossAreaCreatureEffectAlpha(value / 100) end
-            panels.graphicsEffectsPanel:recursiveGetChildById('setBossAreaCreatureEffectAlphaScroll'):setText(tr('Boss Area Creature Spell Effects: %s%%', value))
+            local widget = panels.graphicsEffectsPanel:recursiveGetChildById('setBossAreaCreatureEffectAlphaScroll')
+            if widget then
+                widget:setText(tr('Boss Area Creature Spell Effects: %s%%', value))
+            end
         end
     },
     distFromCenScrollbar              = {

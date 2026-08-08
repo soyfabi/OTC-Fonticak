@@ -178,12 +178,13 @@ bool GraphicalApplication::canDrawMap() const {
 
 void GraphicalApplication::run()
 {
+    // Show immediately before flushing queued startup events.
+    // Otherwise a blocked Lua event in the first poll leaves the window hidden forever.
+    g_window.show();
+
     // run the first poll
     mainPoll();
     poll();
-
-    // show window
-    g_window.show();
 
     // run the second poll
     mainPoll();

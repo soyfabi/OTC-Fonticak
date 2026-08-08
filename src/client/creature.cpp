@@ -24,12 +24,14 @@
 
 #include "animator.h"
 #include "attachedeffect.h"
+#include "client.h"
 #include "game.h"
 #include "gameconfig.h"
 #include "lightview.h"
 #include "localplayer.h"
 #include "luavaluecasts_client.h"
 #include "map.h"
+#include "framework/core/eventdispatcher.h"
 #include "framework/graphics/texturemanager.h"
 #include "protocolcodes.h"
 #include "statictext.h"
@@ -1361,6 +1363,28 @@ void Creature::onStartAttachEffect(const AttachedEffectPtr& effect) {
 
     if (effect->getThingType() && (effect->getThingType()->isCreature() || effect->getThingType()->isMissile()))
         effect->m_direction = getDirection();
+}
+
+void Creature::drawAttachedEffect(const Point& originalDest, const Point& dest, LightView* lightView, const bool isOnTop)
+{
+    if (!hasAttachedEffects())
+        return;
+
+    float alpha = g_client.getCreatureSpellEffectAlpha();
+    if (isLocalPlayer())
+        alpha = g_client.getOwnSpellEffectAlpha();
+    else if (isPlayer())
+        alpha = g_client.getOtherPlayerSpellEffectAlpha();
+
+    for (const auto& effect : m_data->attachedEffects) {
+        effect->setOpacity(alpha);
+        effect->draw(effect->isFollowingOwner() ? dest : originalDest, isOnTop, lightView);
+        if (effect->getLoop() == 0) {
+            g_dispatcher.addEvent([self = static_self_cast<Creature>(), effect] {
+                self->detachEffect(effect);
+            });
+        }
+    }
 }
 
 void Creature::onDispatcherAttachEffect(const AttachedEffectPtr& effect) {

@@ -38,6 +38,9 @@
 #include "framework/luaengine/luainterface.h"
 #include "framework/net/packet_player.h"
 #include "framework/net/packet_recorder.h"
+#ifndef __EMSCRIPTEN__
+#include "framework/net/connection.h"
+#endif
 #include "luavaluecasts_client.h"
 
 Game g_game;
@@ -194,6 +197,13 @@ void Game::processGameStart()
     if (g_game.getFeature(Otc::GameClientPing)) {
         m_pingEvent = g_dispatcher.scheduleEvent([] { g_game.ping(); }, m_pingDelay);
     }
+
+#ifndef __EMSCRIPTEN__
+    if (m_protocolGame) {
+        if (const auto& connection = m_protocolGame->getConnection())
+            connection->setKeepAlive(m_connectionStabilityOptimisation);
+    }
+#endif
 
     m_checkConnectionEvent = g_dispatcher.cycleEvent([this] {
         if (!g_game.isConnectionOk() && !m_connectionFailWarned) {
@@ -1781,6 +1791,38 @@ void Game::newPing()
 
     m_protocolGame->sendNewPing(pingId, static_cast<uint16_t>(m_ping), static_cast<uint16_t>(g_app.getFps()));
     m_newPingEvent = g_dispatcher.scheduleEvent([] { g_game.newPing(); }, m_newPingDelay);
+}
+
+void Game::setConnectionStabilityOptimisation(const bool enabled)
+{
+    m_connectionStabilityOptimisation = enabled;
+    m_pingDelay = enabled ? 1000 : 5000;
+    m_newPingDelay = enabled ? 250 : 2000;
+
+#ifndef __EMSCRIPTEN__
+    if (m_protocolGame) {
+        if (const auto& connection = m_protocolGame->getConnection())
+            connection->setKeepAlive(enabled);
+    }
+#endif
+
+    if (m_pingEvent) {
+        m_pingEvent->cancel();
+        m_pingEvent = nullptr;
+    }
+    if (m_newPingEvent) {
+        m_newPingEvent->cancel();
+        m_newPingEvent = nullptr;
+    }
+
+    if (!m_online)
+        return;
+
+    if (getFeature(Otc::GameExtendedClientPing))
+        m_newPingEvent = g_dispatcher.scheduleEvent([] { g_game.newPing(); }, m_newPingDelay);
+
+    if (getFeature(Otc::GameClientPing))
+        m_pingEvent = g_dispatcher.scheduleEvent([] { g_game.ping(); }, m_pingDelay);
 }
 
 void Game::changeMapAwareRange(const uint8_t xrange, const uint8_t yrange)

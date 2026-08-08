@@ -30,7 +30,7 @@ neededTranslations = {'1a) Offensive Name', '1b) Invalid Name Format', '1c) Unsu
                       'Disable Shared Experience', 'Dismount', 'Display connection speed to the server (milliseconds)',
                       'Display creature health bars', 'Display creature names', 'Display player mana bar',
                       'Display text messages', 'Distance Fighting', '%d of experience per hour',
-                      'Don\'t stretch/shrink Game Window', 'Druid', 'Edit hotkey text', 'Edit List', 'Edit %s',
+                      'Scale Using Only Integral Multiples', 'Druid', 'Edit hotkey text', 'Edit List', 'Edit %s',
                       'Edit Text', 'Edit VIP list entry', 'Enable audio', 'Enable chat mode', 'Enable dash walking',
                       'Enable lights', 'Enable music sound', 'Enable Shared Experience', 'Enable smart walking',
                       'Enable vertical synchronization', 'Enter Game', 'Enter one name per line.',

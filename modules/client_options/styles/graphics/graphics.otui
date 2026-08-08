@@ -2,7 +2,7 @@ UIWidget
   anchors.fill: parent
   visible: false
 
-  Label
+  OptionsLabel
     !text: 'Antialiasing Mode:'
     anchors.left: parent.left
     margin-left: 18
@@ -122,4 +122,14 @@ UIWidget
   
     OptionCheckBox
       id: dontStretchShrink
-      !text: 'Don\'t stretch/shrink Game Window'
+      !text: tr('Scale Using Only Integral Multiples')
+      !tooltip: tr('Keep the game window scaled only by whole numbers (1x, 2x, 3x, ...).\nAvoids stretching or shrinking to fractional sizes.')
+
+  OptionsQtButton
+    id: resetGraphicsButton
+    !text: tr('Reset')
+    !tooltip: tr('Reset all Graphics options to their default values.')
+    @onClick: modules.client_options.resetGraphics()
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    size: 80 20

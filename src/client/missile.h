@@ -23,6 +23,7 @@
 #pragma once
 
 #include "thing.h"
+#include "const.h"
 
  // @bindclass
 class Missile final : public Thing
@@ -32,6 +33,7 @@ public:
 
     void setId(uint32_t id) override;
     void setPath(const Position& fromPosition, const Position& toPosition);
+    void setEffectSource(Otc::MagicEffectSources source) { m_effectSource = source; }
 
     bool isMissile() const override { return true; }
     bool isExpired() const { return m_duration > 0 && m_animationTimer.ticksElapsed() >= m_duration; }
@@ -53,4 +55,5 @@ private:
     Otc::Direction m_direction{ Otc::InvalidDirection };
 
     uint8_t m_distance{ 0 };
+    Otc::MagicEffectSources m_effectSource{ Otc::ME_SOURCE_DEFAULT };
 };

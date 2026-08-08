@@ -72,7 +72,11 @@ local function onCharacterList(protocol, characters, account, otui)
     ServerList.add(G.host, G.port, g_game.getClientVersion(), httpLogin)
 
     -- Save 'Stay logged in' setting
-    g_settings.set('staylogged', enterGame:getChildById('stayLoggedBox'):isChecked())
+    local stayLoggedChecked = enterGame:getChildById('stayLoggedBox'):isChecked()
+    g_settings.set('staylogged', stayLoggedChecked)
+    if modules.client_options and modules.client_options.setOption then
+        modules.client_options.setOption('stayLoggedInforSession', stayLoggedChecked)
+    end
     g_settings.set('httpLogin', httpLogin)
 
     if enterGame:getChildById('rememberEmailBox'):isChecked() then
@@ -178,6 +182,12 @@ function EnterGame.init()
     local host = g_settings.get('host')
     local port = g_settings.get('port')
     local stayLogged = g_settings.getBoolean('staylogged')
+    if modules.client_options and modules.client_options.getOption then
+        local stayFromOptions = modules.client_options.getOption('stayLoggedInforSession')
+        if stayFromOptions ~= nil then
+            stayLogged = stayFromOptions and true or false
+        end
+    end
     local autologin = g_settings.getBoolean('autologin')
     local httpLogin = g_settings.getBoolean('httpLogin')
     local clientVersion = g_settings.getInteger('client-version')
@@ -316,7 +326,9 @@ function EnterGame.showServerList()
 end
 
 function EnterGame.firstShow()
+    g_logger.info('[boot] EnterGame.firstShow begin')
     EnterGame.show()
+    g_logger.info('[boot] EnterGame.show done')
 
     local host = g_settings.get('host')
     local servers = g_settings.getNode('ServerList') or {}
@@ -341,6 +353,7 @@ function EnterGame.firstShow()
             EnterGame.postShowCreatureBoost()
         end
     end
+    g_logger.info('[boot] EnterGame.firstShow done')
 end
 
 function EnterGame.terminate()
@@ -626,9 +639,27 @@ function printTable(t)
 end
 
 
+function EnterGame.setStayLoggedChecked(checked)
+    if not enterGame then
+        return
+    end
+    local stayLoggedBox = enterGame:getChildById('stayLoggedBox')
+    if stayLoggedBox then
+        stayLoggedBox:setChecked(checked and true or false)
+    end
+    g_settings.set('staylogged', checked and true or false)
+    G.stayLogged = checked and true or false
+end
+
 function EnterGame.doLogin()
     G.account = enterGame:getChildById('accountNameTextEdit'):getText()
     G.password = enterGame:getChildById('accountPasswordTextEdit'):getText()
+    if modules.client_options and modules.client_options.getOption then
+        local stayFromOptions = modules.client_options.getOption('stayLoggedInforSession')
+        if stayFromOptions ~= nil then
+            enterGame:getChildById('stayLoggedBox'):setChecked(stayFromOptions and true or false)
+        end
+    end
     G.stayLogged = enterGame:getChildById('stayLoggedBox'):isChecked()
     G.host = enterGame:getChildById('serverHostTextEdit'):getText()
     G.port = tonumber(enterGame:getChildById('serverPortTextEdit'):getText())

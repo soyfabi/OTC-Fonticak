@@ -490,21 +490,25 @@ void WIN32Window::resize(const Size& size)
 
 void WIN32Window::show()
 {
-    g_mainDispatcher.addEvent([this] {
-        m_hidden = false;
+    // Show synchronously. Queuing through the dispatcher left the window hidden
+    // forever when later startup work stalled before the main loop could flush it.
+    m_hidden = false;
+    m_visible = true;
+    if (m_window) {
         if (m_maximized)
             ShowWindow(m_window, SW_MAXIMIZE);
         else
             ShowWindow(m_window, SW_SHOW);
-    });
+        UpdateWindow(m_window);
+    }
 }
 
 void WIN32Window::hide()
 {
-    g_mainDispatcher.addEvent([this] {
-        m_hidden = true;
+    m_hidden = true;
+    m_visible = false;
+    if (m_window)
         ShowWindow(m_window, SW_HIDE);
-    });
 }
 
 void WIN32Window::maximize()

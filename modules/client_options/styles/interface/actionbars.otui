@@ -8,7 +8,7 @@ UIWidget
     anchors.top: parent.top
     height: 67
 
-    Label
+    OptionsLabel
       !text: tr('Show Bottom Action Bars:')
       anchors.left: parent.left
       anchors.top: parent.top
@@ -48,7 +48,7 @@ UIWidget
       margin-top: 5
       margin-left: 53
       text-offset: 14 0
-    Label
+    OptionsLabel
       id: leftActionLabel
       !text: tr('Show Left Action Bars:')
       anchors.left: parent.left
@@ -85,7 +85,7 @@ UIWidget
       anchors.top: prev.top
       margin-left: 53
       text-offset: 14 0
-    Label
+    OptionsLabel
       id: rightActionLabel
       !text: tr('Show Right Action Bars:')
       anchors.left: parent.left
@@ -229,7 +229,7 @@ UIWidget
     margin-top: 7
     height: 75
 
-    Label
+    OptionsLabel
       !text: tr('Clear Bottom Action Bars:')
       anchors.left: parent.left
       anchors.top: parent.top
@@ -277,7 +277,7 @@ UIWidget
       margin-right: 0
       margin-top: 3
       @onClick: modules.game_actionbar.resetAction(3)
-    Label
+    OptionsLabel
       !text: tr('Clear Left Action Bars:')
       anchors.left: parent.left
       anchors.top: clearBottomBar1.bottom
@@ -315,7 +315,7 @@ UIWidget
       margin-right: 0
       margin-top: 3
       @onClick: modules.game_actionbar.resetAction(6)
-    Label
+    OptionsLabel
       !text: tr('Clear Right Action Bars:')
       anchors.left: parent.left
       anchors.top: clearLeftBar1.bottom

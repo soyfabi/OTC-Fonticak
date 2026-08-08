@@ -23,6 +23,7 @@
 #include "missile.h"
 
 #include "client.h"
+#include "game.h"
 #include "gameconfig.h"
 #include "map.h"
 #include "thingtype.h"
@@ -47,8 +48,15 @@ void Missile::draw(const Point& dest, const bool drawThings, LightView* lightVie
 
     if (g_drawPool.getCurrentType() == DrawPoolType::MAP) {
         g_drawPool.setDrawOrder(DrawOrder::FOURTH);
-        if (drawThings && g_client.getMissileAlpha() < 1.f)
-            g_drawPool.setOpacity(g_client.getMissileAlpha(), true);
+        if (drawThings) {
+            auto source = m_effectSource;
+            if (!g_game.getFeature(Otc::GameEffectSource))
+                source = Otc::ME_SOURCE_OWN;
+
+            float alpha = g_client.getSpellEffectAlpha(source) * g_client.getMissileAlpha();
+            if (alpha < 1.f)
+                g_drawPool.setOpacity(alpha, true);
+        }
     }
 
     if (drawThings && hasShader())

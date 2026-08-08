@@ -37,6 +37,13 @@ hookedMenuOptions = {}
 focusReason = {}
 lastManualWalk = 0 -- updated by game_walk; used by game_bot panels
 local lastStopAction = 0
+
+local function getQuickLootVariant()
+    if modules.client_options and modules.client_options.getOption('quickAllCorpses') then
+        return 1
+    end
+    return 0
+end
 local mobileConfig = {
     mobileWidthJoystick = 0,
     mobileWidthShortcuts = 0,
@@ -705,7 +712,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
         end
         if useThing:isLyingCorpse() and g_game.getFeature(GameThingQuickLoot) and modules.game_quickloot and useThing:getPosition().x ~= 0xffff then
             menu.addOption(menu, tr("Loot corpse"), function()
-                g_game.sendQuickLoot(1, useThing)
+                g_game.sendQuickLoot(getQuickLootVariant(), useThing)
             end)
         end
     end
@@ -943,8 +950,32 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
                     local isContainer = lookThing:isContainer()
                     if isContainer then
                         menu:addOption(tr('Stow container\'s content'), function()
-                            g_game.stashStowItem(lookThing:getPosition(), lookThing:getId(), 0,
-                                lookThing:getStackPos(), 1)
+                            local function doStow()
+                                g_game.stashStowItem(lookThing:getPosition(), lookThing:getId(), 0,
+                                    lookThing:getStackPos(), 1)
+                            end
+
+                            if modules.client_options.getOption('stowContainer') then
+                                local confirmWindow
+                                confirmWindow = displayGeneralBox(tr('Confirmation of Stowing Container\'s Content'),
+                                    tr('Do you really want to stow this container\'s content?'), {
+                                        {
+                                            text = tr('Yes'),
+                                            callback = function()
+                                                confirmWindow:destroy()
+                                                doStow()
+                                            end
+                                        },
+                                        {
+                                            text = tr('No'),
+                                            callback = function()
+                                                confirmWindow:destroy()
+                                            end
+                                        }
+                                    })
+                            else
+                                doStow()
+                            end
                         end)
                     end
                 end
@@ -1144,7 +1175,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                         return true
                     elseif g_game.getFeature(GameThingQuickLoot) and modules.game_quickloot then
                         -- For containers in the world (not inside another container), quickloot
-                        g_game.sendQuickLoot(1, useThing)
+                        g_game.sendQuickLoot(getQuickLootVariant(), useThing)
                         return true
                     end
                 elseif useThing:isMultiUse() then
@@ -1304,7 +1335,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                             return true
                         elseif g_game.getFeature(GameThingQuickLoot) and modules.game_quickloot then
                             -- For containers in the world, quickloot
-                            g_game.sendQuickLoot(1, useThing)
+                            g_game.sendQuickLoot(getQuickLootVariant(), useThing)
                             return true
                         else
                             g_game.open(useThing)
@@ -1395,7 +1426,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
             if mouseButton == MouseRightButton and keyboardModifiers == KeyboardShiftModifier then
                 if useThing and (useThing:isContainer() or useThing:isLyingCorpse()) then
                     if g_game.getFeature(GameThingQuickLoot) and modules.game_quickloot then
-                        g_game.sendQuickLoot(1, useThing)
+                        g_game.sendQuickLoot(getQuickLootVariant(), useThing)
                         return true
                     end
                 end
@@ -1423,7 +1454,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                             g_game.open(useThing)
                             return true
                         elseif g_game.getFeature(GameThingQuickLoot) and modules.game_quickloot then
-                            g_game.sendQuickLoot(1, useThing)
+                            g_game.sendQuickLoot(getQuickLootVariant(), useThing)
                             return true
                         else
                             g_game.open(useThing)

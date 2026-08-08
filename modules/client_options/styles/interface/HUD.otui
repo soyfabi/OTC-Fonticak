@@ -244,7 +244,7 @@ UIWidget
         margin-left: 16
         height: 28
 
-        Label
+        OptionsLabel
           !text: tr('Skill')
           anchors.left: parent.left
           margin-left: 18
@@ -261,7 +261,7 @@ UIWidget
           mouse-scroll: false
           @onTextChange: modules.game_healthcircle.setSkillType(self:getCurrentOption().data)
 
-        Label
+        OptionsLabel
           !text: tr('Size')
           anchors.left: prev.right
           anchors.verticalCenter: parent.verticalCenter
@@ -317,7 +317,7 @@ UIWidget
         margin-left: 16
         height: 28
 
-        Label
+        OptionsLabel
           !text: tr('Bars')
           anchors.left: parent.left
           margin-left: 18
@@ -427,7 +427,7 @@ UIWidget
 
 
 
-    Label
+    OptionsLabel
       id: specialConditionLabel
       !text: tr('Special Conditions')
       text-auto-resize: true
@@ -438,7 +438,7 @@ UIWidget
 
 
 
-    Label
+    OptionsLabel
       id: showInHudLabel
       anchors.top: prev.top
       anchors.left: specialConditionLabel.right
@@ -461,7 +461,7 @@ UIWidget
 
 
 
-    Label
+    OptionsLabel
       id: showInBarLabel
       anchors.top: showInHudLabel.top
       anchors.left: prev.right

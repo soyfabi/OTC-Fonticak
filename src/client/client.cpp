@@ -170,3 +170,19 @@ void Client::doMapScreenshot(std::string file)
 
     g_drawPool.get(DrawPoolType::MAP)->getFrameBuffer()->doScreenshot(file, g_gameConfig.getSpriteSize() * 3, g_gameConfig.getSpriteSize() * 3);
 }
+
+float Client::getSpellEffectAlpha(const Otc::MagicEffectSources source) const
+{
+    switch (source) {
+        case Otc::ME_SOURCE_OTHER_PLAYER:
+            return m_otherPlayerSpellEffectAlpha;
+        case Otc::ME_SOURCE_MONSTER:
+            return m_creatureSpellEffectAlpha;
+        case Otc::ME_SOURCE_BOSS:
+            return m_bossAreaCreatureEffectAlpha;
+        case Otc::ME_SOURCE_OWN:
+        case Otc::ME_SOURCE_DEFAULT:
+        default:
+            return m_ownSpellEffectAlpha;
+    }
+}

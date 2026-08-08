@@ -581,7 +581,18 @@ namespace Otc
         GameVocationMonk = 130,
         GameItemTierByte = 131,
         GameProficiency = 132,
+        GameEffectSource = 133,
         LastGameFeature
+    };
+
+    enum MagicEffectSources : uint8_t
+    {
+        ME_SOURCE_DEFAULT = 0,
+        ME_SOURCE_OWN = 1,
+        ME_SOURCE_OTHER_PLAYER = 2,
+        ME_SOURCE_MONSTER = 3,
+        ME_SOURCE_BOSS = 4,
+        ME_SOURCE_LAST = ME_SOURCE_BOSS
     };
 
     enum MagicEffectsType_t : uint8_t

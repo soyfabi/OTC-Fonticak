@@ -1,6 +1,7 @@
 UIWidget
   anchors.fill: parent
   visible: false
+
   SmallReversedQtPanel
     anchors.left: parent.left
     anchors.right: parent.right
@@ -8,16 +9,66 @@ UIWidget
     height: 22
 
     OptionCheckBox
-      id: autoChaseOverride
-      !text: tr('Allow auto chase override')
+      id: storeAskBeforeBuyingProducts
+      !text: tr('Ask Before Buying Products')
+      !tooltip: tr('If you have checked this box, a confirmation dialog will open up\nwhenever you try to buy something via the Store. If you uncheck\nthis box, a click on "Buy Now" will get you the selected product\nwithout any delay.')
 
   SmallReversedQtPanel
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
-    height: 55
+    margin-top: 7
+    height: 22
+
+    OptionCheckBox
+      id: stowContainer
+      !text: tr('Ask Before Stowing Container Content')
+      !tooltip: tr('If you have checked this box, a confirmation dialog will open up\nwhenever you try to stow container content.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBox
+      id: stayLoggedInforSession
+      !text: tr('Stay Logged In for Session')
+      !tooltip: tr('Check this box to stay logged in until you log out or until server\nsave. Otherwise, you will be asked to enter your account data and,\nif available, your authenticator token whenever you log out of the\ngame, e.g., to change your character.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBox
+      id: optimiseConnectionStability
+      !text: tr('Optimise Connection Stability')
+      !tooltip: tr('Keeps your game connection healthier with more frequent keep-alive\npings and TCP keep-alive. Uses more traffic. Disable only if this\ncauses connection problems on your network.\n\nNote: this is an OTClient keep-alive optimisation, not CipSoft\'s\nproprietary Tibia connection system.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBox
+      id: quickLogin
+      !text: tr('Quick Login')
+      !tooltip: tr('Speeds up client start and character login by loading textures\nasynchronously. On slower hardware some graphics may be briefly\ninvisible for a few seconds after entering the game.\n\nSame engine path as Graphics > Async texture loading.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
     margin-top: 10
-    Label
+    height: 55
+
+    OptionsLabel
       text: Client user features profile
       anchors.left: parent.left
       anchors.right: parent.right
@@ -28,3 +79,12 @@ UIWidget
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: prev.bottom
+
+  OptionsQtButton
+    id: resetMiscButton
+    !text: tr('Reset')
+    !tooltip: tr('Reset all Misc options to their default values.')
+    @onClick: modules.client_options.resetMisc()
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    size: 80 20

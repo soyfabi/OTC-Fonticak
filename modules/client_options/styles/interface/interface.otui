@@ -107,7 +107,7 @@ UIWidget
     margin-top: 7
     height: 32
   
-    Label
+    OptionsLabel
       !text: 'Crosshair:'
       anchors.left: parent.left
       margin-left: 18
@@ -129,7 +129,7 @@ UIWidget
     margin-top: 7
     height: 32
 
-    Label
+    OptionsLabel
       !text: tr('Colourise Loot Value:')
       anchors.left: parent.left
       margin-left: 18

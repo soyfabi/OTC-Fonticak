@@ -1,0 +1,59 @@
+UIWidget
+  anchors.fill: parent
+  visible: false
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: parent.top
+    height: 22
+
+    OptionCheckBox
+      id: allowInspect
+      !text: tr('Allow All to Inspect Me')
+      !tooltip: tr('Check this box to allow other players to see details about your\ncharacter, such as your equipped items, guild, outfit or active\npreys. Keep in mind that the permission to let others inspect you is\nvalid for all your character\'s using this client.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBox
+      id: autoChaseOverride
+      !text: tr('Auto Chase Off')
+      !tooltip: tr('This option will only work if you have selected the movement mode\n"Chase Opponent".\nIf "Auto Chase Off" is enabled, your character will stop chasing an\nopponent whenever you move manually, i.e. if you press a cursor\nkey or click somewhere on the game window. Deselecting this\noption will cause your character to resume the chase as soon as\nyou stop moving them manually.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBox
+      id: talkOnRightClick
+      !text: tr('Right-click talk to NPC')
+      !tooltip: tr('When enabled, right-clicking an NPC nearby says "hi" instead of using the regular mouse action.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBox
+      id: quickAllCorpses
+      !text: tr('Quick Loot All Corpses')
+      !tooltip: tr('If "Quick Loot All Corpses" is enabled, your character will quick\nloot all monsters lying on the same field at once. Your character\nwill quick loot only the corpse lying on top if you have deselected\nthis option.')
+
+  OptionsQtButton
+    id: resetGameplayButton
+    !text: tr('Reset')
+    !tooltip: tr('Reset all Gameplay options to their default values.')
+    @onClick: modules.client_options.resetGameplay()
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    size: 80 20

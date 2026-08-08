@@ -319,6 +319,9 @@ public:
     void ping();
     void newPing();
     void setPingDelay(const int delay) { m_pingDelay = delay; }
+    void setNewPingDelay(const int delay) { m_newPingDelay = delay; }
+    void setConnectionStabilityOptimisation(bool enabled);
+    bool isConnectionStabilityOptimisation() const { return m_connectionStabilityOptimisation; }
 
     // otclient only
     void changeMapAwareRange(uint8_t xrange, uint8_t yrange);
@@ -522,6 +525,7 @@ private:
     uint16_t m_serverBeat{ 50 };
     uint16_t m_pingDelay{ 1000 };
     uint16_t m_newPingDelay{ 250 };
+    bool m_connectionStabilityOptimisation{ true };
     uint16_t m_protocolVersion{ 0 };
     uint16_t m_clientVersion{ 0 };
     uint32_t m_pingSent{ 0 };

@@ -89,8 +89,16 @@ void Effect::draw(const Point& dest, const bool drawThings, LightView* lightView
         return;
 
     if (g_drawPool.getCurrentType() == DrawPoolType::MAP) {
-        if (drawThings && g_client.getEffectAlpha() < 1.f)
-            g_drawPool.setOpacity(g_client.getEffectAlpha(), true);
+        if (drawThings) {
+            auto source = m_source;
+            // Without GameEffectSource the server does not tag the caster; Own slider drives spells.
+            if (!g_game.getFeature(Otc::GameEffectSource))
+                source = Otc::ME_SOURCE_OWN;
+
+            float alpha = g_client.getSpellEffectAlpha(source) * g_client.getEffectAlpha();
+            if (alpha < 1.f)
+                g_drawPool.setOpacity(alpha, true);
+        }
     }
 
     if (drawThings && hasShader())

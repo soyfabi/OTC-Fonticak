@@ -12,7 +12,7 @@ UIWidget
       margin-top: 0
       visible: false
 
-    Label
+    OptionsLabel
       id: mouseControlLabel
       anchors.left: parent.left
       margin-left: 18
@@ -183,7 +183,7 @@ UIWidget
     margin-top: 7
     height: 48
 
-    Label
+    OptionsLabel
       id: turnModifierLabel
       anchors.left: parent.left
       anchors.top: parent.top
@@ -266,29 +266,6 @@ UIWidget
       id: moveStack
       !text: tr('Press CTRL to Drag Complete Stacks')
       !tooltip: tr('Unchecked (default): hold Ctrl while dragging to move the full stack.\nChecked: dragging moves the full stack without holding Ctrl.\nShift always moves only 1.')
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-  
-    OptionCheckBox
-      id: autoChaseOverride
-      !text: tr('Disable auto chase while walking')
-      !tooltip: tr('When checked, manual walking cancels chase mode if you are attacking.')
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-  
-    OptionCheckBox
-      id: talkOnRightClick
-      !text: tr('Right-click talk to NPC')
 
   SmallReversedQtPanel
     anchors.left: parent.left

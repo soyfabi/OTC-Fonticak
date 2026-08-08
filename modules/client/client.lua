@@ -30,6 +30,7 @@ local function onStartupGameEnd()
 end
 
 function startup()
+    g_logger.info('[boot] client.startup begin')
     if musicChannel then
         musicChannel:enqueue(musicFilename, 3)
         if not startupGameSignalsConnected then
@@ -52,6 +53,7 @@ function startup()
     end
 
     -- Show entergame
+    g_logger.info('[boot] client.startup showing EnterGame')
     if errmsg or errtitle then
         local msgbox = displayErrorBox(errtitle, errmsg)
         msgbox.onOk = function()
@@ -60,6 +62,7 @@ function startup()
     else
         EnterGame.firstShow()
     end
+    g_logger.info('[boot] client.startup done')
     if g_app.hasUpdater() and g_sounds then
         g_sounds.setAudioEnabled(g_settings.getBoolean('enableAudio'))
     end

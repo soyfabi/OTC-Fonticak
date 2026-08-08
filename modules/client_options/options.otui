@@ -34,7 +34,11 @@ SpecialConditionLabelSettings < UIWidget
     image-clip: 0 0 12 12
 
 OptionsQtButton < QtButton
-  font: verdana-11px-antialised
+  font: Verdana Bold-11px
+
+OptionsLabel < Label
+  font: Verdana Bold-11px
+  color: #c0c0c0ff
 
 OptionsCategory < UIWidget
   size: 115 22
@@ -74,12 +78,12 @@ OptionsCategory < UIWidget
       anchors.verticalCenter: parent.verticalCenter
       margin-left: 12
       margin-right: 12
-      height: 14
+      height: 15
       text-align: center
       text-auto-resize: false
       !text: tr('General Stats')
       color: #ffffff
-      font: verdana-11px-antialised
+      font: Verdana Bold-11px
       $checked:
         text-offset: 1 1
       $!checked:
@@ -98,6 +102,7 @@ OptionCheckBox < QtCheckBox
   anchors.left: parent.left
   anchors.right: parent.right
   anchors.top: parent.top
+  font: Verdana Bold-11px
   color: #c0c0c0ff
   @onCheckChange: modules.client_options.setOption(self:getId(), self:isChecked())
 
@@ -126,6 +131,7 @@ OptionScaleScroll < Label
   anchors.top: parent.top
   text-align: left
   text-offset: 18 0
+  font: Verdana Bold-11px
   color: #c0c0c0ff
 
   HorizontalQtScrollBar
@@ -138,12 +144,34 @@ OptionScaleScroll < Label
     @onValueChange: |
       modules.client_options.setOption(self:getParent():getId(), self:getValue())
 
+// Scrollbar closer to the label (short texts like Ambient light).
+OptionScaleScrollInline < Label
+  anchors.left: parent.left
+  anchors.right: parent.right
+  anchors.top: parent.top
+  height: 22
+  text-align: left
+  text-offset: 18 0
+  font: Verdana Bold-11px
+  color: #c0c0c0ff
+
+  HorizontalQtScrollBar
+    id: valueBar
+    step: 1
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 230
+    width: 174
+    @onValueChange: |
+      modules.client_options.setOption(self:getParent():getId(), self:getValue())
+
 OptionLabelMarked < Label
   anchors.left: parent.left
   anchors.right: parent.right
   anchors.top: parent.top
   text-align: left
   text-offset: 18 0
+  font: Verdana Bold-11px
   color: #c0c0c0ff
 
   UIWidget
@@ -160,6 +188,7 @@ OptionScaleScrollMarked < Label
   anchors.top: parent.top
   text-align: left
   text-offset: 18 0
+  font: Verdana Bold-11px
   color: #c0c0c0ff
 
   UIWidget
@@ -212,7 +241,7 @@ MainWindow
 
   Label
     !text: tr('Options')
-    font: verdana-11px-antialised
+    font: Verdana Bold-11px
     margin-top: -35
     text-align: top
     anchors.top: parent.top
