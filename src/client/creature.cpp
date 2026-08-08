@@ -785,27 +785,23 @@ void Creature::updateWalkingTile()
         g_gameConfig.getSpriteSize() + (m_walkOffset.y - displacementY),
         g_gameConfig.getSpriteSize(), g_gameConfig.getSpriteSize());
 
-    // First half of NW/SE diagonals: keep draw-tile selection stable so layering
-    // switches at the midpoint (in front then behind, or behind then in front).
+    for (int xi = -1; xi <= 1 && !newWalkingTile; ++xi) {
+        for (int yi = -1; yi <= 1 && !newWalkingTile; ++yi) {
+            Rect virtualTileRect((xi + 1) * g_gameConfig.getSpriteSize(), (yi + 1) * g_gameConfig.getSpriteSize(), g_gameConfig.getSpriteSize(), g_gameConfig.getSpriteSize());
+
+            // only render creatures where bottom right is inside tile rect
+            if (virtualTileRect.contains(virtualCreatureRect.bottomRight()))
+                newWalkingTile = g_map.getOrCreateTile(getPosition().translated(xi, yi, 0));
+        }
+    }
+
+    // NW: first half in front of west object, second half behind.
+    // SE: first half behind south object, second half in front.
     if (m_walkedPixels < g_gameConfig.getSpriteSize() / 2) {
         if (m_direction == Otc::NorthWest)
             newWalkingTile = m_walkingTile ? m_walkingTile : getTile();
         else if (m_direction == Otc::SouthEast)
             newWalkingTile = g_map.getTile(getPosition().translated(-1, -1, 0));
-    }
-
-    for (int xi = -1; xi <= 1 && !newWalkingTile; ++xi) {
-        for (int yi = -1; yi <= 1 && !newWalkingTile; ++yi) {
-            Rect virtualTileRect((xi + 1) * g_gameConfig.getSpriteSize(), (yi + 1) * g_gameConfig.getSpriteSize(), g_gameConfig.getSpriteSize(), g_gameConfig.getSpriteSize());
-
-            // NW: use top-left so the creature can render behind left-side objects (e.g. trees)
-            if (m_direction == Otc::NorthWest && virtualTileRect.contains(virtualCreatureRect.topLeft())) {
-                newWalkingTile = g_map.getOrCreateTile(getPosition().translated(xi, yi, 0));
-            } else if (virtualTileRect.contains(virtualCreatureRect.bottomRight())) {
-                // only render creatures where bottom right is inside tile rect
-                newWalkingTile = g_map.getOrCreateTile(getPosition().translated(xi, yi, 0));
-            }
-        }
     }
 
     if (newWalkingTile == m_walkingTile) return;
