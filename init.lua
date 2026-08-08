@@ -58,10 +58,38 @@ end
 
 g_app.setName("OTClient - Fonticak");
 g_app.setCompactName("otcFonticak");
+-- Organization kept for PhysFS identity; write dir is set to a single
+-- %APPDATA%/otcFonticak folder (not org/app/name nested thrice).
 g_app.setOrganizationName("otcFonticak");
 
 g_app.hasUpdater = function()
     return (Services.updater and Services.updater ~= "" and g_modules.getModule("updater"))
+end
+
+-- Single write folder: %APPDATA%/otcFonticak/
+local function setupSingleUserWriteDir()
+    local name = g_app.getCompactName()
+    local appData = os.getenv('APPDATA')
+    if appData and appData ~= '' then
+        appData = appData:gsub('\\', '/')
+        if not appData:find('/$') then
+            appData = appData .. '/'
+        end
+        local writeDir = appData .. name .. '/'
+        if g_resources.setWriteDir(writeDir) then
+            return
+        end
+        if g_resources.setWriteDir(appData) then
+            pcall(function()
+                g_resources.makeDir(name)
+            end)
+            if g_resources.setWriteDir(writeDir) then
+                return
+            end
+        end
+    end
+    -- Non-Windows / fallback: pref dir without an extra nested folder.
+    g_resources.setupUserWriteDir('')
 end
 
 -- setup logger
@@ -98,8 +126,8 @@ g_html.addGlobalStyle('/data/styles/custom.css')
 -- try to add mods path too
 g_resources.addSearchPath(g_resources.getWorkDir() .. 'mods', true)
 
--- setup directory for saving configurations
-g_resources.setupUserWriteDir(('%s/'):format(g_app.getCompactName()))
+-- setup directory for saving configurations (%APPDATA%/otcFonticak)
+setupSingleUserWriteDir()
 
 -- search all packages
 g_resources.searchAndAddPackages('/', '.otpkg', true)

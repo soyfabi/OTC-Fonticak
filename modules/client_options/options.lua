@@ -773,6 +773,10 @@ function getOption(key)
     return option.value
 end
 
+function hasOption(key)
+    return options[key] ~= nil
+end
+
 -- Safe boolean read for modules that must not treat nil as "on".
 function getBoolOption(key, defaultValue)
     local value = getOption(key)

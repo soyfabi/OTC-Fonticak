@@ -273,6 +273,38 @@ MainWindow
     margin-bottom: 10
 
   OptionsQtButton
+    id: exportConfigButton
+    !text: tr('Export')
+    !tooltip: tr('Export hotkeys or options to a JSON file\n(saved in configs/export).')
+    size: 70 20
+    anchors.left: parent.left
+    anchors.bottom: parent.bottom
+    margin-bottom: -8
+    @onClick: modules.client_options.showExportConfigMenu()
+
+  OptionsQtButton
+    id: importConfigButton
+    !text: tr('Import')
+    !tooltip: tr('Import hotkeys or options from a JSON file\nin configs/export.')
+    size: 70 20
+    anchors.left: prev.right
+    anchors.bottom: parent.bottom
+    margin-left: 6
+    margin-bottom: -8
+    @onClick: modules.client_options.showImportConfigMenu()
+
+  OptionsQtButton
+    id: openConfigDirButton
+    !text: tr('Dir Folder')
+    !tooltip: tr('Open the client data folder where configs are saved.')
+    size: 90 20
+    anchors.left: prev.right
+    anchors.bottom: parent.bottom
+    margin-left: 6
+    margin-bottom: -8
+    @onClick: modules.client_options.openConfigFolder()
+
+  OptionsQtButton
     !text: tr('Ok')
     size: 64 20
     anchors.right: parent.right

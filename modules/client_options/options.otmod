@@ -4,6 +4,6 @@ Module
   author: edubart, BeniS
   website: https://github.com/edubart/otclient
   sandboxed: true
-  scripts: [ options, keybins, custom_hotkeys ]
+  scripts: [ options, keybins, custom_hotkeys, config_transfer ]
   @onLoad: controller:init()
   @onUnload: controller:terminate()
