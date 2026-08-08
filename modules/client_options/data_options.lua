@@ -1439,4 +1439,59 @@ return {
         end
     },
     showInfoBanner = true,
+
+    showAnimationMaster = {
+        value = true,
+        action = function(value)
+            if modules.client_options and modules.client_options.applyAnimationMaster then
+                modules.client_options.applyAnimationMaster(value ~= false)
+            end
+        end
+    },
+    showAnimationSkillBar = {
+        value = true
+    },
+    showAnimationLevelBar = {
+        value = true
+    },
+    showAnimationHealthBar = {
+        value = true
+    },
+    showAnimationManaBar = {
+        value = true
+    },
+    showAnimationHudHealthBar = {
+        value = true,
+        action = function()
+            if modules.client_options and modules.client_options.syncNameplateBarAnimation then
+                modules.client_options.syncNameplateBarAnimation()
+            end
+        end
+    },
+    showAnimationHudManaBar = {
+        value = true,
+        action = function()
+            if modules.client_options and modules.client_options.syncNameplateBarAnimation then
+                modules.client_options.syncNameplateBarAnimation()
+            end
+        end
+    },
+    showAnimationArcs = {
+        value = true
+    },
+    uiBarAnimationSpeed = {
+        value = 100,
+        action = function(value, options, controller, panels, extraWidgets)
+            if modules.client_options and modules.client_options.syncNameplateBarAnimation then
+                modules.client_options.syncNameplateBarAnimation()
+            elseif g_gameConfig and g_gameConfig.setUiBarAnimationSpeed then
+                g_gameConfig.setUiBarAnimationSpeed(tonumber(value) or 100)
+            end
+            local widget = panels.graphicsAnimationPanel and
+                panels.graphicsAnimationPanel:recursiveGetChildById('uiBarAnimationSpeed')
+            if widget then
+                widget:setText(tr('Animation Speed: %s%%', value))
+            end
+        end
+    },
 }

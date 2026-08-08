@@ -429,6 +429,9 @@ void Client::registerLuaFunctions()
     g_lua.bindSingletonFunction("g_gameConfig", "isAdjustCreatureInformationBasedCropSize", &GameConfig::isAdjustCreatureInformationBasedCropSize, &g_gameConfig);
     g_lua.bindSingletonFunction("g_gameConfig", "isUseCropSizeForUIDraw", &GameConfig::isUseCropSizeForUIDraw, &g_gameConfig);
     g_lua.bindSingletonFunction("g_gameConfig", "isExtendedViewUI", &GameConfig::isExtendedViewUI, &g_gameConfig);
+    g_lua.bindSingletonFunction("g_gameConfig", "setAnimateNameplateHealth", &GameConfig::setAnimateNameplateHealth, &g_gameConfig);
+    g_lua.bindSingletonFunction("g_gameConfig", "setAnimateNameplateMana", &GameConfig::setAnimateNameplateMana, &g_gameConfig);
+    g_lua.bindSingletonFunction("g_gameConfig", "setUiBarAnimationSpeed", &GameConfig::setUiBarAnimationSpeed, &g_gameConfig);
 
     g_lua.bindSingletonFunction("g_gameConfig", "getShieldBlinkTicks", &GameConfig::getShieldBlinkTicks, &g_gameConfig);
     g_lua.bindSingletonFunction("g_gameConfig", "getCreatureNameFontName", &GameConfig::getCreatureNameFontName, &g_gameConfig);

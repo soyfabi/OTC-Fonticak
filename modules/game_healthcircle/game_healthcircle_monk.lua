@@ -6,6 +6,7 @@ monkHarmonySlots = {}
 isMonkMode = false
 monkImageSizeBroad = 0
 monkImageSizeThin = 0
+monkHealthAnim = {}
 
 -- @ position constants
 MONK_SERENE_OFFSET_X = 0
@@ -32,6 +33,10 @@ function initMonkWidgets()
 end
 
 function terminateMonkWidgets()
+    if monkHealthAnim then
+        g_effects.cancelValue(monkHealthAnim)
+        monkHealthAnim.value = nil
+    end
     if monkCircleBackground then
         monkCircleBackground:destroy()
         monkCircleBackground = nil
@@ -92,28 +97,52 @@ function whenMonkHealthChange()
     if not player then
         return
     end
-    local healthPercent = math.floor(player:getHealth() / player:getMaxHealth() * 100)
-    local yhppc = math.floor(monkImageSizeBroad * (1 - (healthPercent / 100)))
-    local restYhppc = monkImageSizeBroad - yhppc
-    monkHealthCircle:setY(monkCircleBackground:getY() + yhppc)
-    monkHealthCircle:setHeight(restYhppc)
-    monkHealthCircle:setImageClip({
-        x = 0,
-        y = yhppc,
-        width = monkImageSizeThin,
-        height = restYhppc
-    })
-    if healthPercent > 92 then
-        monkHealthCircle:setImageColor('#00BC00')
-    elseif healthPercent > 60 then
-        monkHealthCircle:setImageColor('#50A150')
-    elseif healthPercent > 30 then
-        monkHealthCircle:setImageColor('#A1A100')
-    elseif healthPercent > 8 then
-        monkHealthCircle:setImageColor('#BF0A0A')
-    else
-        monkHealthCircle:setImageColor('#910F0F')
+    local healthPercent = (player:getHealth() / math.max(player:getMaxHealth(), 1)) * 100
+    local function applyMonkHealth(percent)
+        if not monkHealthCircle or not monkCircleBackground then
+            return
+        end
+        local yhppc = math.floor(monkImageSizeBroad * (1 - (percent / 100)))
+        local restYhppc = monkImageSizeBroad - yhppc
+        monkHealthCircle:setY(monkCircleBackground:getY() + yhppc)
+        monkHealthCircle:setHeight(restYhppc)
+        monkHealthCircle:setImageClip({
+            x = 0,
+            y = yhppc,
+            width = monkImageSizeThin,
+            height = restYhppc
+        })
+        if percent > 92 then
+            monkHealthCircle:setImageColor('#00BC00')
+        elseif percent > 60 then
+            monkHealthCircle:setImageColor('#50A150')
+        elseif percent > 30 then
+            monkHealthCircle:setImageColor('#A1A100')
+        elseif percent > 8 then
+            monkHealthCircle:setImageColor('#BF0A0A')
+        else
+            monkHealthCircle:setImageColor('#910F0F')
+        end
     end
+
+    local animateEnabled = true
+    if modules.client_options and modules.client_options.isBarAnimationEnabled then
+        animateEnabled = modules.client_options.isBarAnimationEnabled('showAnimationArcs')
+    elseif modules.client_options and modules.client_options.getOption then
+        animateEnabled = modules.client_options.getOption('showAnimationArcs') ~= false
+    end
+
+    if monkHealthAnim.value == nil or not animateEnabled then
+        g_effects.cancelValue(monkHealthAnim)
+        monkHealthAnim.value = healthPercent
+        applyMonkHealth(healthPercent)
+        return
+    end
+
+    g_effects.animateValue(monkHealthAnim, monkHealthAnim.value, healthPercent, nil, function(v)
+        monkHealthAnim.value = v
+        applyMonkHealth(v)
+    end, false)
 end
 
 function whenMonkSereneChange(localplayer, serene)

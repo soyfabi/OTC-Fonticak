@@ -194,18 +194,6 @@ UIWidget
     height: 22
 
     OptionCheckBoxMarked
-      id: showSpellAnimation
-      !text: tr('Show Spell Animation')
-      !tooltip: tr('When you unlock a spell by leveling up, play a short animation\nof the spell icon flying into an empty action bar slot.\nRequires Auto Assign Spell.')
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-
-    OptionCheckBoxMarked
       id: actionTooltip
       !text: tr('Show Action Button Tooltip')
       !tooltip: tr('Display tooltips when hovering over action buttons')

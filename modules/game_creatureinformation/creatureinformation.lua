@@ -12,6 +12,31 @@ local debug = false
 local COVERED_COLOR = '#606060'
 local NPC_COLOR = '#66CCFF'
 
+local function vitalAnimDuration(delta)
+    local speed = modules.client_options and modules.client_options.getOption('uiBarAnimationSpeed') or 100
+    local factor = 100 / math.max(speed, 1)
+    return math.max(80, math.floor(math.min(1800, math.max(550, 420 + math.abs(delta) * 18)) * factor + 0.5))
+end
+
+local function setAnimatedPercent(bar, targetPercent, optionKey, firstPaint)
+    local animate = false
+    if modules.client_options and modules.client_options.isBarAnimationEnabled then
+        animate = modules.client_options.isBarAnimationEnabled(optionKey)
+    elseif modules.client_options and modules.client_options.getOption then
+        animate = modules.client_options.getOption(optionKey) ~= false
+    end
+    if animate and not firstPaint and g_effects and g_effects.animatePercent then
+        local from = bar.getPercent and bar:getPercent() or targetPercent
+        g_effects.animatePercent(bar, targetPercent, vitalAnimDuration(targetPercent - from))
+    else
+        if g_effects and g_effects.cancelPercent then
+            g_effects.cancelPercent(bar)
+        end
+        bar:setPercent(targetPercent)
+    end
+    bar._animReady = true
+end
+
 local function onCreate(creature)
     local widget = g_ui.loadUI('creatureinformation')
 
@@ -47,21 +72,23 @@ local function onHealthPercentChange(creature, healthPercent, oldHealthPercent)
     end
 
     widget.name:setColor(color)
-    widget.lifeBar:setPercent(healthPercent)
     widget.lifeBar:setBackgroundColor(color)
     widget.lifeBar:setVisible(gameMapPanel:isDrawingHealthBars())
+    setAnimatedPercent(widget.lifeBar, healthPercent, 'showAnimationHudHealthBar',
+        not widget.lifeBar._animReady or (oldHealthPercent and oldHealthPercent > 100))
 end
 
 local function onManaChange(player, mana, maxMana, oldMana, oldMaxMana)
     local gameMapPanel = modules.game_interface.getMapPanel()
     local widget = player:getWidgetInformation()
 
+    local targetPercent = 1
     if player:getMaxMana() > 1 then
-        widget.manaBar:setPercent((mana / maxMana) * 100)
-    else
-        widget.manaBar:setPercent(1)
+        targetPercent = (mana / maxMana) * 100
     end
 
+    setAnimatedPercent(widget.manaBar, targetPercent, 'showAnimationHudManaBar',
+        not widget.manaBar._animReady or (oldMaxMana and oldMaxMana == 0))
     widget.manaBar:setVisible(gameMapPanel:isDrawingManaBar())
 end
 

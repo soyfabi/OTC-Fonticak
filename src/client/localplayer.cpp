@@ -29,6 +29,7 @@
 #include "tile.h"
 #include "framework/core/clock.h"
 #include "framework/core/eventdispatcher.h"
+#include "gameconfig.h"
 
 void LocalPlayer::lockWalk(const uint16_t millis)
 {
@@ -354,8 +355,13 @@ void LocalPlayer::setMana(const uint32_t mana, const uint32_t maxMana)
 
     const uint32_t oldMana = m_mana;
     const uint32_t oldMaxMana = m_maxMana;
+    const bool firstPaint = oldMaxMana == 0;
     m_mana = mana;
     m_maxMana = maxMana;
+
+    const float targetPercent = maxMana > 0 ? (static_cast<float>(mana) / static_cast<float>(maxMana)) * 100.f : 100.f;
+    const bool animate = g_gameConfig.isAnimateNameplateMana() && !firstPaint;
+    m_manaBarAnim.startToward(targetPercent, animate);
 
     callLuaField("onManaChange", mana, maxMana, oldMana, oldMaxMana);
 }
@@ -367,8 +373,15 @@ void LocalPlayer::setManaShield(const uint32_t manaShield, const uint32_t maxMan
 
     const uint32_t oldManaShield = m_manaShield;
     const uint32_t oldMaxManaShield = m_maxManaShield;
+    const bool firstPaint = oldMaxManaShield == 0 && maxManaShield > 0;
     m_manaShield = manaShield;
     m_maxManaShield = maxManaShield;
+
+    const float targetPercent = maxManaShield > 0
+        ? (static_cast<float>(manaShield) / static_cast<float>(maxManaShield)) * 100.f
+        : 100.f;
+    const bool animate = g_gameConfig.isAnimateNameplateMana() && !firstPaint;
+    m_manaShieldBarAnim.startToward(targetPercent, animate);
 
     callLuaField("onManaShieldChange", manaShield, maxManaShield, oldManaShield, oldMaxManaShield);
 }

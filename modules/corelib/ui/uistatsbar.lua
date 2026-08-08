@@ -6,7 +6,10 @@ function UIStatsBar.create()
     stats.bar = stats:getChildById('bar')
     stats.text = stats:getChildById('text')
     stats.onGeometryChange = function()
-        stats:setValue(stats.currentValue, stats.currentTotal)
+        -- Instant: geometry changes must not restart ease-out animations.
+        if stats.currentValue ~= nil and stats.currentTotal ~= nil then
+            stats:setValue(stats.currentValue, stats.currentTotal, true)
+        end
         stats:reloadBorder()
     end
     return stats
@@ -106,8 +109,9 @@ function UIStatsBar:onStyleApply(styleName, styleNode)
     end
 end
 
-function UIStatsBar:setValue(value, total)
-    if not (value) or not (total) or total == 0 or not (self.statsType) or not (self.statsSize) or not (self.statsOrientation) then
+-- Immediate visual update (no animation).
+function UIStatsBar:applyValue(value, total)
+    if value == nil or total == nil or total == 0 or not self.statsType or not self.statsSize or not self.statsOrientation then
         return
     end
 
@@ -162,9 +166,62 @@ function UIStatsBar:setValue(value, total)
         if self.manaShieldText then
             self.text:setText(self.manaShieldText)
         else
-            self.text:setText(value .. '/' .. total)
+            self.text:setText(math.floor(value + 0.5) .. '/' .. total)
         end
     else
         self.text:hide()
+    end
+end
+
+-- instant=true snaps (geometry / first paint).
+-- Experience/skill: ease-out; wrap (level-up) resets to 0 then fills.
+-- Health/mana/manashield: ease-out both ways (gain and loss), never wrap.
+function UIStatsBar:setValue(value, total, instant)
+    if value == nil or total == nil or total == 0 or not self.statsType or not self.statsSize or not self.statsOrientation then
+        return
+    end
+
+    value = math.min(total, math.max(0, value))
+
+    local isProgressSkill = self.statsType == 'experience' or self.statsType == 'skill'
+    local isVital = self.statsType == 'health' or self.statsType == 'mana' or self.statsType == 'manashield'
+    local animateEnabled = true
+    if modules.client_options and modules.client_options.isBarAnimationEnabled then
+        if self.statsType == 'experience' then
+            animateEnabled = modules.client_options.isBarAnimationEnabled('showAnimationLevelBar')
+        elseif self.statsType == 'skill' then
+            animateEnabled = modules.client_options.isBarAnimationEnabled('showAnimationSkillBar')
+        elseif self.statsType == 'health' then
+            animateEnabled = modules.client_options.isBarAnimationEnabled('showAnimationHudHealthBar')
+        elseif self.statsType == 'mana' or self.statsType == 'manashield' then
+            animateEnabled = modules.client_options.isBarAnimationEnabled('showAnimationHudManaBar')
+        end
+    elseif modules.client_options and modules.client_options.getOption then
+        if self.statsType == 'experience' then
+            animateEnabled = modules.client_options.getOption('showAnimationLevelBar') ~= false
+        elseif self.statsType == 'skill' then
+            animateEnabled = modules.client_options.getOption('showAnimationSkillBar') ~= false
+        elseif self.statsType == 'health' then
+            animateEnabled = modules.client_options.getOption('showAnimationHudHealthBar') ~= false
+        elseif self.statsType == 'mana' or self.statsType == 'manashield' then
+            animateEnabled = modules.client_options.getOption('showAnimationHudManaBar') ~= false
+        end
+    end
+    local canAnimate = not instant and self.statsBarReady and animateEnabled and (isProgressSkill or isVital)
+
+    if canAnimate then
+        local current = self.currentValue or 0
+        if isProgressSkill and value < current - 0.05 then
+            -- Level/skill wrap: reset then ease to the new percent.
+            g_effects.cancelStatsBar(self)
+            self:applyValue(0, total)
+            g_effects.animateStatsBar(self, value, total)
+        else
+            g_effects.animateStatsBar(self, value, total)
+        end
+    else
+        g_effects.cancelStatsBar(self)
+        self:applyValue(value, total)
+        self.statsBarReady = true
     end
 end

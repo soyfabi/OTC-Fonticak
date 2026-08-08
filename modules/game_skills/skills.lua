@@ -792,12 +792,15 @@ function setSkillTooltip(id, value)
     end
 end
 
+-- When true, setSkillPercent snaps without ease-out (login/refresh).
+local skillPercentInstant = false
+
 function setSkillPercent(id, percent, tooltip, color)
     local skill = skillsWindow:recursiveGetChildById(id)
     if skill then
         local widget = skill:getChildById('percent')
         if widget then
-            widget:setPercent(math.floor(percent))
+            percent = math.floor(percent)
 
             if tooltip then
                 widget:setTooltip(tooltip)
@@ -805,6 +808,38 @@ function setSkillPercent(id, percent, tooltip, color)
 
             if color then
                 widget:setBackgroundColor(color)
+            end
+
+            -- First paint or refresh: snap. In-game gains: ease-out toward target.
+            -- Wrap (level/skill up): reset to 0 then animate up to the new percent.
+            local animateEnabled = true
+            if modules.client_options and modules.client_options.isBarAnimationEnabled then
+                if id == 'level' then
+                    animateEnabled = modules.client_options.isBarAnimationEnabled('showAnimationLevelBar')
+                else
+                    animateEnabled = modules.client_options.isBarAnimationEnabled('showAnimationSkillBar')
+                end
+            elseif modules.client_options and modules.client_options.getOption then
+                if id == 'level' then
+                    animateEnabled = modules.client_options.getOption('showAnimationLevelBar') ~= false
+                else
+                    animateEnabled = modules.client_options.getOption('showAnimationSkillBar') ~= false
+                end
+            end
+
+            if skillPercentInstant or not widget.skillPercentReady or not animateEnabled then
+                g_effects.cancelPercent(widget)
+                widget:setPercent(percent)
+                widget.skillPercentReady = true
+            else
+                local current = widget:getPercent() or 0
+                if percent < current - 0.05 then
+                    g_effects.cancelPercent(widget)
+                    widget:setPercent(0)
+                    g_effects.animatePercent(widget, percent)
+                else
+                    g_effects.animatePercent(widget, percent)
+                end
             end
         end
     end
@@ -928,6 +963,7 @@ function refresh()
     end
     expSpeedEvent = cycleEvent(checkExpSpeed, 30 * 1000)
 
+    skillPercentInstant = true
     onExperienceChange(player, player:getExperience())
     onLevelChange(player, player:getLevel(), player:getLevelPercent())
     onHealthChange(player, player:getHealth(), player:getMaxHealth())
@@ -943,6 +979,7 @@ function refresh()
     for i = Skill.Fist, Skill.Transcendence do
         onSkillChange(player, i, player:getSkillLevel(i), player:getSkillLevelPercent(i))
     end
+    skillPercentInstant = false
     update()
     updateHeight()
     if g_game.getClientVersion() >= 1410 or wheelSkillStatsEnabled then
@@ -1049,6 +1086,16 @@ end
 
 function offline()
     wheelSkillStatsEnabled = false
+    skillPercentInstant = false
+    if skillsWindow then
+        local contents = skillsWindow:recursiveGetChildById('contentsPanel') or skillsWindow
+        for _, child in ipairs(contents:recursiveGetChildren()) do
+            if child:getId() == 'percent' then
+                g_effects.cancelPercent(child)
+                child.skillPercentReady = nil
+            end
+        end
+    end
     skillsWindow:setParent(nil, true)
     if expSpeedEvent then
         expSpeedEvent:cancel()

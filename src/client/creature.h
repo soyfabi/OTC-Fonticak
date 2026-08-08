@@ -24,6 +24,7 @@
 
 #include "outfit.h"
 #include "thing.h"
+#include "percentbaranim.h"
 #include <framework/core/declarations.h>
 #include <framework/graphics/cachedtext.h>
 
@@ -114,6 +115,7 @@ public:
     uint8_t getIcon() { return m_icon; }
     uint8_t getHealthPercent() { return m_healthPercent; }
     uint8_t getManaPercent() { return m_manaPercent; }
+    float getDrawnHealthPercent() { return m_healthBarAnim.value(); }
 
     uint16_t getSpeed() { return m_speed; }
     uint16_t getBaseSpeed() { return m_baseSpeed; }
@@ -251,7 +253,6 @@ private:
     void updateShield();
     void updateWalkingTile();
     void updateWalkAnimation();
-
     uint16_t getCurrentAnimationPhase(bool mount = false);
 
     struct CachedStep
@@ -338,6 +339,7 @@ private:
     uint8_t m_type;
     uint8_t m_healthPercent{ 101 };
     uint8_t m_manaPercent{ 101 };
+    PercentBarAnim m_healthBarAnim;
     uint8_t m_skull{ Otc::SkullNone };
     uint8_t m_icon{ Otc::NpcIconNone };
     uint8_t m_shield{ Otc::ShieldNone };

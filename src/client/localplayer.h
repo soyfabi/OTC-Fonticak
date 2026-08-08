@@ -23,6 +23,7 @@
 #pragma once
 
 #include "player.h"
+#include "percentbaranim.h"
 #include <framework/core/clock.h>
 
  // @bindclass
@@ -102,6 +103,8 @@ public:
     uint32_t getMaxMana() { return m_maxMana; }
     uint32_t getManaShield() { return m_manaShield; }
     uint32_t getMaxManaShield() { return m_maxManaShield; }
+    float getDrawnManaPercent() { return m_manaBarAnim.value(); }
+    float getDrawnManaShieldPercent() { return m_manaShieldBarAnim.value(); }
     uint32_t getHealth() { return m_health; }
     uint32_t getMaxHealth() { return m_maxHealth; }
     uint64_t getExperience() { return m_experience; }
@@ -210,6 +213,8 @@ private:
     uint32_t m_maxMana{ 0 };
     uint32_t m_manaShield{ 0 };
     uint32_t m_maxManaShield{ 0 };
+    PercentBarAnim m_manaBarAnim;
+    PercentBarAnim m_manaShieldBarAnim;
     uint16_t m_magicLevel{ 0 };
     uint16_t m_magicLevelPercent{ 0 };
     uint16_t m_baseMagicLevel{ 0 };

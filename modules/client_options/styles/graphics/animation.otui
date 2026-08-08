@@ -1,0 +1,159 @@
+UIWidget
+  anchors.fill: parent
+  visible: false
+
+  QtPanel
+    id: animationBarsPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: parent.top
+    height: 265
+    margin-top: 2
+
+    Panel
+      id: animationBarsColumn
+      anchors.fill: parent
+      margin-left: 2
+      margin-right: 2
+      margin-top: 2
+      margin-bottom: 6
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        height: 22
+
+        OptionCheckBoxMarked
+          id: showAnimationMaster
+          !text: tr('Show Animation Master')
+          !tooltip: tr('Master switch for UI bar animations (skills, health, mana, arcs).\nDoes not affect Show Spell Animation.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBoxMarked
+          id: showAnimationSkillBar
+          !text: tr('Show Animation Skill Bar')
+          !tooltip: tr('Smooth ease-out fill for Magic Level and fighting skill\npercent bars (Skills window and Status Bars).')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBoxMarked
+          id: showAnimationLevelBar
+          !text: tr('Show Animation Level Bar')
+          !tooltip: tr('Smooth ease-out fill for the Level / experience percent bar\n(Skills window and Status Bars).')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBoxMarked
+          id: showAnimationHealthBar
+          !text: tr('Show Animation Health Bar')
+          !tooltip: tr('Smooth ease-out for the side-panel health bar.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBoxMarked
+          id: showAnimationManaBar
+          !text: tr('Show Animation Mana Bar')
+          !tooltip: tr('Smooth ease-out for the side-panel mana bar.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBoxMarked
+          id: showAnimationHudHealthBar
+          !text: tr('Show Animation HUD Health Bar')
+          !tooltip: tr('Smooth ease-out for health on Customisable Status Bars\n(top/bottom HUD) and the nameplate bar above your character.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBoxMarked
+          id: showAnimationHudManaBar
+          !text: tr('Show Animation HUD Mana Bar')
+          !tooltip: tr('Smooth ease-out for mana on Customisable Status Bars\n(top/bottom HUD) and the nameplate bar above your character.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBoxMarked
+          id: showAnimationArcs
+          !text: tr('Show Animation Arcs')
+          !tooltip: tr('Smooth ease-out for health, mana, experience and skill\narcs around the game window.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 32
+
+        OptionScaleScrollInline
+          id: uiBarAnimationSpeed
+          &minimumScrollValue: 50
+          &maximumScrollValue: 200
+          &scrollSize: 21
+          @onSetup: |
+            local value = modules.client_options.getOption('uiBarAnimationSpeed')
+            self:setText(tr('Animation Speed: %s%%', value))
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBoxMarked
+      id: showSpellAnimation
+      !text: tr('Show Spell Animation')
+      !tooltip: tr('When you unlock a spell by leveling up, play a short animation\nof the spell icon flying into an empty action bar slot.\nRequires Auto Assign Spell.\nIndependent from Animation Master and Animation Speed.')
+
+  OptionsQtButton
+    id: resetAnimationButton
+    !text: tr('Reset')
+    !tooltip: tr('Reset all Animation options to their default values.')
+    @onClick: modules.client_options.resetAnimation()
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    size: 80 20

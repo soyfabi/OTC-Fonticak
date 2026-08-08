@@ -108,6 +108,7 @@ function init()
 end
 
 function terminate()
+    resetArcAnims()
     if StatusIconBar and StatusIconBar.terminate then
         StatusIconBar.terminate()
     end
@@ -151,6 +152,216 @@ end
 -------------------------------------------------
 -- Scripts----------------------------------------
 -------------------------------------------------
+
+-- Displayed arc percents (ease-out toward server values).
+local arcAnim = {
+    health = {},
+    mana = {},
+    shield = {},
+    exp = {},
+    skill = {}
+}
+
+local function tweenArc(slot, targetPercent, applyFn, wrap, vital)
+    targetPercent = math.max(0, math.min(100, targetPercent))
+
+    local animateEnabled = true
+    if modules.client_options and modules.client_options.isBarAnimationEnabled then
+        animateEnabled = modules.client_options.isBarAnimationEnabled('showAnimationArcs')
+    elseif modules.client_options and modules.client_options.getOption then
+        animateEnabled = modules.client_options.getOption('showAnimationArcs') ~= false
+    end
+
+    if slot.value == nil or not animateEnabled then
+        g_effects.cancelValue(slot)
+        slot.value = targetPercent
+        applyFn(targetPercent)
+        return
+    end
+
+    local from = slot.value
+    local duration = nil
+    if vital then
+        local delta = math.abs(targetPercent - from)
+        local speed = 100
+        if modules.client_options and modules.client_options.getOption then
+            speed = modules.client_options.getOption('uiBarAnimationSpeed') or 100
+        end
+        local factor = 100 / math.max(speed, 1)
+        duration = math.max(80, math.floor(math.min(1800, math.max(550, 420 + delta * 18)) * factor + 0.5))
+    end
+
+    g_effects.animateValue(slot, from, targetPercent, duration, function(v)
+        slot.value = v
+        applyFn(v)
+    end, wrap)
+end
+
+local function resetArcAnims()
+    for _, slot in pairs(arcAnim) do
+        g_effects.cancelValue(slot)
+        slot.value = nil
+    end
+end
+
+local function applyHealthArc(healthPercent)
+    if not healthCircle or not healthCircleFront then
+        return
+    end
+
+    local yhppc = math.floor(imageSizeBroad * (1 - (healthPercent / 100)))
+    local restYhppc = imageSizeBroad - yhppc
+
+    healthCircleFront:setY(healthCircle:getY() + yhppc)
+    healthCircleFront:setHeight(restYhppc)
+    healthCircleFront:setImageClip({
+        x = 0,
+        y = yhppc,
+        width = imageSizeThin,
+        height = restYhppc
+    })
+
+    healthCircle:setHeight(yhppc)
+    healthCircle:setImageClip({
+        x = 0,
+        y = 0,
+        width = imageSizeThin,
+        height = yhppc
+    })
+
+    if healthPercent > 92 then
+        healthCircleFront:setImageColor('#00BC00')
+    elseif healthPercent > 60 then
+        healthCircleFront:setImageColor('#50A150')
+    elseif healthPercent > 30 then
+        healthCircleFront:setImageColor('#A1A100')
+    elseif healthPercent > 8 then
+        healthCircleFront:setImageColor('#BF0A0A')
+    elseif healthPercent > 3 then
+        healthCircleFront:setImageColor('#910F0F')
+    else
+        healthCircleFront:setImageColor('#850C0C')
+    end
+end
+
+local function applyManaArc(manaPercent)
+    if not manaCircle or not manaCircleFront then
+        return
+    end
+
+    local ymppc = math.floor(imageSizeBroad * (1 - (manaPercent / 100)))
+    local restYmppc = imageSizeBroad - ymppc
+    if restYmppc <= 0 then
+        manaCircleFront:setVisible(false)
+    else
+        manaCircleFront:setVisible(isManaCircle)
+
+        if isManaCircle then
+            manaCircleFront:setY(manaCircle:getY() + ymppc)
+            manaCircleFront:setHeight(restYmppc)
+            manaCircleFront:setImageClip({
+                x = 0,
+                y = ymppc,
+                width = imageSizeThin,
+                height = restYmppc
+            })
+        end
+    end
+
+    manaCircle:setHeight(ymppc)
+    manaCircle:setImageClip({
+        x = 0,
+        y = 0,
+        width = imageSizeThin,
+        height = ymppc
+    })
+end
+
+local function applyShieldArc(shieldPercent)
+    if not manaShieldCircle or not manaShieldCircleFront then
+        return
+    end
+
+    local emptyPixels = math.floor(manaShieldImageSizeBroad * (1 - shieldPercent / 100))
+    if emptyPixels < 0 then
+        emptyPixels = 0
+    end
+    if emptyPixels > manaShieldImageSizeBroad then
+        emptyPixels = manaShieldImageSizeBroad
+    end
+
+    local filledPixels = manaShieldImageSizeBroad - emptyPixels
+
+    manaShieldCircleFront:setY(manaShieldCircle:getY() + emptyPixels)
+    manaShieldCircleFront:setHeight(filledPixels)
+    manaShieldCircleFront:setImageClip({
+        x = 0,
+        y = emptyPixels,
+        width = manaShieldImageSizeThin,
+        height = filledPixels
+    })
+
+    manaShieldCircle:setHeight(emptyPixels)
+    manaShieldCircle:setImageClip({
+        x = 0,
+        y = 0,
+        width = manaShieldImageSizeThin,
+        height = emptyPixels
+    })
+end
+
+local function applyExpArc(levelPercent)
+    if not expCircle or not expCircleFront then
+        return
+    end
+
+    local Xexpc = math.floor(imageSizeBroad * (1 - levelPercent / 100))
+
+    expCircleFront:setImageClip({
+        x = 0,
+        y = 0,
+        width = imageSizeBroad - Xexpc,
+        height = imageSizeThin
+    })
+    expCircleFront:setWidth(imageSizeBroad - Xexpc)
+
+    expCircle:setImageClip({
+        x = imageSizeBroad - Xexpc,
+        y = 0,
+        width = Xexpc,
+        height = imageSizeThin
+    })
+    expCircle:setWidth(Xexpc)
+    expCircle:setX(expCircleFront:getX() + expCircleFront:getWidth())
+end
+
+local function applySkillArc(skillPercent, skillColor)
+    if not skillCircle or not skillCircleFront then
+        return
+    end
+
+    local Xskpc = math.floor(imageSizeBroad * (1 - skillPercent / 100))
+    if skillColor then
+        skillCircleFront:setImageColor(skillColor)
+    end
+
+    skillCircleFront:setImageClip({
+        x = 0,
+        y = 0,
+        width = imageSizeBroad - Xskpc,
+        height = imageSizeThin
+    })
+    skillCircleFront:setWidth(imageSizeBroad - Xskpc)
+
+    skillCircle:setImageClip({
+        x = imageSizeBroad - Xskpc,
+        y = 0,
+        width = Xskpc,
+        height = imageSizeThin
+    })
+    skillCircle:setWidth(Xskpc)
+    skillCircle:setX(skillCircleFront:getX() + skillCircleFront:getWidth())
+end
 
 function initOnHpAndMpChange()
     connect(LocalPlayer, {
@@ -216,47 +427,12 @@ function whenHealthChange()
             return
         end
         -- @
-        -- Fix By TheMaoci ~ if your server doesn't have this properly implemented,
-        -- it will cause alot of unnecessary deaths from players which will be unfair.
-        -- My friend reported me that while he was using his otcv8 and asked for a fix so here you go :)
-        local healthPercent = math.floor(g_game.getLocalPlayer():getHealth() / g_game.getLocalPlayer():getMaxHealth() *
-            100)
-        -- Old leaved for ppl who have that implemented correctly
-        --local healthPercent = math.floor(g_game.getLocalPlayer():getHealthPercent())
-
-        local yhppc = math.floor(imageSizeBroad * (1 - (healthPercent / 100)))
-        local restYhppc = imageSizeBroad - yhppc
-
-        healthCircleFront:setY(healthCircle:getY() + yhppc)
-        healthCircleFront:setHeight(restYhppc)
-        healthCircleFront:setImageClip({
-            x = 0,
-            y = yhppc,
-            width = imageSizeThin,
-            height = restYhppc
-        })
-
-        healthCircle:setHeight(yhppc)
-        healthCircle:setImageClip({
-            x = 0,
-            y = 0,
-            width = imageSizeThin,
-            height = yhppc
-        })
-
-        if healthPercent > 92 then
-            healthCircleFront:setImageColor('#00BC00')
-        elseif healthPercent > 60 then
-            healthCircleFront:setImageColor('#50A150')
-        elseif healthPercent > 30 then
-            healthCircleFront:setImageColor('#A1A100')
-        elseif healthPercent > 8 then
-            healthCircleFront:setImageColor('#BF0A0A')
-        elseif healthPercent > 3 then
-            healthCircleFront:setImageColor('#910F0F')
-        else
-            healthCircleFront:setImageColor('#850C0C')
+        local player = g_game.getLocalPlayer()
+        if not player then
+            return
         end
+        local healthPercent = (player:getHealth() / math.max(player:getMaxHealth(), 1)) * 100
+        tweenArc(arcAnim.health, healthPercent, applyHealthArc, false, true)
     end
 end
 
@@ -286,6 +462,8 @@ local function updateManaShieldDisplay()
         manaShieldCircle:setVisible(false)
         manaShieldCircleFront:setVisible(false)
         resetManaCircleImages()
+        g_effects.cancelValue(arcAnim.shield)
+        arcAnim.shield.value = nil
         return
     end
 
@@ -301,6 +479,8 @@ local function updateManaShieldDisplay()
         manaShieldCircle:setVisible(false)
         manaShieldCircleFront:setVisible(false)
         resetManaCircleImages()
+        g_effects.cancelValue(arcAnim.shield)
+        arcAnim.shield.value = nil
         return
     end
 
@@ -316,34 +496,8 @@ local function updateManaShieldDisplay()
     manaShieldCircleFront:setVisible(true)
 
     local clampedShield = math.max(math.min(remainingShield, maxShield), 0)
-    local shieldPercent = clampedShield / maxShield
-
-    local emptyPixels = math.floor(manaShieldImageSizeBroad * (1 - shieldPercent))
-    if emptyPixels < 0 then
-        emptyPixels = 0
-    end
-    if emptyPixels > manaShieldImageSizeBroad then
-        emptyPixels = manaShieldImageSizeBroad
-    end
-
-    local filledPixels = manaShieldImageSizeBroad - emptyPixels
-
-    manaShieldCircleFront:setY(manaShieldCircle:getY() + emptyPixels)
-    manaShieldCircleFront:setHeight(filledPixels)
-    manaShieldCircleFront:setImageClip({
-        x = 0,
-        y = emptyPixels,
-        width = manaShieldImageSizeThin,
-        height = filledPixels
-    })
-
-    manaShieldCircle:setHeight(emptyPixels)
-    manaShieldCircle:setImageClip({
-        x = 0,
-        y = 0,
-        width = manaShieldImageSizeThin,
-        height = emptyPixels
-    })
+    local shieldPercent = (clampedShield / math.max(maxShield, 1)) * 100
+    tweenArc(arcAnim.shield, shieldPercent, applyShieldArc, false, true)
 end
 
 function whenManaShieldChange()
@@ -362,6 +516,8 @@ function whenManaChange()
                 manaShieldCircleFront:setVisible(false)
             end
             resetManaCircleImages()
+            g_effects.cancelValue(arcAnim.mana)
+            arcAnim.mana.value = nil
             return
         elseif isManaCircle then
             manaCircle:setVisible(true)
@@ -370,64 +526,23 @@ function whenManaChange()
 
         updateManaShieldDisplay()
 
-        local manaPercent = math.floor(maxMana - (maxMana - player:getMana())) * 100 / maxMana
-
-        local ymppc = math.floor(imageSizeBroad * (1 - (manaPercent / 100)))
-        local restYmppc = imageSizeBroad - ymppc
-        if restYmppc <= 0 then
-            manaCircleFront:setVisible(false)
-        else
-            manaCircleFront:setVisible(isManaCircle)
-
-            if isManaCircle then
-                manaCircleFront:setY(manaCircle:getY() + ymppc)
-                manaCircleFront:setHeight(restYmppc)
-                manaCircleFront:setImageClip({
-                    x = 0,
-                    y = ymppc,
-                    width = imageSizeThin,
-                    height = restYmppc
-                })
-            end
-        end
-
-        manaCircle:setHeight(ymppc)
-        manaCircle:setImageClip({
-            x = 0,
-            y = 0,
-            width = imageSizeThin,
-            height = ymppc
-        })
+        local manaPercent = (player:getMana() / maxMana) * 100
+        tweenArc(arcAnim.mana, manaPercent, applyManaArc, false, true)
     end
 end
 
 function whenSkillsChange()
     if g_game.isOnline() then
+        local player = g_game.getLocalPlayer()
+        if not player then
+            return
+        end
+
         if isExpCircle then
-            local player = g_game.getLocalPlayer()
-            local Xexpc = math.floor(imageSizeBroad * (1 - player:getLevelPercent() / 100))
-
-            expCircleFront:setImageClip({
-                x = 0,
-                y = 0,
-                width = imageSizeBroad - Xexpc,
-                height = imageSizeThin
-            })
-            expCircleFront:setWidth(imageSizeBroad - Xexpc)
-
-            expCircle:setImageClip({
-                x = imageSizeBroad - Xexpc,
-                y = 0,
-                width = Xexpc,
-                height = imageSizeThin
-            })
-            expCircle:setWidth(Xexpc)
-            expCircle:setX(expCircleFront:getX() + expCircleFront:getWidth())
+            tweenArc(arcAnim.exp, player:getLevelPercent(), applyExpArc, true)
         end
 
         if isSkillCircle then
-            local player = g_game.getLocalPlayer()
-
             local skillPercent
             local skillColor
             local skillType = skillTypes[player:getName()]
@@ -459,25 +574,9 @@ function whenSkillsChange()
                 skillColor = '#00ffcc'
             end
 
-            local Xskpc = math.floor(imageSizeBroad * (1 - skillPercent / 100))
-            skillCircleFront:setImageColor(skillColor)
-
-            skillCircleFront:setImageClip({
-                x = 0,
-                y = 0,
-                width = imageSizeBroad - Xskpc,
-                height = imageSizeThin
-            })
-            skillCircleFront:setWidth(imageSizeBroad - Xskpc)
-
-            skillCircle:setImageClip({
-                x = imageSizeBroad - Xskpc,
-                y = 0,
-                width = Xskpc,
-                height = imageSizeThin
-            })
-            skillCircle:setWidth(Xskpc)
-            skillCircle:setX(skillCircleFront:getX() + skillCircleFront:getWidth())
+            tweenArc(arcAnim.skill, skillPercent, function(percent)
+                applySkillArc(percent, skillColor)
+            end, true)
         end
     end
 end
@@ -571,6 +670,23 @@ function whenMapResizeChange()
         -- @ MONK
         positionMonkWidgets()
         -- @
+    end
+
+    -- Re-apply clip geometry after reposition without restarting tweens mid-flight.
+    if arcAnim.health.value ~= nil and not isMonkMode then
+        applyHealthArc(arcAnim.health.value)
+    end
+    if arcAnim.mana.value ~= nil then
+        applyManaArc(arcAnim.mana.value)
+    end
+    if arcAnim.shield.value ~= nil then
+        applyShieldArc(arcAnim.shield.value)
+    end
+    if isExpCircle and arcAnim.exp.value ~= nil then
+        applyExpArc(arcAnim.exp.value)
+    end
+    if isSkillCircle and arcAnim.skill.value ~= nil then
+        applySkillArc(arcAnim.skill.value)
     end
 
     updateManaShieldDisplay()
@@ -884,6 +1000,11 @@ function updateStatsBar()
 end
 
 function setPlayerValues()
+    resetArcAnims()
+    if monkHealthAnim then
+        g_effects.cancelValue(monkHealthAnim)
+        monkHealthAnim.value = nil
+    end
     local skillType = skillTypes[g_game.getCharacterName()]
     if not skillType then
         skillType = 'magic'

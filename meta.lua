@@ -1238,6 +1238,15 @@ function g_gameConfig.getSpriteSize() end
 ---@return boolean
 function g_gameConfig.isDrawingInformationByWidget() end
 
+---@param enable boolean
+function g_gameConfig.setAnimateNameplateHealth(enable) end
+
+---@param enable boolean
+function g_gameConfig.setAnimateNameplateMana(enable) end
+
+---@param speed integer
+function g_gameConfig.setUiBarAnimationSpeed(speed) end
+
 ---@return boolean
 function g_gameConfig.isAdjustCreatureInformationBasedCropSize() end
 

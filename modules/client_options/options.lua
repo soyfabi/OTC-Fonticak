@@ -8,6 +8,7 @@ panels = {
     soundPanel = nil,
     gameMapPanel = nil,
     graphicsEffectsPanel = nil,
+    graphicsAnimationPanel = nil,
     interfaceHUD = nil,
     interfaceGameWindow = nil,
     interface = nil,
@@ -77,6 +78,9 @@ local buttons = { {
     subCategories = { {
         text = "Effects",
         open = "graphicsEffectsPanel"
+    }, {
+        text = "Animation",
+        open = "graphicsAnimationPanel"
     } }
 }, {
     text = "Sound",
@@ -380,6 +384,7 @@ function controller:onInit()
 
     panels.graphicsPanel = g_ui.loadUI('styles/graphics/graphics', controller.ui.optionsTabContent)
     panels.graphicsEffectsPanel = g_ui.loadUI('styles/graphics/effects', controller.ui.optionsTabContent)
+    panels.graphicsAnimationPanel = g_ui.loadUI('styles/graphics/animation', controller.ui.optionsTabContent)
 
     panels.interface = g_ui.loadUI('styles/interface/interface', controller.ui.optionsTabContent)
     panels.interfaceConsole = g_ui.loadUI('styles/interface/console', controller.ui.optionsTabContent)
@@ -780,6 +785,52 @@ function getBoolOption(key, defaultValue)
     return value and true or false
 end
 
+-- UI bar / arc animations only. Spell unlock animation is independent.
+local ANIMATION_BAR_CHILDREN = {
+    'showAnimationSkillBar',
+    'showAnimationLevelBar',
+    'showAnimationHealthBar',
+    'showAnimationManaBar',
+    'showAnimationHudHealthBar',
+    'showAnimationHudManaBar',
+    'showAnimationArcs',
+    'uiBarAnimationSpeed',
+}
+
+function isBarAnimationEnabled(optionKey)
+    if not getBoolOption('showAnimationMaster', true) then
+        return false
+    end
+    if optionKey then
+        return getBoolOption(optionKey, true)
+    end
+    return true
+end
+
+function syncNameplateBarAnimation()
+    if not g_gameConfig or not g_gameConfig.setAnimateNameplateHealth then
+        return
+    end
+    g_gameConfig.setAnimateNameplateHealth(isBarAnimationEnabled('showAnimationHudHealthBar'))
+    g_gameConfig.setAnimateNameplateMana(isBarAnimationEnabled('showAnimationHudManaBar'))
+    if g_gameConfig.setUiBarAnimationSpeed then
+        g_gameConfig.setUiBarAnimationSpeed(tonumber(getOption('uiBarAnimationSpeed')) or 100)
+    end
+end
+
+function applyAnimationMaster(enabled)
+    local panel = panels.graphicsAnimationPanel
+    if panel then
+        for _, id in ipairs(ANIMATION_BAR_CHILDREN) do
+            local widget = panel:recursiveGetChildById(id)
+            if widget then
+                widget:setEnabled(enabled and true or false)
+            end
+        end
+    end
+    syncNameplateBarAnimation()
+end
+
 function applyOwnHUD(opts, panelTable)
     opts = opts or options
     panelTable = panelTable or panels
@@ -1001,6 +1052,19 @@ function resetEffects()
     setOption('setOtherPlayerSpellEffectAlphaScroll', 100, true)
     setOption('setCreatureSpellEffectAlphaScroll', 100, true)
     setOption('setBossAreaCreatureEffectAlphaScroll', 100, true)
+end
+
+function resetAnimation()
+    setOption('showAnimationMaster', true, true)
+    setOption('showAnimationSkillBar', true, true)
+    setOption('showAnimationLevelBar', true, true)
+    setOption('showAnimationHealthBar', true, true)
+    setOption('showAnimationManaBar', true, true)
+    setOption('showAnimationHudHealthBar', true, true)
+    setOption('showAnimationHudManaBar', true, true)
+    setOption('showAnimationArcs', true, true)
+    setOption('showSpellAnimation', true, true)
+    setOption('uiBarAnimationSpeed', 100, true)
 end
 
 function resetActionBars()

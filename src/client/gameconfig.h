@@ -67,6 +67,15 @@ public:
     uint16_t getShieldBlinkTicks() { return m_shieldBlinkTicks; }
     uint16_t getVolatileSquareDuration() const { return m_volatileSquareDuration; }
 
+    // Nameplate (creature info) HP/MP bar ease-out, synced from client options.
+    bool isAnimateNameplateHealth() const { return m_animateNameplateHealth; }
+    void setAnimateNameplateHealth(const bool enable) { m_animateNameplateHealth = enable; }
+    bool isAnimateNameplateMana() const { return m_animateNameplateMana; }
+    void setAnimateNameplateMana(const bool enable) { m_animateNameplateMana = enable; }
+    int getUiBarAnimationSpeed() const { return m_uiBarAnimationSpeed; }
+    void setUiBarAnimationSpeed(const int speed) { m_uiBarAnimationSpeed = speed < 1 ? 1 : speed; }
+    int getVitalBarAnimationDuration(float percentDelta) const;
+
     uint16_t getInvisibleTicksPerFrame() const { return m_invisibleTicksPerFrame; }
     uint16_t getItemTicksPerFrame() const { return m_itemTicksPerFrame; }
     uint16_t getEffectTicksPerFrame() const { return m_effectTicksPerFrame; }
@@ -130,6 +139,9 @@ private:
     bool m_forceNewWalkingFormula{ true };
     bool m_adjustCreatureInformationBasedCropSize{ false };
     bool m_useCropSizeForUIDraw{ true };
+    bool m_animateNameplateHealth{ true };
+    bool m_animateNameplateMana{ true };
+    int m_uiBarAnimationSpeed{ 100 };
     uint16_t m_shieldBlinkTicks{ 500 };
     uint16_t m_volatileSquareDuration{ 1000 };
     double m_creatureDiagonalWalkSpeed{ 3 };

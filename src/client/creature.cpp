@@ -265,7 +265,7 @@ void Creature::drawInformation(const MapPosInfo& mapRect, const Point& dest, con
 
     // health rect is based on background rect, so no worries
     Rect healthRect = backgroundRect.expanded(-1);
-    healthRect.setWidth((m_healthPercent / 100.0) * 29);
+    healthRect.setWidth((getDrawnHealthPercent() / 100.0) * 29);
 
     Rect barsRect = backgroundRect;
     bool drewBar = false;
@@ -289,8 +289,7 @@ void Creature::drawInformation(const MapPosInfo& mapRect, const Point& dest, con
                 g_drawPool.addFilledRect(barsRect, Color::black);
 
                 Rect manaShieldRect = barsRect.expanded(-1);
-                const double maxManaShield = player->getMaxManaShield();
-                manaShieldRect.setWidth((maxManaShield ? player->getManaShield() / maxManaShield : 1) * 29);
+                manaShieldRect.setWidth((player->getDrawnManaShieldPercent() / 100.0) * 29);
 
                 g_drawPool.addFilledRect(manaShieldRect, Color::darkPink);
                 drewBar = true;
@@ -301,8 +300,7 @@ void Creature::drawInformation(const MapPosInfo& mapRect, const Point& dest, con
             g_drawPool.addFilledRect(barsRect, Color::black);
 
             Rect manaRect = barsRect.expanded(-1);
-            const double maxMana = player->getMaxMana();
-            manaRect.setWidth((maxMana ? player->getMana() / maxMana : 1) * 29);
+            manaRect.setWidth((player->getDrawnManaPercent() / 100.0) * 29);
 
             g_drawPool.addFilledRect(manaRect, Color::blue);
             drewBar = true;
@@ -924,6 +922,10 @@ void Creature::setHealthPercent(const uint8_t healthPercent)
 
     const uint8_t oldHealthPercent = m_healthPercent;
     m_healthPercent = healthPercent;
+
+    // First paint / unset (101) snaps; later changes ease-out when option is on.
+    const bool animate = g_gameConfig.isAnimateNameplateHealth() && oldHealthPercent <= 100;
+    m_healthBarAnim.startToward(static_cast<float>(healthPercent), animate);
 
     callLuaField("onHealthPercentChange", healthPercent, oldHealthPercent);
 

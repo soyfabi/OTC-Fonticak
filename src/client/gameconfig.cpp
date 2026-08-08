@@ -23,6 +23,8 @@
 #include "gameconfig.h"
 
 #include "framework/core/configmanager.h"
+#include <algorithm>
+#include <cmath>
 #include <sstream>
 #include <string>
 #include <vector>
@@ -240,4 +242,12 @@ void GameConfig::loadRenderNode(const OTMLNodePtr& mainNode) {
         else if (node->tag() == "min-static-text-duration")
             m_minStatictextDuration = node->value<int>();
     }
-};
+}
+
+int GameConfig::getVitalBarAnimationDuration(const float percentDelta) const
+{
+    const float absDelta = std::abs(percentDelta);
+    const float baseMs = std::min(1800.f, std::max(550.f, 420.f + absDelta * 18.f));
+    const float factor = 100.f / static_cast<float>(std::max(1, m_uiBarAnimationSpeed));
+    return std::max(80, static_cast<int>(baseMs * factor + 0.5f));
+}

@@ -122,6 +122,7 @@ OptionCheckBoxMarked < OptionCheckBox
       local tip = self:getTooltip()
       if tip and tip:len() > 0 and self.toolTipWidget then
         self.toolTipWidget:setTooltip(tip)
+        self:removeTooltip()
       end
     end, 1)
 
