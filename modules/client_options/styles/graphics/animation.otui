@@ -18,7 +18,7 @@ UIWidget
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: parent.top
-      height: 530
+      height: 690
 
       QtPanel
         id: animationBarsPanel
@@ -263,6 +263,76 @@ UIWidget
                 local value = modules.client_options.getOption('outfitAnimationSpeed')
                 self:setText(tr('Animation Speed: %s%%', value))
 
+      QtPanel
+        id: slideAnimationPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        height: 140
+        margin-top: 7
+
+        Panel
+          id: slideAnimationColumn
+          anchors.fill: parent
+          margin-left: 2
+          margin-right: 2
+          margin-top: 2
+          margin-bottom: 6
+
+          SmallReversedQtPanel
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: parent.top
+            height: 22
+
+            OptionCheckBoxMarked
+              id: showSlideAnimationMaster
+              !text: tr('Show Slide Master')
+              !tooltip: tr('Master switch for accordion slide animations\n(Options categories and Store panels).')
+
+          SmallReversedQtPanel
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: prev.bottom
+            margin-top: 4
+            margin-left: 16
+            height: 22
+
+            OptionCheckBoxMarked
+              id: showOptionsAnimation
+              !text: tr('Show Options Animation')
+              !tooltip: tr('Smooth accordion slide when expanding or collapsing\ncategories in the Options window.')
+
+          SmallReversedQtPanel
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: prev.bottom
+            margin-top: 4
+            margin-left: 16
+            height: 22
+
+            OptionCheckBoxMarked
+              id: showStoreAnimation
+              !text: tr('Show Store Animation')
+              !tooltip: tr('Smooth accordion slide when expanding or collapsing\ncategories in the Store window.')
+
+          SmallReversedQtPanel
+            anchors.left: parent.left
+            anchors.right: parent.right
+            anchors.top: prev.bottom
+            margin-top: 4
+            margin-left: 16
+            height: 32
+
+            OptionScaleScrollInline
+              id: slideAnimationSpeed
+              &minimumScrollValue: 50
+              &maximumScrollValue: 200
+              &scrollSize: 21
+              @onSetup: |
+                local value = modules.client_options.getOption('slideAnimationSpeed')
+                self:setText(tr('Animation Speed: %s%%', value))
+
       SmallReversedQtPanel
         anchors.left: parent.left
         anchors.right: parent.right
@@ -273,7 +343,7 @@ UIWidget
         OptionCheckBoxMarked
           id: showSpellAnimation
           !text: tr('Show Spell Animation')
-          !tooltip: tr('When you unlock a spell by leveling up, play a short animation\nof the spell icon flying into an empty action bar slot.\nRequires Auto Assign Spell.\nIndependent from Animation Master, Outfit Master and Animation Speed.')
+          !tooltip: tr('When you unlock a spell by leveling up, play a short animation\nof the spell icon flying into an empty action bar slot.\nRequires Auto Assign Spell.\nIndependent from Animation Master, Outfit Master, Slide Master and Animation Speed.')
 
   VerticalScrollBar
     id: animationScrollBar

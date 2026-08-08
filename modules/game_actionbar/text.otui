@@ -1,10 +1,8 @@
-CustomTextWindow < NewMainWindow
+NewMainWindow
   id: assignTextWindow
   size: 275 155
-  text: Assign Text
   font: verdana-11px-antialised
   color: #ffffff
-  focus-child: text
 
   Panel
     id: contentPanel

@@ -1127,21 +1127,53 @@ function onStorePurchase(message)
 	scheduleEvent(function() SucessOfferWindow:focus() end, 50)
 end
 
-local function animateImage(widget, width, height, frame_init, frame_end, time)
-	Store:safeAnimateImage(widget, width, height, frame_init, frame_end, time, false)
-	return true
+local PURCHASE_CHEST_FRAMES = 13
+local PURCHASE_CHEST_FRAME_MS = 100
+
+local function stopPurchaseChestAnim(image)
+	if not image or not image.purchaseChestEvents then
+		return
+	end
+	for _, event in pairs(image.purchaseChestEvents) do
+		removeEvent(event)
+	end
+	image.purchaseChestEvents = nil
+end
+
+-- Same look as Astra's spritesheet, but each frame is a 108x108 PNG.
+-- Fonticak's texture atlas breaks clipping on the wide purchasecomplete_pressed sheet.
+local function animatePurchaseChest(image)
+	if not image then
+		return
+	end
+	stopPurchaseChestAnim(image)
+	Store:safeCancelWidgetAnimations(image)
+	image.purchaseChestEvents = {}
+	image:setVisible(true)
+	image:setOpacity(1)
+
+	for frame = 1, PURCHASE_CHEST_FRAMES do
+		local path = string.format('/images/store/purchasecomplete/frame_%02d', frame)
+		local delay = (frame - 1) * PURCHASE_CHEST_FRAME_MS
+		image.purchaseChestEvents[frame] = scheduleEvent(function()
+			if not image or image:isDestroyed() then
+				return
+			end
+			image:setImageSource(path)
+			image:setImageClip("0 0 108 108")
+		end, delay)
+	end
 end
 
 function completePurchase(widget, immediate)
 	removeEvent(Offers.completePurchaseEvent)
 	Offers.completePurchaseEvent = nil
-	if widget then
-		widget.image:setImageSource('/images/store/purchasecomplete_pressed')
-		widget.image:setImageClip("0 0 108 108")
-		animateImage(widget.image, 108, 108, 1, 13, 100)
+	if widget and widget.image then
+		animatePurchaseChest(widget.image)
 	end
 
 	local action = function()
+		stopPurchaseChestAnim(SucessOfferWindow and SucessOfferWindow.confirm and SucessOfferWindow.confirm.image)
 		if SucessOfferWindow:isVisible() then
 			SucessOfferWindow:hide()
 		end
@@ -1153,7 +1185,8 @@ function completePurchase(widget, immediate)
 	if immediate then
 		action()
 	else
-		Offers.completePurchaseEvent = scheduleEvent(action, 1000)
+		-- Full open animation (~1.2s) + short hold, like Astra but without cutting mid-open.
+		Offers.completePurchaseEvent = scheduleEvent(action, (PURCHASE_CHEST_FRAMES - 1) * PURCHASE_CHEST_FRAME_MS + 200)
 	end
 end
 

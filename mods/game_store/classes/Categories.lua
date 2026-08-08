@@ -165,6 +165,11 @@ function Categories:configure(categories)
 
 	Categories:cancelRender()
 	local generation = Categories.renderGeneration
+	for _, treeItem in pairs(Categories.widgets or {}) do
+		if treeItem and not treeItem:isDestroyed() and g_effects then
+			g_effects.cancelValue(treeItem)
+		end
+	end
 	categoryPanel:destroyChildren()
 	Categories.widgets = {}
 	Categories.selectTreeItem = nil
@@ -247,25 +252,236 @@ function Categories:configure(categories)
 	renderNextBatch()
 end
 
-function Categories:collapseAll()
-	for _, treeItem in pairs(Categories.widgets or {}) do
-		if treeItem and not treeItem:isDestroyed() then
-			treeItem:setHeight(Categories.buttonSize)
-			local panel = treeItem:getChildById('panel')
-			local arrow = treeItem:getChildById('arrow')
-			if panel then
-				panel:setVisible(false)
-				panel:setHeight(0)
-				for _, child in pairs(panel:getChildren()) do
-					child:destroy()
-				end
-			end
-			if arrow then
-				arrow:setVisible(false)
+local STORE_ACCORDION_MS = 240
+local STORE_ARROW_CLOSED = '/images/arrows/icon-arrow7x7-right'
+local STORE_ARROW_OPEN = '/images/arrows/icon-arrow7x7-down'
+
+local function storeSlideEnabled()
+	return modules.client_options
+		and modules.client_options.isSlideAnimationEnabled
+		and modules.client_options.isSlideAnimationEnabled('showStoreAnimation')
+end
+
+local function storeSlideDuration(baseMs)
+	if modules.client_options and modules.client_options.getSlideAnimationDuration then
+		return modules.client_options.getSlideAnimationDuration(baseMs or STORE_ACCORDION_MS)
+	end
+	return baseMs or STORE_ACCORDION_MS
+end
+
+local function setStoreCategoryScroll(treeItem, isOpen)
+	if not treeItem or treeItem:isDestroyed() or not treeItem.mainButton then
+		return
+	end
+	local scroll = treeItem.mainButton.scroll
+	if not scroll or scroll:isDestroyed() or not scroll:isVisible() then
+		return
+	end
+	scroll:setImageSource(isOpen and STORE_ARROW_OPEN or STORE_ARROW_CLOSED)
+end
+
+local function finishCollapseTreeItem(treeItem)
+	if not treeItem or treeItem:isDestroyed() then
+		return
+	end
+	if g_effects then
+		g_effects.cancelValue(treeItem)
+	end
+	treeItem:setHeight(Categories.buttonSize)
+	treeItem:setClipping(false)
+	local panel = treeItem:getChildById('panel')
+	local arrow = treeItem:getChildById('arrow')
+	if panel and not panel:isDestroyed() then
+		panel:setVisible(false)
+		panel:setHeight(0)
+		for _, child in pairs(panel:getChildren()) do
+			if child and not child:isDestroyed() then
+				child:setOpacity(1)
+				child:destroy()
 			end
 		end
 	end
+	if arrow and not arrow:isDestroyed() then
+		arrow:setVisible(false)
+	end
+	setStoreCategoryScroll(treeItem, false)
+end
+
+function Categories:collapseTreeItem(treeItem, animated)
+	if not treeItem or treeItem:isDestroyed() then
+		return
+	end
+
+	local closedH = Categories.buttonSize
+	local from = treeItem:getHeight() or closedH
+	if from <= closedH + 1 then
+		finishCollapseTreeItem(treeItem)
+		return
+	end
+
+	if not animated or not storeSlideEnabled() or not g_effects then
+		finishCollapseTreeItem(treeItem)
+		return
+	end
+
+	local panel = treeItem:getChildById('panel')
+	-- Only the panel clips subcategories; TreeItem must not clip (header/icon overflow).
+	treeItem:setClipping(false)
+	setStoreCategoryScroll(treeItem, false)
+	g_effects.cancelValue(treeItem)
+	g_effects.animateValue(treeItem, from, closedH, storeSlideDuration(STORE_ACCORDION_MS), function(height)
+		if not treeItem or treeItem:isDestroyed() then
+			return
+		end
+
+		treeItem:setHeight(math.floor(height + 0.5))
+		local span = from - closedH
+		local t = math.abs(span) < 0.01 and 1 or ((from - height) / span)
+		t = math.max(0, math.min(1, t))
+
+		if panel and not panel:isDestroyed() then
+			panel:setHeight(math.max(0, math.floor(height - closedH - 6 + 0.5)))
+			for _, child in pairs(panel:getChildren()) do
+				if child and not child:isDestroyed() then
+					child:setOpacity(1 - t)
+				end
+			end
+		end
+
+		if math.abs(height - closedH) < 0.5 then
+			finishCollapseTreeItem(treeItem)
+		end
+	end)
+end
+
+function Categories:collapseAll(animated)
+	for _, treeItem in pairs(Categories.widgets or {}) do
+		Categories:collapseTreeItem(treeItem, animated)
+	end
 	Categories.selectTreeItem = nil
+end
+
+function Categories:expandTreeItem(thisParent, category, name)
+	if not thisParent or thisParent:isDestroyed() or not category or not category.childs then
+		return nil
+	end
+
+	local childCount = #category.childs
+	local panel = thisParent:getChildById('panel')
+	local arrow = thisParent:getChildById('arrow')
+	if not panel then
+		return nil
+	end
+
+	local panelH = (childCount * Categories.buttonSize) + 2
+	local closedH = Categories.buttonSize
+	local openedH = Categories.buttonSize + panelH + 6
+	local printed = false
+	local selectedButton = nil
+	local isFirstButton = true
+
+	for index, child in ipairs(category.childs) do
+		local newWidget = g_ui.createWidget('TreeButton', panel)
+		if not newWidget then
+			break
+		end
+		newWidget:setId('TreeButton' .. tostring(index))
+		newWidget:setOpacity(0)
+		applyCategoryIcon(newWidget.icon, child.icon, child.name)
+
+		local pos = (index - 1) * Categories.buttonSize + (Categories.buttonSize / 3)
+		if not name and not printed then
+			printed = true
+			if arrow then
+				arrow:setMarginTop(pos)
+			end
+		end
+
+		newWidget.onClick = function()
+			if selectedButton == newWidget then
+				return true
+			end
+			if selectedButton then
+				selectedButton:setOn(false)
+				selectedButton.text:setColor("$var-text-cip-color")
+			end
+			selectedButton = newWidget
+			selectedButton:setOn(true)
+			selectedButton.text:setColor("$var-text-cip-color-highlight")
+			if arrow then
+				arrow:setMarginTop(pos)
+			end
+			g_game.requestStoreOffers(OPEN_CATEGORY, child.name, 0)
+		end
+		newWidget:getChildById('text'):setText(short_text(child.name, 16))
+		if isFirstButton then
+			isFirstButton = false
+			selectedButton = newWidget
+			selectedButton:setOn(true)
+			selectedButton.text:setColor("$var-text-cip-color-highlight")
+		end
+	end
+
+	if arrow then
+		arrow:setVisible(true)
+	end
+	setStoreCategoryScroll(thisParent, true)
+
+	local function finishExpand()
+		if not thisParent or thisParent:isDestroyed() then
+			return
+		end
+		thisParent:setHeight(openedH)
+		thisParent:setClipping(false)
+		if panel and not panel:isDestroyed() then
+			panel:setHeight(panelH)
+			panel:setVisible(true)
+			for _, child in pairs(panel:getChildren()) do
+				if child and not child:isDestroyed() then
+					child:setOpacity(1)
+				end
+			end
+		end
+	end
+
+	local animated = storeSlideEnabled() and g_effects
+	if not animated then
+		finishExpand()
+		return selectedButton
+	end
+
+	-- Do not clip TreeItem: it cuts the category header and first subcategory.
+	-- Panel already has clipping for the slide reveal.
+	thisParent:setClipping(false)
+	thisParent:setHeight(closedH)
+	panel:setHeight(0)
+	panel:setVisible(true)
+	g_effects.cancelValue(thisParent)
+	g_effects.animateValue(thisParent, closedH, openedH, storeSlideDuration(STORE_ACCORDION_MS), function(height)
+		if not thisParent or thisParent:isDestroyed() then
+			return
+		end
+
+		thisParent:setHeight(math.floor(height + 0.5))
+		local span = openedH - closedH
+		local t = math.abs(span) < 0.01 and 1 or ((height - closedH) / span)
+		t = math.max(0, math.min(1, t))
+
+		if panel and not panel:isDestroyed() then
+			panel:setHeight(math.max(0, math.floor(height - closedH - 6 + 0.5)))
+			for _, child in pairs(panel:getChildren()) do
+				if child and not child:isDestroyed() then
+					child:setOpacity(t)
+				end
+			end
+		end
+
+		if math.abs(height - openedH) < 0.5 then
+			finishExpand()
+		end
+	end)
+
+	return selectedButton
 end
 
 function Categories:onSelectCategory(widget, name)
@@ -282,58 +498,12 @@ function Categories:onSelectCategory(widget, name)
 		return true
 	end
 
-	Categories:collapseAll()
+	Categories:collapseAll(true)
 
-	local printed = false
-	local selectedButton = nil
-	local isFirstButton = true
 	local thisParent = widget:getParent()
 
 	if category.childs and thisParent then
-		local childCount = #category.childs
-		local panel = thisParent:getChildById('panel')
-		local panelH = (childCount * Categories.buttonSize) + 2
-		thisParent:setHeight(Categories.buttonSize + panelH + 6)
-		panel:setHeight(panelH)
-		panel:setVisible(true)
-		thisParent:getChildById('arrow'):setVisible(true)
-
-		for index, child in ipairs(category.childs) do
-			local newWidget = g_ui.createWidget('TreeButton', panel)
-			if not newWidget then
-				break
-			end
-			newWidget:setId('TreeButton' .. tostring(index))
-			applyCategoryIcon(newWidget.icon, child.icon, child.name)
-
-			local pos = (index - 1) * Categories.buttonSize + (Categories.buttonSize / 3)
-			if not name and not printed then
-				printed = true
-				thisParent.arrow:setMarginTop(pos)
-			end
-
-			newWidget.onClick = function()
-				if selectedButton == newWidget then
-					return true
-				end
-				if selectedButton then
-					selectedButton:setOn(false)
-					selectedButton.text:setColor("$var-text-cip-color")
-				end
-				selectedButton = newWidget
-				selectedButton:setOn(true)
-				selectedButton.text:setColor("$var-text-cip-color-highlight")
-				thisParent.arrow:setMarginTop(pos)
-				g_game.requestStoreOffers(OPEN_CATEGORY, child.name, 0)
-			end
-			newWidget:getChildById('text'):setText(short_text(child.name, 16))
-			if isFirstButton then
-				isFirstButton = false
-				selectedButton = newWidget
-				selectedButton:setOn(true)
-				selectedButton.text:setColor("$var-text-cip-color-highlight")
-			end
-		end
+		Categories:expandTreeItem(thisParent, category, name)
 	elseif widget then
 		widget.scroll:setHeight(0)
 	end
@@ -363,6 +533,11 @@ end
 
 function Categories:reset()
 	Categories:cancelRender()
+	for _, treeItem in pairs(Categories.widgets or {}) do
+		if treeItem and not treeItem:isDestroyed() and g_effects then
+			g_effects.cancelValue(treeItem)
+		end
+	end
 	Categories.signature = nil
 	Categories.widgets = {}
 	Categories.selectButton = nil

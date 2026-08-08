@@ -34,7 +34,7 @@ Module
     - game_playermount
     - game_ruleviolation
     - game_market
-    - game_spelllist
+    - game_spells
     - game_cooldown
     - game_modaldialog
     - game_unjustifiedpoints

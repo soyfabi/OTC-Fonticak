@@ -38,31 +38,6 @@ EditableKeybindsTableColumn < Label
     icon: /images/ui/icon-edit
     visible: false
 
-EditableHotkeysTableColumn < Label
-  color: #c0c0c0
-  text-align: left
-  focusable: false
-  text-offset: 18 0
-  font: verdana-11px-monochrome
-  @onCheckChange: self.edit:setVisible(self:isChecked())
-
-  UIItem
-    id: item
-    anchors.verticalCenter: parent.verticalCenter
-    anchors.left: parent.left
-    size: 16 16
-    virtual: true
-    phantom: true
-
-  Button
-    id: edit
-    anchors.verticalCenter: parent.verticalCenter
-    anchors.right: parent.right
-    size: 13 13
-    margin-right: 2
-    icon: /images/options/icon-edit
-    visible: false
-
 KeybindsTableHeaderRow < TableHeaderRow
   padding: 0
   height: 18
@@ -271,15 +246,6 @@ UIWidget
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
-
-    SmallButton
-      id: newAction
-      anchors.top: parent.top
-      anchors.left: parent.left
-      width: 75
-      !text: tr('New Action')
-      visible: false
-      @onClick : newHotkeyAction()
 
     OptionsQtButton
       id: reset

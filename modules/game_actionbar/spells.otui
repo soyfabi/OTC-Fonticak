@@ -1,84 +1,15 @@
-CustomHotkeySpellPreview < UICheckBox
-  height: 34
-  text-wrap: true
-  multi-line: true
-  focusable: true
-  text-offset: 38 2
-  image-source:
-  change-cursor-image: false
-  font: Verdana Bold-11px
-  color: #c0c0c0
-
-  $hover !disabled:
-    color: #ffffff
-
-  $!checked:
-    background-color: alpha
-    color: #c0c0c0
-
-  $checked:
-    background-color: #585858
-    color: #f4f4f4
-
-  $disabled:
-    image-color: #dfdfdf88
-    color: #dfdfdf88
-    opacity: 0.8
-
-  UIWidget
-    id: image
-    anchors.left: parent.left
-    anchors.top: parent.top
-    phantom: true
-    padding: 1
-    size: 32 32
-
-    Panel
-      id: gray
-      size: 32 32
-      anchors.left: parent.left
-      anchors.top: parent.top
-      margin-top: -1
-      margin-left: -1
-      image-source: /images/ui/ditherpattern
-      visible: false
-
-  UIWidget
-    id: imageGroup
-    size: 20 20
-    anchors.top: parent.top
-    anchors.right: parent.right
-    margin-top: 8
-    margin-right: 99
-    phantom: true
-    visible: false
-    image-source: /images/game/spells/cooldowns
-    image-clip: 1 25 20 20
-
-  Label
-    id: levelLabel
-    anchors.top: parent.top
-    anchors.left: prev.right
-    margin-top: 12
-    margin-left: 6
-    !text: tr('Level: 0')
-    font: Verdana Bold-11px
-    color: #c0c0c0
-    text-auto-resize: true
-    visible: false
-
-SpellMainWindow < NewMainWindow
+NewMainWindow
   id: assignSpellWindow
   size: 375 609
-  text: Assign Spell
   font: verdana-11px-antialised
   color: #ffffff
-  @onEscape: self:destroy()
+
   Panel
     id: contentPanel
     anchors.fill: parent
     margin: 12 12 12 12
-    CustomHotkeySpellPreview
+
+    SpellPreview
       id: preview
       anchors.top: parent.top
       anchors.left: parent.left
@@ -123,7 +54,7 @@ SpellMainWindow < NewMainWindow
       padding: 2
       font: Verdana Bold-11px
       placeholder-color: #707070
-      @onTextChange:
+
     Button
       id: clearButton
       anchors.top: prev.top
@@ -215,15 +146,29 @@ SpellMainWindow < NewMainWindow
       enabled: true
 
     HorizontalSeparator
+      id: separator
       anchors.top: prev.bottom
       anchors.left: parent.left
       anchors.right: parent.right
       margin-top: 11
 
     Button
+      id: buttonShowAll
+      anchors.top: separator.bottom
+      anchors.left: parent.left
+      margin-top: 8
+      size: 72 20
+      font: verdana-11px-monochrome
+      color: #ffffff
+      padding: 0
+      text-offset: 0 3
+      text: Show All
+
+    Button
       id: buttonClose
+      anchors.top: separator.bottom
       anchors.right: parent.right
-      anchors.bottom: parent.bottom
+      margin-top: 8
       size: 58 20
       font: verdana-11px-monochrome
       color: #ffffff
@@ -233,9 +178,10 @@ SpellMainWindow < NewMainWindow
 
     Button
       id: buttonOk
+      anchors.top: separator.bottom
       anchors.right: buttonClose.left
+      margin-top: 8
       margin-right: 6
-      anchors.bottom: parent.bottom
       size: 43 20
       font: verdana-11px-monochrome
       color: #ffffff

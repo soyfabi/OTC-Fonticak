@@ -1,9 +1,10 @@
-local assignCache = nil
 local mouseGrabberWidget = nil
 local chatModeGroup = nil
 local spellWindow = nil
 local objectWindow = nil
 local textWindow = nil
+local spellRadio = nil
+local objectRadio = nil
 local activeRow = nil
 local customHotkeySearchEvent = nil
 
@@ -75,8 +76,8 @@ local function clearConflictingActionbarHotkey(keyCombo)
     return
   end
 
-  if modules.game_actionbar and removeHotkeyFromActionBar then
-    removeHotkeyFromActionBar(keyCombo)
+  if modules.game_actionbar and modules.game_actionbar.removeHotkeyFromActionBar then
+    modules.game_actionbar.removeHotkeyFromActionBar(keyCombo)
   end
 
   if modules.game_hotkeys and modules.game_hotkeys.removeHotkeyByCombo then
@@ -93,10 +94,11 @@ local function isActionbarHotkeyConflict(keyCombo)
     return true
   end
 
-  if modules.game_actionbar and ApiJson and ApiJson.hasCurrentHotkeySet and ApiJson.hasCurrentHotkeySet() then
+  local actionbarApi = modules.game_actionbar and modules.game_actionbar.ApiJson
+  if actionbarApi and actionbarApi.hasCurrentHotkeySet and actionbarApi.hasCurrentHotkeySet() then
     local chatMode = modules.game_console and modules.game_console.isChatEnabled and modules.game_console.isChatEnabled() and 'chatOn' or 'chatOff'
-    if ApiJson.getHotkeyEntries then
-      for _, data in ipairs(ApiJson.getHotkeyEntries(chatMode)) do
+    if actionbarApi.getHotkeyEntries then
+      for _, data in ipairs(actionbarApi.getHotkeyEntries(chatMode)) do
         if data["actionsetting"] and data["keysequence"] and data["keysequence"]:lower() == keyCombo:lower() then
           return true
         end
@@ -263,6 +265,28 @@ local function showInvalidObjectMessage()
   end
 end
 
+local function closeSpellDialog()
+  if spellRadio then
+    spellRadio:destroy()
+    spellRadio = nil
+  end
+  if spellWindow and not spellWindow:isDestroyed() then
+    spellWindow:destroy()
+  end
+  spellWindow = nil
+end
+
+local function closeObjectDialog()
+  if objectRadio then
+    objectRadio:destroy()
+    objectRadio = nil
+  end
+  if objectWindow and not objectWindow:isDestroyed() then
+    objectWindow:destroy()
+  end
+  objectWindow = nil
+end
+
 function init_custom_hotkeys()
   g_ui.importStyle('styles/controls/assign_spell')
   g_ui.importStyle('styles/controls/assign_object')
@@ -320,6 +344,11 @@ function init_custom_hotkeys()
 end
 
 function terminate_custom_hotkeys()
+  if customHotkeySearchEvent then
+    removeEvent(customHotkeySearchEvent)
+    customHotkeySearchEvent = nil
+  end
+
   if mouseGrabberWidget then
     mouseGrabberWidget:destroy()
     mouseGrabberWidget = nil
@@ -330,15 +359,8 @@ function terminate_custom_hotkeys()
     chatModeGroup = nil
   end
 
-  if spellWindow then
-    spellWindow:destroy()
-    spellWindow = nil
-  end
-
-  if objectWindow then
-    objectWindow:destroy()
-    objectWindow = nil
-  end
+  closeSpellDialog()
+  closeObjectDialog()
 
   if textWindow then
     textWindow:destroy()
@@ -499,19 +521,26 @@ end
 
 -- Spell Selection Window
 function assignSpellDialog(row)
-  if spellWindow then
-    local w = spellWindow
-    spellWindow = nil
-    w:destroy()
-  end
+  closeSpellDialog()
 
   spellWindow = g_ui.createWidget('SpellMainWindow', g_ui.getRootWidget())
+  local currentSpellWindow = spellWindow
+  spellWindow.onDestroy = function()
+    if spellWindow ~= currentSpellWindow then
+      return
+    end
+    if spellRadio then
+      spellRadio:destroy()
+      spellRadio = nil
+    end
+    spellWindow = nil
+  end
   spellWindow:show()
   spellWindow:raise()
   spellWindow:focus()
   controller.ui:hide()
 
-  local radio = UIRadioGroup.create()
+  spellRadio = UIRadioGroup.create()
   local spells = modules.gamelib.SpellInfo['Default']
   local player = g_game.getLocalPlayer()
 
@@ -519,15 +548,16 @@ function assignSpellDialog(row)
     if not player then break end
 
     if spellMatchesPlayerVocation(spellData, player) then
-      local widget = g_ui.createWidget('SpellPreview', spellWindow.contentPanel.spellList)
+      local widget = g_ui.createWidget('CustomHotkeySpellPreview', spellWindow.contentPanel.spellList)
       local iconId = tonumber(spellData.clientId)
 
-      radio:addWidget(widget)
+      spellRadio:addWidget(widget)
       widget:setId(spellData.id)
       widget:setText(spellName.."\n"..spellData.words)
       widget.words = spellData.words
       widget.voc = spellData.vocations
       widget.param = spellData.parameter
+      widget.spellLevel = spellData.level or 0
       widget.source = SpelllistSettings['Default'].iconFile
       widget.clip = Spells.getImageClip(iconId, 'Default')
       if SpellIcons and SpellIcons[spellName] and SpelllistSettings['Default'].iconsFolder and Spells.getImageClipNormal then
@@ -547,26 +577,33 @@ function assignSpellDialog(row)
     end
   end
 
-  -- Sort list
-  local widgets = spellWindow.contentPanel.spellList:getChildren()
-  table.sort(widgets, function(a, b) return a:getText() < b:getText() end)
-  for i, w in ipairs(widgets) do
-    spellWindow.contentPanel.spellList:moveChildToIndex(w, i)
+  local playerLevel = player and player:getLevel() or 0
+  local spellList = spellWindow.contentPanel.spellList
+  local tickWidget = spellWindow.contentPanel.checkPanel.tick
+  local sortByLevelWidget = spellWindow.contentPanel.checkPanel.sortByLevel
+
+  local function sortSpellWidgets()
+    local sortByLevel = sortByLevelWidget and sortByLevelWidget:isChecked()
+    Spells.sortSpellWidgets(spellList, sortByLevel)
   end
 
   local filterSpells = function()
-    local search = spellWindow.contentPanel.searchText:getText():trim():lower()
-    for _, widget in ipairs(spellWindow.contentPanel.spellList:getChildren()) do
-      local visible = search:len() == 0 or widget:getText():lower():find(search, 1, true)
-      widget:setVisible(visible)
-    end
+    local search = spellWindow.contentPanel.searchText:getText()
+    local filterLevel = tickWidget:isChecked()
+    Spells.filterSpellWidgets(spellList, search, playerLevel, filterLevel)
+    sortSpellWidgets()
   end
   spellWindow.contentPanel.searchText.onTextChange = filterSpells
+  tickWidget.onCheckChange = filterSpells
+  if sortByLevelWidget then
+    sortByLevelWidget.onCheckChange = filterSpells
+  end
   spellWindow.contentPanel.clearButton.onClick = function()
     spellWindow.contentPanel.searchText:clearText()
   end
+  filterSpells()
 
-  radio.onSelectionChange = function(widget, selected)
+  spellRadio.onSelectionChange = function(_, selected)
     if selected then
       spellWindow.contentPanel.preview:setText(selected:getText())
       spellWindow.contentPanel.preview.image:setImageSource(selected.source)
@@ -577,16 +614,15 @@ function assignSpellDialog(row)
       if selected.words and selected.words:lower():find("levitate") then
         spellWindow.contentPanel.paramText:setText("up|down")
       end
-      spellWindow.contentPanel.spellList:ensureChildVisible(widget)
     end
   end
 
   if spellWindow.contentPanel.spellList:getChildCount() > 0 then
-    radio:selectWidget(spellWindow.contentPanel.spellList:getChildByIndex(1))
+    spellRadio:selectWidget(spellWindow.contentPanel.spellList:getChildByIndex(1))
   end
 
   local okFunc = function()
-    local selected = radio:getSelectedWidget()
+    local selected = spellRadio and spellRadio:getSelectedWidget()
     if not selected then return end
 
     local paramText = spellWindow.contentPanel.paramText:getText()
@@ -606,20 +642,17 @@ function assignSpellDialog(row)
       Keybind.newHotkey(HOTKEY_ACTION.SPELL, spellData, "", "", Keybind.chatMode)
     end
 
-    spellWindow:destroy()
-    spellWindow = nil
+    closeSpellDialog()
     controller.ui:show()
     updateCustomHotkeys()
   end
 
   local cancelFunc = function()
-    spellWindow:destroy()
-    spellWindow = nil
+    closeSpellDialog()
     controller.ui:show()
   end
 
   spellWindow.contentPanel.buttonOk.onClick = okFunc
-  spellWindow.contentPanel.buttonApply.onClick = okFunc
   spellWindow.contentPanel.buttonClose.onClick = cancelFunc
   spellWindow.onEscape = cancelFunc
 end
@@ -682,7 +715,7 @@ function onChooseObjectMouseRelease(self, mousePosition, mouseButton)
   end
 
   local itemType = g_things.getThingType(itemId)
-  if not itemType or (itemType.isPickupable and not itemType:isPickupable()) then
+  if not itemType or not itemType:isPickupable() then
     controller.ui:show()
     showInvalidObjectMessage()
     return true
@@ -693,13 +726,20 @@ function onChooseObjectMouseRelease(self, mousePosition, mouseButton)
 end
 
 function assignObjectDialog(row, itemId, itemTier)
-  if objectWindow then
-    local w = objectWindow
-    objectWindow = nil
-    w:destroy()
-  end
+  closeObjectDialog()
 
   objectWindow = g_ui.createWidget('CustomObjectWindow', g_ui.getRootWidget())
+  local currentObjectWindow = objectWindow
+  objectWindow.onDestroy = function()
+    if objectWindow ~= currentObjectWindow then
+      return
+    end
+    if objectRadio then
+      objectRadio:destroy()
+      objectRadio = nil
+    end
+    objectWindow = nil
+  end
   objectWindow:show()
   objectWindow:raise()
   objectWindow:focus()
@@ -715,15 +755,14 @@ function assignObjectDialog(row, itemId, itemTier)
     objectWindow.contentPanel.tier:setImageClip(tostring(18 * (itemTier - 1)) .. " 0 18 16")
   end
 
-  local radio = UIRadioGroup.create()
+  objectRadio = UIRadioGroup.create()
   local item = objectWindow.contentPanel.item:getItem()
-  local hasSmartCast = item and modules.game_actionbar and modules.game_actionbar.getSmartCast and modules.game_actionbar.getSmartCast(item:getId())
 
   -- Smart mode checkbox visibility
   objectWindow.contentPanel.checks.smart:setVisible(false)
   objectWindow.contentPanel.checks.smart:setEnabled(false)
   objectWindow.contentPanel.checks.smart:setChecked(false)
-  if item and item:getClothSlot() > 0 and ((item.hasExpireStop and item:hasExpireStop()) or hasSmartCast) then
+  if item and item:getClothSlot() > 0 and item.hasExpireStop and item:hasExpireStop() then
     objectWindow.contentPanel.checks.smart:setVisible(true)
     if row and row.hotkeyData and row.hotkeyData.smartMode then
       objectWindow.contentPanel.checks.smart:setChecked(true)
@@ -733,34 +772,34 @@ function assignObjectDialog(row, itemId, itemTier)
   local checks = {
     [1] = objectWindow.contentPanel.checks.UseOnYourself,
     [2] = objectWindow.contentPanel.checks.UseOnTarget,
-    [3] = objectWindow.contentPanel.checks.SmartCast,
+    [3] = objectWindow.contentPanel.checks.UseAtCursorPosition,
     [4] = objectWindow.contentPanel.checks.SelectUseTarget,
     [5] = objectWindow.contentPanel.checks.Equip,
     [7] = objectWindow.contentPanel.checks.Use
   }
 
   for i, child in pairs(checks) do
-    radio:addWidget(child)
+    objectRadio:addWidget(child)
     child:setEnabled(false)
 
     if i <= 4 and item and item:isMultiUse() then
       child:setEnabled(true)
-      if not radio:getSelectedWidget() then
-        radio:selectWidget(child)
+      if not objectRadio:getSelectedWidget() then
+        objectRadio:selectWidget(child)
       end
     end
 
-    if (i == 5 and item and item:getClothSlot() > 0) or (i == 5 and item and item:getClothSlot() == 0 and (getThingClassification(item) > 0 or item:isAmmo() or hasSmartCast)) then
+    if (i == 5 and item and item:getClothSlot() > 0) or (i == 5 and item and item:getClothSlot() == 0 and (getThingClassification(item) > 0 or item:isAmmo())) then
       child:setEnabled(true)
-      if not radio:getSelectedWidget() then
-        radio:selectWidget(child)
+      if not objectRadio:getSelectedWidget() then
+        objectRadio:selectWidget(child)
       end
     end
 
     if i == 7 and item and item:isUsable() and not item:isMultiUse() then
       child:setEnabled(true)
-      if not radio:getSelectedWidget() then
-        radio:selectWidget(child)
+      if not objectRadio:getSelectedWidget() then
+        objectRadio:selectWidget(child)
       end
     end
 
@@ -778,7 +817,7 @@ function assignObjectDialog(row, itemId, itemTier)
     local childId = nil
     if row.actionType == HOTKEY_ACTION.USE_YOURSELF then childId = "UseOnYourself"
     elseif row.actionType == HOTKEY_ACTION.USE_TARGET then childId = "UseOnTarget"
-    elseif row.actionType == HOTKEY_ACTION.SMART_CAST then childId = "SmartCast"
+    elseif row.actionType == HOTKEY_ACTION.SMART_CAST then childId = "UseAtCursorPosition"
     elseif row.actionType == HOTKEY_ACTION.USE_CROSSHAIR then childId = "SelectUseTarget"
     elseif row.actionType == HOTKEY_ACTION.EQUIP then childId = "Equip"
     elseif row.actionType == HOTKEY_ACTION.USE then childId = "Use"
@@ -786,20 +825,20 @@ function assignObjectDialog(row, itemId, itemTier)
     if childId then
       local child = objectWindow.contentPanel.checks[childId]
       if child and child:isEnabled() then
-        radio:selectWidget(child)
+        objectRadio:selectWidget(child)
       end
     end
   end
 
   local okFunc = function()
-    local selected = radio:getSelectedWidget()
+    local selected = objectRadio and objectRadio:getSelectedWidget()
     if not selected then return end
 
     local actionType = HOTKEY_ACTION.USE
     local id = selected:getId()
     if id == "UseOnYourself" then actionType = HOTKEY_ACTION.USE_YOURSELF
     elseif id == "UseOnTarget" then actionType = HOTKEY_ACTION.USE_TARGET
-    elseif id == "SmartCast" then actionType = HOTKEY_ACTION.SMART_CAST
+    elseif id == "UseAtCursorPosition" then actionType = HOTKEY_ACTION.SMART_CAST
     elseif id == "SelectUseTarget" then actionType = HOTKEY_ACTION.USE_CROSSHAIR
     elseif id == "Equip" then actionType = HOTKEY_ACTION.EQUIP
     end
@@ -821,25 +860,22 @@ function assignObjectDialog(row, itemId, itemTier)
       Keybind.newHotkey(actionType, itemData, "", "", Keybind.chatMode)
     end
 
-    objectWindow:destroy()
-    objectWindow = nil
+    closeObjectDialog()
     controller.ui:show()
     updateCustomHotkeys()
   end
 
   local cancelFunc = function()
-    objectWindow:destroy()
-    objectWindow = nil
+    closeObjectDialog()
     controller.ui:show()
   end
 
   objectWindow.contentPanel.select.onClick = function()
-    objectWindow:destroy()
+    closeObjectDialog()
     assignObjectDialogEvent(row)
   end
 
   objectWindow.contentPanel.buttonOk.onClick = okFunc
-  objectWindow.contentPanel.buttonApply.onClick = okFunc
   objectWindow.contentPanel.buttonClose.onClick = cancelFunc
   objectWindow.onEscape = cancelFunc
 end
@@ -868,7 +904,6 @@ function assignTextDialog(row)
   local updateButtons = function()
     local enabled = not isStringEmpty(textWindow.contentPanel.text:getText())
     textWindow.contentPanel.buttonOk:setEnabled(enabled)
-    textWindow.contentPanel.buttonApply:setEnabled(enabled)
   end
   textWindow.contentPanel.text.onTextChange = updateButtons
   updateButtons()
@@ -908,7 +943,6 @@ function assignTextDialog(row)
   end
 
   textWindow.contentPanel.buttonOk.onClick = okFunc
-  textWindow.contentPanel.buttonApply.onClick = okFunc
   textWindow.contentPanel.buttonClose.onClick = cancelFunc
   textWindow.onEscape = cancelFunc
 end

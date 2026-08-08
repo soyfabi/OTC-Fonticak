@@ -34,6 +34,16 @@ InventoryInfoPanel < UIWidget
   image-border: 3
   phantom: true
 
+SoulCapLabel < UIWidget
+  size: 34 20
+  text-align: center
+  font: verdana-cap-bold
+  color: #c0c0c0
+  text-offset: 0 4
+  image-source: /images/game/slots/soulcap
+  image-border: 0
+  phantom: true
+
 PhantomMiniWindow
   id: maininventorypanel
   draggable: true
@@ -337,57 +347,31 @@ PhantomMiniWindow
       margin-top: 3
       &slotPosition: {x = 65535, y = 10, z = 0}
 
-    InventoryInfoPanel
+    SoulCapLabel
       id: soulPanel
-      anchors.left: amulet.left
-      anchors.right: amulet.right
-      anchors.bottom: boots.bottom
       anchors.top: ring.bottom
-      margin-top: 3
+      anchors.horizontalCenter: amulet.horizontalCenter
+      margin-top: 4
+      image-clip: 0 0 34 20
+      !tooltip: tr("Soul Points: Needed to cast spells that create items such as runes,\nfood or ammunition. They can be regained by killing monsters,\nsleeping in a bed, or in resting areas provided you have reached\nthe needed reward streak.")
+      tooltip-delayed: true
 
-      Label
-        !text: tr('Soul')
-        text.align: center
-        font: cipsoftFont
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        color: #c0c0c0ff
-        margin-top: 1
-
-      Label
-        id: soul
-        !text: '100000'
-        font: cipsoftFont
-        text-align: center
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        color: #c0c0c0ff
-
-    InventoryInfoPanel
+    SoulCapLabel
       id: capacityPanel
-      anchors.left: backpack.left
-      anchors.right: backpack.right
-      anchors.bottom: boots.bottom
       anchors.top: tools.bottom
-      margin-top: 3
-
-      Label
-        !text: tr('Cap')
-        text.align: center
-        font: cipsoftFont
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        color: #c0c0c0ff
-        margin-top: 1
+      anchors.horizontalCenter: backpack.horizontalCenter
+      margin-top: 4
+      image-clip: 0 20 34 20
+      !tooltip: tr("Capacity: The amount of weight you are able to carry.")
+      tooltip-delayed: true
 
       Label
         id: capacity
-        !text: '10000'
-        font: cipsoftFont
+        anchors.fill: parent
+        text-offset: 0 4
         text-align: center
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        color: #c0c0c0ff
+        font: verdana-cap-bold
+        color: #c0c0c0
 
   UIWidget
     id: offPanel
@@ -414,47 +398,34 @@ PhantomMiniWindow
       anchors.left: changeSize.right
       anchors.top: changeSize.top
       margin-left: 4
-      size: 30 44
-
-      Label
-        !text: tr('Cap')
-        text.align: center
-        font: cipsoftFont
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        color: #c0c0c0ff
-        margin-top: 1
-        height: 10
-
-      Label
-        id: capacity
-        !text: '10000'
-        font: cipsoftFont
-        text-align: center
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.top: parent.top
-        margin-top: 8
-        color: #c0c0c0ff
-
-      Label
-        !text: tr('Soul')
-        text.align: center
-        font: cipsoftFont
-        anchors.horizontalCenter: parent.horizontalCenter
-        anchors.bottom: parent.bottom
-        color: #c0c0c0ff
-        margin-bottom: 8
-        height: 10
+      size: 34 40
+      image-source: /images/game/slots/soulcap
+      image-clip: 0 0 34 40
+      image-border: 0
 
       Label
         id: soul
-        !text: '100000'
-        font: cipsoftFont
+        !text: '0'
+        font: verdana-cap-bold
         text-align: center
-        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: 20
+        text-offset: 0 4
+        color: #c0c0c0
+
+      Label
+        id: capacity
+        !text: '0'
+        font: verdana-cap-bold
+        text-align: center
         anchors.bottom: parent.bottom
-        margin-bottom: -2
-        color: #c0c0c0ff
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: 20
+        text-offset: 0 4
+        color: #c0c0c0
 
     TopToggleButton
       id: attack

@@ -116,7 +116,7 @@ return {
             -- Update the combobox UI
             local mouseControlModeCombobox = panels.generalPanel:recursiveGetChildById('mouseControlMode')
             if mouseControlModeCombobox then
-                mouseControlModeCombobox:setCurrentOption(mouseControlMode, true)
+                mouseControlModeCombobox:setCurrentOptionByData(mouseControlMode, true)
             end
         end
     },
@@ -149,7 +149,7 @@ return {
             -- Update the combobox UI
             local mouseControlModeCombobox = panels.generalPanel:recursiveGetChildById('mouseControlMode')
             if mouseControlModeCombobox then
-                mouseControlModeCombobox:setCurrentOption(mouseControlMode, true)
+                mouseControlModeCombobox:setCurrentOptionByData(mouseControlMode, true)
             end
         end
     },
@@ -1523,6 +1523,31 @@ return {
         action = function(value, options, controller, panels, extraWidgets)
             local widget = panels.graphicsAnimationPanel and
                 panels.graphicsAnimationPanel:recursiveGetChildById('outfitAnimationSpeed')
+            if widget then
+                widget:setText(tr('Animation Speed: %s%%', value))
+            end
+        end
+    },
+
+    showSlideAnimationMaster = {
+        value = true,
+        action = function(value)
+            if modules.client_options and modules.client_options.applySlideAnimationMaster then
+                modules.client_options.applySlideAnimationMaster(value ~= false)
+            end
+        end
+    },
+    showOptionsAnimation = {
+        value = true
+    },
+    showStoreAnimation = {
+        value = true
+    },
+    slideAnimationSpeed = {
+        value = 100,
+        action = function(value, options, controller, panels, extraWidgets)
+            local widget = panels.graphicsAnimationPanel and
+                panels.graphicsAnimationPanel:recursiveGetChildById('slideAnimationSpeed')
             if widget then
                 widget:setText(tr('Animation Speed: %s%%', value))
             end

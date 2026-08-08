@@ -1,15 +1,20 @@
 SpellPreview < UICheckBox
   height: 34
   text-wrap: true
+  multi-line: true
   focusable: true
   text-offset: 38 2
-
+  image-source:
+  change-cursor-image: false
+  font: Verdana Bold-11px
+  color: #c0c0c0
 
   $hover !disabled:
     color: #ffffff
 
   $!checked:
     background-color: alpha
+    color: #c0c0c0
 
   $checked:
     background-color: #585858
@@ -57,7 +62,8 @@ SpellPreview < UICheckBox
     margin-top: 12
     margin-left: 6
     !text: tr('Level: 0')
-
+    font: Verdana Bold-11px
+    color: #c0c0c0
     text-auto-resize: true
     visible: false
 

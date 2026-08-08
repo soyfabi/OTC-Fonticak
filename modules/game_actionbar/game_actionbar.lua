@@ -471,6 +471,7 @@ end
 --- Handles termination event
 function ActionBarController:onTerminate()
     ApiJson.saveData()
+    closeAllAssignWindows()
     cleanupMultiActionState()
     for _, actionbar in pairs(actionBars) do
         if actionbar and not actionbar:isDestroyed() then
@@ -531,6 +532,7 @@ end
 
 function ActionBarController:onGameEnd()
     isLoaded = false
+    closeAllAssignWindows()
     cleanupMultiActionState()
     spellGroupCooldownCache = {}
     for _, actionbar in pairs(activeActionBars) do

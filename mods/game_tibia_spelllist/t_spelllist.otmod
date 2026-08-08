@@ -1,0 +1,8 @@
+Module
+  name: game_spells
+  description: Astra Spell List
+  author: Christianlb && ..
+  sandboxed: true
+  scripts: [ t_spelllist ]
+  @onLoad: init()
+  @onUnload: terminate()

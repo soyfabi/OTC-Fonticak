@@ -41,7 +41,8 @@ MessageBoxWindow < UIMessageBox
     anchors.top: parent.top
     text-wrap: true
     text-auto-resize: true
-    color: #c0c0c0ff
+    font: verdana-11px-monochrome
+    color: #ffffff
     margin-left: 15
     margin-top: 32
 
@@ -104,7 +105,8 @@ MessageBoxShopWindow < UIMessageBox
     anchors.top: parent.top
     text-wrap: true
     text-auto-resize: true
-    color: #c0c0c0ff
+    font: verdana-11px-monochrome
+    color: #ffffff
     margin-left: 15
     margin-top: 32
 

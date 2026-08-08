@@ -33,6 +33,10 @@ local CATEGORIES = {
         label = 'Export Misc',
         panels = { 'misc', 'miscGameplay', 'miscScreenshot', 'miscHelp' },
     },
+    {
+        id = 'all',
+        label = 'Export All',
+    },
 }
 
 local function ensureExportDir()
@@ -168,6 +172,13 @@ local function showMessage(title, message)
 end
 
 local function exportOptionsCategory(category)
+    if table.contains(category.panels or {}, 'miscScreenshot')
+        and not panels.miscScreenshot
+        and modules.game_notifications
+        and modules.game_notifications.ensureScreenshotOptionsPanel then
+        modules.game_notifications.ensureScreenshotOptionsPanel()
+    end
+
     local keys = collectOptionKeys(category.panels)
     local values = {}
     for _, key in ipairs(keys) do
@@ -240,7 +251,21 @@ local function buildPayload(categoryId)
         exportedAt = exportedAt,
     }
 
-    if categoryId == 'generalHotkey' then
+    if categoryId == 'all' then
+        local sections = {}
+        for _, entry in ipairs(CATEGORIES) do
+            if entry.id ~= 'all' then
+                if entry.id == 'generalHotkey' then
+                    sections[entry.id] = exportGeneralHotkeys()
+                elseif entry.id == 'customHotkey' then
+                    sections[entry.id] = exportCustomHotkeys()
+                else
+                    sections[entry.id] = exportOptionsCategory(entry)
+                end
+            end
+        end
+        payload.data = sections
+    elseif categoryId == 'generalHotkey' then
         payload.data = exportGeneralHotkeys()
     elseif categoryId == 'customHotkey' then
         payload.data = exportCustomHotkeys()
@@ -367,8 +392,50 @@ local function importCustomHotkeys(payload)
     if type(updateCustomHotkeys) == 'function' then
         updateCustomHotkeys()
     end
-    -- keybinds panel updateHotkeys() still references removed addHotkey(); custom UI is enough.
     return true, tr('Custom hotkeys imported successfully for preset "%s".', Keybind.currentPreset)
+end
+
+local function importAll(payload)
+    local data = payload.data
+    if type(data) ~= 'table' then
+        return false, tr('Config file has no data.')
+    end
+
+    local messages = {}
+    local function runImport(categoryId, importer, section)
+        if type(section) ~= 'table' then
+            return
+        end
+        local ok, message = importer({
+            format = payload.format,
+            version = payload.version,
+            category = categoryId,
+            data = section,
+        })
+        if ok then
+            table.insert(messages, message or categoryId)
+        else
+            table.insert(messages, tr('%s failed: %s', categoryId, message or tr('unknown error')))
+        end
+    end
+
+    for _, entry in ipairs(CATEGORIES) do
+        if entry.id ~= 'all' then
+            local section = data[entry.id]
+            if entry.id == 'generalHotkey' then
+                runImport(entry.id, importGeneralHotkeys, section)
+            elseif entry.id == 'customHotkey' then
+                runImport(entry.id, importCustomHotkeys, section)
+            else
+                runImport(entry.id, importOptionsCategory, section)
+            end
+        end
+    end
+
+    if #messages == 0 then
+        return false, tr('Nothing to import in this file.')
+    end
+    return true, table.concat(messages, '\n')
 end
 
 local function importPayload(payload, expectedCategory)
@@ -377,7 +444,9 @@ local function importPayload(payload, expectedCategory)
     end
 
     local categoryId = payload.category
-    if categoryId == 'generalHotkey' then
+    if categoryId == 'all' then
+        return importAll(payload)
+    elseif categoryId == 'generalHotkey' then
         return importGeneralHotkeys(payload)
     elseif categoryId == 'customHotkey' then
         return importCustomHotkeys(payload)
@@ -496,11 +565,11 @@ end
 
 function openConfigFolder()
     ensureExportDir()
-    local directory = g_resources.getWriteDir() or ''
-    directory = directory:gsub('[/\\]+', '\\')
-    if directory == '' then
-        showMessage(tr('Dir Folder'), tr('Could not resolve the client data folder.'))
+    local writeDir = g_resources.getWriteDir() or ''
+    if writeDir == '' then
+        showMessage(tr('Open Folder'), tr('Could not resolve the client data folder.'))
         return
     end
+    local directory = (writeDir .. EXPORT_DIR):gsub('[/\\]+', '\\')
     g_platform.openDir(directory)
 end

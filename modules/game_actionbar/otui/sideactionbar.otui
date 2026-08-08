@@ -40,7 +40,7 @@ SideActionButton < UIButton
       text-wrap: true
       margin: 1
       text-align: center
-      font:small-9px
+      font: verdana-7px-rounded
       phantom: true
       Panel
         id: gray
@@ -68,7 +68,7 @@ SideActionButton < UIButton
     margin-bottom: 1
     margin-left: 2
     margin-right: 2
-    font: small-9px
+    font: verdana-7px-rounded
     phantom: true
     text-align: left
 

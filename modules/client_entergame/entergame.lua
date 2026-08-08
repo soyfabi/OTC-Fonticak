@@ -326,9 +326,7 @@ function EnterGame.showServerList()
 end
 
 function EnterGame.firstShow()
-    g_logger.info('[boot] EnterGame.firstShow begin')
     EnterGame.show()
-    g_logger.info('[boot] EnterGame.show done')
 
     local host = g_settings.get('host')
     local servers = g_settings.getNode('ServerList') or {}
@@ -353,7 +351,6 @@ function EnterGame.firstShow()
             EnterGame.postShowCreatureBoost()
         end
     end
-    g_logger.info('[boot] EnterGame.firstShow done')
 end
 
 function EnterGame.terminate()

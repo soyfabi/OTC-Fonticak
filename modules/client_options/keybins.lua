@@ -1,7 +1,6 @@
 local actionNameLimit = 39
 local changedOptions = {}
 local changedKeybinds = {}
-local changedHotkeys = {}
 local presetWindow = nil
 local actionSearchEvent
 keyEditWindow = nil
@@ -164,14 +163,6 @@ function editKeybindKeyDown(widget, keyCode, keyboardModifiers)
 
     local keyCombo = keyEditWindow.keyCombo:getText()
     local keyUsed = Keybind.isKeyComboUsed(keyCombo, category, action, getChatMode())
-    if not keyUsed then
-        for _, change in ipairs(changedHotkeys) do
-            if change.primary == keyCombo or change.secondary == keyCombo then
-                keyUsed = true
-                break
-            end
-        end
-    end
 
     keyEditWindow.buttons.ok:setEnabled(not keyUsed)
     keyEditWindow.used:setVisible(keyUsed)
@@ -379,37 +370,6 @@ function updateKeybinds()
     end
 end
 
-function updateHotkeys()
-    panels.keybindsPanel.tablePanel.keybinds:clearData()
-
-    local chatMode = getChatMode()
-    local preset = panels.keybindsPanel.presets.list:getCurrentOption().text
-    if Keybind.hotkeys[chatMode][preset] then
-        for _, hotkey in ipairs(Keybind.hotkeys[chatMode][preset]) do
-            addHotkey(hotkey.hotkeyId, hotkey.action, hotkey.data, hotkey.primary, hotkey.secondary)
-        end
-    end
-end
-
-function preAddHotkey(action, data)
-    local preset = panels.keybindsPanel.presets.list:getCurrentOption().text
-    local chatMode = getChatMode()
-    local hotkeyId = #changedHotkeys + 1
-
-    if Keybind.hotkeys[chatMode] and Keybind.hotkeys[chatMode][preset] then
-        hotkeyId = hotkeyId + #Keybind.hotkeys[chatMode][preset]
-    end
-
-    table.insert(changedHotkeys, {
-        hotkeyId = hotkeyId,
-        action = action,
-        data = data,
-        new = true
-    })
-
-    addHotkey(hotkeyId, action, data)
-end
-
 function addKeybind(category, action, primary, secondary)
     local rawText = string.format('%s: %s', category, action)
     local text = string.format('[color=#ffffff]%s:[/color] %s', category, action)
@@ -452,173 +412,6 @@ function addKeybind(category, action, primary, secondary)
     row:getChildByIndex(5).edit.onClick = editKeybindSecondary
 end
 
-function clearHotkey(row)
-    table.insert(changedHotkeys, {
-        hotkeyId = row.hotkeyId,
-        remove = true
-    })
-    panels.keybindsPanel.tablePanel.keybinds:removeRow(row)
-end
-
-function editHotkeyKey(text)
-    keyEditWindow.buttons.cancel.onClick = function()
-        disconnect(keyEditWindow, {
-            onKeyDown = editKeybindKeyDown
-        })
-        keyEditWindow:hide()
-        keyEditWindow:ungrabKeyboard()
-        show()
-    end
-
-    keyEditWindow.info:setText(tr(
-        'Click \'Ok\' to assign the keybind. Click \'Clear\' to remove the keybind from \'%s\'.', text))
-    keyEditWindow.alone:setVisible(false)
-
-    connect(keyEditWindow, {
-        onKeyDown = editKeybindKeyDown
-    })
-
-    keyEditWindow:show()
-    keyEditWindow:raise()
-    keyEditWindow:focus()
-    keyEditWindow:grabKeyboard()
-    hide()
-end
-
-function editHotkeyPrimary(button)
-    local column = button:getParent()
-    local row = column:getParent()
-    local text = row:getChildByIndex(1):getText()
-    local hotkeyId = row.hotkeyId
-    local preset = panels.keybindsPanel.presets.list:getCurrentOption().text
-
-    keyEditWindow:setText(tr('Edit Primary Key for \'%s\'', text))
-    keyEditWindow.keyCombo:setText(Keybind.getHotkeyKeys(hotkeyId, preset, getChatMode()).primary)
-
-    editHotkeyKey(text)
-
-    keyEditWindow.buttons.ok.onClick = function()
-        local keyCombo = keyEditWindow.keyCombo:getText()
-
-        column:setText(keyEditWindow.keyCombo:getText())
-
-        local changed = table.findbyfield(changedHotkeys, 'hotkeyId', hotkeyId)
-        if changed then
-            changed.primary = keyCombo
-            if not changed.secondary then
-                changed.secondary = Keybind.getHotkeyKeys(hotkeyId, preset, getChatMode()).secondary
-            end
-            changed.editKey = true
-        else
-            table.insert(changedHotkeys, {
-                hotkeyId = hotkeyId,
-                primary = keyCombo,
-                secondary = Keybind.getHotkeyKeys(hotkeyId, preset, getChatMode()).secondary,
-                editKey = true
-            })
-        end
-
-        disconnect(keyEditWindow, {
-            onKeyDown = editKeybindKeyDown
-        })
-        keyEditWindow:hide()
-        keyEditWindow:ungrabKeyboard()
-        show()
-    end
-
-    keyEditWindow.buttons.clear.onClick = function()
-        column:setText('')
-
-        local changed = table.findbyfield(changedHotkeys, 'hotkeyId', hotkeyId)
-        if changed then
-            changed.primary = nil
-            if not changed.secondary then
-                changed.secondary = Keybind.getHotkeyKeys(hotkeyId, preset, getChatMode()).secondary
-            end
-            changed.editKey = true
-        else
-            table.insert(changedHotkeys, {
-                hotkeyId = hotkeyId,
-                secondary = Keybind.getHotkeyKeys(hotkeyId, preset, getChatMode()).secondary,
-                editKey = true
-            })
-        end
-
-        disconnect(keyEditWindow, {
-            onKeyDown = editKeybindKeyDown
-        })
-        keyEditWindow:hide()
-        keyEditWindow:ungrabKeyboard()
-        show()
-    end
-end
-
-function editHotkeySecondary(button)
-    local column = button:getParent()
-    local row = column:getParent()
-    local text = row:getChildByIndex(1):getText()
-    local hotkeyId = row.hotkeyId
-    local preset = panels.keybindsPanel.presets.list:getCurrentOption().text
-
-    keyEditWindow:setText(tr('Edit Secondary Key for \'%s\'', text))
-    keyEditWindow.keyCombo:setText(Keybind.getHotkeyKeys(hotkeyId, preset, getChatMode()).secondary)
-
-    editHotkeyKey(text)
-
-    keyEditWindow.buttons.ok.onClick = function()
-        local keyCombo = keyEditWindow.keyCombo:getText()
-
-        column:setText(keyEditWindow.keyCombo:getText())
-
-        if changedHotkeys[hotkeyId] then
-            if not changedHotkeys[hotkeyId].primary then
-                changedHotkeys[hotkeyId].primary = Keybind.getHotkeyKeys(hotkeyId, preset, getChatMode()).primary
-            end
-            changedHotkeys[hotkeyId].secondary = keyCombo
-            changedHotkeys[hotkeyId].editKey = true
-        else
-            table.insert(changedHotkeys, {
-                hotkeyId = hotkeyId,
-                primary = Keybind.getHotkeyKeys(hotkeyId, preset, getChatMode()).primary,
-                secondary = keyCombo,
-                editKey = true
-            })
-        end
-
-        disconnect(keyEditWindow, {
-            onKeyDown = editKeybindKeyDown
-        })
-        keyEditWindow:hide()
-        keyEditWindow:ungrabKeyboard()
-        show()
-    end
-
-    keyEditWindow.buttons.clear.onClick = function()
-        column:setText('')
-
-        if changedHotkeys[hotkeyId] then
-            if not changedHotkeys[hotkeyId].primary then
-                changedHotkeys[hotkeyId].primary = Keybind.getHotkeyKeys(hotkeyId, preset, getChatMode()).primary
-            end
-            changedHotkeys[hotkeyId].secondary = nil
-            changedHotkeys[hotkeyId].editKey = true
-        else
-            table.insert(changedHotkeys, {
-                hotkeyId = hotkeyId,
-                primary = Keybind.getHotkeyKeys(hotkeyId, preset, getChatMode()).primary,
-                editKey = true
-            })
-        end
-
-        disconnect(keyEditWindow, {
-            onKeyDown = editKeybindKeyDown
-        })
-        keyEditWindow:hide()
-        keyEditWindow:ungrabKeyboard()
-        show()
-    end
-end
-
 function searchActions(field, text, oldText)
     if actionSearchEvent then
         removeEvent(actionSearchEvent)
@@ -655,7 +448,6 @@ function performeSearchActions()
 end
 
 function chatModeChange()
-    changedHotkeys = {}
     changedKeybinds = {}
 
     panels.keybindsPanel.search.field:clearText()
@@ -673,7 +465,6 @@ end
 
 function applyChangedOptions()
     local needKeybindsUpdate = false
-    local needHotkeysUpdate = false
 
     for key, option in pairs(changedOptions) do
         if key == 'resetKeybinds' then
@@ -733,8 +524,6 @@ function init_binds()
     panels.keybindsPanel.presets.copy.onClick = copyPreset
     panels.keybindsPanel.presets.rename.onClick = renamePreset
     panels.keybindsPanel.presets.remove.onClick = removePreset
-    panels.keybindsPanel.buttons.newAction:disable()
-    panels.keybindsPanel.buttons.newAction.onClick = newHotkeyAction
     panels.keybindsPanel.buttons.reset.onClick = resetActions
     panels.keybindsPanel.search.field.onTextChange = searchActions
     panels.keybindsPanel.search.clear.onClick = function() panels.keybindsPanel.search.field:clearText() end
@@ -767,7 +556,10 @@ function terminate_binds()
         keyEditWindow = nil
     end
 
-    actionSearchEvent = nil
+    if actionSearchEvent then
+        removeEvent(actionSearchEvent)
+        actionSearchEvent = nil
+    end
 end
 
 function listKeybindsComboBox(value)
@@ -777,7 +569,6 @@ function listKeybindsComboBox(value)
         modules.game_actionbar.selectHotkeySet(value)
     end
     changedKeybinds = {}
-    changedHotkeys = {}
     applyChangedOptions()
     updateKeybinds()
     if panels.customHotkeys then

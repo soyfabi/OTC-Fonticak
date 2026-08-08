@@ -38,13 +38,11 @@ ObjectAssignButton < Button
     color: #ffffff88
     opacity: 0.8
 
-CustomObjectWindow < NewMainWindow
+MainWindow
   id: assignItemWindow
   size: 275 210
-  text: Assign Object
   font: verdana-11px-antialised
   color: #ffffff
-
   Panel
     id: contentPanel
     anchors.fill: parent

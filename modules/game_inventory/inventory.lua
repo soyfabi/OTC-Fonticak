@@ -152,6 +152,29 @@ local function inventoryEvent(player, slot, item, oldItem)
     end
 end
 
+local function applySoulCapValue(label, value, color)
+    if not label then
+        return
+    end
+
+    local displayText = tostring(value)
+    local font = 'verdana-cap-bold'
+    local textOffset = { x = 0, y = 4 }
+    if #displayText >= 5 then
+        font = 'small-9px'
+        textOffset = { x = 0, y = 5 }
+    end
+
+    label:setFont(font)
+    label:setText(displayText)
+    if color then
+        label:setColor(color)
+    end
+    if label.setTextOffset then
+        label:setTextOffset(textOffset)
+    end
+end
+
 local function onSoulChange(localPlayer, soul)
     local ui = getInventoryUi()
     if not localPlayer then
@@ -161,12 +184,12 @@ local function onSoulChange(localPlayer, soul)
         return
     end
 
-    if ui.soulPanel and ui.soulPanel.soul then
-        ui.soulPanel.soul:setText(soul)
+    if ui.soulPanel then
+        applySoulCapValue(ui.soulPanel.soul or ui.soulPanel, soul)
     end
 
     if ui.soulAndCapacity and ui.soulAndCapacity.soul then
-        ui.soulAndCapacity.soul:setText(soul)
+        applySoulCapValue(ui.soulAndCapacity.soul, soul)
     end
 end
 
@@ -178,19 +201,33 @@ local function onFreeCapacityChange(player, freeCapacity)
     if not freeCapacity then
         return
     end
-    if freeCapacity > 99999 then
-        freeCapacity = math.min(9999, math.floor(freeCapacity / 1000)) .. "k"
+
+    local display = freeCapacity
+    if freeCapacity >= 100000 then
+        display = math.floor(freeCapacity / 1000) .. "k"
+    elseif freeCapacity >= 10000 then
+        display = math.floor(freeCapacity)
     elseif freeCapacity > 999 then
-        freeCapacity = math.floor(freeCapacity)
+        display = math.floor(freeCapacity)
     elseif freeCapacity > 99 then
-        freeCapacity = math.floor(freeCapacity * 10) / 10
+        display = math.floor(freeCapacity * 10) / 10
     end
+
+    local displayText = tostring(display)
+    local color = '#c0c0c0'
+    local freeCap = player:getFreeCapacity()
+    if freeCap == 0 then
+        color = '#D33C3C'
+    elseif player.getBaseCapacity and player:getTotalCapacity() ~= player:getBaseCapacity() then
+        color = '#44ad25'
+    end
+
     local ui = getInventoryUi()
-    if ui.capacityPanel and ui.capacityPanel.capacity then
-        ui.capacityPanel.capacity:setText(freeCapacity)
+    if ui.capacityPanel then
+        applySoulCapValue(ui.capacityPanel.capacity or ui.capacityPanel, displayText, color)
     end
-    if ui.soulAndCapacity and ui.soulAndCapacity.capacity then
-        ui.soulAndCapacity.capacity:setText(freeCapacity)
+    if ui.soulAndCapacity then
+        applySoulCapValue(ui.soulAndCapacity.capacity, displayText, color)
     end
 end
 

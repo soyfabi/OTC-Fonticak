@@ -37,6 +37,8 @@ TreeItem < UIWidget
   margin-right: 5
   margin-top: 12
   draggable: false
+  // Do not clip the TreeItem itself: mainButton/icon overflow above height 20 on purpose.
+  // Accordion slide enables clipping only while animating (see Categories.lua).
   Button
     id: mainButton
     image-color: #FFFFFF
@@ -75,17 +77,18 @@ TreeItem < UIWidget
       margin-top: -2
       margin-right: 2
       visible: false
-      image-source: /images/arrows/icon-arrow7x7-down
+      image-source: /images/arrows/icon-arrow7x7-right
   FlatPanel
     id: panel
     anchors.top: parent.top
     anchors.left: parent.left
     anchors.right: parent.right
-    margin-top: 17
+    margin-top: 20
     margin-left: 3
     margin-right: 2
     image-source: /images/store/arrow-panel
     visible: false
+    clipping: true
   UIWidget
     id: arrow
     size: 4 7
@@ -107,7 +110,7 @@ TreeButton < Button
   anchors.left: parent.left
   anchors.right: parent.right
   margin-left: 12
-  margin-top: 1
+  margin-top: 2
   padding: 0
   image-border: 0
   image-source: /images/store/subcategory

@@ -1,6 +1,7 @@
 SpelllistSettings = {
     ['Default'] = {
         iconFile = '/images/game/spells/spell-icons-32x32',
+        iconsFolder = '/images/game/spells/',
         iconsForGameCooldown = '/images/game/spells/spell-icons-20x20',
         iconSize = {
             width = 32,
@@ -9,24 +10,8 @@ SpelllistSettings = {
         iconSizeCooldown = {
             width = 20,
             height = 22
-        },
-        spellListWidth = 210,
-        spellWindowWidth = 550,
-    } --[[,
-['Custom'] =  {
-  iconFile = '/images/game/spells/custom',
-  iconSize = {width = 32, height = 32},
-  spellOrder = {
-    'Chain Lighting'
-    ,'Chain Healing'
-    ,'Divine Chain'
-    ,'Berserk Chain'
-    ,'Cheat death'
-    ,'Brutal Charge'
-    ,'Empower Summons'
-    ,'Summon Doppelganger'
-  }
-}]]
+        }
+    }
 }
 
 -- check "/docs/generate_spell_data.py"
@@ -120,7 +105,7 @@ SpellInfo = {
         ['Fierce Berserk'] = {id = 105, name = 'Fierce Berserk', words = 'exori gran', type = 'Instant', level = 90, mana = 340, soul = 0, maglevel = 0, icon = '', clientId = 21, group = {[1] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 6000, premium = true, vocations = {4, 8}, special = false, source = 0},
         ['Groundshaker'] = {id = 106, name = 'Groundshaker', words = 'exori mas', type = 'Instant', level = 33, mana = 160, soul = 0, maglevel = 0, icon = '', clientId = 24, group = {[1] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 8000, premium = true, vocations = {4, 8}, special = false, source = 0},
         ['Whirlwind Throw'] = {id = 107, name = 'Whirlwind Throw', words = 'exori hur', type = 'Instant', level = 28, mana = 40, soul = 0, maglevel = 0, icon = '', clientId = 18, group = {[1] = 2000}, needTarget = true, parameter = false, range = 5, exhaustion = 6000, premium = true, vocations = {4, 8}, special = false, source = 0},
-        ['Conjure Sniper Arrow'] = {id = 108, name = 'Conjure Sniper Arrow', words = 'exevo con hur', type = 'Conjure', level = 24, mana = 160, soul = 3, maglevel = 0, icon = '', clientId = 240, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 2000, premium = true, vocations = {3, 7}, special = false, source = 0},
+        ['Conjure Sniper Arrow'] = {id = 108, name = 'Conjure Sniper Arrow', words = 'exevo con hur', type = 'Conjure', level = 24, mana = 160, soul = 3, maglevel = 0, icon = '', clientId = 111, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 2000, premium = true, vocations = {3, 7}, special = false, source = 0},
         ['Conjure Piercing Bolt'] = {id = 109, name = 'Conjure Piercing Bolt', words = 'exevo con grav', type = 'Conjure', level = 33, mana = 180, soul = 3, maglevel = 0, icon = '', clientId = 48, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 2000, premium = true, vocations = {3, 7}, special = false, source = 0},
         ['Enchant Spear'] = {id = 110, name = 'Enchant Spear', words = 'exeta con', type = 'Conjure', level = 45, mana = 350, soul = 3, maglevel = 0, icon = '', clientId = 103, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 2000, premium = true, vocations = {3, 7}, special = false, source = 3277},
         ['Ethereal Spear'] = {id = 111, name = 'Ethereal Spear', words = 'exori con', type = 'Instant', level = 23, mana = 25, soul = 0, maglevel = 0, icon = '', clientId = 17, group = {[1] = 2000}, needTarget = true, parameter = false, range = 7, exhaustion = 2000, premium = true, vocations = {3, 7}, special = false, source = 0},
@@ -585,6 +570,33 @@ function Spells.getPrimaryGroup(spell)
     return indexes[1] or -1
 end
 
+function Spells.sortSpellWidgets(spellList, sortByLevel)
+    local widgets = spellList:getChildren()
+    table.sort(widgets, function(a, b)
+        if sortByLevel then
+            local levelA = a.spellLevel or 0
+            local levelB = b.spellLevel or 0
+            if levelA ~= levelB then
+                return levelA < levelB
+            end
+        end
+        return a:getText() < b:getText()
+    end)
+    for index, widget in ipairs(widgets) do
+        spellList:moveChildToIndex(widget, index)
+    end
+    return widgets
+end
+
+function Spells.filterSpellWidgets(spellList, searchText, playerLevel, filterLevel)
+    local search = tostring(searchText or ''):trim():lower()
+    for _, widget in ipairs(spellList:getChildren()) do
+        local matchesSearch = search:len() == 0 or widget:getText():lower():find(search, 1, true)
+        local matchesLevel = not filterLevel or (widget.spellLevel or 0) <= playerLevel
+        widget:setVisible(matchesSearch and matchesLevel)
+    end
+end
+
 function Spells.getIconFileByProfile(profile)
     return SpelllistSettings[profile]['iconFile']
 end
@@ -594,6 +606,12 @@ function Spells.getImageClip(indexClip, profile)
         profile = "Default"
     end
     return indexClip * SpelllistSettings[profile].iconSize.width .. " 0 " .. SpelllistSettings[profile].iconSize.width .. " " .. SpelllistSettings[profile].iconSize.height
+end
+
+-- Compatibility helper used by Astra-style UIs / cyclopedia.
+-- Fonticak icons are a horizontal strip; same math as getImageClip.
+function Spells.getImageClipNormal(id, profile)
+    return Spells.getImageClip(id, profile)
 end
 
 function Spells.getImageClipCooldown(indexClip, profile)

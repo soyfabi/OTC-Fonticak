@@ -610,7 +610,7 @@ function ApiJson.createOrUpdateText(barId, buttonId, text, sendAutomatic)
     }
 end
 
-function ApiJson.createOrUpdateAction(barId, buttonId, useMode, itemId, itemTier)
+function ApiJson.createOrUpdateAction(barId, buttonId, useMode, itemId, itemTier, smartMode)
     barId = tonumber(barId)
     buttonId = tonumber(buttonId)
     if not barId or not buttonId then
@@ -621,7 +621,8 @@ function ApiJson.createOrUpdateAction(barId, buttonId, useMode, itemId, itemTier
     entry["actionsetting"] = {
         ["upgradeTier"] = itemTier,
         ["useObject"] = itemId,
-        ["useType"] = useMode
+        ["useType"] = useMode,
+        ["useEquipSmartMode"] = smartMode and true or false
     }
 end
 

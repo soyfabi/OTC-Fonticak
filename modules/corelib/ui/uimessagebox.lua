@@ -123,6 +123,13 @@ function UIMessageBox:addButton(text, callback)
     local button = g_ui.createWidget('QtButton', holder)
     button:setWidth(math.max(48, 10 + (string.len(text) * 8)))
     button:setHeight(20)
+    button:setFont('verdana-11px-monochrome')
+    button:setColor('#ffffff')
+    if button.setPadding then
+        button:setPadding(0)
+    end
+    button:setTextAlign(AlignCenter)
+    button:setTextOffset({ x = 0, y = 0 })
     button:setText(text)
     connect(button, {
         onClick = callback

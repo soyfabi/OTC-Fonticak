@@ -1154,6 +1154,7 @@ function updateButton(button)
 
         button.cache.itemId = button.item:getItemId()
         button.cache.upgradeTier = buttonData["actionsetting"]["upgradeTier"]
+        button.cache.smartMode = buttonData["actionsetting"]["useEquipSmartMode"] or false
         local useTypeName = buttonData["actionsetting"]["useType"]
         button.cache.actionType = UseTypes[useTypeName] or UseTypes["Use"]
         ItemsDatabase.setTier(button.item, button.cache.upgradeTier)

@@ -1,87 +1,179 @@
 -- /*=============================================
--- =            Spells html Windows             =
+-- =            Assign Spell                      =
 -- =============================================*/
 local function string_empty(str)
     return #str == 0
 end
 
-function ActionBarController:onSearchTextChange(event)
-    for _, child in pairs(ActionBarController:findWidget("#spellList"):getChildren()) do
-        local name = child:getText():lower()
-        if name:find(event.value:lower()) or event.value == '' or #event.value < 3 then
-            child:setVisible(true)
-        else
-            child:setVisible(false)
-        end
-    end
-end
+local assignSpellWindow = nil
+local assignSpellRadio = nil
 
-function ActionBarController:onClearSearchText()
-    local search = ActionBarController:findWidget("#searchText")
-    search:setText('')
+function closeAssignSpellWindow()
+    if assignSpellRadio then
+        assignSpellRadio:destroy()
+        assignSpellRadio = nil
+    end
+    if assignSpellWindow and not assignSpellWindow:isDestroyed() then
+        assignSpellWindow:destroy()
+    end
+    assignSpellWindow = nil
 end
 
 function assignSpell(button, multiSlotIndex)
-    local dev = true
     local actionbar = button:getParent():getParent()
     if actionbar.locked then
         alert('Action bar is locked')
         return
     end
-    local radio = UIRadioGroup.create()
-    if ActionBarController.ui then
-        ActionBarController:unloadHtml()
+
+    closeAllAssignWindows('spell')
+
+    local ok, window = pcall(function()
+        return g_ui.loadUI('/modules/game_actionbar/spells', g_ui.getRootWidget())
+    end)
+    if not ok or not window then
+        perror('Failed to open Assign Spell window: ' .. tostring(window))
+        return
     end
-    ActionBarController:loadHtml('html/spells.html')
-    ActionBarController.ui:show()
-    ActionBarController.ui:raise()
+    assignSpellWindow = window
+    local currentSpellWindow = window
+    window.onDestroy = function()
+        if assignSpellWindow ~= currentSpellWindow then
+            return
+        end
+        if assignSpellRadio then
+            assignSpellRadio:destroy()
+            assignSpellRadio = nil
+        end
+        assignSpellWindow = nil
+    end
+
+    local content = window:getChildById('contentPanel') or window.contentPanel
+    if not content then
+        perror('Assign Spell contentPanel missing')
+        closeAssignSpellWindow()
+        return
+    end
+
+    local spellList = content:getChildById('spellList') or content.spellList
+    local previewWidget = content:getChildById('preview') or content.preview
+    local paramLabel = content:getChildById('paramLabel') or content.paramLabel
+    local paramText = content:getChildById('paramText') or content.paramText
+    local searchText = content:getChildById('searchText') or content.searchText
+    local clearButton = content:getChildById('clearButton') or content.clearButton
+    local checkPanel = content:getChildById('checkPanel') or content.checkPanel
+    local tickWidget = checkPanel and (checkPanel:getChildById('tick') or checkPanel.tick)
+    local sortByLevelWidget = checkPanel and (checkPanel:getChildById('sortByLevel') or checkPanel.sortByLevel)
+    local buttonOk = content:getChildById('buttonOk') or content.buttonOk
+    local buttonClose = content:getChildById('buttonClose') or content.buttonClose
+    local buttonShowAll = content:getChildById('buttonShowAll') or content.buttonShowAll
+    if not spellList or not previewWidget or not paramLabel or not paramText
+        or not buttonOk or not buttonClose or not buttonShowAll then
+        perror('Assign Spell widgets missing')
+        closeAssignSpellWindow()
+        return
+    end
+
     local titleSuffix = multiSlotIndex and (" (Slot " .. multiSlotIndex .. ")") or ""
-    ActionBarController.ui:setTitle("Assign Spell to Action Button " .. button:getId() .. titleSuffix)
-    local spellList = ActionBarController:findWidget("#spellList")
-    local previewWidget = ActionBarController:findWidget("#preview")
-    local imageWidget = ActionBarController:findWidget("#image")
-    local paramLabel = ActionBarController:findWidget("#paramLabel")
-    local paramText = ActionBarController:findWidget("#paramText")
-    ActionBarController:findWidget("#dev"):setVisible(dev)
+    window:setText("Assign Spell to Action Button " .. button:getId() .. titleSuffix)
+    window:setId("assignSpellWindow")
+    window:show()
+    window:raise()
+    window:focus()
+
     local playerVocation = translateVocation(player:getVocation())
     local playerLevel = player:getLevel()
     local spells = modules.gamelib.SpellInfo['Default']
     local defaultIconsFolder = SpelllistSettings['Default'].iconFile
-    local showAllSpells = (playerVocation == 0)
-    for spellName, spellData in pairs(spells) do
-        if showAllSpells or table.contains(spellData.vocations, playerVocation) then
-            local widget = g_ui.createWidget('SpellPreview', spellList)
-            local spellId = spellData.clientId
-            local clip = Spells.getImageClip(spellId)
-            radio:addWidget(widget)
-            widget:setId(spellData.id)
-            widget:setText(spellName .. "\n" .. spellData.words)
-            widget.voc = spellData.vocations
-            widget.param = spellData.parameter
-            widget.source = defaultIconsFolder
-            widget.clip = clip
-            widget.image:setImageSource(widget.source)
-            widget.image:setImageClip(widget.clip)
-            if spellData.level then
-                widget.levelLabel:setVisible(true)
-                widget.levelLabel:setText(string.format("Level: %d", spellData.level))
-                widget.image.gray:setVisible(playerLevel < spellData.level)
-            end
-            local primaryGroup = Spells.getPrimaryGroup(spellData)
-            if primaryGroup ~= -1 then
-                local offSet = (primaryGroup == 2 and 20) or (primaryGroup == 3 and 40) or 0
-                widget.imageGroup:setImageClip(offSet .. " 0 20 20")
-                widget.imageGroup:setVisible(true)
+
+    local function sortSpellWidgets()
+        local sortByLevel = sortByLevelWidget and sortByLevelWidget:isChecked()
+        return Spells.sortSpellWidgets(spellList, sortByLevel)
+    end
+
+    local function applyFilters()
+        local search = searchText and searchText:getText() or ''
+        local filterLevel = tickWidget and tickWidget:isChecked()
+        Spells.filterSpellWidgets(spellList, search, playerLevel, filterLevel)
+        sortSpellWidgets()
+    end
+
+    local function fillSpellList(showAll)
+        if assignSpellRadio then
+            assignSpellRadio:destroy()
+        end
+        spellList:destroyChildren()
+        assignSpellRadio = UIRadioGroup.create()
+        local showAllSpells = showAll or (playerVocation == 0)
+        for spellName, spellData in pairs(spells) do
+            if showAllSpells or table.contains(spellData.vocations, playerVocation) then
+                local widget = g_ui.createWidget('SpellPreview', spellList)
+                local spellId = spellData.clientId
+                local clip = Spells.getImageClip(spellId)
+                assignSpellRadio:addWidget(widget)
+                widget:setId(spellData.id)
+                widget:setText(spellName .. "\n" .. spellData.words)
+                widget.words = spellData.words
+                widget.voc = spellData.vocations
+                widget.param = spellData.parameter
+                widget.spellLevel = spellData.level or 0
+                widget.source = defaultIconsFolder
+                widget.clip = clip
+                if widget.image then
+                    widget.image:setImageSource(widget.source)
+                    widget.image:setImageClip(widget.clip)
+                end
+                if spellData.level and widget.levelLabel then
+                    widget.levelLabel:setVisible(true)
+                    widget.levelLabel:setText(string.format("Level: %d", spellData.level))
+                    if widget.image and widget.image.gray then
+                        widget.image.gray:setVisible(playerLevel < spellData.level)
+                    end
+                end
+                local primaryGroup = Spells.getPrimaryGroup(spellData)
+                if primaryGroup ~= -1 and widget.imageGroup then
+                    local offSet = (primaryGroup == 2 and 20) or (primaryGroup == 3 and 40) or 0
+                    widget.imageGroup:setImageClip(offSet .. " 0 20 20")
+                    widget.imageGroup:setVisible(true)
+                end
             end
         end
+
+        local widgets = sortSpellWidgets()
+
+        assignSpellRadio.onSelectionChange = function(_, selected)
+            if selected then
+                previewWidget:setText(selected:getText())
+                if previewWidget.image then
+                    previewWidget.image:setImageSource(selected.source)
+                    previewWidget.image:setImageClip(selected.clip)
+                end
+                paramLabel:setOn(selected.param)
+                paramText:setEnabled(selected.param)
+                paramText:clearText()
+                if selected:getText():lower():find("levitate") then
+                    paramText:setText("up|down")
+                end
+            end
+        end
+
+        applyFilters()
+
+        local firstVisible = nil
+        for _, widget in ipairs(spellList:getChildren()) do
+            if widget:isVisible() then
+                firstVisible = widget
+                break
+            end
+        end
+        if firstVisible then
+            assignSpellRadio:selectWidget(firstVisible)
+        end
+        return widgets
     end
-    local widgets = spellList:getChildren()
-    table.sort(widgets, function(a, b)
-        return a:getText() < b:getText()
-    end)
-    for i, widget in ipairs(widgets) do
-        spellList:moveChildToIndex(widget, i)
-    end
+
+    local widgets = fillSpellList(false)
+
     local preselectSpellData = nil
     local preselectCastParam = nil
     if multiSlotIndex and button.cache and button.cache.multiActions then
@@ -104,55 +196,55 @@ function assignSpell(button, multiSlotIndex)
         local spellData = preselectSpellData
         local spellId = spellData.clientId
         if not spellId then
-            print("Warning Spell ID not found L81 modules/game_actionbar/logics/ActionAssignmentWindows.lua")
+            print("Warning Spell ID not found modules/game_actionbar/logics/ActionAssignmentWindows.lua")
+            closeAssignSpellWindow()
             return
         end
         local clip = Spells.getImageClip(spellId, 'Default')
-        imageWidget:setImageSource(defaultIconsFolder)
-        imageWidget:setImageClip(clip)
+        previewWidget:setText((spellData.name or '') .. "\n" .. (spellData.words or ''))
+        if previewWidget.image then
+            previewWidget.image:setImageSource(defaultIconsFolder)
+            previewWidget.image:setImageClip(clip)
+        end
         paramLabel:setOn(spellData.parameter)
         paramText:setEnabled(spellData.parameter)
         if spellData.parameter and preselectCastParam then
             paramText:setText(preselectCastParam)
             paramText:setCursorPos(#preselectCastParam)
         end
-        for i, k in ipairs(widgets) do
+        for _, k in ipairs(widgets) do
             if k:getId() == tostring(spellData.id) then
-                radio:selectWidget(k)
+                assignSpellRadio:selectWidget(k)
                 spellList:ensureChildVisible(k)
                 break
             end
         end
     end
-    radio.onSelectionChange = function(widget, selected)
-        if selected then
-            previewWidget:setText(selected:getText())
-            imageWidget:setImageSource(selected.source)
-            imageWidget:setImageClip(selected.clip)
-            paramLabel:setOn(selected.param)
-            paramText:setEnabled(selected.param)
-            paramText:clearText()
-            if selected:getText():lower():find("levitate") then
-                paramText:setText("up|down")
-            end
+
+    if searchText then
+        searchText.onTextChange = applyFilters
+    end
+    if clearButton and searchText then
+        clearButton.onClick = function()
+            searchText:clearText()
         end
     end
-    if #widgets > 0 and not preselectSpellData then
-        radio:selectWidget(widgets[1])
+    if tickWidget then
+        tickWidget.onCheckChange = applyFilters
     end
-    local function cancelFunc()
-        ActionBarController:unloadHtml()
+    if sortByLevelWidget then
+        sortByLevelWidget.onCheckChange = applyFilters
     end
 
-    local function okFunc(destroy)
-        local selected = radio:getSelectedWidget()
+    local function okFunc()
+        local selected = assignSpellRadio and assignSpellRadio:getSelectedWidget()
         if not selected then
-            cancelFunc()
+            closeAssignSpellWindow()
             return
         end
 
         local barID, buttonID = string.match(button:getId(), "(.*)%.(.*)")
-        local param = string.match(selected:getText(), "\n(.*)")
+        local param = selected.words or string.match(selected:getText(), "\n(.*)")
         local paramValue = paramText:getText()
         local check = param .. " " .. paramValue
         if check:find("utevo res ina") then
@@ -166,87 +258,89 @@ function assignSpell(button, multiSlotIndex)
             param = param .. ' "' .. paramValue:gsub('"', '') .. '"'
         end
         if multiSlotIndex then
-            if not button.cache.multiActions then button.cache.multiActions = {{}, {}, {}} end
+            if not button.cache.multiActions then
+                button.cache.multiActions = {{}, {}, {}}
+            end
             button.cache.multiActions[multiSlotIndex] = {chatText = param, sendAutomatically = true}
             ApiJson.createOrUpdateMultiText(tonumber(barID), tonumber(buttonID), multiSlotIndex, param, true)
-            if updateMultiButtonState then updateMultiButtonState(button) end
-            if assignMultiAction then assignMultiAction(button, true) end
+            if updateMultiButtonState then
+                updateMultiButtonState(button)
+            end
+            if assignMultiAction then
+                assignMultiAction(button, true)
+            end
         else
             ApiJson.createOrUpdateText(tonumber(barID), tonumber(buttonID), param, true)
             updateButton(button)
         end
 
-        if destroy then
-            ActionBarController:unloadHtml()
-        end
+        closeAssignSpellWindow()
     end
-    ActionBarController:findWidget("#buttonOk").onClick = function()
-        okFunc(true)
+
+    buttonOk.onClick = okFunc
+    buttonClose.onClick = closeAssignSpellWindow
+    buttonShowAll.onClick = function()
+        fillSpellList(true)
+        applyFilters()
     end
-    ActionBarController:findWidget("#buttonApply").onClick = function()
-        okFunc(false)
-    end
-    ActionBarController:findWidget("#buttonClose").onClick = cancelFunc
-    ActionBarController:findWidget("#dev").onClick = function()
-        spellList:destroyChildren()
-        for spellName, spellData in pairs(spells) do
-            local widget = g_ui.createWidget('SpellPreview', spellList)
-            local spellId = spellData.clientId
-            local clip = Spells.getImageClip(spellId)
-            radio:addWidget(widget)
-            widget:setId(spellData.id)
-            widget:setText(spellName .. "\n" .. spellData.words)
-            widget.voc = spellData.vocations
-            widget.param = spellData.parameter
-            widget.source = defaultIconsFolder
-            widget.clip = clip
-            widget.image:setImageSource(widget.source)
-            widget.image:setImageClip(widget.clip)
-            if spellData.level then
-                widget.levelLabel:setVisible(true)
-                widget.levelLabel:setText(string.format("Level: %d", spellData.level))
-                widget.image.gray:setVisible(playerLevel < spellData.level)
-            end
-            local primaryGroup = Spells.getPrimaryGroup(spellData)
-            if primaryGroup ~= -1 then
-                local offSet = (primaryGroup == 2 and 20) or (primaryGroup == 3 and 40) or 0
-                widget.imageGroup:setImageClip(offSet .. " 0 20 20")
-                widget.imageGroup:setVisible(true)
-            end
-        end
-        local newWidgets = spellList:getChildren()
-        table.sort(newWidgets, function(a, b)
-            return a:getText() < b:getText()
-        end)
-        for i, widget in ipairs(newWidgets) do
-            spellList:moveChildToIndex(widget, i)
-        end
-    end
+    window.onEnter = okFunc
+    window.onEscape = closeAssignSpellWindow
 end
 -- /*=============================================
--- =            SetText html Windows             =
+-- =            Assign Text                       =
 -- =============================================*/
+local assignTextWindow = nil
+
+function closeAssignTextWindow()
+    if assignTextWindow and not assignTextWindow:isDestroyed() then
+        assignTextWindow:destroy()
+    end
+    assignTextWindow = nil
+end
+
 function assignText(button, multiSlotIndex)
     local actionbar = button:getParent():getParent()
     if actionbar.locked then
         alert('Action bar is locked')
         return
     end
-    if ActionBarController.ui then
-        ActionBarController:unloadHtml()
+
+    closeAllAssignWindows('text')
+
+    local ok, window = pcall(function()
+        return g_ui.loadUI('/modules/game_actionbar/text', g_ui.getRootWidget())
+    end)
+    if not ok or not window then
+        perror('Failed to open Assign Text window: ' .. tostring(window))
+        return
     end
-    ActionBarController:loadHtml('html/text.html')
-    local ui = ActionBarController.ui
-    ActionBarController:scheduleEvent(function()
-        ui:centerIn('parent')
-    end, 1, "lazyHtml")
-    ui:show()
-    ui:raise()
-    ui:focus()
+    assignTextWindow = window
+
+    local content = window:getChildById('contentPanel') or window.contentPanel
+    if not content then
+        perror('Assign Text contentPanel missing')
+        closeAssignTextWindow()
+        return
+    end
+
+    local textWidget = content:getChildById('text') or content.text
+    local checkPanel = content:getChildById('checkPanel') or content.checkPanel
+    local tickWidget = checkPanel and (checkPanel:getChildById('tick') or checkPanel.tick)
+    local buttonOk = content:getChildById('buttonOk') or content.buttonOk
+    local buttonClose = content:getChildById('buttonClose') or content.buttonClose
+    if not textWidget or not tickWidget or not buttonOk or not buttonClose then
+        perror('Assign Text widgets missing')
+        closeAssignTextWindow()
+        return
+    end
+
     local titleSuffix = multiSlotIndex and (" (Slot " .. multiSlotIndex .. ")") or ""
-    ui:setTitle("Assign Text to Action Button " .. button:getId() .. titleSuffix)
-    local textWidget = ActionBarController:findWidget("#text")
-    local tickWidget = ActionBarController:findWidget("#tick")
+    window:setText("Assign Text to Action Button " .. button:getId() .. titleSuffix)
+    window:setId("assignTextWindow")
+    window:show()
+    window:raise()
+    window:focus()
+
     local param = ''
     local sendAuto = false
     if multiSlotIndex and button.cache and button.cache.multiActions then
@@ -259,300 +353,370 @@ function assignText(button, multiSlotIndex)
         param = button.cache.param or ''
         sendAuto = button.cache.sendAutomatic or false
     end
+
     textWidget:setText(param)
     textWidget:setCursorPos(#param)
-    local hasText = #param > 0
-    tickWidget:setChecked(hasText and sendAuto or false)
-    local function saveText(closeAfter)
-        local autoSay = tickWidget:isChecked()
+    tickWidget:setChecked(#param > 0 and sendAuto or false)
+
+    local function updateButtons()
+        buttonOk:setEnabled(textWidget:getText():len() > 0)
+    end
+    textWidget.onTextChange = updateButtons
+    updateButtons()
+    textWidget:focus()
+
+    local function saveText()
         local text = textWidget:getText()
+        if text:len() == 0 then
+            return
+        end
+
+        local autoSay = tickWidget:isChecked()
         local formattedText = Spells.getSpellFormatedName(text)
         local barID, buttonID = string.match(button:getId(), "(.*)%.(.*)")
         if multiSlotIndex then
-            if not button.cache.multiActions then button.cache.multiActions = {{}, {}, {}} end
-            button.cache.multiActions[multiSlotIndex] = {chatText = formattedText, sendAutomatically = autoSay}
+            if not button.cache.multiActions then
+                button.cache.multiActions = {{}, {}, {}}
+            end
+            button.cache.multiActions[multiSlotIndex] = {
+                chatText = formattedText,
+                sendAutomatically = autoSay
+            }
             ApiJson.createOrUpdateMultiText(tonumber(barID), tonumber(buttonID), multiSlotIndex, formattedText, autoSay)
-            if updateMultiButtonState then updateMultiButtonState(button) end
-            if assignMultiAction then assignMultiAction(button, true) end
+            if updateMultiButtonState then
+                updateMultiButtonState(button)
+            end
+            if assignMultiAction then
+                assignMultiAction(button, true)
+            end
         else
             ApiJson.createOrUpdateText(tonumber(barID), tonumber(buttonID), formattedText, autoSay)
             updateButton(button)
         end
-        if closeAfter then
-            ActionBarController:unloadHtml()
-        end
-    end
-    ActionBarController:findWidget("#buttonOk").onClick = function()
-        saveText(true)
-    end
-    ActionBarController:findWidget("#buttonApply").onClick = function()
-        saveText(false)
-    end
-    local function cancelFunc()
-        ActionBarController:unloadHtml()
-    end
-    ActionBarController:findWidget("#buttonClose").onClick = cancelFunc
-end
 
-function ActionBarController:updateAssignTextState(event)
-    local hasText = event.value:len() > 0
-    ActionBarController:findWidget("#buttonApply"):setEnabled(hasText)
-    ActionBarController:findWidget("#buttonOk"):setEnabled(hasText)
+        closeAssignTextWindow()
+    end
+
+    buttonOk.onClick = saveText
+    buttonClose.onClick = closeAssignTextWindow
+    window.onEnter = saveText
+    window.onEscape = closeAssignTextWindow
 end
 -- /*=============================================
--- =            SetObject html Windows             =
+-- =            Assign Object                      =
 -- =============================================*/
+local assignItemWindow = nil
+local assignItemRadio = nil
+
+local OBJECT_USE_TYPES = {
+    "UseOnYourself",
+    "UseOnTarget",
+    "UseAtCursorPosition",
+    "SelectUseTarget",
+    "Equip",
+    "Use"
+}
+
 local function canEquipItem(item)
-    if item:isContainer() then
+    if not item or item:isContainer() then
         return false
     end
-    if not g_game.getFeature(GameEnterGameShowAppearance) then -- old protocol
+    if not g_game.getFeature(GameEnterGameShowAppearance) then
         return true
     end
-    if item:getClothSlot() == 0 and (item:getClassification() > 0 or item:isAmmo()) then
+    local clothSlot = item:getClothSlot()
+    if clothSlot == 0 and (item:getClassification() > 0 or item:isAmmo()) then
         return true
     end
+    return clothSlot > 0 or (clothSlot == 0 and item:hasWearout())
+end
 
-    if item:getClothSlot() > 0 or (item:getClothSlot() == 0 and item:hasWearout()) then
+local function canUseActionbarItem(item)
+    return item and ((item:isUsable() and not item:isMultiUse()) or item:isContainer())
+end
+
+local function isObjectUseTypeEnabled(item, useType)
+    if useType == "Equip" then
+        return canEquipItem(item)
+    end
+    if useType == "Use" then
+        return canUseActionbarItem(item)
+    end
+    return item:isMultiUse()
+end
+
+local function canAutoSelectObjectUseType(item, useType)
+    if useType == "Equip" then
         return true
     end
-    return false
+    local clothSlot = item:getClothSlot()
+    return not (clothSlot > 0 or (clothSlot == 0 and item:getClassification() > 0))
+end
+
+local function getObjectSlotData(button, multiSlotIndex)
+    if not multiSlotIndex or not button.cache or not button.cache.multiActions then
+        return nil
+    end
+    return button.cache.multiActions[multiSlotIndex]
+end
+
+local function getObjectSmartMode(button, multiSlotIndex)
+    local slot = getObjectSlotData(button, multiSlotIndex)
+    if slot then
+        return slot["useEquipSmartMode"] and true or false
+    end
+    return button.cache and button.cache.smartMode or false
+end
+
+local function clearCachedItemWidget(button)
+    local cache = getButtonCache(button)
+    local cachedItem = cachedItemWidget[cache.itemId]
+    if not cachedItem then
+        return
+    end
+    for index, widget in pairs(cachedItem) do
+        if button == widget then
+            table.remove(cachedItem, index)
+            return
+        end
+    end
+end
+
+local function resolveButtonItem(button)
+    if button.item then
+        return button
+    end
+    local parent = button:getParent()
+    local id = button:getId()
+    updateButton(button)
+    button = parent:getChildById(id)
+    if button and button.item then
+        return button
+    end
+    return nil
+end
+
+function closeAssignItemWindow()
+    if assignItemRadio then
+        assignItemRadio:destroy()
+        assignItemRadio = nil
+    end
+    if assignItemWindow and not assignItemWindow:isDestroyed() then
+        assignItemWindow:destroy()
+    end
+    assignItemWindow = nil
+end
+
+function closeAllAssignWindows(except)
+    if except ~= 'spell' then
+        closeAssignSpellWindow()
+    end
+    if except ~= 'text' then
+        closeAssignTextWindow()
+    end
+    if except ~= 'item' then
+        closeAssignItemWindow()
+    end
+    if ActionBarController.ui then
+        ActionBarController:unloadHtml()
+    end
 end
 
 function assignItem(button, itemId, itemTier, dragEvent, multiSlotIndex)
     if not isLoaded then
         return true
     end
-    if not button.item then
-        local parent = button:getParent()
-        local id = button:getId()
+
+    button = resolveButtonItem(button)
+    if not button then
+        return
+    end
+
+    local actionbar = button:getParent():getParent()
+    if actionbar.locked or (dragEvent and not multiSlotIndex) then
         updateButton(button)
-        button = parent:getChildById(id)
-        if not button or not button.item then
+        return
+    end
+
+    closeAllAssignWindows('item')
+
+    local ok, window = pcall(function()
+        return g_ui.loadUI('/modules/game_actionbar/object', g_ui.getRootWidget())
+    end)
+    if not ok or not window then
+        perror('Failed to open Assign Object window: ' .. tostring(window))
+        return
+    end
+    assignItemWindow = window
+    local currentItemWindow = window
+    window.onDestroy = function()
+        if assignItemWindow ~= currentItemWindow then
             return
         end
+        if assignItemRadio then
+            assignItemRadio:destroy()
+            assignItemRadio = nil
+        end
+        assignItemWindow = nil
     end
-    local item = button.item:getItem()
-    local actionbar = button:getParent():getParent()
-    if dragEvent and actionbar.locked or actionbar.locked then
-        updateButton(button)
+
+    local content = window:getChildById('contentPanel') or window.contentPanel
+    if not content or not content.select or not content.item or not content.checks
+        or not content.buttonOk or not content.buttonClose then
+        perror('Assign Object widgets missing')
+        closeAssignItemWindow()
         return
     end
-    if dragEvent and not multiSlotIndex then
-        updateButton(button)
-        return
-    end
-    if ActionBarController.ui then
-        ActionBarController:unloadHtml()
-    end
-    ActionBarController:loadHtml('html/object.html')
-    local ui = ActionBarController.ui
-    ActionBarController:scheduleEvent(function()
-        ui:centerIn('parent')
-    end, 1, "lazyHtml")
-    ui:show()
-    ui:raise()
-    ui:focus()
+    assignItemRadio = UIRadioGroup.create()
+    local slotData = getObjectSlotData(button, multiSlotIndex)
+    local fromSelect = slotData and slotData["useObject"]
+        and slotData["useObject"] ~= itemId
+        or (not multiSlotIndex and button.item:getItemId() > 0 and button.item:getItemId() ~= itemId)
+    local activeActionType = (slotData and slotData["useType"])
+        or (button.cache and button.cache.actionType)
+        or 0
+
     local titleSuffix = multiSlotIndex and (" (Slot " .. multiSlotIndex .. ")") or ""
-    ui:setTitle("Assign Object to Action Button " .. button:getId() .. titleSuffix)
-    local itemWidget = ui:querySelector("#item")
-    local selectButton = ui:querySelector("button[text='Select Object']")
-    local checkbox1 = ui:querySelector("#UseOnYourself")
-    local checkbox2 = ui:querySelector("#UseOnTarget")
-    local checkbox3 = ui:querySelector("#UseAtCursorPosition")
-    local checkbox4 = ui:querySelector("#SelectUseTarget")
-    local checkbox5 = ui:querySelector("#Equip")
-    local checkbox6 = ui:querySelector("#Use")
-    local buttonOk = ui:querySelector("#buttonOk")
-    local buttonApply = ui:querySelector("#buttonApply")
-    local buttonClose = ui:querySelector("#buttonClose")
-    if selectButton then
-        selectButton.onClick = function()
-            ActionBarController:unloadHtml()
-            assignItemEvent(button, multiSlotIndex)
-        end
+    window:setText("Assign Object to Action Button " .. button:getId() .. titleSuffix)
+    window:setId("assignItemWindow")
+    window:show()
+    window:raise()
+    window:focus()
+
+    content.select.onClick = function()
+        closeAssignItemWindow()
+        assignItemEvent(button, multiSlotIndex)
     end
-    local preselectActionType = nil
-    local preselectItemId = nil
-    if multiSlotIndex and button.cache and button.cache.multiActions then
-        local slot = button.cache.multiActions[multiSlotIndex]
-        if slot and slot["useObject"] then
-            preselectItemId = slot["useObject"]
-            preselectActionType = slot["useType"]
-        end
+
+    content.item:setItemId(itemId)
+    local item = content.item:getItem()
+    if not item then
+        closeAssignItemWindow()
+        return
     end
-    local fromSelect
-    if multiSlotIndex then
-        fromSelect = preselectItemId and preselectItemId ~= itemId or false
-    else
-        fromSelect = button.item:getItemId() > 0 and button.item:getItemId() ~= itemId
-    end
-    itemWidget:setItemId(itemId)
-    if not item or item:getId() == 0 then
-        item = itemWidget:getItem()
-    end
+
     if item:getClassification() == 0 then
         itemTier = 0
+    else
+        itemTier = itemTier or (button.cache and button.cache.upgradeTier) or 0
     end
-    if itemWidget:getItem() then
-        ItemsDatabase.setTier(itemWidget, itemTier, false)
-    end
-    local checkboxWidgets = {{
-        widget = checkbox1,
-        useType = "UseOnYourself"
-    }, {
-        widget = checkbox2,
-        useType = "UseOnTarget"
-    }, {
-        widget = checkbox3,
-        useType = "UseAtCursorPosition"
-    }, {
-        widget = checkbox4,
-        useType = "SelectUseTarget"
-    }, {
-        widget = checkbox5,
-        useType = "Equip"
-    }, {
-        widget = checkbox6,
-        useType = "Use"
-    }}
+    ItemsDatabase.setTier(content.item, itemTier, false)
 
-    local activeActionType = multiSlotIndex and preselectActionType or button.cache.actionType
-    local selectedCheckbox = nil
-    for _, cbData in ipairs(checkboxWidgets) do
-        if cbData.widget then
-            cbData.widget:setEnabled(false)
-            cbData.widget:setChecked(false)
+    local smartWidget = content.checks.smart
+    if smartWidget then
+        local showSmart = item:getClothSlot() > 0 and item:hasWearout()
+        smartWidget:setVisible(showSmart)
+        if showSmart then
+            smartWidget:setChecked(getObjectSmartMode(button, multiSlotIndex))
         end
     end
 
-    -- UseTypes: UseOnYourself=1, UseOnTarget=2, SelectUseTarget=3, UseAtCursorPosition=9
-    if item:isMultiUse() then
-        for _, cbData in ipairs(checkboxWidgets) do
-            local useTypeIndex = UseTypes[cbData.useType]
-            if (useTypeIndex <= UseTypes["SelectUseTarget"] or useTypeIndex == UseTypes["UseAtCursorPosition"]) and
-                cbData.widget then
-                cbData.widget:setEnabled(true)
-
-                if not selectedCheckbox and
-                    not (item:getClothSlot() > 0 or (item:getClothSlot() == 0 and item:getClassification() > 0)) then
-                    if fromSelect or activeActionType == 0 or activeActionType == cbData.useType or
-                        activeActionType == UseTypes[cbData.useType] then
-                        selectedCheckbox = cbData.widget
-                    end
-                end
-            end
-        end
-    end
-
-    -- UseTypes: Equip=4
-    if canEquipItem(item) then
-        checkbox5:setEnabled(true)
-
-        if not selectedCheckbox then
-            if fromSelect or activeActionType == 0 or activeActionType == "Equip" or
-                activeActionType == UseTypes["Equip"] then
-                selectedCheckbox = checkbox5
-            end
-        end
-    end
-
-    -- UseTypes: Use=5 (items usables no-multiuso)
-    if (item:isUsable() and not item:isMultiUse()) or item:isContainer() then
-        checkbox6:setEnabled(true)
-
-        if not selectedCheckbox then
-            if fromSelect or activeActionType == 0 or activeActionType == "Use" or activeActionType ==
-                UseTypes["Use"] then
-                selectedCheckbox = checkbox6
-            end
-        end
-    end
-    buttonOk:setEnabled(item and item:getId() > 100)
-    buttonApply:setEnabled(item and item:getId() > 100)
-    if not selectedCheckbox then
-        for _, cbData in ipairs(checkboxWidgets) do
-            if cbData.widget and cbData.widget:isEnabled() then
-                selectedCheckbox = cbData.widget
-                break
-            end
-        end
-    end
-    if selectedCheckbox then
-        selectedCheckbox:setChecked(true)
-    end
-    for _, cbData in ipairs(checkboxWidgets) do
-        if cbData.widget then
-            cbData.widget.onCheckChange = function(widget, checked)
-                if checked then
-                    for _, otherCbData in ipairs(checkboxWidgets) do
-                        if otherCbData.widget and otherCbData.widget ~= widget and otherCbData.widget:isChecked() then
-                            otherCbData.widget:setChecked(false)
-                        end
-                    end
-                end
-            end
-        end
-    end
-    local function okFunc(destroy)
-        local selected = nil
-        for _, cbData in ipairs(checkboxWidgets) do
-            if cbData.widget and cbData.widget:isChecked() then
-                selected = cbData.useType
-                break
-            end
-        end
-        if not selected then
+    local function onUseTypeCheckChange(widget)
+        if not smartWidget then
             return
         end
+        if widget:getId() == "Equip" and not smartWidget:isEnabled() then
+            smartWidget:setEnabled(true)
+        elseif widget:getId() ~= "Equip" and smartWidget:isEnabled() then
+            smartWidget:setChecked(false)
+            smartWidget:setEnabled(false)
+        end
+    end
+
+    for _, useType in ipairs(OBJECT_USE_TYPES) do
+        local child = content.checks:getChildById(useType)
+        if child then
+            assignItemRadio:addWidget(child)
+            child:setChecked(false)
+
+            local enabled = isObjectUseTypeEnabled(item, useType)
+            child:setEnabled(enabled)
+            child.onCheckChange = onUseTypeCheckChange
+
+            if enabled and not assignItemRadio:getSelectedWidget()
+                and canAutoSelectObjectUseType(item, useType)
+                and (fromSelect or activeActionType == 0 or activeActionType == useType
+                    or activeActionType == UseTypes[useType]) then
+                assignItemRadio:selectWidget(child)
+            end
+        end
+    end
+
+    if content.tier then
+        local showTier = itemTier and itemTier > 0
+        content.tier:setVisible(showTier)
+        if showTier and itemTier > 1 then
+            content.tier:setImageClip(torect((18 * (itemTier - 1)) .. " 0 18 16"))
+        end
+    end
+
+    if not assignItemRadio:getSelectedWidget() then
+        for _, child in ipairs(content.checks:getChildren()) do
+            if child:getId() ~= "smart" and child:isEnabled() then
+                assignItemRadio:selectWidget(child)
+                break
+            end
+        end
+    end
+
+    content.buttonOk:setEnabled(item:getId() > 100 and assignItemRadio:getSelectedWidget() ~= nil)
+
+    local function closeWindow()
+        closeAssignItemWindow()
+    end
+
+    local function saveSelection()
+        local selectedWidget = assignItemRadio and assignItemRadio:getSelectedWidget()
+        if not selectedWidget then
+            return
+        end
+
+        local selected = selectedWidget:getId()
         local barID, buttonID = string.match(button:getId(), "^(%d+)%.(%d+)$")
         if not barID or not buttonID then
             return
         end
-        local cache = getButtonCache(button)
-        local cachedItem = cachedItemWidget[cache.itemId]
-        if cachedItem then
-            for index, widget in pairs(cachedItem) do
-                if button == widget then
-                    table.remove(cachedItem, index)
-                    break
-                end
-            end
-        end
+
+        clearCachedItemWidget(button)
+
+        local smartMode = smartWidget and smartWidget:isVisible() and smartWidget:isChecked() or false
         if multiSlotIndex then
-            if not button.cache.multiActions then button.cache.multiActions = {{}, {}, {}} end
-            button.cache.multiActions[multiSlotIndex] = {useObject = itemId, useType = selected, upgradeTier = itemTier, useEquipSmartMode = false}
-            ApiJson.createOrUpdateMultiAction(tonumber(barID), tonumber(buttonID), multiSlotIndex, selected, itemId, itemTier, false)
-            if updateMultiButtonState then updateMultiButtonState(button) end
-            if assignMultiAction then assignMultiAction(button, true) end
+            if not button.cache.multiActions then
+                button.cache.multiActions = {{}, {}, {}}
+            end
+            button.cache.multiActions[multiSlotIndex] = {
+                useObject = itemId,
+                useType = selected,
+                upgradeTier = itemTier,
+                useEquipSmartMode = smartMode
+            }
+            ApiJson.createOrUpdateMultiAction(tonumber(barID), tonumber(buttonID), multiSlotIndex, selected, itemId,
+                itemTier, smartMode)
+            if updateMultiButtonState then
+                updateMultiButtonState(button)
+            end
+            if assignMultiAction then
+                assignMultiAction(button, true)
+            end
         else
-            ApiJson.createOrUpdateAction(tonumber(barID), tonumber(buttonID), selected, itemId, itemTier)
+            button.cache.smartMode = smartMode
+            ApiJson.createOrUpdateAction(tonumber(barID), tonumber(buttonID), selected, itemId, itemTier, smartMode)
             updateButton(button)
         end
 
-        if destroy then
-            ActionBarController:unloadHtml()
-        end
+        closeWindow()
     end
-    buttonOk.onClick = function()
-        okFunc(true)
-    end
-    buttonApply.onClick = function()
-        okFunc(false)
-    end
-    buttonClose.onClick = function()
+
+    content.buttonOk.onClick = saveSelection
+    content.buttonClose.onClick = function()
         updateButton(button)
-        ActionBarController:unloadHtml()
+        closeWindow()
     end
-    ui.onEnter = function()
-        okFunc(true)
-    end
-    ui.onEscape = function()
-        updateButton(button)
-        ActionBarController:unloadHtml()
-    end
+    window.onEnter = saveSelection
+    window.onEscape = content.buttonClose.onClick
+
     if actionbar.locked then
-        ActionBarController:unloadHtml()
+        content.buttonClose.onClick()
     end
 end
 -- /*=============================================
@@ -585,11 +749,10 @@ function assignPassive(button)
         widget.image:setImageSource(passiveData.icon)
         widget.source = passiveData.icon
     end
-    radio.onSelectionChange = function(widget, selected)
+    radio.onSelectionChange = function(_, selected)
         if selected then
             previewWidget:setText(selected:getText())
             image:setImageSource(selected.source)
-            passiveList:ensureChildVisible(widget)
         end
     end
     local passiveChildren = passiveList:getChildren()
@@ -613,9 +776,6 @@ function assignPassive(button)
     end
     ActionBarController:findWidget("#buttonOk").onClick = function()
         okFunc(true)
-    end
-    ActionBarController:findWidget("#buttonApply").onClick = function()
-        okFunc(false)
     end
     ActionBarController:findWidget("#buttonClose").onClick = cancelFunc
     ui.onEnter = function()

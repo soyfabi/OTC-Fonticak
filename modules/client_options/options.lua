@@ -146,6 +146,19 @@ local function toggleOption(key)
     setOption(key, not getOption(key))
 end
 
+local function syncControlModeComboboxes()
+    local mouseControlModeCombobox = panels.generalPanel:recursiveGetChildById('mouseControlMode')
+    local lootControlModeCombobox = panels.generalPanel:recursiveGetChildById('lootControlMode')
+
+    if mouseControlModeCombobox then
+        mouseControlModeCombobox:setCurrentOptionByData(options.mouseControlMode.value)
+    end
+    if lootControlModeCombobox then
+        lootControlModeCombobox:setCurrentOptionByData(options.lootControlMode.value)
+        lootControlModeCombobox:setVisible(options.mouseControlMode.value == 1)
+    end
+end
+
 local function setupComboBox()
     local crosshairCombo = panels.interface:recursiveGetChildById('crosshair')
     local antialiasingModeCombobox = panels.graphicsPanel:recursiveGetChildById('antialiasingMode')
@@ -310,40 +323,7 @@ local function setup()
         setOption('turnModifierCtrl', true, true)
     end
     
-    -- Schedule combobox updates to ensure they happen after UI setup is complete
-    scheduleEvent(function()
-        local mouseControlModeCombobox = panels.generalPanel:recursiveGetChildById('mouseControlMode')
-        local lootControlModeCombobox = panels.generalPanel:recursiveGetChildById('lootControlMode')
-        
-        if mouseControlModeCombobox then
-            -- Use setCurrentOptionByData for more precise control
-            for i = 0, 2 do
-                if i == options.mouseControlMode.value then
-                    mouseControlModeCombobox:setCurrentOptionByData(i)
-                    break
-                end
-            end
-        end
-        
-        if lootControlModeCombobox then
-            -- Use setCurrentOptionByData for more precise control
-            for i = 0, 2 do
-                if i == options.lootControlMode.value then
-                    lootControlModeCombobox:setCurrentOptionByData(i)
-                    break
-                end
-            end
-        end
-        
-        -- Update loot control mode visibility
-        if lootControlModeCombobox and mouseControlModeCombobox then
-            if options.mouseControlMode.value == 1 then
-                lootControlModeCombobox:setVisible(true)
-            else
-                lootControlModeCombobox:setVisible(false)
-            end
-        end
-    end, 100)
+    scheduleEvent(syncControlModeComboboxes, 100)
 
     local talkOnRightClick = panels.miscGameplay and panels.miscGameplay:recursiveGetChildById('talkOnRightClick')
     if talkOnRightClick then
@@ -405,30 +385,6 @@ function controller:onInit()
     g_game.shouldShowLootHighlightEffect = shouldShowLootHighlightEffect
     g_game.shouldShowCombatFrames = shouldShowCombatFrames
     g_game.shouldShowPvpFrames = shouldShowPvpFrames
-    
-    -- Add a special delayed event to update comboboxes after everything is loaded
-    scheduleEvent(function()
-        local mouseControlModeCombobox = panels.generalPanel:recursiveGetChildById('mouseControlMode')
-        local lootControlModeCombobox = panels.generalPanel:recursiveGetChildById('lootControlMode')
-        
-        if mouseControlModeCombobox then
-            for i = 0, 2 do
-                if i == options.mouseControlMode.value then
-                    mouseControlModeCombobox:setCurrentOptionByData(i)
-                    break
-                end
-            end
-        end
-        
-        if lootControlModeCombobox then
-            for i = 0, 2 do
-                if i == options.lootControlMode.value then
-                    lootControlModeCombobox:setCurrentOptionByData(i)
-                    break
-                end
-            end
-        end
-    end, 1000)  -- 1 second delay to make sure everything is loaded
     
     init_binds()
     init_custom_hotkeys()
@@ -810,6 +766,12 @@ local OUTFIT_ANIMATION_CHILDREN = {
     'outfitAnimationSpeed',
 }
 
+local SLIDE_ANIMATION_CHILDREN = {
+    'showOptionsAnimation',
+    'showStoreAnimation',
+    'slideAnimationSpeed',
+}
+
 function isBarAnimationEnabled(optionKey)
     if not getBoolOption('showAnimationMaster', true) then
         return false
@@ -830,12 +792,30 @@ function isOutfitAnimationEnabled(optionKey)
     return true
 end
 
+function isSlideAnimationEnabled(optionKey)
+    if not getBoolOption('showSlideAnimationMaster', true) then
+        return false
+    end
+    if optionKey then
+        return getBoolOption(optionKey, true)
+    end
+    return true
+end
+
 function getOutfitAnimationDuration(baseMs)
     local speed = tonumber(getOption('outfitAnimationSpeed')) or 100
     if speed <= 0 then
         speed = 100
     end
     return math.max(80, math.floor((baseMs or 280) * (100 / speed) + 0.5))
+end
+
+function getSlideAnimationDuration(baseMs)
+    local speed = tonumber(getOption('slideAnimationSpeed')) or 100
+    if speed <= 0 then
+        speed = 100
+    end
+    return math.max(80, math.floor((baseMs or 240) * (100 / speed) + 0.5))
 end
 
 function syncNameplateBarAnimation()
@@ -866,6 +846,18 @@ function applyOutfitAnimationMaster(enabled)
     local panel = panels.graphicsAnimationPanel
     if panel then
         for _, id in ipairs(OUTFIT_ANIMATION_CHILDREN) do
+            local widget = panel:recursiveGetChildById(id)
+            if widget then
+                widget:setEnabled(enabled and true or false)
+            end
+        end
+    end
+end
+
+function applySlideAnimationMaster(enabled)
+    local panel = panels.graphicsAnimationPanel
+    if panel then
+        for _, id in ipairs(SLIDE_ANIMATION_CHILDREN) do
             local widget = panel:recursiveGetChildById(id)
             if widget then
                 widget:setEnabled(enabled and true or false)
@@ -1115,6 +1107,10 @@ function resetAnimation()
     setOption('showOutfitAnimationMount', true, true)
     setOption('showOutfitAnimationFamiliar', true, true)
     setOption('outfitAnimationSpeed', 100, true)
+    setOption('showSlideAnimationMaster', true, true)
+    setOption('showOptionsAnimation', true, true)
+    setOption('showStoreAnimation', true, true)
+    setOption('slideAnimationSpeed', 100, true)
 end
 
 function resetActionBars()
@@ -1303,6 +1299,7 @@ end
 
 local CATEGORY_ARROW_CLOSED = "/images/ui/icon-arrow7x7-right"
 local CATEGORY_ARROW_OPEN = "/images/ui/icon-arrow7x7-down"
+local CATEGORY_ACCORDION_MS = 240
 
 local function setCategoryArrow(button, isOpen)
     if not button or not button.Arrow then
@@ -1312,16 +1309,95 @@ local function setCategoryArrow(button, isOpen)
     button.Arrow:setImageSource(isOpen and CATEGORY_ARROW_OPEN or CATEGORY_ARROW_CLOSED)
 end
 
-local function toggleSubCategories(parent, isOpen)
+local function ensureCategorySizes(parent)
+    if not parent or not parent.subCategoriesSize then
+        return
+    end
+    if parent.closedSize and parent.openedSize then
+        return
+    end
+
+    local baseHeight = parent:getHeight() or 22
+    if parent.opened and parent.closedSize then
+        baseHeight = parent.closedSize
+    end
+
+    parent.closedSize = parent.closedSize or (baseHeight / (parent.subCategoriesSize + 1) + 15)
+    parent.openedSize = parent.openedSize or (baseHeight * (parent.subCategoriesSize + 1) - 6)
+end
+
+local function setSubCategoriesVisible(parent, isOpen, opacity)
+    opacity = opacity == nil and 1 or opacity
     for subId, _ in ipairs(parent.subCategories) do
         local subWidget = parent:getChildById(subId)
-        if subWidget then
+        if subWidget and not subWidget:isDestroyed() then
             subWidget:setVisible(isOpen)
+            subWidget:setOpacity(opacity)
         end
     end
-    parent:setHeight(isOpen and parent.openedSize or parent.closedSize)
+end
+
+local function toggleSubCategories(parent, isOpen)
+    if not parent or not parent.subCategories then
+        return
+    end
+
+    ensureCategorySizes(parent)
+    parent:setClipping(true)
     parent.opened = isOpen
     setCategoryArrow(parent.Button, isOpen)
+
+    local from = parent:getHeight() or parent.closedSize
+    local to = isOpen and parent.openedSize or parent.closedSize
+    if not from or not to then
+        parent:setHeight(isOpen and (parent.openedSize or from) or (parent.closedSize or from))
+        setSubCategoriesVisible(parent, isOpen, 1)
+        return
+    end
+
+    if isOpen then
+        setSubCategoriesVisible(parent, true, 0)
+    end
+
+    local animated = isSlideAnimationEnabled('showOptionsAnimation')
+    local duration = getSlideAnimationDuration(CATEGORY_ACCORDION_MS)
+
+    if not animated or not g_effects or math.abs(to - from) < 1 then
+        if g_effects then
+            g_effects.cancelValue(parent)
+        end
+        parent:setHeight(to)
+        setSubCategoriesVisible(parent, isOpen, 1)
+        return
+    end
+
+    g_effects.cancelValue(parent)
+    g_effects.animateValue(parent, from, to, duration, function(height)
+        if not parent or parent:isDestroyed() then
+            return
+        end
+
+        parent:setHeight(math.floor(height + 0.5))
+
+        local span = to - from
+        local t = math.abs(span) < 0.01 and 1 or ((height - from) / span)
+        t = math.max(0, math.min(1, t))
+
+        for subId, _ in ipairs(parent.subCategories) do
+            local subWidget = parent:getChildById(subId)
+            if subWidget and not subWidget:isDestroyed() then
+                subWidget:setOpacity(isOpen and t or (1 - t))
+            end
+        end
+
+        if math.abs(height - to) < 0.5 then
+            if isOpen then
+                setSubCategoriesVisible(parent, true, 1)
+            else
+                setSubCategoriesVisible(parent, false, 1)
+            end
+        end
+    end)
 end
 
 local function close(parent)

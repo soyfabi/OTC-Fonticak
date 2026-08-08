@@ -44,6 +44,7 @@ OptionsCategory < UIWidget
   size: 115 22
   image-source: /images/ui/1pixel_down_frame
   image-border: 5
+  clipping: true
   UIWidget
     id: Button
     size: 115 20
@@ -295,7 +296,7 @@ MainWindow
 
   OptionsQtButton
     id: openConfigDirButton
-    !text: tr('Dir Folder')
+    !text: tr('Open Folder')
     !tooltip: tr('Open the client data folder where configs are saved.')
     size: 90 20
     anchors.left: prev.right
