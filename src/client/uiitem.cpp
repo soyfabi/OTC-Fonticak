@@ -48,11 +48,17 @@ void UIItem::drawSelf(const DrawPoolType drawPane)
             m_item->setId(m_itemId);
         }
 
-        const int exactSize = std::max<int>(g_gameConfig.getSpriteSize(), m_item->getExactSize());
+        const int spriteSize = g_gameConfig.getSpriteSize();
+        const int exactSize = std::max<int>(spriteSize, m_item->getExactSize());
+
+        // ThingType::draw subtracts displacement inside (... * drawPoolScaleFactor).
+        // Match that here so icons stay centered when HUD/display density != 1
+        // (otherwise cloaks/capes shift up-left and clip out of the slot).
+        const Point displacement = m_item->getDisplacement() * g_drawPool.getScaleFactor();
 
         g_drawPool.bindFrameBuffer(exactSize);
         m_item->setColor(m_color);
-        m_item->draw(Point(exactSize - g_gameConfig.getSpriteSize()) + m_item->getDisplacement());
+        m_item->draw(Point(exactSize - spriteSize) + displacement);
         g_drawPool.releaseFrameBuffer(getPaddingRect(), m_flipDirection);
 
         const auto itemCountFont = g_gameConfig.getItemCountFont();

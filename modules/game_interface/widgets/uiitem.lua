@@ -9,7 +9,12 @@ function UIItem:onDragEnter(mousePos)
     end
 
     UIDragIcon:display(item)
-    self:setBorderWidth(1)
+    -- Use per-edge setters: setBorderWidth() triggers updateLayout and can
+    -- reset the parent container scrollbar while dragging.
+    self:setBorderWidthTop(1)
+    self:setBorderWidthRight(1)
+    self:setBorderWidthBottom(1)
+    self:setBorderWidthLeft(1)
     self.currentDragThing = item
     -- Use native cursor when enabled, otherwise use custom cursor
     if modules.client_options and modules.client_options.getOption('nativeCursor') then
@@ -32,13 +37,19 @@ function UIItem:onDragLeave(droppedWidget, mousePos)
         g_mouse.popCursor('target')
     end
     UIDragIcon:hide()
-    self:setBorderWidth(0)
+    self:setBorderWidthTop(0)
+    self:setBorderWidthRight(0)
+    self:setBorderWidthBottom(0)
+    self:setBorderWidthLeft(0)
     self.hoveredWho = nil
     return true
 end
 
 function UIItem:onDrop(widget, mousePos, forced)
-    self:setBorderWidth(0)
+    self:setBorderWidthTop(0)
+    self:setBorderWidthRight(0)
+    self:setBorderWidthBottom(0)
+    self:setBorderWidthLeft(0)
 
     if not self:canAcceptDrop(widget, mousePos) and not forced then
         return false
@@ -98,7 +109,10 @@ end
 
 function UIItem:onDestroy()
     if self == g_ui.getDraggingWidget() and self.hoveredWho then
-        self.hoveredWho:setBorderWidth(0)
+        self.hoveredWho:setBorderWidthTop(0)
+        self.hoveredWho:setBorderWidthRight(0)
+        self.hoveredWho:setBorderWidthBottom(0)
+        self.hoveredWho:setBorderWidthLeft(0)
     end
 
     if self:isVirtual() then
@@ -123,10 +137,16 @@ function UIItem:onHoverChange(hovered)
         local gotMap = draggingWidget:getClassName() == 'UIGameMap'
         local gotItem = draggingWidget:getClassName() == 'UIItem' and not draggingWidget:isVirtual()
         if hovered and (gotItem or gotMap) then
-            self:setBorderWidth(1)
+            self:setBorderWidthTop(1)
+            self:setBorderWidthRight(1)
+            self:setBorderWidthBottom(1)
+            self:setBorderWidthLeft(1)
             draggingWidget.hoveredWho = self
         else
-            self:setBorderWidth(0)
+            self:setBorderWidthTop(0)
+            self:setBorderWidthRight(0)
+            self:setBorderWidthBottom(0)
+            self:setBorderWidthLeft(0)
             draggingWidget.hoveredWho = nil
         end
     end

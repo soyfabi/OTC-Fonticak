@@ -45,10 +45,11 @@ void UIMissile::drawSelf(const DrawPoolType drawPane)
     drawImage(m_rect);
 
     if (m_missileVisible && m_missile) {
-        const int exactSize = std::max<int>(g_gameConfig.getSpriteSize(), m_missile->getExactSize());
+        const int spriteSize = g_gameConfig.getSpriteSize();
+        const int exactSize = std::max<int>(spriteSize, m_missile->getExactSize());
 
         g_drawPool.bindFrameBuffer(exactSize);
-        m_missile->draw(Point(exactSize - g_gameConfig.getSpriteSize()) + m_missile->getDisplacement());
+        m_missile->draw(Point(exactSize - spriteSize) + m_missile->getDisplacement() * g_drawPool.getScaleFactor());
         g_drawPool.releaseFrameBuffer(getPaddingRect());
     }
 

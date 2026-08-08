@@ -44,10 +44,11 @@ void UIEffect::drawSelf(const DrawPoolType drawPane)
     drawImage(m_rect);
 
     if (m_effectVisible && m_effect) {
-        const int exactSize = std::max<int>(g_gameConfig.getSpriteSize(), m_effect->getExactSize());
+        const int spriteSize = g_gameConfig.getSpriteSize();
+        const int exactSize = std::max<int>(spriteSize, m_effect->getExactSize());
 
         g_drawPool.bindFrameBuffer(exactSize);
-        m_effect->draw(Point(exactSize - g_gameConfig.getSpriteSize()) + m_effect->getDisplacement());
+        m_effect->draw(Point(exactSize - spriteSize) + m_effect->getDisplacement() * g_drawPool.getScaleFactor());
         g_drawPool.releaseFrameBuffer(getPaddingRect());
     }
 

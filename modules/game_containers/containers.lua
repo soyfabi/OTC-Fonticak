@@ -1,5 +1,38 @@
 containerSettings = nil
 
+-- Window chrome outside the item-grid padding rect (title, margins, borders).
+-- Measured from live geometry when possible; chromeHeight=31 was calibrated for
+-- padding 6+6 and became 6px too tall after padding was reduced to 3+3.
+local function getContainerChromeHeight(containerWindow, containerPanel, hasPages)
+    if containerWindow and containerPanel then
+        local paddingRect = containerPanel:getPaddingRect()
+        local windowHeight = containerWindow:getHeight()
+        if paddingRect and paddingRect.height and paddingRect.height > 0 and windowHeight > paddingRect.height then
+            return windowHeight - paddingRect.height
+        end
+    end
+    return hasPages and 49 or 25
+end
+
+local function getContainerRowsHeight(cellSize, step, rows)
+    rows = math.max(rows or 1, 1)
+    return cellSize.height + (rows - 1) * step
+end
+
+local function withPreservedContainerScroll(container, fn)
+    local panel = container and container.itemsPanel
+    local scrollbar = panel and (panel.verticalScrollBar or (container.window and container.window:getChildById('miniwindowScrollBar')))
+    local oldValue = scrollbar and scrollbar:getValue() or nil
+    fn()
+    if oldValue and scrollbar and not scrollbar:isDestroyed() then
+        addEvent(function()
+            if scrollbar and not scrollbar:isDestroyed() then
+                scrollbar:setValue(oldValue)
+            end
+        end)
+    end
+end
+
 function init()
     g_ui.importStyle('container')
 
@@ -737,28 +770,30 @@ function onContainersMenuAction(actionId)
 end
 
 function refreshContainerItems(container)
-    -- Check if we should preserve sorting during refresh
-    local currentSortMode = containerSettings and containerSettings['currentSortMode']
-    local isManualSortEnabled = containerSettings and containerSettings['useManualSortMode'] == 1
-    local shouldSort = currentSortMode and currentSortMode ~= 'none' and not isManualSortEnabled
-    
-    for slot = 0, container:getCapacity() - 1 do
-        local itemWidget = container.itemsPanel:getChildById('item' .. slot)
-        itemWidget:setItem(container:getItem(slot))
-        ItemsDatabase.setRarityItem(itemWidget, container:getItem(slot))
-        ItemsDatabase.setTier(itemWidget, container:getItem(slot))
-        itemWidget:setShowDuration(g_game.getFeature(GameThingClock) and modules.client_options.getOption('showExpiryInContainers'))
-        itemWidget:setShowCharges(g_game.getFeature(GameThingCounter) and modules.client_options.getOption('showExpiryInContainers'))
-    end
+    withPreservedContainerScroll(container, function()
+        -- Check if we should preserve sorting during refresh
+        local currentSortMode = containerSettings and containerSettings['currentSortMode']
+        local isManualSortEnabled = containerSettings and containerSettings['useManualSortMode'] == 1
+        local shouldSort = currentSortMode and currentSortMode ~= 'none' and not isManualSortEnabled
+        
+        for slot = 0, container:getCapacity() - 1 do
+            local itemWidget = container.itemsPanel:getChildById('item' .. slot)
+            itemWidget:setItem(container:getItem(slot))
+            ItemsDatabase.setRarityItem(itemWidget, container:getItem(slot))
+            ItemsDatabase.setTier(itemWidget, container:getItem(slot))
+            itemWidget:setShowDuration(g_game.getFeature(GameThingClock) and modules.client_options.getOption('showExpiryInContainers'))
+            itemWidget:setShowCharges(g_game.getFeature(GameThingCounter) and modules.client_options.getOption('showExpiryInContainers'))
+        end
 
-    if container:hasPages() then
-        refreshContainerPages(container)
-    end
-    
-    -- Apply current sorting if one is set and manual sort mode is disabled
-    if shouldSort then
-        sortContainerItems(container, currentSortMode)
-    end
+        if container:hasPages() then
+            refreshContainerPages(container)
+        end
+        
+        -- Apply current sorting if one is set and manual sort mode is disabled
+        if shouldSort then
+            sortContainerItems(container, currentSortMode)
+        end
+    end)
 end
 
 function toggleContainerPages(containerWindow, pages)
@@ -1074,13 +1109,14 @@ function onContainerOpen(container, previousContainer)
     local cellSize = layout:getCellSize()
     local step = cellSize.height + layout:getCellSpacing()
     local numLines = math.max(layout:getNumLines(), 1)
-    local chromeHeight = container:hasPages() and 55 or 31
+    local hasPages = container:hasPages()
+    local chromeHeight = getContainerChromeHeight(containerWindow, containerPanel, hasPages)
     containerWindow:setContentMinimumHeight(cellSize.height)
 
     local resizeBorder = containerWindow:getChildById('bottomResizeBorder')
     if resizeBorder then
-        resizeBorder:setMinimum(step + chromeHeight)
-        resizeBorder:setMaximum(numLines * step + chromeHeight)
+        resizeBorder:setMinimum(getContainerRowsHeight(cellSize, step, 1) + chromeHeight)
+        resizeBorder:setMaximum(getContainerRowsHeight(cellSize, step, numLines) + chromeHeight)
     end
     -- Enables dragging only when mouse press occurs within window bounds (with tolerance margins)
     -- and not over the containerPanel child widget
@@ -1120,14 +1156,21 @@ function onContainerOpen(container, previousContainer)
 
     -- Set the initial height only when the container window is first opened. If
     -- the window is reused, preserve any height selected manually by the player.
+    -- Re-measure chrome after parenting so padding/title match the live layout
+    -- (avoids the partial next-row peek from a stale magic chromeHeight).
     if not previousContainer then
-        if modules.client_options.getOption('openMinimized') then
-            containerWindow:setHeight(cellSize.height + chromeHeight)
-        else
-            local numColumns = math.max(layout:getNumColumns(), 1)
-            local filledLines = math.max(math.ceil(container:getItemsCount() / numColumns), 1)
-            containerWindow:setHeight(cellSize.height + (filledLines - 1) * step + chromeHeight)
+        chromeHeight = getContainerChromeHeight(containerWindow, containerPanel, hasPages)
+        if resizeBorder then
+            resizeBorder:setMinimum(getContainerRowsHeight(cellSize, step, 1) + chromeHeight)
+            resizeBorder:setMaximum(getContainerRowsHeight(cellSize, step, math.max(layout:getNumLines(), 1)) + chromeHeight)
         end
+
+        local rows = 1
+        if not modules.client_options.getOption('openMinimized') then
+            local numColumns = math.max(layout:getNumColumns(), 1)
+            rows = math.max(math.ceil(container:getItemsCount() / numColumns), 1)
+        end
+        containerWindow:setHeight(getContainerRowsHeight(cellSize, step, rows) + chromeHeight)
     end
 
     containerWindow:setup()
@@ -1165,10 +1208,12 @@ function onContainerUpdateItem(container, slot, item, oldItem)
     if not container.window then
         return
     end
-    local itemWidget = container.itemsPanel:getChildById('item' .. slot)
-    itemWidget:setItem(item)
-    itemWidget:setShowDuration(g_game.getFeature(GameThingClock) and modules.client_options.getOption('showExpiryInContainers'))
-    itemWidget:setShowCharges(g_game.getFeature(GameThingCounter) and modules.client_options.getOption('showExpiryInContainers'))
+    withPreservedContainerScroll(container, function()
+        local itemWidget = container.itemsPanel:getChildById('item' .. slot)
+        itemWidget:setItem(item)
+        itemWidget:setShowDuration(g_game.getFeature(GameThingClock) and modules.client_options.getOption('showExpiryInContainers'))
+        itemWidget:setShowCharges(g_game.getFeature(GameThingCounter) and modules.client_options.getOption('showExpiryInContainers'))
+    end)
     
     -- Note: Removed automatic re-sorting to prevent interference with manual item movement
     -- Sorting should only happen when explicitly requested by the user

@@ -40,6 +40,10 @@ function UIScrollArea:updateScrollBars()
 
     local scrollbar = self.verticalScrollBar
     if scrollbar then
+        -- Keep the previous offset across brief layout passes where content
+        -- height collapses to 0 (e.g. item border/drag triggering relayout).
+        -- Otherwise setMaximum(0) clamps the value and the bar jumps to the top.
+        local previousValue = scrollbar:getValue()
         if self.inverted then
             scrollbar:setMinimum(-scrollHeight)
             scrollbar:setMaximum(0)
@@ -47,16 +51,33 @@ function UIScrollArea:updateScrollBars()
             scrollbar:setMinimum(0)
             scrollbar:setMaximum(scrollHeight)
         end
+        if scrollHeight == 0 and previousValue ~= 0 then
+            self.pendingScrollY = previousValue
+        elseif scrollHeight > 0 and self.pendingScrollY then
+            scrollbar:setValue(math.min(self.pendingScrollY, scrollHeight))
+            self.pendingScrollY = nil
+        elseif scrollHeight > 0 and previousValue ~= 0 and scrollbar:getValue() ~= previousValue and previousValue <= scrollHeight then
+            scrollbar:setValue(previousValue)
+        end
     end
 
     local scrollbar = self.horizontalScrollBar
     if scrollbar then
+        local previousValue = scrollbar:getValue()
         if self.inverted then
             scrollbar:setMinimum(-scrollWidth)
             scrollbar:setMaximum(0)
         else
             scrollbar:setMinimum(0)
             scrollbar:setMaximum(scrollWidth)
+        end
+        if scrollWidth == 0 and previousValue ~= 0 then
+            self.pendingScrollX = previousValue
+        elseif scrollWidth > 0 and self.pendingScrollX then
+            scrollbar:setValue(math.min(self.pendingScrollX, scrollWidth))
+            self.pendingScrollX = nil
+        elseif scrollWidth > 0 and previousValue ~= 0 and scrollbar:getValue() ~= previousValue and previousValue <= scrollWidth then
+            scrollbar:setValue(previousValue)
         end
     end
 

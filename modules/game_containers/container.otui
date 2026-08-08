@@ -64,6 +64,7 @@ ContainerWindow < MiniWindow
     padding-top: 3
     padding-right: 0
     padding-bottom: 3
+    clipping: true
     vertical-scrollbar: miniwindowScrollBar
     layout:
       type: grid

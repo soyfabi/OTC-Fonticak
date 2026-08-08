@@ -1,6 +1,7 @@
 Item < UIItem
   size: 34 34
   padding: 1
+  clipping: true
   image-source: /images/ui/item
   font: verdana-11px-rounded
   border-color: white
