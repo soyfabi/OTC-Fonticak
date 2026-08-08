@@ -1266,6 +1266,14 @@ return {
     showSpellAnimation = {
         value = true,
     },
+    showOptionsFrameAnimation = {
+        value = true,
+        action = function(value)
+            if modules.client_options.applyOptionsFrameAnimation then
+                modules.client_options.applyOptionsFrameAnimation(value ~= false)
+            end
+        end
+    },
     autoAssignSpell = {
         value = true,
     },

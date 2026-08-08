@@ -18,7 +18,7 @@ UIWidget
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: parent.top
-      height: 690
+      height: 720
 
       QtPanel
         id: animationBarsPanel
@@ -344,6 +344,18 @@ UIWidget
           id: showSpellAnimation
           !text: tr('Show Spell Animation')
           !tooltip: tr('When you unlock a spell by leveling up, play a short animation\nof the spell icon flying into an empty action bar slot.\nRequires Auto Assign Spell.\nIndependent from Animation Master, Outfit Master, Slide Master and Animation Speed.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 7
+        height: 22
+
+        OptionCheckBoxMarked
+          id: showOptionsFrameAnimation
+          !text: tr('Show Options Frame Animation')
+          !tooltip: tr('Yellow FrameCharge border when selecting a category\nin the Options window. Plays on click and stays while active.\nIndependent from Animation Master, Outfit Master, Slide Master and Animation Speed.')
 
   VerticalScrollBar
     id: animationScrollBar

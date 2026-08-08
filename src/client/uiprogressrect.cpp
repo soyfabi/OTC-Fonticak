@@ -161,12 +161,13 @@ void UIProgressRect::drawFrameChargeProgress(const Rect& drawRect) const
     const bool flashing = m_flashEnd > g_clock.millis();
 
     if (progress <= 0.f && !flashing) {
-        g_drawPool.addFilledRect(drawRect, m_backgroundColor);
+        if (!m_frameOnly)
+            g_drawPool.addFilledRect(drawRect, m_backgroundColor);
         return;
     }
 
-    // 1) Dark veil clears behind the moving "/" from TL -> BR.
-    if (!flashing)
+    // Dark veil (skipped in frame-only selection overlays).
+    if (!flashing && !m_frameOnly)
         drawDiagonalDarkReveal(drawRect, progress);
 
     // 2) Golden frame charge around the border (same progress).
@@ -304,7 +305,7 @@ void UIProgressRect::drawSelf(const DrawPoolType drawPane)
 
     if (m_showProgress) {
         if (m_progressStyle == ProgressRectStyle::FrameCharge) {
-            if (m_running || flashing || m_percent < 100.f)
+            if (m_running || flashing || m_percent < 100.f || m_holdCompleteFrame)
                 drawFrameChargeProgress(drawRect);
             if (flashing)
                 drawFinishFlash(drawRect);
@@ -408,6 +409,24 @@ void UIProgressRect::setProgressStyle(const uint8_t style)
     repaint();
 }
 
+void UIProgressRect::setFrameOnly(const bool frameOnly)
+{
+    if (m_frameOnly == frameOnly)
+        return;
+
+    m_frameOnly = frameOnly;
+    repaint();
+}
+
+void UIProgressRect::setHoldCompleteFrame(const bool holdCompleteFrame)
+{
+    if (m_holdCompleteFrame == holdCompleteFrame)
+        return;
+
+    m_holdCompleteFrame = holdCompleteFrame;
+    repaint();
+}
+
 uint32_t UIProgressRect::getTimeElapsed()
 {
     if (m_running)
@@ -435,6 +454,10 @@ void UIProgressRect::onStyleApply(const std::string_view styleName, const OTMLNo
                 setProgressStyle(static_cast<uint8_t>(ProgressRectStyle::FrameCharge));
             else
                 setProgressStyle(static_cast<uint8_t>(ProgressRectStyle::Classic));
+        } else if (node->tag() == "frame-only") {
+            setFrameOnly(node->value<bool>());
+        } else if (node->tag() == "hold-complete-frame") {
+            setHoldCompleteFrame(node->value<bool>());
         }
     }
 }

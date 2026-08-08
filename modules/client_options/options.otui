@@ -99,6 +99,19 @@ OptionsCategory < UIWidget
       image-source: /images/ui/icon-arrow7x7-down
       visible: false
 
+    UIProgressRect
+      id: selectionGlow
+      anchors.fill: parent
+      phantom: true
+      focusable: false
+      background-color: alpha
+      percent: 100
+      show-time: false
+      show-progress: true
+      progress-style: frame-charge
+      frame-only: true
+      hold-complete-frame: false
+
 OptionCheckBox < QtCheckBox
   anchors.left: parent.left
   anchors.right: parent.right

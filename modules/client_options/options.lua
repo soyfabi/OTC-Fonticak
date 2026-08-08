@@ -1099,6 +1099,7 @@ function resetAnimation()
     setOption('showAnimationHudManaBar', true, true)
     setOption('showAnimationArcs', true, true)
     setOption('showSpellAnimation', true, true)
+    setOption('showOptionsFrameAnimation', true, true)
     setOption('uiBarAnimationSpeed', 100, true)
     setOption('showOutfitAnimationMaster', true, true)
     setOption('showOutfitAnimationFloor', true, true)
@@ -1300,6 +1301,78 @@ end
 local CATEGORY_ARROW_CLOSED = "/images/ui/icon-arrow7x7-right"
 local CATEGORY_ARROW_OPEN = "/images/ui/icon-arrow7x7-down"
 local CATEGORY_ACCORDION_MS = 240
+local CATEGORY_SELECTION_GLOW_MS = 450
+
+local function getCategorySelectionGlow(button)
+    if not button or button:isDestroyed() then
+        return nil
+    end
+    local glow = button.selectionGlow
+    if not glow or glow:isDestroyed() then
+        return nil
+    end
+    return glow
+end
+
+local function supportsCategorySelectionGlow(glow)
+    return glow and glow.setFrameOnly and glow.setHoldCompleteFrame and glow.setProgressStyle
+end
+
+local function stopCategorySelectionGlow(button)
+    local glow = getCategorySelectionGlow(button)
+    if not glow then
+        return
+    end
+
+    glow:stop()
+    if glow.setHoldCompleteFrame then
+        glow:setHoldCompleteFrame(false)
+    end
+    glow:setPercent(100)
+end
+
+local function playCategorySelectionGlow(button)
+    if not button or button:isDestroyed() then
+        return
+    end
+
+    local previous = controller.ui.selectedCategoryButton
+    if previous and previous ~= button then
+        stopCategorySelectionGlow(previous)
+    end
+    controller.ui.selectedCategoryButton = button
+
+    if not getBoolOption('showOptionsFrameAnimation', true) then
+        stopCategorySelectionGlow(button)
+        return
+    end
+
+    local glow = getCategorySelectionGlow(button)
+    if not supportsCategorySelectionGlow(glow) then
+        return
+    end
+
+    glow:setFrameOnly(true)
+    glow:setHoldCompleteFrame(true)
+    glow:setProgressStyle(1)
+    glow:showProgress(true)
+    glow:showTime(false)
+    glow:setDuration(CATEGORY_SELECTION_GLOW_MS)
+    glow:start()
+end
+
+function applyOptionsFrameAnimation(enabled)
+    local button = controller.ui and controller.ui.selectedCategoryButton
+    if not button or button:isDestroyed() then
+        return
+    end
+
+    if enabled and button:isChecked() then
+        playCategorySelectionGlow(button)
+    else
+        stopCategorySelectionGlow(button)
+    end
+end
 
 local function setCategoryArrow(button, isOpen)
     if not button or not button.Arrow then
@@ -1445,6 +1518,7 @@ local function createSubWidget(parent, subId, subButton)
         subWidget.Button:setChecked(true)
         subWidget.Button.Arrow:setVisible(true)
         subWidget.Button.Arrow:setImageSource("/images/ui/icon-arrow7x7-right")
+        playCategorySelectionGlow(subWidget.Button)
 
         if selectedOption then
             selectedOption:hide()
@@ -1479,6 +1553,7 @@ local function createSubWidget(parent, subId, subButton)
 end
 
 function configureCharacterCategories()
+    controller.ui.selectedCategoryButton = nil
     controller.ui.optionsTabBar:destroyChildren()
 
     for id, button in ipairs(buttons) do
@@ -1556,6 +1631,7 @@ function configureCharacterCategories()
                 print("Error: panelToShow is nil or does not exist in panels")
             end
 
+            playCategorySelectionGlow(widget.Button)
             controller.ui.openedCategory = parent
         end
     end
@@ -1567,7 +1643,11 @@ function closeCharacterButtons()
         if widget and widget.subCategories then
             for subId, _ in ipairs(widget.subCategories) do
                 local subWidget = widget:getChildById(subId)
-                if subWidget then
+                if subWidget and subWidget.Button then
+                    stopCategorySelectionGlow(subWidget.Button)
+                    if controller.ui.selectedCategoryButton == subWidget.Button then
+                        controller.ui.selectedCategoryButton = nil
+                    end
                     subWidget.Button:setChecked(false)
                     subWidget.Button.Arrow:setVisible(false)
                 end

@@ -49,6 +49,10 @@ public:
     void showProgress(bool showProgress);
     void setProgressStyle(uint8_t style);
     uint8_t getProgressStyle() const { return static_cast<uint8_t>(m_progressStyle); }
+    void setFrameOnly(bool frameOnly);
+    bool isFrameOnly() const { return m_frameOnly; }
+    void setHoldCompleteFrame(bool holdCompleteFrame);
+    bool isHoldCompleteFrame() const { return m_holdCompleteFrame; }
     uint32_t getTimeElapsed();
     uint32_t getDuration() { return m_duration; }
 
@@ -76,5 +80,7 @@ private:
     bool m_showTime{ true };
     bool m_showProgress{ true };
     bool m_running{ false };
+    bool m_frameOnly{ false };
+    bool m_holdCompleteFrame{ false };
     ProgressRectStyle m_progressStyle{ ProgressRectStyle::FrameCharge };
 };
