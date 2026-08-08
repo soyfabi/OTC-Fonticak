@@ -87,6 +87,160 @@ local auraCheck = nil
 
 local previewCreature = nil
 local previewFamiliar = nil
+local familiarPreviewShown = false
+local familiarPreviewAnim = {}
+
+local FAMILIAR_SHIFT_MARGIN = 63
+local FAMILIAR_MARGIN_LEFT_HIDDEN = 28
+local FAMILIAR_MARGIN_LEFT_SHOWN = 47
+local FAMILIAR_ANIM_MS = 280
+local PREVIEW_TRANSITION_MS = 280
+local CREATURE_MARGIN_TOP_DEFAULT = -30
+
+local suppressPreviewTransition = false
+local previewTransitionAnim = {}
+
+local function isOutfitAnimEnabled(optionKey)
+  if modules.client_options and modules.client_options.isOutfitAnimationEnabled then
+    return modules.client_options.isOutfitAnimationEnabled(optionKey)
+  end
+  return true
+end
+
+local function outfitAnimDuration(baseMs)
+  if modules.client_options and modules.client_options.getOutfitAnimationDuration then
+    return modules.client_options.getOutfitAnimationDuration(baseMs)
+  end
+  return baseMs
+end
+
+local function cancelFamiliarPreviewAnim()
+  if g_effects then
+    g_effects.cancelValue(familiarPreviewAnim)
+  end
+end
+
+local function cancelPreviewTransitions()
+  if g_effects then
+    g_effects.cancelValue(previewTransitionAnim)
+  end
+  if previewCreature and not previewCreature:isDestroyed() then
+    previewCreature:setMarginTop(CREATURE_MARGIN_TOP_DEFAULT)
+  end
+end
+
+-- Soft settle nudge (no opacity fade) when outfit/mount/addons/floor toggle.
+local function animatePreviewTransition(applyChange, options)
+  options = options or {}
+  if applyChange then
+    applyChange()
+  end
+
+  local optionKey = options.optionKey
+  if optionKey and not isOutfitAnimEnabled(optionKey) then
+    return
+  end
+
+  if suppressPreviewTransition or not previewCreature or previewCreature:isDestroyed() or not g_effects then
+    return
+  end
+
+  local nudgeTop = options.nudgeTop or 0
+  if nudgeTop == 0 then
+    return
+  end
+
+  g_effects.cancelValue(previewTransitionAnim)
+  previewCreature:setMarginTop(CREATURE_MARGIN_TOP_DEFAULT + nudgeTop)
+  g_effects.animateValue(previewTransitionAnim, nudgeTop, 0, outfitAnimDuration(PREVIEW_TRANSITION_MS), function(offset)
+    if not previewCreature or previewCreature:isDestroyed() then
+      return
+    end
+    previewCreature:setMarginTop(CREATURE_MARGIN_TOP_DEFAULT + math.floor(offset + 0.5))
+  end)
+end
+
+local function applyFloorImage(showFloor)
+  if not window or not window.preview or not window.preview.previewoutfit then
+    return
+  end
+  if showFloor then
+    window.preview.previewoutfit:setImageSource('/images/game/outfit_ground')
+  else
+    window.preview.previewoutfit:setImageSource('/game_cyclopedia/images/ui/panel-background')
+  end
+end
+
+local function animateFloorTransition(showFloor)
+  applyFloorImage(showFloor)
+  animatePreviewTransition(nil, {
+    nudgeTop = showFloor and 5 or -5,
+    optionKey = 'showOutfitAnimationFloor'
+  })
+end
+
+local function applyFamiliarPreviewProgress(progress)
+  progress = math.max(0, math.min(1, progress or 0))
+
+  if previewCreature and not previewCreature:isDestroyed() then
+    previewCreature:setMarginRight(math.floor(FAMILIAR_SHIFT_MARGIN * progress + 0.5))
+  end
+
+  if not previewFamiliar or previewFamiliar:isDestroyed() then
+    return
+  end
+
+  local marginLeft = FAMILIAR_MARGIN_LEFT_HIDDEN +
+    (FAMILIAR_MARGIN_LEFT_SHOWN - FAMILIAR_MARGIN_LEFT_HIDDEN) * progress
+  previewFamiliar:setMarginLeft(math.floor(marginLeft + 0.5))
+  previewFamiliar:setOpacity(progress)
+
+  if progress > 0.01 then
+    previewFamiliar:setVisible(true)
+  else
+    previewFamiliar:setVisible(false)
+    previewFamiliar:setOpacity(1)
+    previewFamiliar:setMarginLeft(FAMILIAR_MARGIN_LEFT_SHOWN)
+  end
+end
+
+local function setFamiliarPreviewLook(familiarId, direction)
+  if not previewFamiliar or previewFamiliar:isDestroyed() then
+    return
+  end
+  if familiarId and familiarId > 0 then
+    previewFamiliar:setOutfit({ type = familiarId })
+  end
+  if direction ~= nil then
+    previewFamiliar:setDirection(direction)
+  end
+end
+
+local function animateFamiliarPreview(show, familiarId, direction)
+  setFamiliarPreviewLook(familiarId, direction)
+
+  if suppressPreviewTransition or not previewFamiliar or not g_effects or not isOutfitAnimEnabled('showOutfitAnimationFamiliar') then
+    applyFamiliarPreviewProgress(show and 1 or 0)
+    familiarPreviewShown = show and true or false
+    return
+  end
+
+  local from = 0
+  if previewCreature and not previewCreature:isDestroyed() then
+    from = (previewCreature:getMarginRight() or 0) / FAMILIAR_SHIFT_MARGIN
+  elseif familiarPreviewShown then
+    from = 1
+  end
+
+  if show then
+    previewFamiliar:setVisible(true)
+  end
+
+  familiarPreviewShown = show and true or false
+  g_effects.animateValue(familiarPreviewAnim, from, show and 1 or 0, outfitAnimDuration(FAMILIAR_ANIM_MS), function(progress)
+    applyFamiliarPreviewProgress(progress)
+  end)
+end
 
 local currentColorBox = nil
 local globalRandomMount = nil
@@ -316,11 +470,7 @@ end
 
 function onShowFloorChange(checkBox, checked)
   g_settings.set('outfit_showFloor', checked)
-  if checked then
-		window.preview.previewoutfit:setImageSource('/images/game/outfit_ground')
-	else
-		window.preview.previewoutfit:setImageSource('/game_cyclopedia/images/ui/panel-background')
-	end
+  animateFloorTransition(checked)
 end
 
 function onShowFamiliarChange(checkBox, checked)
@@ -362,16 +512,23 @@ end
 function onMountCheckChange(checkBox, checked)
   g_settings.set('outfit_mountCheck', checked)
   showOutfitCheck:setEnabled(checked)
-  if checked then
+  if checked and showAuraCheck and showAuraCheck:isChecked() then
+    showAuraCheck.onCheckChange = nil
     showAuraCheck:setChecked(false)
+    showAuraCheck.onCheckChange = onShowAuraChange
+    g_settings.set('outfit_showAura', false)
   end
 
-  updatePreview()
+  animatePreviewTransition(function()
+    updatePreview()
+  end, { nudgeTop = checked and -10 or 8, optionKey = 'showOutfitAnimationMount' })
 end
 
 function onShowOutfitCheckChange(checkBox, checked)
   g_settings.set('outfit_showOutfit', checked)
-  updatePreview(not checked)
+  animatePreviewTransition(function()
+    updatePreview(not checked)
+  end, { nudgeTop = checked and 6 or -6, optionKey = 'showOutfitAnimationOutfit' })
 end
 
 function create(player, outfitList, creatureMount, mountList, familiarList, wingList, auraList, effectsList, shaderList, healthBarList, manaBarList)
@@ -432,7 +589,14 @@ function create(player, outfitList, creatureMount, mountList, familiarList, wing
 
   previewCreature = window.preview.previewoutfit.creature
   previewFamiliar = window.preview.previewoutfit.familiar
+  cancelFamiliarPreviewAnim()
+  familiarPreviewShown = false
   previewFamiliar:setVisible(false)
+  previewFamiliar:setOpacity(1)
+  previewFamiliar:setMarginLeft(FAMILIAR_MARGIN_LEFT_SHOWN)
+  if previewCreature then
+    previewCreature:setMarginRight(0)
+  end
 
   window.preview.previewoutfit.onMouseWheel = function(widget, mousePos, mouseWheelDirection)
     if mouseWheelDirection == MouseWheelUp then
@@ -521,6 +685,9 @@ function create(player, outfitList, creatureMount, mountList, familiarList, wing
     window.appearance.auraCheck:setEnabled(true)
   end
 
+  -- Avoid transition animations while restoring the initial checkbox state.
+  suppressPreviewTransition = true
+
   showOutfitCheck:setChecked(g_settings.getBoolean('outfit_showOutfit', true))
   showMountCheck:setChecked(g_settings.getBoolean('outfit_mountCheck', false) and currentOutfit.mount > 0)
   showFamiliarCheck:setChecked(g_settings.getBoolean('outfit_showFamiliar', false))
@@ -532,7 +699,7 @@ function create(player, outfitList, creatureMount, mountList, familiarList, wing
   local showFloor = g_settings.getBoolean('outfit_showFloor', true)
   showFloorCheck:setChecked(showFloor)
   if not showFloor then
-    window.preview.previewoutfit:setImageSource('/game_cyclopedia/images/ui/panel-background')
+    applyFloorImage(false)
   end
   
   -- Restore last selected preset name if it exists
@@ -591,6 +758,7 @@ function create(player, outfitList, creatureMount, mountList, familiarList, wing
 
   updatePreview()
   updateAppearanceTexts(currentOutfit)
+  suppressPreviewTransition = false
 
   if not table.empty(ServerData.auras) then
     if currentOutfit.auraId == 0 then
@@ -607,6 +775,10 @@ end
 
 function destroy()
   if window then
+    cancelFamiliarPreviewAnim()
+    cancelPreviewTransitions()
+    familiarPreviewShown = false
+    suppressPreviewTransition = false
     g_client.setInputLockWidget()
     window:destroy()
     window = nil
@@ -617,6 +789,8 @@ function destroy()
     showMountCheck = nil
     showFamiliarCheck = nil
     showAuraCheck = nil
+    previewCreature = nil
+    previewFamiliar = nil
 
     currentColorBox = nil
     lastFocusPreset = nil
@@ -1376,7 +1550,9 @@ function onAddonChange(widget, checked)
   end
 
   tempOutfit.addons = addons
-  updatePreview()
+  animatePreviewTransition(function()
+    updatePreview()
+  end, { nudgeTop = checked and -5 or 5, optionKey = 'showOutfitAnimationAddon' })
 end
 
 function onRandomMountChange(widget, checked)
@@ -1486,18 +1662,21 @@ function updatePreview(onlyMount)
     end
   end
   if previewFamiliar then
-    if familiarId > 0 then
-      previewFamiliar:setOutfit({ type = familiarId })
-      previewFamiliar:setVisible(true)
-      previewFamiliar:setDirection(direction)
-      if previewCreature then
-        previewCreature:setMarginRight(63)
+    local wantShow = familiarId > 0
+    if wantShow then
+      if familiarPreviewShown then
+        -- Already visible: only refresh outfit/direction (no re-animation).
+        setFamiliarPreviewLook(familiarId, direction)
+        if not familiarPreviewAnim.valueEvent then
+          applyFamiliarPreviewProgress(1)
+        end
+      else
+        animateFamiliarPreview(true, familiarId, direction)
       end
+    elseif familiarPreviewShown then
+      animateFamiliarPreview(false, familiarId, direction)
     else
-      previewFamiliar:setVisible(false)
-      if previewCreature then
-        previewCreature:setMarginRight(0)
-      end
+      applyFamiliarPreviewProgress(0)
     end
   end
 

@@ -1494,4 +1494,38 @@ return {
             end
         end
     },
+
+    showOutfitAnimationMaster = {
+        value = true,
+        action = function(value)
+            if modules.client_options and modules.client_options.applyOutfitAnimationMaster then
+                modules.client_options.applyOutfitAnimationMaster(value ~= false)
+            end
+        end
+    },
+    showOutfitAnimationFloor = {
+        value = true
+    },
+    showOutfitAnimationOutfit = {
+        value = true
+    },
+    showOutfitAnimationAddon = {
+        value = true
+    },
+    showOutfitAnimationMount = {
+        value = true
+    },
+    showOutfitAnimationFamiliar = {
+        value = true
+    },
+    outfitAnimationSpeed = {
+        value = 100,
+        action = function(value, options, controller, panels, extraWidgets)
+            local widget = panels.graphicsAnimationPanel and
+                panels.graphicsAnimationPanel:recursiveGetChildById('outfitAnimationSpeed')
+            if widget then
+                widget:setText(tr('Animation Speed: %s%%', value))
+            end
+        end
+    },
 }

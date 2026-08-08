@@ -79,7 +79,7 @@ local buttons = { {
         text = "Effects",
         open = "graphicsEffectsPanel"
     }, {
-        text = "Animation",
+        text = "Animations",
         open = "graphicsAnimationPanel"
     } }
 }, {
@@ -801,6 +801,15 @@ local ANIMATION_BAR_CHILDREN = {
     'uiBarAnimationSpeed',
 }
 
+local OUTFIT_ANIMATION_CHILDREN = {
+    'showOutfitAnimationFloor',
+    'showOutfitAnimationOutfit',
+    'showOutfitAnimationAddon',
+    'showOutfitAnimationMount',
+    'showOutfitAnimationFamiliar',
+    'outfitAnimationSpeed',
+}
+
 function isBarAnimationEnabled(optionKey)
     if not getBoolOption('showAnimationMaster', true) then
         return false
@@ -809,6 +818,24 @@ function isBarAnimationEnabled(optionKey)
         return getBoolOption(optionKey, true)
     end
     return true
+end
+
+function isOutfitAnimationEnabled(optionKey)
+    if not getBoolOption('showOutfitAnimationMaster', true) then
+        return false
+    end
+    if optionKey then
+        return getBoolOption(optionKey, true)
+    end
+    return true
+end
+
+function getOutfitAnimationDuration(baseMs)
+    local speed = tonumber(getOption('outfitAnimationSpeed')) or 100
+    if speed <= 0 then
+        speed = 100
+    end
+    return math.max(80, math.floor((baseMs or 280) * (100 / speed) + 0.5))
 end
 
 function syncNameplateBarAnimation()
@@ -833,6 +860,18 @@ function applyAnimationMaster(enabled)
         end
     end
     syncNameplateBarAnimation()
+end
+
+function applyOutfitAnimationMaster(enabled)
+    local panel = panels.graphicsAnimationPanel
+    if panel then
+        for _, id in ipairs(OUTFIT_ANIMATION_CHILDREN) do
+            local widget = panel:recursiveGetChildById(id)
+            if widget then
+                widget:setEnabled(enabled and true or false)
+            end
+        end
+    end
 end
 
 function applyOwnHUD(opts, panelTable)
@@ -1069,6 +1108,13 @@ function resetAnimation()
     setOption('showAnimationArcs', true, true)
     setOption('showSpellAnimation', true, true)
     setOption('uiBarAnimationSpeed', 100, true)
+    setOption('showOutfitAnimationMaster', true, true)
+    setOption('showOutfitAnimationFloor', true, true)
+    setOption('showOutfitAnimationOutfit', true, true)
+    setOption('showOutfitAnimationAddon', true, true)
+    setOption('showOutfitAnimationMount', true, true)
+    setOption('showOutfitAnimationFamiliar', true, true)
+    setOption('outfitAnimationSpeed', 100, true)
 end
 
 function resetActionBars()
@@ -1255,6 +1301,17 @@ function removeTab(v)
     -- deprecated: options use addButton categories instead of tabs
 end
 
+local CATEGORY_ARROW_CLOSED = "/images/ui/icon-arrow7x7-right"
+local CATEGORY_ARROW_OPEN = "/images/ui/icon-arrow7x7-down"
+
+local function setCategoryArrow(button, isOpen)
+    if not button or not button.Arrow then
+        return
+    end
+    button.Arrow:setVisible(true)
+    button.Arrow:setImageSource(isOpen and CATEGORY_ARROW_OPEN or CATEGORY_ARROW_CLOSED)
+end
+
 local function toggleSubCategories(parent, isOpen)
     for subId, _ in ipairs(parent.subCategories) do
         local subWidget = parent:getChildById(subId)
@@ -1264,7 +1321,7 @@ local function toggleSubCategories(parent, isOpen)
     end
     parent:setHeight(isOpen and parent.openedSize or parent.closedSize)
     parent.opened = isOpen
-    parent.Button.Arrow:setVisible(not isOpen)
+    setCategoryArrow(parent.Button, isOpen)
 end
 
 local function close(parent)
@@ -1308,8 +1365,7 @@ local function createSubWidget(parent, subId, subButton)
         local selectedOption = controller.ui.selectedOption
         closeCharacterButtons()
         parent.Button:setChecked(false)
-        parent.Button.Arrow:setVisible(true)
-        parent.Button.Arrow:setImageSource("")
+        setCategoryArrow(parent.Button, true)
         subWidget.Button:setChecked(true)
         subWidget.Button.Arrow:setVisible(true)
         subWidget.Button.Arrow:setImageSource("/images/ui/icon-arrow7x7-right")
@@ -1359,7 +1415,7 @@ function configureCharacterCategories()
         if button.subCategories then
             widget.subCategories = button.subCategories
             widget.subCategoriesSize = #button.subCategories
-            widget.Button.Arrow:setVisible(true)
+            setCategoryArrow(widget.Button, false)
 
             for subId, subButton in ipairs(button.subCategories) do
                 local subWidget = createSubWidget(widget, subId, subButton)
@@ -1388,7 +1444,7 @@ function configureCharacterCategories()
             if oldOpen and oldOpen ~= parent then
                 if oldOpen.Button then
                     oldOpen.Button:setChecked(false)
-                    oldOpen.Button.Arrow:setImageSource("/images/ui/icon-arrow7x7-down")
+                    setCategoryArrow(oldOpen.Button, false)
                 end
 
                 close(oldOpen)
@@ -1400,12 +1456,15 @@ function configureCharacterCategories()
 
                 if not parent.opened then
                     open(parent)
+                else
+                    setCategoryArrow(parent.Button, true)
                 end
             end
 
             widget.Button:setChecked(true)
-            widget.Button.Arrow:setImageSource("/images/ui/icon-arrow7x7-right")
-            widget.Button.Arrow:setVisible(true)
+            if parent.subCategoriesSize then
+                setCategoryArrow(widget.Button, true)
+            end
 
             if controller.ui.selectedOption then
                 controller.ui.selectedOption:hide()
