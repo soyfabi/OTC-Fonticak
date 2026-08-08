@@ -1,0 +1,26 @@
+ScreenshotType < UIWidget
+  background-color: alpha
+  text-offset: 35 1
+  focusable: true
+  font: verdana-11px-rounded
+  text-align: left
+
+  CheckBox
+    id: enabled
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    width: 15
+    height: 15
+    margin-top: 2
+    margin-left: 3
+    @onCheckChange: |
+      if modules.game_notifications and modules.game_notifications.onUICheckBox then
+        modules.game_notifications.onUICheckBox(self, self:isChecked())
+      end
+
+  Label
+    id: text
+    margin-left: 8
+    anchors.left: prev.right
+    anchors.verticalCenter: parent.verticalCenter
+    focusable: false

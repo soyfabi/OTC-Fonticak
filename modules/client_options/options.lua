@@ -13,6 +13,7 @@ panels = {
     interface = nil,
     misc = nil,
     miscGameplay = nil,
+    miscScreenshot = nil,
     miscHelp = nil,
     keybindsPanel = nil,
     customHotkeys = nil
@@ -95,6 +96,15 @@ local buttons = { {
     subCategories = { {
         text = "Gameplay",
         open = "miscGameplay"
+    }, {
+        text = "Screenshots",
+        open = "miscScreenshot",
+        -- Lazy-load: do NOT create this panel during client boot.
+        callbackFunc = function()
+            if modules.game_notifications and modules.game_notifications.ensureScreenshotOptionsPanel then
+                modules.game_notifications.ensureScreenshotOptionsPanel()
+            end
+        end
     }, {
         text = "Help",
         open = "miscHelp"
@@ -1240,16 +1250,19 @@ local function createSubWidget(parent, subId, subButton)
             selectedOption:hide()
         end
 
+        -- Allow lazy panels (e.g. Screenshots) to create themselves before show.
+        if subWidget.callbackFunc then
+            subWidget.callbackFunc()
+        end
+
         local panelToShow = panels[subWidget.open]
         if panelToShow then
             panelToShow:show()
             panelToShow:setVisible(true)
             controller.ui.selectedOption = panelToShow
         else
-            print("Error: panelToShow is nil or does not exist in panels")
-        end
-        if subWidget.callbackFunc then
-            subWidget.callbackFunc()
+            g_logger.error(string.format('[client_options] Missing options panel for subcategory "%s" (%s)',
+                tostring(subWidget.Button.Title:getText()), tostring(subWidget.open)))
         end
     end
 

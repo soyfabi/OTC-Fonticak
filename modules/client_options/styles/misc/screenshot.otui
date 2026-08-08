@@ -1,0 +1,115 @@
+UIWidget
+  anchors.fill: parent
+  visible: false
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: parent.top
+    height: 22
+
+    OptionCheckBox
+      id: onlyCaptureGameWindow
+      !text: tr('Only Capture Game Window')
+      !tooltip: tr('If you check this option, the screenshots will only be taken from\nthe game window instead of the complete client interface. This\nmight improve your game performance, particularly if you have\nticked the Screenshot Backlog option.')
+      @onCheckChange: |
+        if modules.game_notifications and modules.game_notifications.saveScreenshotMainOptions then
+          modules.game_notifications.saveScreenshotMainOptions()
+        end
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBox
+      id: keepBlacklog
+      !text: tr('Keep Backlog of the Screenshots of the Last 5 Seconds')
+      !tooltip: tr('Currently unavailable / under maintenance.\n\nIn the official client this would cache one screenshot per second\nand also save the previous 5 seconds whenever a screenshot is taken.')
+      enabled: false
+      color: #666666ff
+      opacity: 0.75
+
+  SmallReversedQtPanel
+    id: Opciones3
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 234
+
+    OptionCheckBox
+      id: enableScreenshots
+      !text: tr('Enable Auto Screenshots')
+      !tooltip: tr('Enable this option to save screenshots of the most important\nmoments of your career! Whenever one of the events you\nhave selected takes place, a screenshot will be taken\nautomatically.')
+      checked: false
+      @onCheckChange: |
+        if modules.game_notifications and modules.game_notifications.saveScreenshotMainOptions then
+          modules.game_notifications.saveScreenshotMainOptions()
+        end
+        if modules.game_notifications and modules.game_notifications.updateScreenshotEventsEnabledState then
+          modules.game_notifications.updateScreenshotEventsEnabledState()
+        end
+
+    Label
+      id: eventsLabel
+      !text: tr('Select all events that should trigger auto screenshots:')
+      anchors.left: parent.left
+      margin-left: 18
+      margin-top: 5
+      color: #c0c0c0ff
+      anchors.top: prev.bottom
+
+  Panel
+    id: allCheckBox
+    width: 484
+    margin-bottom: 5
+    margin-left: 20
+    anchors.left: parent.left
+    anchors.bottom: Opciones3.bottom
+
+    layout:
+      type: grid
+      cell-size: 240 20
+      cell-spacing: 1
+      flow: true
+      fit-children: true
+
+  OptionsQtButton
+    id: openScreenshotsFolderButton
+    !text: tr('Open Screenshot Folder')
+    !tooltip: tr('Open the folder where screenshots are saved.')
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    size: 155 20
+    @onClick: |
+      if modules.game_notifications and modules.game_notifications.OpenFolder then
+        modules.game_notifications.OpenFolder()
+      end
+
+  OptionsQtButton
+    id: takeScreenshotButton
+    !text: tr('Take Screenshot')
+    !tooltip: tr('Take a screenshot now. Default hotkey: Ctrl+PrintScreen')
+    anchors.bottom: parent.bottom
+    anchors.left: prev.right
+    margin-left: 8
+    size: 120 20
+    @onClick: |
+      if modules.game_notifications and modules.game_notifications.takeManualScreenshot then
+        modules.game_notifications.takeManualScreenshot()
+      end
+
+  OptionsQtButton
+    id: resetScreenshotsButton
+    !text: tr('Reset')
+    !tooltip: tr('Reset all Screenshots options to their default values.')
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    size: 80 20
+    @onClick: |
+      if modules.game_notifications and modules.game_notifications.resetValues then
+        modules.game_notifications.resetValues()
+      end

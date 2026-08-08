@@ -155,6 +155,11 @@ function notificationsController:onGameStart()
             if level > oldLevel then
                 for l = oldLevel + 1, level do
                     self:onClientEvent(4, l)
+                    -- Client-side level detection must trigger auto-screenshots
+                    -- (many OT servers never send GameServerTakeScreenshot).
+                    if type(onScreenShot) == 'function' then
+                        onScreenShot(7) -- ScreenshotType.LEVEL_UP
+                    end
                 end
             end
             playerLevels[charName] = level
@@ -168,6 +173,9 @@ function notificationsController:onGameStart()
             if baseMagicLevel > oldBaseMagicLevel then
                 for l = oldBaseMagicLevel + 1, baseMagicLevel do
                     self:onClientEvent(5, 1, l)
+                    if type(onScreenShot) == 'function' then
+                        onScreenShot(12) -- ScreenshotType.SKILL_UP
+                    end
                 end
             end
             playerBaseMagicLevel = baseMagicLevel
@@ -213,6 +221,9 @@ function notificationsController:onGameStart()
                 if accepted then
                     for l = oldBaseLevel + 1, baseLevel do
                         self:onClientEvent(5, protoId, l)
+                        if type(onScreenShot) == 'function' then
+                            onScreenShot(12) -- ScreenshotType.SKILL_UP
+                        end
                     end
                 end
             end
