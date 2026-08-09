@@ -194,7 +194,15 @@ end
 
 function UIScrollArea:onChildFocusChange(focusedChild, oldFocused, reason)
     if focusedChild and (reason == MouseFocusReason or reason == KeyboardFocusReason) then
-        self:ensureChildVisible(focusedChild)
+        -- Walk to the deepest focused widget. Using the direct child (e.g. a tall
+        -- column panel) makes ensureChildVisible scroll to that panel's bottom.
+        local widget = focusedChild
+        local nested = widget.getFocusedChild and widget:getFocusedChild()
+        while nested do
+            widget = nested
+            nested = widget.getFocusedChild and widget:getFocusedChild()
+        end
+        self:ensureChildVisible(widget)
     end
 end
 

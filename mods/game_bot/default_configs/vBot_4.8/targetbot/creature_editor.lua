@@ -27,6 +27,39 @@ TargetBot.Creature.edit = function(config, callback) -- callback = function(newC
     local widget = UI.createWidget('TargetBotCreatureEditorTextEdit', editor.content.right)
     widget.text:setText(title)
     widget.textEdit:setText(config[id] or defaultValue or "")
+
+    local openEditor = function()
+      if not modules.client_textedit or not modules.client_textedit.show then
+        return
+      end
+      local window = modules.client_textedit.show(widget.textEdit, {
+        title = title,
+        description = "Edit " .. title
+      })
+      if window then
+        schedule(50, function()
+          if window and window.raise and not window:isDestroyed() then
+            window:raise()
+            window:focus()
+          end
+        end)
+      end
+    end
+
+    -- TextEdit inside ScrollablePanel often ignores keyboard; open popup editor instead
+    widget.textEdit.onMouseRelease = function(w, mousePos, mouseButton)
+      if mouseButton == MouseLeftButton then
+        openEditor()
+        return true
+      end
+    end
+    widget.onMouseRelease = function(w, mousePos, mouseButton)
+      if mouseButton == MouseLeftButton then
+        openEditor()
+        return true
+      end
+    end
+
     table.insert(values, {id, function() return widget.textEdit:getText() end})
   end
 
@@ -89,6 +122,18 @@ TargetBot.Creature.edit = function(config, callback) -- callback = function(newC
   addScrollBar("rePositionAmount", "Min tiles to rePosition", 0, 7, 5)
   addScrollBar("closeLureAmount", "Close Pull Until", 0, 8, 3)
 
+  -- Attack options
+  addScrollBar("minMana", "Min. mana for attack spell", 0, 3000, 200)
+  addScrollBar("attackSpellDelay", "Attack spell delay", 200, 5000, 2500)
+  addScrollBar("minManaGroup", "Min. mana for group attack", 0, 3000, 1500)
+  addScrollBar("groupAttackTargets", "Min. targets for group attack", 1, 10, 2)
+  addScrollBar("groupAttackRadius", "Radius of group attack spell", 1, 7, 1)
+  addScrollBar("groupAttackDelay", "Group attack spell delay", 200, 60000, 5000)
+  addScrollBar("runeAttackDelay", "Rune attack delay", 200, 5000, 2000)
+  addScrollBar("groupRuneAttackTargets", "Min. targets for group rune attack", 1, 10, 2)
+  addScrollBar("groupRuneAttackRadius", "Radius of group rune attack", 1, 7, 1)
+  addScrollBar("groupRuneAttackDelay", "Group rune attack delay", 200, 60000, 5000)
+
   addCheckBox("chase", "Chase", true)
   addCheckBox("keepDistance", "Keep Distance", false)
   addCheckBox("anchor", "Anchoring", false)
@@ -103,4 +148,15 @@ TargetBot.Creature.edit = function(config, callback) -- callback = function(newC
   addCheckBox("rePosition", "rePosition to better tile", false)
   addCheckBox("closeLure", "Close Pulling Monsters", false)
   addCheckBox("rpSafe", "RP PVP SAFE - (DA)", false)
+
+  addCheckBox("useSpellAttack", "Use attack spell", false)
+  addTextEdit("attackSpell", "Attack spell", "")
+  addCheckBox("useRuneAttack", "Use attack rune", false)
+  addItem("attackRune", "Attack rune:", 0)
+  addCheckBox("useGroupAttack", "Use group attack spell", false)
+  addTextEdit("groupAttackSpell", "Group attack spell", "")
+  addCheckBox("useGroupAttackRune", "Use group attack rune", false)
+  addItem("groupAttackRune", "Group attack rune:", 0)
+  addCheckBox("groupAttackIgnorePlayers", "Ignore players in group attack", false)
+  addCheckBox("groupAttackIgnoreParty", "Ignore party in group attack", false)
 end

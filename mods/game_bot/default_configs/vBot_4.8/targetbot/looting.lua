@@ -247,7 +247,8 @@ TargetBot.Looting.lootContainer = function(lootContainers, container)
       end
     elseif storage.foodItems and storage.foodItems[1] and lastFoodConsumption + 5000 < now then
       for _, food in ipairs(storage.foodItems) do
-        if item:getId() == food.id then
+        local foodId = type(food) == "table" and food.id or food
+        if foodId and item:getId() == foodId then
           g_game.use(item)
           lastFoodConsumption = now
           return

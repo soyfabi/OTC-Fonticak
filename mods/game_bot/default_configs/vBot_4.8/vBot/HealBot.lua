@@ -26,6 +26,10 @@ Panel
     margin-left: 3
     height: 17
     text: Setup
+    font: verdana-11px-antialised
+    text-align: center
+    text-offset: 0 0
+    padding: 0
 
   Button
     id: 1
@@ -215,10 +219,6 @@ if rootWidget then
     currentSettings.name = text
     setProfileName()
   end
-  healWindow.settings.list.Visible.onClick = function(widget)
-    currentSettings.Visible = not currentSettings.Visible
-    healWindow.settings.list.Visible:setChecked(currentSettings.Visible)
-  end
   healWindow.settings.list.Cooldown.onClick = function(widget)
     currentSettings.Cooldown = not currentSettings.Cooldown
     healWindow.settings.list.Cooldown:setChecked(currentSettings.Cooldown)
@@ -240,6 +240,19 @@ if rootWidget then
     healWindow.settings.list.MessageDelay:setChecked(currentSettings.MessageDelay)
   end
 
+  local originToOption = {
+    MP = "Current Mana",
+    HP = "Current Health",
+    ["MP%"] = "Mana Percent",
+    ["HP%"] = "Health Percent",
+    burst = "Burst Damage"
+  }
+  local signToOption = {
+    [">"] = "Above",
+    ["<"] = "Below",
+    ["="] = "Equal To"
+  }
+
   local refreshSpells = function()
     if currentSettings.spellTable then
       healWindow.healer.spells.spellList:destroyChildren()
@@ -255,6 +268,19 @@ if rootWidget then
         label.remove.onClick = function(widget)
           standBySpells = false
           standByItems = false
+          table.removevalue(currentSettings.spellTable, entry)
+          reindexTable(currentSettings.spellTable)
+          label:destroy()
+        end
+        -- Double-click loads the rule into the right panel for editing
+        label.onDoubleClick = function()
+          standBySpells = false
+          standByItems = false
+          healWindow.healer.spells.spellSource:setOption(originToOption[entry.origin] or "Mana Percent")
+          healWindow.healer.spells.spellCondition:setOption(signToOption[entry.sign] or "Below")
+          healWindow.healer.spells.spellValue:setText(tostring(entry.value))
+          healWindow.healer.spells.manaCost:setText(tostring(entry.cost))
+          healWindow.healer.spells.spellFormula:setText(entry.spell or "")
           table.removevalue(currentSettings.spellTable, entry)
           reindexTable(currentSettings.spellTable)
           label:destroy()
@@ -280,6 +306,18 @@ if rootWidget then
         label.remove.onClick = function(widget)
           standBySpells = false
           standByItems = false
+          table.removevalue(currentSettings.itemTable, entry)
+          reindexTable(currentSettings.itemTable)
+          label:destroy()
+        end
+        -- Double-click loads the rule into the right panel for editing
+        label.onDoubleClick = function()
+          standBySpells = false
+          standByItems = false
+          healWindow.healer.items.itemSource:setOption(originToOption[entry.origin] or "Mana Percent")
+          healWindow.healer.items.itemCondition:setOption(signToOption[entry.sign] or "Below")
+          healWindow.healer.items.itemValue:setText(tostring(entry.value))
+          healWindow.healer.items.itemId:setItemId(entry.item)
           table.removevalue(currentSettings.itemTable, entry)
           reindexTable(currentSettings.itemTable)
           label:destroy()
@@ -455,7 +493,6 @@ if rootWidget then
     healWindow.settings.profiles.Name:setText(currentSettings.name)
     refreshSpells()
     refreshItems()
-    healWindow.settings.list.Visible:setChecked(currentSettings.Visible)
     healWindow.settings.list.Cooldown:setChecked(currentSettings.Cooldown)
     healWindow.settings.list.Delay:setChecked(currentSettings.Delay)
     healWindow.settings.list.MessageDelay:setChecked(currentSettings.MessageDelay)
@@ -475,7 +512,6 @@ if rootWidget then
     currentSettings.enabled = false
     currentSettings.spellTable = {}
     currentSettings.itemTable = {}
-    currentSettings.Visible = true
     currentSettings.Cooldown = true
     currentSettings.Delay = true
     currentSettings.MessageDelay = false
@@ -636,8 +672,8 @@ macro(100, function()
   end
 
   for _, entry in pairs(currentSettings.itemTable) do
-    local item = findItem(entry.item)
-    if (not currentSettings.Visible or item) and entry.enabled then
+    -- Always use by item id (works with closed backpacks); no visibility check
+    if entry.enabled then
       if entry.origin == "HP%" then
         if entry.sign == "=" and hppercent() == entry.value then
           g_game.useInventoryItemWith(entry.item, player)

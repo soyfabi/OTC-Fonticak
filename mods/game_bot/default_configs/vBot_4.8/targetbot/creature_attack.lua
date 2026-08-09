@@ -63,50 +63,67 @@ TargetBot.Creature.attack = function(params, targets, isLooting) -- params {conf
     TargetBot.Creature.walk(creature, config, targets)
   end
 
-  -- attacks
+  -- attacks (defaults match creature_editor; nil checks so old configs still cast)
   local mana = player:getMana()
-  if config.useGroupAttack and config.groupAttackSpell:len() > 1 and mana > config.minManaGroup then
-    local creatures = g_map.getSpectatorsInRange(player:getPosition(), false, config.groupAttackRadius, config.groupAttackRadius)
+  local attackSpell = type(config.attackSpell) == "string" and config.attackSpell:trim() or ""
+  local groupSpell = type(config.groupAttackSpell) == "string" and config.groupAttackSpell:trim() or ""
+  local minMana = config.minMana or 0
+  local minManaGroup = config.minManaGroup or 0
+  local groupRadius = config.groupAttackRadius or 1
+  local groupTargets = config.groupAttackTargets or 2
+  local groupDelay = config.groupAttackDelay or 5000
+  local groupRuneRadius = config.groupRuneAttackRadius or 1
+  local groupRuneTargets = config.groupRuneAttackTargets or 2
+  local groupRuneDelay = config.groupRuneAttackDelay or 5000
+  local spellDelay = config.attackSpellDelay or 2000
+  local runeDelay = config.attackRuneDelay or 2000
+  local groupRune = tonumber(config.groupAttackRune) or 0
+  local attackRune = tonumber(config.attackRune) or 0
+
+  if config.useGroupAttack and groupSpell:len() > 1 and mana > minManaGroup then
+    local creatures = g_map.getSpectatorsInRange(player:getPosition(), false, groupRadius, groupRadius)
     local playersAround = false
     local monsters = 0
-    for _, creature in ipairs(creatures) do
-      if not creature:isLocalPlayer() and creature:isPlayer() and (not config.groupAttackIgnoreParty or creature:getShield() <= 2) then
+    for _, spectator in ipairs(creatures) do
+      if not spectator:isLocalPlayer() and spectator:isPlayer() and (not config.groupAttackIgnoreParty or spectator:getShield() <= 2) then
         playersAround = true
-      elseif creature:isMonster() then
+      elseif spectator:isMonster() then
         monsters = monsters + 1
       end
     end
-    if monsters >= config.groupAttackTargets and (not playersAround or config.groupAttackIgnorePlayers) then
-      if TargetBot.sayAttackSpell(config.groupAttackSpell, config.groupAttackDelay) then
+    if monsters >= groupTargets and (not playersAround or config.groupAttackIgnorePlayers) then
+      if TargetBot.sayAttackSpell(groupSpell, groupDelay) then
         return
       end
     end
   end
 
-  if config.useGroupAttackRune and config.groupAttackRune > 100 then
-    local creatures = g_map.getSpectatorsInRange(creature:getPosition(), false, config.groupRuneAttackRadius, config.groupRuneAttackRadius)
+  if config.useGroupAttackRune and groupRune > 100 then
+    local creatures = g_map.getSpectatorsInRange(creature:getPosition(), false, groupRuneRadius, groupRuneRadius)
     local playersAround = false
     local monsters = 0
-    for _, creature in ipairs(creatures) do
-      if not creature:isLocalPlayer() and creature:isPlayer() and (not config.groupAttackIgnoreParty or creature:getShield() <= 2) then
+    for _, spectator in ipairs(creatures) do
+      if not spectator:isLocalPlayer() and spectator:isPlayer() and (not config.groupAttackIgnoreParty or spectator:getShield() <= 2) then
         playersAround = true
-      elseif creature:isMonster() then
+      elseif spectator:isMonster() then
         monsters = monsters + 1
       end
     end
-    if monsters >= config.groupRuneAttackTargets and (not playersAround or config.groupAttackIgnorePlayers) then
-      if TargetBot.useAttackItem(config.groupAttackRune, 0, creature, config.groupRuneAttackDelay) then
+    if monsters >= groupRuneTargets and (not playersAround or config.groupAttackIgnorePlayers) then
+      if TargetBot.useAttackItem(groupRune, 0, creature, groupRuneDelay) then
         return
       end
     end
   end
-  if config.useSpellAttack and config.attackSpell:len() > 1 and mana > config.minMana then
-    if TargetBot.sayAttackSpell(config.attackSpell, config.attackSpellDelay) then
+
+  if config.useSpellAttack and attackSpell:len() > 1 and mana >= minMana then
+    if TargetBot.sayAttackSpell(attackSpell, spellDelay) then
       return
     end
   end
-  if config.useRuneAttack and config.attackRune > 100 then
-    if TargetBot.useAttackItem(config.attackRune, 0, creature, config.attackRuneDelay) then
+
+  if config.useRuneAttack and attackRune > 100 then
+    if TargetBot.useAttackItem(attackRune, 0, creature, runeDelay) then
       return
     end
   end

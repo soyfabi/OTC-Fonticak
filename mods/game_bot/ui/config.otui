@@ -21,13 +21,19 @@ BotConfig < Panel
     anchors.left: prev.right
     anchors.right: parent.right
     margin-left: 5
+    font: verdana-11px-antialised
+    text-align: center
+    text-offset: 0 0
+    padding: 0
     $on:
-      text: On
+      text: ON
       color: #00AA00
+      text-offset: 0 0
 
     $!on:
-      text: Off
+      text: OFF
       color: #FF0000
+      text-offset: 0 0
 
   Button
     margin-top: 2
@@ -37,7 +43,10 @@ BotConfig < Panel
     text: Add
     width: 56
     height: 18
-    text-offet: 0 2
+    font: verdana-11px-antialised
+    text-align: center
+    text-offset: 0 0
+    padding: 0
 
   Button
     id: edit
@@ -46,7 +55,10 @@ BotConfig < Panel
     text: Edit
     width: 56
     height: 18
-    text-offet: 0 2
+    font: verdana-11px-antialised
+    text-align: center
+    text-offset: 0 0
+    padding: 0
 
   Button
     id: remove
@@ -55,4 +67,7 @@ BotConfig < Panel
     text: Remove
     width: 56
     height: 18
-    text-offet: 0 2
+    font: verdana-11px-antialised
+    text-align: center
+    text-offset: 0 0
+    padding: 0

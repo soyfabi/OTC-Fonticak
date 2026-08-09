@@ -234,14 +234,6 @@ if rootWidget then
             end
         end
 
-        local tabButton = TabBar.buttonsPanel:getChildren()[v]
-
-        tabButton.onStyleApply = function(widget)
-            if TabBar:getCurrentTab() == widget then
-                widget:setColor(colors[v])
-            end
-        end
-
         -- callbacks
         addButton.onClick = function()
             local names = string.split(nameTab:getText(), ",")
@@ -303,6 +295,20 @@ if rootWidget then
           return true
         end
     end
+
+    local function refreshTabColors()
+      for i, tab in ipairs(TabBar:getTabs()) do
+        if tab == TabBar:getCurrentTab() then
+          tab:setColor(colors[i] or "#dfdfdf")
+        else
+          tab:setColor("#dfdfdf")
+        end
+      end
+    end
+    TabBar.onTabChange = function()
+      refreshTabColors()
+    end
+    refreshTabColors()
 
     function addBlackListPlayer(name)
       if table.find(config.blackList, name) then return end

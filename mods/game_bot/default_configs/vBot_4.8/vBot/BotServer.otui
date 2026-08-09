@@ -39,6 +39,9 @@ BotServerData < Panel
     text: Randomize
     margin-left: 6
     margin-right: 6
+    font: verdana-11px-antialised
+    text-offset: 0 0
+    padding: 0
 
   Label
     id: label
@@ -77,7 +80,7 @@ BotServerData < Panel
 
 FeaturePanel < Panel
   size: 340 150
-  image-source: /images/ui/panel_flat
+  image-source: /images/ui/panel_flat_border
   image-border: 5
   padding: 3
 
@@ -101,6 +104,7 @@ FeaturePanel < Panel
     anchors.left: parent.left
     margin-left: 3
     margin-top: 5
+    width: 108
     text: Mana info
 
   BotSwitch
@@ -109,6 +113,7 @@ FeaturePanel < Panel
     anchors.left: prev.right
     margin-top: 5
     margin-left: 5
+    width: 108
     text: MWall info
 
   BotSwitch
@@ -117,6 +122,7 @@ FeaturePanel < Panel
     anchors.left: prev.right
     margin-top: 5
     margin-left: 5
+    width: 108
     text: Send Vocation
 
   BotSwitch
@@ -125,6 +131,7 @@ FeaturePanel < Panel
     anchors.left: parent.left
     margin-top: 3
     margin-left: 3
+    width: 108
     text: Outfit Vocation
 
   BotSwitch
@@ -133,6 +140,7 @@ FeaturePanel < Panel
     anchors.left: prev.right
     margin-top: 3
     margin-left: 5
+    width: 108
     text: Broadcasts
 
   TextEdit
@@ -153,6 +161,9 @@ FeaturePanel < Panel
     margin-left: 3
     height: 22
     text: Broadcast
+    font: verdana-11px-antialised
+    text-offset: 0 0
+    padding: 0
 
 BotServerWindow < MainWindow
   !text: tr('BotServer')
@@ -193,6 +204,8 @@ BotServerWindow < MainWindow
     anchors.left: parent.left
     margin-left: 5
     height: 21
+    width: 120
+    font: verdana-11px-antialised
 
     $!on:
       text: BotServer: OFF

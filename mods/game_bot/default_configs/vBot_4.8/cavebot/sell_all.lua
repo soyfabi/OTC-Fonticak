@@ -56,8 +56,6 @@ CaveBot.Extensions.SellAll.setup = function()
       end
     end
 
-    table.dump(val)
-
     modules.game_npctrade.sellAll(wait, val)
     if wait then
       print("CaveBot[SellAll]: Sold All with delay")

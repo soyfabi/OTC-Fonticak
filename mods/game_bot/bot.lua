@@ -92,7 +92,7 @@ function init()
   if newWindowButton then
     newWindowButton:setVisible(false)
   end
-  
+
   -- Position lockButton where toggleFilterButton would be (to the left of minimize button)
   local lockButton = botWindow:recursiveGetChildById('lockButton')
   local minimizeButton = botWindow:recursiveGetChildById('minimizeButton')
@@ -114,8 +114,39 @@ function init()
   botMessages = contentsPanel.messages
   botTabs = contentsPanel.botTabs
   botTabs:setContentWidget(contentsPanel.botPanel)
+
+  -- Keep header/tabs full-width; scrolling happens in BotPanel below the tabs
+  local function disableBotMiniwindowScroll()
+    local miniScroll = botWindow:getChildById('miniwindowScrollBar')
+    if miniScroll then
+      miniScroll:setVisible(false)
+      miniScroll:setWidth(0)
+      if miniScroll.setOn then
+        miniScroll:setOn(false)
+      end
+    end
+    contentsPanel.verticalScrollBar = nil
+    if contentsPanel.breakAnchors and contentsPanel.addAnchor then
+      contentsPanel:breakAnchors()
+      contentsPanel:addAnchor(AnchorTop, 'miniwindowHeader', AnchorBottom)
+      contentsPanel:addAnchor(AnchorLeft, 'parent', AnchorLeft)
+      contentsPanel:addAnchor(AnchorRight, 'parent', AnchorRight)
+      contentsPanel:addAnchor(AnchorBottom, 'parent', AnchorBottom)
+      contentsPanel:setMarginLeft(3)
+      contentsPanel:setMarginRight(3)
+      contentsPanel:setMarginTop(2)
+      contentsPanel:setMarginBottom(3)
+    end
+  end
+  disableBotMiniwindowScroll()
+  scheduleEvent(disableBotMiniwindowScroll, 50)
+  scheduleEvent(disableBotMiniwindowScroll, 300)
+
   botTabs.onGeometryChange = function(widget, oldRect, newRect)
     updateBotTabsHeight()
+    if widget.fitTabs then
+      widget.fitTabs()
+    end
   end
 
   editWindow = g_ui.displayUI('edit')
@@ -518,7 +549,7 @@ function createDefaultConfigs()
     end
 
     -- Public configs shipped with the client. Private packs live in private_configs/ and are not copied.
-    local publicConfigs = { "cavebot_1.3", "vBot_4.8" }
+    local publicConfigs = { "vBot_4.8" }
     local available = {}
     for _, name in ipairs(g_resources.listDirectoryFiles("default_configs", false, false)) do
         available[name] = true

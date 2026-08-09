@@ -22,9 +22,12 @@ BotTabBarButton < UIButton
   icon-color: #dfdfdf
   color: #dfdfdf
   anchors.top: parent.top
-  padding: 4
-  padding-right: 5
-  text-horizontal-auto-resize: true
+  padding: 2
+  padding-right: 2
+  font: verdana-11px-antialised
+  text-horizontal-auto-resize: false
+  text-align: center
+  text-offset: 0 0
 
   $first:
     anchors.left: parent.left
@@ -36,14 +39,22 @@ BotTabBarButton < UIButton
   $hover !checked:
     image-clip: 0 18 98 18
     color: #dfdfdf
+    text-offset: 0 0
 
   $disabled:
     image-color: #dfdfdf88
     icon-color: #dfdfdf
 
+  $pressed:
+    text-offset: 0 0
+
   $checked:
     image-clip: 0 36 98 18
     color: #dfdfdf
+    text-offset: 0 0
+
+  $checked pressed:
+    text-offset: 0 0
 
   $on !checked:
     color: #de6f6f
@@ -80,6 +91,10 @@ MiniWindow
     !text: tr('Bot')
 
   MiniWindowContents
+    anchors.right: parent.right
+    margin-right: 3
+    always-show-vertical-scrollbar: false
+
     ComboBox
       id: config
       &menuScroll: true
@@ -106,6 +121,7 @@ MiniWindow
       @onClick: modules.game_bot.edit()
       margin-left: 3
       margin-right: 37
+      font: verdana-11px-antialised
 
     Button
       id: enableButton
@@ -114,14 +130,26 @@ MiniWindow
       anchors.right: parent.right
       margin-left: 3
       margin-right: 2
+      font: verdana-11px-antialised
+      text-align: center
+      text-offset: 0 0
+      padding: 0
 
       $on:
-        text: On
+        text: ON
         color: #00AA00
+        text-offset: 0 0
 
       $!on:
-        text: Off
+        text: OFF
         color: #FF0000
+        text-offset: 0 0
+
+      $pressed:
+        text-offset: 0 0
+
+      $hover:
+        text-offset: 0 0
 
     Label
       id: statusLabel
@@ -172,7 +200,9 @@ MiniWindow
       anchors.top: prev.bottom
       anchors.left: parent.left
       anchors.right: parent.right
-      margin-right: -20
+      margin-left: 1
+      margin-right: 2
+
     Panel
       id: botPanel
       margin-top: 2

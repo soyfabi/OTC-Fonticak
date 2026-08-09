@@ -16,7 +16,7 @@ FollowComboBox < ComboBox
 
 ComboTrigger < Panel
   id: trigger
-  image-source: /images/ui/panel_flat
+  image-source: /images/ui/panel_flat_border
   image-border: 6
   padding: 3
   size: 450 72
@@ -135,7 +135,7 @@ ComboTrigger < Panel
 
 ComboActions < Panel
   id: actions
-  image-source: /images/ui/panel_flat
+  image-source: /images/ui/panel_flat_border
   image-border: 6
   padding: 3
   size: 220 100
@@ -248,7 +248,7 @@ ComboActions < Panel
 
 BotServer < Panel
   id: server
-  image-source: /images/ui/panel_flat
+  image-source: /images/ui/panel_flat_border
   image-border: 6
   padding: 3
   size: 220 100

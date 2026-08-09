@@ -88,6 +88,8 @@ ItemEntry < Label
 
 SpellHealing < FlatPanel
   size: 490 130
+  image-source: /images/ui/panel_flat_border
+  image-border: 1
 
   Label
     id: title
@@ -218,6 +220,8 @@ SpellHealing < FlatPanel
 
 ItemHealing < FlatPanel
   size: 490 120
+  image-source: /images/ui/panel_flat_border
+  image-border: 1
 
   Label
     id: title
@@ -355,6 +359,8 @@ HealBotSettingsPanel < Panel
     padding-left: 6
     padding-right: 6
     padding-top: 6
+    image-source: /images/ui/panel_flat_border
+    image-border: 1
     layout:
       type: verticalBox
 
@@ -369,10 +375,6 @@ HealBotSettingsPanel < Panel
       id: Cooldown
       text: Check spell cooldowns
       margin-top: 10
-
-    SettingCheckBox
-      id: Visible
-      text: Items must be visible (recommended)
 
     SettingCheckBox
       id: Delay
@@ -403,6 +405,8 @@ HealBotSettingsPanel < Panel
     margin-left: 8
     margin-right: 8
     padding: 8
+    image-source: /images/ui/panel_flat_border
+    image-border: 1
 
     Label
       text: Profile Settings
@@ -440,6 +444,10 @@ HealBotSettingsPanel < Panel
       text: Reset Current Profile
       text-auto-resize: true
       color: #ff4513
+      font: verdana-11px-antialised
+      text-align: center
+      text-offset: 0 0
+      padding: 0
 
 HealWindow < MainWindow
   !text: tr('Self Healer')

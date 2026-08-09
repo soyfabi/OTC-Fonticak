@@ -20,6 +20,10 @@ Panel
     margin-left: 3
     height: 17
     text: Setup
+    font: verdana-11px-antialised
+    text-align: center
+    text-offset: 0 0
+    padding: 0
 
   ]])
   ui:setId(panelName)

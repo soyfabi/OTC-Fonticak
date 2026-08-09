@@ -274,10 +274,16 @@ TargetBot.saySpell = function(text, delay)
 end
 
 TargetBot.sayAttackSpell = function(text, delay)
-  if type(text) ~= 'string' or text:len() < 1 then return end
+  if type(text) ~= 'string' or text:len() < 1 then return false end
+  text = text:trim()
+  if text:len() < 1 then return false end
   if not delay then delay = 2000 end
   if lastAttackSpell + delay < now then
-    say(text)
+    if cast then
+      cast(text, delay)
+    else
+      say(text)
+    end
     lastAttackSpell = now
     return true
   end
@@ -314,13 +320,15 @@ TargetBot.useAttackItem = function(item, subType, target, delay)
     end
     if g_game.getClientVersion() < 780 then
       local tmpItem = g_game.findPlayerItem(item, subType)
-      if not tmpItem then return end
+      if not tmpItem then return false end
       g_game.useWith(tmpItem, target, subType) -- using item from bp
     else
       g_game.useInventoryItemWith(item, target, subType) -- hotkey
     end
     lastRuneAttack = now
+    return true
   end
+  return false
 end
 
 TargetBot.canLure = function()

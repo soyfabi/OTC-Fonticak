@@ -204,7 +204,7 @@ function isBuffed()
     return var
 end
 
--- if using index as table element, this can be used to properly assign new idex to all values
+-- if using index as table element, this can be used to properly assign a new index to all values
 -- table needs to contain "index" as value
 -- if no index in tables, it will create one
 function reindexTable(t)
@@ -410,7 +410,7 @@ end
 -- global tables for cached players to prevent unnecesary resource consumption
 -- probably still can be improved, TODO in future
 -- c can be creature or string
--- if exected then adds name or name and creature to tables
+-- if executed then adds name or name and creature to tables
 -- returns boolean
 CachedFriends = {}
 CachedEnemies = {}

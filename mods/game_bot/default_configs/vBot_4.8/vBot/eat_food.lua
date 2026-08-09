@@ -3,14 +3,15 @@ if voc() ~= 1 and voc() ~= 11 and voc() ~= 5 and voc() ~= 15 then
     if storage.foodItems then
         local t = {}
         for i, v in pairs(storage.foodItems) do
-            if not table.find(t, v.id) then
-                table.insert(t, v.id)
+            local id = type(v) == "table" and v.id or v
+            if id and not table.find(t, id) then
+                table.insert(t, id)
             end
         end
         local foodItems = { 3607, 3585, 3592, 3600, 3601 }
         for i, item in pairs(foodItems) do
             if not table.find(t, item) then
-                table.insert(storage.foodItems, item)
+                table.insert(storage.foodItems, { id = item })
             end
         end
     end
@@ -23,7 +24,7 @@ end
 
 UI.Label("Eatable items:")
 if type(storage.foodItems) ~= "table" then
-  storage.foodItems = {3582, 3577}
+  storage.foodItems = { { id = 3582 }, { id = 3577 } }
 end
 
 local foodContainer = UI.Container(function(widget, items)
@@ -38,7 +39,8 @@ macro(500, "Eat Food", function()
   for _, container in pairs(g_game.getContainers()) do
     for __, item in ipairs(container:getItems()) do
       for i, foodItem in ipairs(storage.foodItems) do
-        if item:getId() == foodItem.id then
+        local foodId = type(foodItem) == "table" and foodItem.id or foodItem
+        if foodId and item:getId() == foodId then
           return g_game.use(item)
         end
       end

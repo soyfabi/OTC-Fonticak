@@ -29,6 +29,8 @@ SettingCheckBox < CheckBox
 
 Settings < FlatPanel
   padding: 6
+  image-source: /images/ui/panel_flat_border
+  image-border: 1
   layout:
     type: verticalBox
 
@@ -96,16 +98,51 @@ tPanel < Panel
     anchors.right: parent.right
     font: verdana-11px-rounded
 
+PlayerListTabBar < TabBar
+  height: 20
+
+PlayerListTabBarPanel < TabBarPanel
+
+PlayerListTabBarButton < UIButton
+  height: 18
+  font: verdana-11px-antialised
+  image-source: /images/ui/tabbutton_square
+  image-color: #dfdfdf
+  image-clip: 0 0 98 18
+  image-border: 3
+  color: #dfdfdf
+  anchors.top: parent.top
+  padding: 4
+  padding-right: 5
+  text-align: center
+  text-offset: 0 0
+
+  $first:
+    anchors.left: parent.left
+
+  $!first:
+    anchors.left: prev.right
+    margin-left: 2
+
+  $hover !checked:
+    image-clip: 0 18 98 18
+
+  $checked:
+    image-clip: 0 36 98 18
+
+  $disabled:
+    image-color: #dfdfdf88
+
 PlayerListWindow < MainWindow
   !text: tr('Player List')
   size: 405 356
   @onEscape: self:hide()
 
-  TabBar
+  PlayerListTabBar
     id: tmpTabBar
     anchors.top: parent.top
     anchors.left: parent.left
-    width: 180
+    width: 200
 
   FlatPanel
     id: tmpTabContent
@@ -113,7 +150,10 @@ PlayerListWindow < MainWindow
     anchors.left: parent.left
     width: 180
     anchors.bottom: separator.top
+    margin-top: 2
     margin-bottom: 5
+    image-source: /images/ui/panel_flat_border
+    image-border: 1
 
   VerticalSeparator
     id: verticalSep

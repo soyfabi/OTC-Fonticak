@@ -7,8 +7,8 @@ UturaComboBox < ComboBox
 
 CureConditions < Panel
   id: Cure
-  image-source: /images/ui/panel_flat
-  image-border: 6
+  image-source: /images/ui/panel_flat_border
+  image-border: 1
   padding: 3
   size: 200 190
 
@@ -82,7 +82,7 @@ CureConditions < Panel
     margin-top: 10
     text: Bleed
     color: #ffaa00
-  font: verdana-11px-rounded
+    font: verdana-11px-rounded
 
   Label
     id: label33
@@ -218,8 +218,8 @@ CureConditions < Panel
 
 HoldConditions < Panel
   id: Hold
-  image-source: /images/ui/panel_flat
-  image-border: 6
+  image-source: /images/ui/panel_flat_border
+  image-border: 1
   padding: 3
   size: 200 190
 

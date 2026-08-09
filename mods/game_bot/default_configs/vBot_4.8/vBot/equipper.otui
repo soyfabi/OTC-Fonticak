@@ -274,6 +274,8 @@ InputPanel < FlatPanel
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.bottom: parent.bottom
     margin-bottom: 10
+    width: 78
+    text-horizontal-auto-resize: true
     text: Add Rule
 
 EQPanel < FlatPanel

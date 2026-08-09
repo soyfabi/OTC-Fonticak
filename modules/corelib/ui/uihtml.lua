@@ -273,7 +273,13 @@ end
 
 function UIHTML:onChildFocusChange(focusedChild, oldFocused, reason)
     if focusedChild and (reason == MouseFocusReason or reason == KeyboardFocusReason) then
-        self:ensureChildVisible(focusedChild)
+        local widget = focusedChild
+        local nested = widget.getFocusedChild and widget:getFocusedChild()
+        while nested do
+            widget = nested
+            nested = widget.getFocusedChild and widget:getFocusedChild()
+        end
+        self:ensureChildVisible(widget)
     end
 end
 

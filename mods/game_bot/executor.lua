@@ -232,6 +232,11 @@ function executeBot(config, storage, tabs, msgCallback, saveConfigCallback, relo
       end
     end
 
+    if type(context.fitBotTabs) == "function" then
+      context.fitBotTabs()
+      scheduleEvent(context.fitBotTabs, 100)
+    end
+
     -- Next frame so bot.lua can assign botExecutor before check() starts
     if type(context.onBotLoadComplete) == "function" then
       local cb = context.onBotLoadComplete

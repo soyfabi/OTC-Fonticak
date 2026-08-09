@@ -45,13 +45,15 @@ TargetBotLootingPanel < Panel
       anchors.top: parent.top
       anchors.bottom: parent.bottom
       margin-right: 6
-      width: 80
+      width: 40
 
     Label
       anchors.left: parent.left
+      anchors.right: prev.left
       anchors.verticalCenter: prev.verticalCenter
       text: Max. danger:
       margin-left: 5
+      margin-right: 4
 
   Panel
     id: minCapacityPanel
@@ -64,10 +66,12 @@ TargetBotLootingPanel < Panel
       anchors.top: parent.top
       anchors.bottom: parent.bottom
       margin-right: 6
-      width: 80
+      width: 40
 
     Label
       anchors.left: parent.left
+      anchors.right: prev.left
       anchors.verticalCenter: prev.verticalCenter
       text: Min. capacity:
       margin-left: 5
+      margin-right: 4

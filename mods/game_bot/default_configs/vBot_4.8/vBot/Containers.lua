@@ -40,6 +40,18 @@ end
 
 local config = storage[panelName]
 
+local function setContainerWindowTitle(containerWindow, name)
+    if not containerWindow or not name then return end
+    local titleWidget = containerWindow:getChildById('miniwindowTitle')
+    if titleWidget then
+        titleWidget:setText(name)
+    else
+        containerWindow:setText(name)
+    end
+end
+
+local nameContainersOnLogin
+
 UI.Separator()
 local renameContui = setupUI([[
 Panel
@@ -59,7 +71,7 @@ Panel
     anchors.left: parent.left
     text-align: center
     width: 130
-    !text: tr('Open Minimised')
+    !text: tr('Rename Cont.')
     font: verdana-11px-rounded
 
   Button
@@ -70,6 +82,10 @@ Panel
     margin-left: 3
     height: 17
     text: Setup
+    font: verdana-11px-antialised
+    text-align: center
+    text-offset: 0 0
+    padding: 0
     font: verdana-11px-rounded
 
   Button
@@ -229,7 +245,7 @@ ContListsWindow < MainWindow
     anchors.right: contName.right
     anchors.top: contName.bottom
     margin-top: 5
-    text: Add
+    text: Save
     width: 40
     font: cipsoftFont
 
@@ -404,14 +420,15 @@ if rootWidget then
         for i, container in ipairs(getContainers()) do
             local containerWindow = container.window
             if containerWindow then
+                -- setContentHeight is content-only; do not add window chrome
+                -- (that was making ~1.5 rows visible).
+                local height = 34
                 local contents = containerWindow:getChildById('contentsPanel')
-                local step = 0
                 if contents then
                     local layout = contents:getLayout()
-                    step = layout:getCellSize().height + layout:getCellSpacing()
+                    height = layout:getCellSize().height
                 end
-                local chromeHeight = container:hasPages() and 55 or 31
-                containerWindow:setContentHeight(step + chromeHeight)
+                containerWindow:setContentHeight(height)
             end
         end
     end
@@ -420,6 +437,9 @@ if rootWidget then
     renameContui.title.onClick = function(widget)
         config.enabled = not config.enabled
         widget:setOn(config.enabled)
+        if config.enabled then
+            nameContainersOnLogin()
+        end
     end
 
     contListWindow.closeButton.onClick = function(widget)
@@ -514,17 +534,35 @@ if rootWidget then
             if tFocus then contListWindow.itemList:focusChild(tFocus) end
         end
     end
-    contListWindow.addItem.onClick = function(widget)
+    local function applyContainerName(itemId, name)
+        if not renameContui.title:isOn() then return end
+        for _, container in ipairs(getContainers()) do
+            if container.window and container:getContainerItem() and container:getContainerItem():getId() == itemId then
+                setContainerWindowTitle(container.window, name)
+            end
+        end
+    end
+
+    local function saveContainerEntry()
         local id = contListWindow.contId:getItemId()
         local trigger = contListWindow.contName:getText()
 
         if id > 100 and trigger:len() > 0 then
             local ifind = findItemsInArray(config.list, id)
             if ifind then
-                config.list[ifind] = { item = id, value = trigger, enabled = config.list[ifind].enabled, min = config.list[ifind].min, items = config.list[ifind].items}
+                local old = config.list[ifind]
+                config.list[ifind] = {
+                    item = id,
+                    value = trigger,
+                    enabled = old.enabled,
+                    min = old.min,
+                    openNext = old.openNext,
+                    items = old.items
+                }
             else
                 table.insert(config.list, { item = id, value = trigger, enabled = true, min = false, items = {} })
             end
+            applyContainerName(id, trigger)
             contListWindow.contId:setItemId(0)
             contListWindow.contName:setText('')
             contListWindow.contName:setColor('white')
@@ -537,7 +575,33 @@ if rootWidget then
             contListWindow.contName:setColor('red')
         end
     end
+
+    contListWindow.addItem.onClick = function(widget)
+        saveContainerEntry()
+    end
+    contListWindow.contName.onKeyDown = function(widget, keyCode)
+        if keyCode == KeyReturn or keyCode == KeyEnter then
+            saveContainerEntry()
+            return true
+        end
+    end
     refreshContNames()
+end
+
+nameContainersOnLogin = function()
+    if not renameContui.title:isOn() then return end
+    for _, container in ipairs(getContainers()) do
+        if container.window then
+            local storageVal = config.list
+            if storageVal and #storageVal > 0 then
+                for _, entry in pairs(storageVal) do
+                    if entry.enabled and container:getContainerItem() and container:getContainerItem():getId() == entry.item then
+                        setContainerWindowTitle(container.window, entry.value)
+                    end
+                end
+            end
+        end
+    end
 end
 
 onContainerOpen(function(container, previousContainer)
@@ -547,12 +611,17 @@ onContainerOpen(function(container, previousContainer)
     local storageVal = config.list
     if storageVal and #storageVal > 0 then
         for _, entry in pairs(storageVal) do
-            if entry.enabled and string.find(container:getContainerItem():getId(), entry.item) then
+            if entry.enabled and container:getContainerItem() and container:getContainerItem():getId() == entry.item then
                 if entry.min then
                     containerWindow:minimize()
                 end
                 if renameContui.title:isOn() then
-                    containerWindow:setText(entry.value)
+                    -- Delay so game_containers title write does not overwrite us
+                    schedule(50, function()
+                        if container.window then
+                            setContainerWindowTitle(container.window, entry.value)
+                        end
+                    end)
                 end
                 if entry.openNext then
                     for i, item in ipairs(container:getItems()) do
@@ -570,22 +639,6 @@ onContainerOpen(function(container, previousContainer)
     end
 end)
 
-local function nameContainersOnLogin()
-    for i, container in ipairs(getContainers()) do
-        if renameContui.title:isOn() then
-            if not container.window then return end
-            local containerWindow = container.window
-            local storageVal = config.list
-            if storageVal and #storageVal > 0 then
-                for _, entry in pairs(storageVal) do
-                    if entry.enabled and string.find(container:getContainerItem():getId(), entry.item) then
-                        containerWindow:setText(entry.value)
-                    end
-                end
-            end
-        end
-    end
-end
 nameContainersOnLogin()
 
 local function moveItem(item, destination)

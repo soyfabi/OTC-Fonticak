@@ -192,14 +192,14 @@ end
 registerAction:
 action - string, color - string, callback = function(value, retries, prev)
 value is a string value of action, retries is number which will grow by 1 if return is "retry"
-prev is a true when previuos action was executed succesfully, false otherwise
+prev is true when the previous action was executed successfully, false otherwise
 it must return true if executed correctly, false otherwise
 it can also return string "retry", then the function will be called again in 20 ms
 ]]--
 CaveBot.registerAction = function(action, color, callback)
   action = action:lower()
   if CaveBot.Actions[action] then
-    return warn("Duplicated acction: " .. action)
+    return warn("Duplicated action: " .. action)
   end
   CaveBot.Actions[action] = {
     color=color,

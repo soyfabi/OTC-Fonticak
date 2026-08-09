@@ -36,9 +36,12 @@ TargetBotCreatureEditorTextEdit < Panel
     anchors.right: parent.right
     anchors.top: prev.bottom
     margin-top: 5
-    minimum: 0
-    maximum: 10
-    step: 1
+    height: 20
+    focusable: true
+    editable: true
+    multiline: false
+    text-align: center
+    @onClick: modules.client_textedit.show(self)
 
 TargetBotCreatureEditorItem < Panel
   height: 34
@@ -124,6 +127,7 @@ TargetBotCreatureEditorWindow < MainWindow
       margin-top: 5
       margin-left: 10
       margin-right: 10
+      focusable: false
       layout:
         type: verticalBox
         fit-children: true
@@ -136,6 +140,7 @@ TargetBotCreatureEditorWindow < MainWindow
       margin-top: 5
       margin-left: 10
       margin-right: 10
+      focusable: false
       layout:
         type: verticalBox
         fit-children: true

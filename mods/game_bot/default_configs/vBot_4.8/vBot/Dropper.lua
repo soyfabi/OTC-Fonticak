@@ -20,11 +20,15 @@ Panel
     margin-left: 3
     height: 17
     text: Edit
+    font: verdana-11px-antialised
+    text-align: center
+    text-offset: 0 0
+    padding: 0
 ]])
 
 local edit = setupUI([[
 Panel
-  height: 250
+  height: 160
 
   Label
     anchors.top: parent.top
@@ -39,7 +43,7 @@ Panel
     anchors.top: prev.bottom
     anchors.left: parent.left
     anchors.right: parent.right
-    height: 65
+    height: 34
 
   Label
     anchors.top: prev.bottom
@@ -54,7 +58,7 @@ Panel
     anchors.top: prev.bottom
     anchors.left: parent.left
     anchors.right: parent.right
-    height: 65
+    height: 34
 
   Label
     anchors.top: prev.bottom
@@ -69,7 +73,7 @@ Panel
     anchors.top: prev.bottom
     anchors.left: parent.left
     anchors.right: parent.right
-    height: 65
+    height: 34
 ]])
 edit:hide()
 

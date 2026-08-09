@@ -7,6 +7,7 @@ local UI = context.UI
 UI.Button = function(text, callback, parent)
   local widget = UI.createWidget("BotButton", parent)
   widget:setText(text)
+  widget:setFont("verdana-11px-antialised")
   widget.onClick = callback
   return widget
 end

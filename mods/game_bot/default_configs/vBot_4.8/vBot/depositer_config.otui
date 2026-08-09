@@ -49,7 +49,7 @@ DepositerPanel < MainWindow
 
   ScrollablePanel
     id: DepositerList
-    image-source: /images/ui/panel_flat
+    image-source: /images/ui/panel_flat_border
     image-border: 1
     anchors.top: prev.bottom
     margin-top: 5

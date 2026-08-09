@@ -1,23 +1,57 @@
+-- Bot-wide panel look (overrides client FlatPanel while bot styles are loaded)
+FlatPanel < Panel
+  image-source: /images/ui/panel_flat_border
+  image-border: 1
+
+ScrollableFlatPanel < ScrollablePanel
+  image-source: /images/ui/panel_flat_border
+  image-border: 1
+
 BotButton < Button
   height: 17
   margin-top: 2
   font: verdana-11px-antialised
+  text-align: center
+  text-offset: 0 0
+  padding: 0
+  $pressed:
+    text-offset: 0 0
+  $on:
+    text-offset: 0 0
 
 BotSwitch < Button
   margin-top: 2
   height: 17
   font: verdana-11px-antialised
+  text-align: center
+  text-offset: 0 0
+  padding: 0
   image-color: green
+  $on:
+    image-color: green
+    text-offset: 0 0
   $!on:
     image-color: red
+    text-offset: 0 0
+  $pressed:
+    text-offset: 0 0
 
 SmallBotSwitch < Button
   margin-top: 2
   height: 15
   font: verdana-11px-antialised
+  text-align: center
+  text-offset: 0 0
+  padding: 0
   image-color: green
+  $on:
+    image-color: green
+    text-offset: 0 0
   $!on:
     image-color: red
+    text-offset: 0 0
+  $pressed:
+    text-offset: 0 0
 
 BotLabel < Label
   margin-top: 2
@@ -43,27 +77,33 @@ BotSeparator < HorizontalSeparator
   margin-top: 5
   margin-bottom: 3
 
-BotSmallScrollBar < SmallScrollBar
+BotSmallScrollBar < VerticalQtScrollBar
+  width: 12
+  step: 5
+  pixels-scroll: true
 
 BotPanel < Panel
   margin-top: 1
   ScrollablePanel
     id: content
     anchors.fill: parent
-    margin-right: 8
+    margin-right: 14
     margin-left: 1
     margin-bottom: 5
     vertical-scrollbar: botPanelScroll
     layout:
       type: verticalBox
-    $mobile:
-      margin-right: 16
 
-  BotSmallScrollBar
+  VerticalQtScrollBar
     id: botPanelScroll
     anchors.top: parent.top
     anchors.bottom: parent.bottom
     anchors.right: parent.right
+    margin-top: 1
+    margin-bottom: 1
+    width: 12
+    step: 5
+    pixels-scroll: true
 
 CaveBotLabel < Label
   background-color: alpha

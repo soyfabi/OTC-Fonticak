@@ -5,12 +5,15 @@ local ui = setupUI([[
 Panel
   height: 18
 
-  Button
+  BotButton
     id: botServer
     anchors.left: parent.left
     anchors.right: parent.right
     text-align: center
+    text-offset: 0 0
+    padding: 0
     height: 18
+    font: verdana-11px-antialised
     !text: tr('BotServer')
 ]])
 ui:setId(panelName)
