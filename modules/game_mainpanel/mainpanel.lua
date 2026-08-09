@@ -128,6 +128,31 @@ local function createButton_large(id, description, image, callback, special, fro
         end
     end
 
+    -- APNG shine overlay (same effect as AstraClient Battle Pass button)
+    if not button:getChildById('storeBright') then
+        local bright = g_ui.createWidget('UIWidget', button)
+        bright:setId('storeBright')
+        bright:setPhantom(true)
+        bright:fill('parent')
+        bright:setImageSource('/images/store/button-store-bright')
+    end
+
+    -- Gold frame around the Store button (Astra battlePassBorder)
+    local onPanel = optionsController.ui.onPanel
+    if onPanel and not onPanel:getChildById('storeBorder') then
+        local border = g_ui.createWidget('UIWidget', onPanel)
+        border:setId('storeBorder')
+        border:setPhantom(true)
+        border:setWidth(111)
+        border:setHeight(22)
+        border:addAnchor(AnchorTop, 'store', AnchorTop)
+        border:addAnchor(AnchorLeft, 'store', AnchorLeft)
+        border:setMarginTop(-1)
+        border:setMarginLeft(-1)
+        border:setImageSource('/images/store/rectangle-highlight')
+        border:raise()
+    end
+
     return button
 end
 

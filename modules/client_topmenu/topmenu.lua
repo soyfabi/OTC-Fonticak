@@ -28,9 +28,6 @@ local fpsImg
 local PingWidget
 local pingImg
 
--- Match ping icon (17) + margin-right (2) so FPS lines up with "Low lag" text.
-local PING_ICON_OFFSET = 19
-
 local zoomInButton = nil
 local zoomOutButton = nil
 local zoomLevel = 2
@@ -83,15 +80,6 @@ local function getPingCorner(override)
         corner = modules.client_options.getOption('showPingPosition') or 1
     end
     return math.min(4, math.max(1, tonumber(corner) or 1))
-end
-
-local function syncFpsLabelAlign()
-    if not fpsPanel2 or fpsPanel2:isDestroyed() then
-        return
-    end
-    local pingVisible = pingPanel and not pingPanel:isDestroyed() and pingPanel:isVisible()
-        and pingImg and not pingImg:isDestroyed() and pingImg:isVisible()
-    fpsPanel2:setMarginLeft(pingVisible and PING_ICON_OFFSET or 0)
 end
 
 local function refreshPingWidgetPosition(cornerOverride)
@@ -364,10 +352,12 @@ function online()
             fpsImg = mainFpsPanel:getChildByIndex(1)
             fpsPanel2 = mainFpsPanel:getChildByIndex(2)
             if fpsImg then
-                fpsImg:setVisible(false)
-                fpsImg:setWidth(0)
-                fpsImg:setHeight(0)
-                fpsImg:setMarginRight(0)
+                fpsImg:setImageSource('/images/ui/icon-yes')
+                fpsImg:setWidth(12)
+                fpsImg:setHeight(9)
+                fpsImg:setMarginTop(4)
+                fpsImg:setMarginLeft(1)
+                fpsImg:setMarginRight(6)
             end
 
             hookPingGeometry(mapPanel)
@@ -395,7 +385,9 @@ function online()
         
         local showFps = modules.client_options.getOption('showFps')
         fpsPanel2:setVisible(showFps)
-        syncFpsLabelAlign()
+        if fpsImg then
+            fpsImg:setVisible(showFps)
+        end
         refreshPingWidgetPosition()
     end)
 end
@@ -406,6 +398,12 @@ function offline()
     if pingPanel then
         pingPanel:hide()
         pingImg:hide()
+    end
+    if fpsImg then
+        fpsImg:hide()
+    end
+    if fpsPanel2 then
+        fpsPanel2:hide()
     end
     fpsMin = -1
 end
@@ -514,7 +512,6 @@ function setPingVisible(enable)
         pingPanel:setVisible(enable)
         pingImg:setVisible(enable)
     end
-    syncFpsLabelAlign()
     refreshPingWidgetPosition()
 end
 
@@ -527,7 +524,9 @@ function setFpsVisible(enable)
     if fpsPanel2 then
         fpsPanel2:setVisible(enable)
     end
-    syncFpsLabelAlign()
+    if fpsImg then
+        fpsImg:setVisible(enable)
+    end
 end
 
 function setPlayersOnline(value)

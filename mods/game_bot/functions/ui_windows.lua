@@ -41,8 +41,8 @@ UI.ConfirmationWindow = function(title, question, callback)
     window:destroy()
   end
   window = context.displayGeneralBox(title, question, {
-    { text=tr('Yes'), callback=onConfirm },
     { text=tr('No'), callback=closeWindow },
+    { text=tr('Yes'), callback=onConfirm },
     anchor=AnchorHorizontalCenter}, onConfirm, closeWindow)
   window.botWidget = true
   return window
