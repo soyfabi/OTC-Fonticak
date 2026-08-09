@@ -1,0 +1,15 @@
+name = "servicesbot-config-apisrcindexjs"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+preview_urls = false
+
+# Create once (free):
+#   npx wrangler kv namespace create CONFIGS
+# Then paste the id below and redeploy.
+[[kv_namespaces]]
+binding = "CONFIGS"
+id = "a7280c7e5eb14fe6a58dd55b557764ba"
+preview_id = "a7280c7e5eb14fe6a58dd55b557764ba"
+
+[vars]
+SERVICE_NAME = "fonticak-bot-config-api"

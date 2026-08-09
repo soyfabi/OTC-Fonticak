@@ -405,6 +405,46 @@
     <ClCompile Include="..\src\framework\core\module.cpp" />
     <ClCompile Include="..\src\framework\core\modulemanager.cpp" />
     <ClCompile Include="..\src\framework\core\resourcemanager.cpp" />
+    <ClCompile Include="..\src\framework\core\minizip\crypt.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile />
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <IncludeInUnityFile>false</IncludeInUnityFile>
+      <WarningLevel>Level3</WarningLevel>
+    </ClCompile>
+    <ClCompile Include="..\src\framework\core\minizip\ioapi.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile />
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <IncludeInUnityFile>false</IncludeInUnityFile>
+      <WarningLevel>Level3</WarningLevel>
+    </ClCompile>
+    <ClCompile Include="..\src\framework\core\minizip\ioapi_mem.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile />
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <IncludeInUnityFile>false</IncludeInUnityFile>
+      <WarningLevel>Level3</WarningLevel>
+    </ClCompile>
+    <ClCompile Include="..\src\framework\core\minizip\unzip.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile />
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <IncludeInUnityFile>false</IncludeInUnityFile>
+      <WarningLevel>Level3</WarningLevel>
+    </ClCompile>
+    <ClCompile Include="..\src\framework\core\minizip\zip.c">
+      <CompileAs>CompileAsC</CompileAs>
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <PrecompiledHeaderFile />
+      <ForcedIncludeFiles></ForcedIncludeFiles>
+      <IncludeInUnityFile>false</IncludeInUnityFile>
+      <WarningLevel>Level3</WarningLevel>
+    </ClCompile>
     <ClCompile Include="..\src\framework\core\scheduledevent.cpp" />
     <ClCompile Include="..\src\framework\core\timer.cpp" />
     <ClCompile Include="..\src\framework\discord\discord.cpp" />

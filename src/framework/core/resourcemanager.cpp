@@ -22,7 +22,11 @@
 
 #include "resourcemanager.h"
 
+#include <algorithm>
+#include <cstring>
+#include <limits>
 #include <physfs.h>
+#include <unordered_set>
 
 #include "filestream.h"
 #include "graphicalapplication.h"
@@ -30,8 +34,61 @@
 #include "framework/net/protocolhttp.h"
 #include "framework/platform/platform.h"
 #include "framework/util/crypt.h"
+#include "logger.h"
+
+#include "framework/core/minizip/ioapi.h"
+#include "framework/core/minizip/ioapi_mem.h"
+#include "framework/core/minizip/unzip.h"
+#include "framework/core/minizip/zip.h"
 
 ResourceManager g_resources;
+
+namespace
+{
+constexpr size_t MAX_ARCHIVE_ENTRIES = 512;
+constexpr size_t MAX_ARCHIVE_FILE_SIZE = 16 * 1024 * 1024;
+constexpr size_t MAX_ARCHIVE_TOTAL_SIZE = 32 * 1024 * 1024;
+constexpr size_t MAX_ARCHIVE_NAME_SIZE = 1023;
+
+bool hasZipMagic(const std::string& data)
+{
+    if (data.size() < 4 || data[0] != 'P' || data[1] != 'K')
+        return false;
+
+    const auto third = static_cast<unsigned char>(data[2]);
+    const auto fourth = static_cast<unsigned char>(data[3]);
+    return (third == 3 && fourth == 4) || (third == 5 && fourth == 6);
+}
+
+bool normalizeArchiveName(const std::string& input, std::string& output)
+{
+    if (input.empty() || input.size() > MAX_ARCHIVE_NAME_SIZE ||
+        input.front() == '/' || input.front() == '\\' || input.find(':') != std::string::npos)
+        return false;
+
+    output = input;
+    std::replace(output.begin(), output.end(), '\\', '/');
+    if (output.empty() || output.size() > MAX_ARCHIVE_NAME_SIZE)
+        return false;
+
+    size_t componentStart = 0;
+    while (componentStart <= output.size()) {
+        const size_t separator = output.find('/', componentStart);
+        const size_t componentEnd = separator == std::string::npos ? output.size() : separator;
+        const size_t componentSize = componentEnd - componentStart;
+        if (componentSize == 0 ||
+            (componentSize == 1 && output[componentStart] == '.') ||
+            (componentSize == 2 && output[componentStart] == '.' && output[componentStart + 1] == '.'))
+            return false;
+
+        if (separator == std::string::npos)
+            break;
+        componentStart = separator + 1;
+    }
+
+    return true;
+}
+}
 
 void ResourceManager::init(const char* argv0)
 {
@@ -768,10 +825,273 @@ bool ResourceManager::launchCorrect(const std::vector<std::string>& args) { // c
 #endif
 }
 
-std::string ResourceManager::createArchive(const std::unordered_map<std::string, std::string>& /*files*/) { return ""; }
+std::string ResourceManager::createArchive(const std::unordered_map<std::string, std::string>& files)
+{
+    if (files.empty())
+        return {};
 
-std::unordered_map<std::string, std::string> ResourceManager::decompressArchive(std::string /*dataOrPath*/)
+    if (files.size() > MAX_ARCHIVE_ENTRIES) {
+        g_logger.error("createArchive: too many entries (maximum {})", MAX_ARCHIVE_ENTRIES);
+        return {};
+    }
+
+    struct ArchiveEntry {
+        std::string name;
+        const std::string* contents;
+    };
+    std::vector<ArchiveEntry> entries;
+    entries.reserve(files.size());
+    std::unordered_set<std::string> normalizedNames;
+    size_t totalSize = 0;
+
+    for (const auto& [name, contents] : files) {
+        std::string normalizedName;
+        if (!normalizeArchiveName(name, normalizedName)) {
+            g_logger.error("createArchive: invalid entry name '{}'", name);
+            return {};
+        }
+        if (!normalizedNames.emplace(normalizedName).second) {
+            g_logger.error("createArchive: duplicate normalized entry name '{}'", normalizedName);
+            return {};
+        }
+        if (contents.size() > MAX_ARCHIVE_FILE_SIZE) {
+            g_logger.error("createArchive: entry '{}' exceeds the {} byte limit", normalizedName, MAX_ARCHIVE_FILE_SIZE);
+            return {};
+        }
+        if (contents.size() > MAX_ARCHIVE_TOTAL_SIZE - totalSize) {
+            g_logger.error("createArchive: uncompressed contents exceed the {} byte total limit", MAX_ARCHIVE_TOTAL_SIZE);
+            return {};
+        }
+        totalSize += contents.size();
+        entries.push_back({ std::move(normalizedName), &contents });
+    }
+
+    zlib_filefunc_def filefunc32 = {};
+    ourmemory_t zipmem = {};
+    zipmem.grow = 1;
+
+    fill_memory_filefunc(&filefunc32, &zipmem);
+    zipFile zipfile = zipOpen2(nullptr, APPEND_STATUS_CREATE, nullptr, &filefunc32);
+    if (!zipfile) {
+        g_logger.error("createArchive: unable to open in-memory zip");
+        free(zipmem.base);
+        return {};
+    }
+
+    for (const auto& entry : entries) {
+        zip_fileinfo zi = {};
+        if (zipOpenNewFileInZip(zipfile, entry.name.c_str(), &zi,
+                                nullptr, 0, nullptr, 0, nullptr,
+                                Z_DEFLATED, Z_DEFAULT_COMPRESSION) != ZIP_OK) {
+            g_logger.error("createArchive: unable to add '{}'", entry.name);
+            zipClose(zipfile, nullptr);
+            free(zipmem.base);
+            return {};
+        }
+
+        if (!entry.contents->empty()) {
+            if (zipWriteInFileInZip(zipfile, entry.contents->data(), static_cast<uint32_t>(entry.contents->size())) != ZIP_OK) {
+                g_logger.error("createArchive: unable to write '{}'", entry.name);
+                zipCloseFileInZip(zipfile);
+                zipClose(zipfile, nullptr);
+                free(zipmem.base);
+                return {};
+            }
+        }
+
+        if (zipCloseFileInZip(zipfile) != ZIP_OK) {
+            g_logger.error("createArchive: unable to close entry '{}'", entry.name);
+            zipClose(zipfile, nullptr);
+            free(zipmem.base);
+            return {};
+        }
+    }
+
+    if (zipClose(zipfile, nullptr) != ZIP_OK) {
+        g_logger.error("createArchive: unable to finalize zip");
+        free(zipmem.base);
+        return {};
+    }
+
+    std::string archive;
+    if (zipmem.base && zipmem.limit > 0)
+        archive.assign(zipmem.base, zipmem.limit);
+
+    free(zipmem.base);
+    return archive;
+}
+
+std::unordered_map<std::string, std::string> ResourceManager::decompressArchive(std::string dataOrPath)
 {
     std::unordered_map<std::string, std::string> ret;
-    return ret;
+    if (dataOrPath.empty())
+        return ret;
+
+    std::string data = dataOrPath;
+    const bool canBePath = dataOrPath.size() < 4096 && dataOrPath.find('\0') == std::string::npos;
+    const bool looksLikePath = canBePath &&
+        (dataOrPath.find('/') != std::string::npos || dataOrPath.find('\\') != std::string::npos);
+    if (!hasZipMagic(dataOrPath) && canBePath && (looksLikePath || fileExists(dataOrPath))) {
+        try {
+            data = readFileContents(dataOrPath);
+        } catch (const stdext::exception& e) {
+            g_logger.error("decompressArchive: {}", e.what());
+            return ret;
+        }
+    }
+
+    if (!hasZipMagic(data)) {
+        g_logger.error("decompressArchive: input does not have a valid ZIP signature");
+        return ret;
+    }
+    if (data.size() > std::numeric_limits<uint32_t>::max()) {
+        g_logger.error("decompressArchive: input exceeds the uint32 memory backend limit");
+        return ret;
+    }
+
+    zlib_filefunc_def filefunc32 = {};
+    ourmemory_t unzmem = {};
+    unzmem.size = static_cast<uint32_t>(data.size());
+    unzmem.base = static_cast<char*>(malloc(unzmem.size));
+    if (!unzmem.base) {
+        g_logger.error("decompressArchive: unable to allocate {} bytes for ZIP input", unzmem.size);
+        return ret;
+    }
+
+    memcpy(unzmem.base, data.data(), unzmem.size);
+    fill_memory_filefunc(&filefunc32, &unzmem);
+
+    unzFile zipfile = unzOpen2(nullptr, &filefunc32);
+    if (!zipfile) {
+        free(unzmem.base);
+        g_logger.error("decompressArchive: invalid zip archive");
+        return ret;
+    }
+
+    unz_global_info globalInfo = {};
+    if (unzGetGlobalInfo(zipfile, &globalInfo) != UNZ_OK) {
+        unzClose(zipfile);
+        free(unzmem.base);
+        g_logger.error("decompressArchive: unable to read zip global info");
+        return ret;
+    }
+    if (globalInfo.number_entry > MAX_ARCHIVE_ENTRIES) {
+        g_logger.error("decompressArchive: too many entries (maximum {})", MAX_ARCHIVE_ENTRIES);
+        unzClose(zipfile);
+        free(unzmem.base);
+        return ret;
+    }
+
+    constexpr int READ_SIZE = 8192;
+    char readBuffer[READ_SIZE];
+    size_t totalSize = 0;
+    bool valid = true;
+
+    for (uLong i = 0; i < globalInfo.number_entry; ++i) {
+        unz_file_info fileInfo = {};
+        if (unzGetCurrentFileInfo(zipfile, &fileInfo, nullptr, 0, nullptr, 0, nullptr, 0) != UNZ_OK) {
+            g_logger.error("decompressArchive: unable to read file info");
+            valid = false;
+            break;
+        }
+
+        if (fileInfo.size_filename == 0 || fileInfo.size_filename > MAX_ARCHIVE_NAME_SIZE) {
+            g_logger.error("decompressArchive: invalid entry name length {}", fileInfo.size_filename);
+            valid = false;
+            break;
+        }
+
+        char filename[MAX_ARCHIVE_NAME_SIZE + 1] = {};
+        if (unzGetCurrentFileInfo(zipfile, &fileInfo, filename, sizeof(filename), nullptr, 0, nullptr, 0) != UNZ_OK) {
+            g_logger.error("decompressArchive: unable to read entry name");
+            valid = false;
+            break;
+        }
+
+        std::string rawName(filename, fileInfo.size_filename);
+        const bool isDirectory = !rawName.empty() && (rawName.back() == '/' || rawName.back() == '\\');
+        if (isDirectory)
+            rawName.pop_back();
+
+        std::string entryName;
+        if (!normalizeArchiveName(rawName, entryName)) {
+            g_logger.error("decompressArchive: unsafe entry name");
+            valid = false;
+            break;
+        }
+        if (isDirectory) {
+            if (fileInfo.uncompressed_size != 0) {
+                g_logger.error("decompressArchive: directory '{}' contains data", entryName);
+                valid = false;
+                break;
+            }
+            if ((i + 1) < globalInfo.number_entry && unzGoToNextFile(zipfile) != UNZ_OK) {
+                g_logger.error("decompressArchive: unable to go to next file");
+                valid = false;
+                break;
+            }
+            continue;
+        }
+        const std::string resultName = "/" + entryName;
+        if (ret.contains(resultName)) {
+            g_logger.error("decompressArchive: duplicate entry '{}'", entryName);
+            valid = false;
+            break;
+        }
+        if (fileInfo.uncompressed_size > MAX_ARCHIVE_FILE_SIZE ||
+            fileInfo.uncompressed_size > MAX_ARCHIVE_TOTAL_SIZE - totalSize) {
+            g_logger.error("decompressArchive: entry '{}' exceeds extraction limits", entryName);
+            valid = false;
+            break;
+        }
+        if (unzOpenCurrentFile(zipfile) != UNZ_OK) {
+            g_logger.error("decompressArchive: unable to open '{}'", entryName);
+            valid = false;
+            break;
+        }
+
+        std::string contents;
+        int readResult = UNZ_OK;
+        while ((readResult = unzReadCurrentFile(zipfile, readBuffer, READ_SIZE)) > 0) {
+            if (static_cast<size_t>(readResult) > MAX_ARCHIVE_FILE_SIZE - contents.size() ||
+                static_cast<size_t>(readResult) > MAX_ARCHIVE_TOTAL_SIZE - totalSize - contents.size()) {
+                g_logger.error("decompressArchive: entry '{}' exceeded extraction limits while reading", entryName);
+                valid = false;
+                break;
+            }
+            contents.append(readBuffer, static_cast<size_t>(readResult));
+        }
+        if (readResult < 0) {
+            g_logger.error("decompressArchive: read error {} on '{}'", readResult, entryName);
+            valid = false;
+        }
+
+        const int closeResult = unzCloseCurrentFile(zipfile);
+        if (closeResult != UNZ_OK) {
+            g_logger.error("decompressArchive: close/CRC error {} on '{}'", closeResult, entryName);
+            valid = false;
+        }
+        if (!valid)
+            break;
+        if (contents.size() != fileInfo.uncompressed_size) {
+            g_logger.error("decompressArchive: size mismatch on '{}'", entryName);
+            valid = false;
+            break;
+        }
+        totalSize += contents.size();
+        ret.emplace(resultName, std::move(contents));
+
+        if ((i + 1) < globalInfo.number_entry && unzGoToNextFile(zipfile) != UNZ_OK) {
+            g_logger.error("decompressArchive: unable to go to next file");
+            valid = false;
+            break;
+        }
+    }
+
+    if (unzClose(zipfile) != UNZ_OK) {
+        g_logger.error("decompressArchive: unable to close zip archive");
+        valid = false;
+    }
+    free(unzmem.base);
+    return valid ? ret : std::unordered_map<std::string, std::string>{};
 }

@@ -26,8 +26,6 @@ function getBotLoadGeneration()
   return botLoadGeneration
 end
 
-local configManagerUrl = "http://otclient.ovh/configs.php"
-
 local updateBotTabsHeight = nil
 
 local function isCurrentBotEnabled()
@@ -494,6 +492,12 @@ function edit()
     editWindow.manager.upload.config:addOption(configs[i])
   end
   editWindow.manager.download.config:setText("")
+  editWindow.manager.upload.submit:setEnabled(#configs > 0)
+
+  local reloadHint = editWindow.reloadHint or (editWindow.infoPanel and editWindow.infoPanel.reloadHint)
+  if reloadHint and reloadHint.setColoredText then
+    reloadHint:setColoredText("To reload a config, turn the bot {Off, #FF3333} and {On, #33CC33} again.")
+  end
 
   editWindow:show()
   editWindow:focus()
@@ -549,7 +553,7 @@ function createDefaultConfigs()
     end
 
     -- Public configs shipped with the client. Private packs live in private_configs/ and are not copied.
-    local publicConfigs = { "vBot_4.8" }
+    local publicConfigs = { "FontiBot-1.0", "vBot_4.8" }
     local available = {}
     for _, name in ipairs(g_resources.listDirectoryFiles("default_configs", false, false)) do
         available[name] = true
@@ -573,100 +577,226 @@ function createDefaultConfigs()
     defaultsSynced = true
 end
 
+local function setConfigTransferEnabled(enabled)
+  if editWindow and editWindow.manager then
+    editWindow.manager.upload.submit:setEnabled(enabled and editWindow.manager.upload.config:getCurrentOption() ~= nil)
+    editWindow.manager.download.submit:setEnabled(enabled)
+  end
+end
+
 function uploadConfig()
-  local config = editWindow.manager.upload.config:getCurrentOption().text
+  local option = editWindow.manager.upload.config:getCurrentOption()
+  local config = option and option.text
+  if not config or config == "" then
+    return displayErrorBox(tr("Config upload failed"), tr("No config selected."))
+  end
+
   local archive = compressConfig(config)
-  if not archive then
+  if not archive or archive:len() == 0 then
       return displayErrorBox(tr("Config upload failed"), tr("Config %s is invalid (can't be compressed)", config))
   end
-  if archive:len() > 1024 * 1024 then
+  if archive:len() > ConfigShare.maxBytes then
       return displayErrorBox(tr("Config upload failed"), tr("Config %s is too big, maximum size is 1024KB. Now it has %s KB.", config, math.floor(archive:len() / 1024)))
   end
 
   local infoBox = displayInfoBox(tr("Uploading config"), tr("Uploading config %s. Please wait.", config))
-
-  HTTP.postJSON(configManagerUrl .. "?config=" .. config:gsub("%s+", "_"), archive, function(data, err)
+  setConfigTransferEnabled(false)
+  local operation, startError = ConfigShare.upload("bot", config, archive, function(data, err)
+    setConfigTransferEnabled(true)
     if infoBox then
       infoBox:destroy()
     end
-    if err or data["error"] then
-      return displayErrorBox(tr("Config upload failed"), tr("Error while upload config %s:\n%s", config, err or data["error"]))
+    local hash, responseError, response = ConfigShare.parseUploadResponse(data, err)
+    if not hash then
+      return displayErrorBox(tr("Config upload failed"), tr("Error while uploading config %s:\n%s", config, responseError))
     end
-    displayInfoBox(tr("Succesful config upload"), tr("Config %s has been uploaded.\n%s", config, data["message"]))
+    g_window.setClipboardText(hash)
+    editWindow.manager.download.config:setText(hash)
+    local message = response.message or ("Config hash: " .. hash)
+    displayInfoBox(tr("Successful config upload"), tr("Config %s has been uploaded.\n\n%s\n\nHash copied to clipboard. Paste it with Ctrl+V to share.", config, message))
   end)
+  if not operation then
+    setConfigTransferEnabled(true)
+    infoBox:destroy()
+    displayErrorBox(tr("Config upload failed"), startError)
+  end
 end
 
 function downloadConfig()
-  local hash = editWindow.manager.download.config:getText()
-  if hash:len() == 0 then
-      return displayErrorBox(tr("Config download error"), tr("Enter correct config hash"))
+  local hash = ConfigShare.normalizeHash(editWindow.manager.download.config:getText())
+  if not hash then
+    return displayErrorBox(tr("Config download error"), tr("Enter a valid 12-character config hash."))
   end
+
   local infoBox = displayInfoBox(tr("Downloading config"), tr("Downloading config with hash %s. Please wait.", hash))
-  HTTP.download(configManagerUrl .. "?hash=" .. hash, hash .. ".zip", function(path, checksum, err)
+  setConfigTransferEnabled(false)
+  local operation, startError = ConfigShare.download("bot", hash, "zip", function(path, checksum, err)
+    setConfigTransferEnabled(true)
     if infoBox then
       infoBox:destroy()
     end
     if err then
-      return displayErrorBox(tr("Config download error"), tr("Config with hash %s cannot be downloaded", hash))
+      return displayErrorBox(tr("Config download error"), tr("Config with hash %s cannot be downloaded:\n%s", hash, err))
     end
+
+    local filePath = "/downloads/" .. path
+    local ok, archive = pcall(function() return g_resources.readFileContents(filePath) end)
+    if not ok or type(archive) ~= "string" or archive:sub(1, 2) ~= "PK" then
+      return displayErrorBox(tr("Config download error"), tr("This hash is not a valid bot config."))
+    end
+    local files = g_resources.decompressArchive(archive)
+    if type(files) ~= "table" or not next(files) then
+      return displayErrorBox(tr("Config download error"), tr("The downloaded bot config is empty or corrupt."))
+    end
+
     modules.client_textedit.show("", {
       title="Enter name for downloaded config",
-      description="Config with hash " .. hash .. " has been downloaded. Enter name for new config.\nWarning: if config with same name already exist, it will be overwritten!",
+      description="Config with hash " .. hash .. " is ready. Enter a name for the new config.\nAn existing config with the same name will be replaced.",
       width=500
     }, function(configName)
-      decompressConfig(configName, "/downloads/" .. path)
+      local imported, importError = decompressConfig(configName, files)
+      if not imported then
+        return displayErrorBox(tr("Config download error"), importError)
+      end
       refresh()
       edit()
     end)
   end)
+  if not operation then
+    setConfigTransferEnabled(true)
+    infoBox:destroy()
+    displayErrorBox(tr("Config download error"), startError)
+  end
+end
+
+local protectedUploadDirs = {
+  storage = true,
+}
+
+local function collectConfigFiles(rootPath, excludeRuntime)
+  local files = {}
+  local function visit(path, relativePath)
+    for _, entry in ipairs(g_resources.listDirectoryFiles(path, false, false, false) or {}) do
+      local fullPath = path .. "/" .. entry
+      local relative = relativePath == "" and entry or (relativePath .. "/" .. entry)
+      local rootDir = relative:match("^([^/]+)")
+      if not (excludeRuntime and protectedUploadDirs[rootDir]) then
+        if g_resources.directoryExists(fullPath) then
+          visit(fullPath, relative)
+        elseif g_resources.fileExists(fullPath) then
+          files[relative] = g_resources.readFileContents(fullPath)
+        end
+      end
+    end
+  end
+  visit(rootPath, "")
+  return files
+end
+
+local function removeDirectoryTree(path)
+  if not g_resources.directoryExists(path) then
+    return true
+  end
+  for _, entry in ipairs(g_resources.listDirectoryFiles(path, false, false, false) or {}) do
+    local fullPath = path .. "/" .. entry
+    if g_resources.directoryExists(fullPath) then
+      if not removeDirectoryTree(fullPath) then
+        return false
+      end
+    elseif not g_resources.deleteFile(fullPath) then
+      return false
+    end
+  end
+  return g_resources.deleteFile(path)
+end
+
+local function writeConfigFiles(configName, files)
+  local rootPath = "/bot/" .. configName
+  if not g_resources.directoryExists(rootPath) then
+    g_resources.makeDir(rootPath)
+  end
+  if not g_resources.directoryExists(rootPath) then
+    return false, "Can't create " .. rootPath .. " in " .. g_resources.getWriteDir()
+  end
+
+  for file, contents in pairs(files) do
+    local relative = tostring(file):gsub("\\", "/"):gsub("^/+", "")
+    if relative == "" or relative:find(":", 1, true) then
+      return false, "Archive contains an invalid file path."
+    end
+    local segments = relative:split("/")
+    local fileName = table.remove(segments)
+    if not fileName or fileName == "" or fileName == "." or fileName == ".." then
+      return false, "Archive contains an invalid file name."
+    end
+    local dirPath = rootPath
+    for _, segment in ipairs(segments) do
+      if segment == "" or segment == "." or segment == ".." then
+        return false, "Archive contains an invalid directory path."
+      end
+      dirPath = dirPath .. "/" .. segment
+      if not g_resources.directoryExists(dirPath) then
+        g_resources.makeDir(dirPath)
+      end
+      if not g_resources.directoryExists(dirPath) then
+        return false, "Can't create " .. dirPath .. " in " .. g_resources.getWriteDir()
+      end
+    end
+    if not g_resources.writeFileContents(dirPath .. "/" .. fileName, contents) then
+      return false, "Can't write " .. relative
+    end
+  end
+  return true
+end
+
+local function sanitizeConfigName(name)
+  name = tostring(name or ""):trim()
+  if name == "" or name:len() > 64 or name == "." or name == ".." or name:find("[^%w _%-]") then
+    return nil
+  end
+  return name
 end
 
 function compressConfig(configName)
   if not g_resources.directoryExists("/bot/" .. configName) then
     return onError("Config " .. configName .. " doesn't exist")
   end
-  local forArchive = {}
-  for _, file in ipairs(g_resources.listDirectoryFiles("/bot/" .. configName)) do
-    local fullPath = "/bot/" .. configName .. "/" .. file
-    if g_resources.fileExists(fullPath) then -- regular file
-        forArchive[file] = g_resources.readFileContents(fullPath)
-    else -- dir
-      for __, file2 in ipairs(g_resources.listDirectoryFiles(fullPath)) do
-        local fullPath2 = fullPath .. "/" .. file2
-        if g_resources.fileExists(fullPath2) then -- regular file
-            forArchive[file .. "/" .. file2] = g_resources.readFileContents(fullPath2)
-        end
-      end
-    end
+  local forArchive = collectConfigFiles("/bot/" .. configName, true)
+  if not next(forArchive) then
+    return nil
   end
   return g_resources.createArchive(forArchive)
 end
 
-function decompressConfig(configName, archive)
-  if g_resources.directoryExists("/bot/" .. configName) then
-    g_resources.deleteFile("/bot/" .. configName) -- also delete dirs
-  end
-  local files = g_resources.decompressArchive(archive)
-  g_resources.makeDir("/bot/" .. configName)
-  if not g_resources.directoryExists("/bot/" .. configName) then
-    return onError("Can't create /bot/" .. configName .. " directory in " .. g_resources.getWriteDir())
+function decompressConfig(configName, archiveOrFiles)
+  configName = sanitizeConfigName(configName)
+  if not configName then
+    return false, tr("Use 1-64 letters, numbers, spaces, underscores or hyphens for the config name.")
   end
 
-  for file, contents in pairs(files) do
-    local split = file:split("/")
-    split[#split] = nil -- remove file name
-    local dirPath = "/bot/" .. configName
-    for _, s in ipairs(split) do
-      dirPath = dirPath .. "/" .. s
-      if not g_resources.directoryExists(dirPath) then
-        g_resources.makeDir(dirPath)
-        if not g_resources.directoryExists(dirPath) then
-          return onError("Can't create " .. dirPath .. " directory in " .. g_resources.getWriteDir())
-        end
-      end
-    end
-    g_resources.writeFileContents("/bot/" .. configName .. file, contents)
+  local files = archiveOrFiles
+  if type(files) ~= "table" then
+    files = g_resources.decompressArchive(archiveOrFiles)
   end
+  if type(files) ~= "table" or not next(files) then
+    return false, tr("Archive is empty, corrupt or unsafe.")
+  end
+
+  local rootPath = "/bot/" .. configName
+  local backup = g_resources.directoryExists(rootPath) and collectConfigFiles(rootPath, false) or nil
+  if g_resources.directoryExists(rootPath) and not removeDirectoryTree(rootPath) then
+    return false, tr("Could not replace existing config \"%s\".", configName)
+  end
+
+  local ok, err = writeConfigFiles(configName, files)
+  if not ok then
+    removeDirectoryTree(rootPath)
+    if backup and next(backup) then
+      writeConfigFiles(configName, backup)
+    end
+    return false, err
+  end
+  return true
 end
 
 -- Executor

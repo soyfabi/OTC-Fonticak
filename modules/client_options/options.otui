@@ -226,7 +226,7 @@ OptionScaleScrollMarked < Label
 
 MainWindow
   id: optionsWindow
-  size: 686 534
+  size: 720 534
   anchors.centerIn: parent
   visible: false
   draggable: true
@@ -290,7 +290,7 @@ MainWindow
     id: exportConfigButton
     !text: tr('Export')
     !tooltip: tr('Export hotkeys or options to a JSON file\n(saved in configs/export).')
-    size: 70 20
+    size: 60 20
     anchors.left: parent.left
     anchors.bottom: parent.bottom
     margin-bottom: -8
@@ -300,10 +300,10 @@ MainWindow
     id: importConfigButton
     !text: tr('Import')
     !tooltip: tr('Import hotkeys or options from a JSON file\nin configs/export.')
-    size: 70 20
+    size: 60 20
     anchors.left: prev.right
     anchors.bottom: parent.bottom
-    margin-left: 6
+    margin-left: 4
     margin-bottom: -8
     @onClick: modules.client_options.showImportConfigMenu()
 
@@ -311,12 +311,34 @@ MainWindow
     id: openConfigDirButton
     !text: tr('Open Folder')
     !tooltip: tr('Open the client data folder where configs are saved.')
-    size: 90 20
+    size: 80 20
     anchors.left: prev.right
     anchors.bottom: parent.bottom
-    margin-left: 6
+    margin-left: 4
     margin-bottom: -8
     @onClick: modules.client_options.openConfigFolder()
+
+  OptionsQtButton
+    id: uploadConfigHashButton
+    !text: tr('Upload Hash')
+    !tooltip: tr('Upload options/hotkeys and get a shareable hash code.')
+    size: 95 20
+    anchors.left: prev.right
+    anchors.bottom: parent.bottom
+    margin-left: 4
+    margin-bottom: -8
+    @onClick: modules.client_options.showUploadConfigHashMenu()
+
+  OptionsQtButton
+    id: downloadConfigHashButton
+    !text: tr('Download Hash')
+    !tooltip: tr('Download options/hotkeys using a hash code.')
+    size: 110 20
+    anchors.left: prev.right
+    anchors.bottom: parent.bottom
+    margin-left: 4
+    margin-bottom: -8
+    @onClick: modules.client_options.showDownloadConfigHash()
 
   OptionsQtButton
     !text: tr('Ok')

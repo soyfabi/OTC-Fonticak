@@ -733,6 +733,15 @@ function hasOption(key)
     return options[key] ~= nil
 end
 
+function getOptionKeys()
+    local keys = {}
+    for key in pairs(options) do
+        table.insert(keys, key)
+    end
+    table.sort(keys)
+    return keys
+end
+
 -- Safe boolean read for modules that must not treat nil as "on".
 function getBoolOption(key, defaultValue)
     local value = getOption(key)

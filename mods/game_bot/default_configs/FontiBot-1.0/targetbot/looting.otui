@@ -1,0 +1,77 @@
+TargetBotLootingPanel < Panel
+  layout:
+    type: verticalBox
+    fit-children: true
+
+  HorizontalSeparator
+    margin-top: 5
+
+  Label
+    id: labelToLoot
+    margin-top: 5
+    text: Items to loot
+    text-align: center
+
+  BotContainer
+    id: items
+    margin-top: 3
+    height:100  
+
+  BotSwitch
+    id: everyItem
+    !text: tr("Loot every item, except these")
+    margin-top: 2
+    font: small-9px
+
+  Label
+    margin-top: 5
+    text: Containers for loot
+    text-align: center
+
+  BotContainer
+    id: containers
+    margin-top: 3
+    height: 45
+    height: 100
+
+  Panel
+    id: maxDangerPanel
+    height: 20
+    margin-top: 5
+
+    BotTextEdit
+      id: value
+      anchors.right: parent.right
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      margin-right: 6
+      width: 40
+
+    Label
+      anchors.left: parent.left
+      anchors.right: prev.left
+      anchors.verticalCenter: prev.verticalCenter
+      text: Max. danger:
+      margin-left: 5
+      margin-right: 4
+
+  Panel
+    id: minCapacityPanel
+    height: 20
+    margin-top: 3
+
+    BotTextEdit
+      id: value
+      anchors.right: parent.right
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      margin-right: 6
+      width: 40
+
+    Label
+      anchors.left: parent.left
+      anchors.right: prev.left
+      anchors.verticalCenter: prev.verticalCenter
+      text: Min. capacity:
+      margin-left: 5
+      margin-right: 4

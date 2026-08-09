@@ -287,8 +287,6 @@ if(ANDROID)
   find_package(OpenAL CONFIG REQUIRED)
   set(OpenAL_LIBRARY OpenAL::OpenAL)
 
-  # Vendored minizip (nmoinvaz fork) for Android APK asset extraction
-  include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/framework/core/minizip)
   set(MINIZIP_LIBRARY "")
 
   find_package(game-activity REQUIRED CONFIG)
@@ -518,15 +516,15 @@ if (WASM)
   )
 endif()
 
-if(ANDROID)
-  # Vendored minizip sources for APK asset extraction (must be after SOURCE_FILES definition)
-  set(SOURCE_FILES ${SOURCE_FILES}
-          framework/core/minizip/ioapi.c
-          framework/core/minizip/ioapi_mem.c
-          framework/core/minizip/unzip.c
-          framework/core/minizip/crypt.c
-  )
-endif()
+# Vendored minizip for bot config archives (all platforms) and Android APK extraction
+include_directories(BEFORE ${CMAKE_CURRENT_SOURCE_DIR}/framework/core/minizip)
+set(SOURCE_FILES ${SOURCE_FILES}
+        framework/core/minizip/ioapi.c
+        framework/core/minizip/ioapi_mem.c
+        framework/core/minizip/unzip.c
+        framework/core/minizip/zip.c
+        framework/core/minizip/crypt.c
+)
 
 add_library(otclient_core STATIC ${SOURCE_FILES})
 
@@ -544,18 +542,17 @@ else()
   message(STATUS "Use precompiled header: OFF")
 endif(TOGGLE_PRE_COMPILED_HEADER)
 
-# Exclude vendored minizip C files from PCH and unity build (Android only, C files cannot use C++ PCH)
-if(ANDROID)
-  set_source_files_properties(
-    framework/core/minizip/ioapi.c
-    framework/core/minizip/ioapi_mem.c
-    framework/core/minizip/unzip.c
-    framework/core/minizip/crypt.c
-    PROPERTIES
-      SKIP_PRECOMPILE_HEADERS ON
-      SKIP_UNITY_BUILD_INCLUSION ON
-  )
-endif()
+# Exclude vendored minizip C files from PCH and unity build (C files cannot use C++ PCH)
+set_source_files_properties(
+  framework/core/minizip/ioapi.c
+  framework/core/minizip/ioapi_mem.c
+  framework/core/minizip/unzip.c
+  framework/core/minizip/zip.c
+  framework/core/minizip/crypt.c
+  PROPERTIES
+    SKIP_PRECOMPILE_HEADERS ON
+    SKIP_UNITY_BUILD_INCLUSION ON
+)
 
 if(SPEED_UP_BUILD_UNITY)
   set_target_properties(otclient_core PROPERTIES UNITY_BUILD ON)
