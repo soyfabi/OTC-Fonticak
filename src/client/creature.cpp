@@ -783,6 +783,17 @@ void Creature::updateWalkingTile()
         g_gameConfig.getSpriteSize() + (m_walkOffset.y - displacementY),
         g_gameConfig.getSpriteSize(), g_gameConfig.getSpriteSize());
 
+    // NW: first half in front of west object, second half behind.
+    // SE: first half behind south object, second half in front.
+    // Resolved before the 3x3 scan so the loop (and its getOrCreateTile
+    // calls) is skipped entirely when the override applies.
+    if (m_walkedPixels < g_gameConfig.getSpriteSize() / 2) {
+        if (m_direction == Otc::NorthWest)
+            newWalkingTile = m_walkingTile ? m_walkingTile : getTile();
+        else if (m_direction == Otc::SouthEast)
+            newWalkingTile = g_map.getTile(getPosition().translated(-1, -1, 0));
+    }
+
     for (int xi = -1; xi <= 1 && !newWalkingTile; ++xi) {
         for (int yi = -1; yi <= 1 && !newWalkingTile; ++yi) {
             Rect virtualTileRect((xi + 1) * g_gameConfig.getSpriteSize(), (yi + 1) * g_gameConfig.getSpriteSize(), g_gameConfig.getSpriteSize(), g_gameConfig.getSpriteSize());
@@ -791,15 +802,6 @@ void Creature::updateWalkingTile()
             if (virtualTileRect.contains(virtualCreatureRect.bottomRight()))
                 newWalkingTile = g_map.getOrCreateTile(getPosition().translated(xi, yi, 0));
         }
-    }
-
-    // NW: first half in front of west object, second half behind.
-    // SE: first half behind south object, second half in front.
-    if (m_walkedPixels < g_gameConfig.getSpriteSize() / 2) {
-        if (m_direction == Otc::NorthWest)
-            newWalkingTile = m_walkingTile ? m_walkingTile : getTile();
-        else if (m_direction == Otc::SouthEast)
-            newWalkingTile = g_map.getTile(getPosition().translated(-1, -1, 0));
     }
 
     if (newWalkingTile == m_walkingTile) return;

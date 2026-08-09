@@ -291,10 +291,13 @@ end
 
 -- Generic ease-out numeric tween. onUpdate(currentValue) each frame.
 -- Optional wrap: if to < from and wrap=true, jump to 0 then ease to `to`.
-function g_effects.animateValue(owner, from, to, duration, onUpdate, wrap)
+-- Optional interval: ms between ticks (default 16); use a higher value for
+-- cheap updates that don't need 60 Hz.
+function g_effects.animateValue(owner, from, to, duration, onUpdate, wrap, interval)
     if not owner or not onUpdate then
         return
     end
+    interval = interval or 16
 
     from = from or 0
     to = to or 0
@@ -323,7 +326,7 @@ function g_effects.animateValue(owner, from, to, duration, onUpdate, wrap)
         onUpdate(from + (to - from) * eased)
 
         if progress < 1 then
-            owner.valueEvent = scheduleEvent(animate, 16)
+            owner.valueEvent = scheduleEvent(animate, interval)
         else
             onUpdate(to)
             owner.valueEvent = nil

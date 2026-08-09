@@ -1063,8 +1063,11 @@ return {
         value = 100,
         action = function(value, options, controller, panels, extraWidgets)
             if value < 10 then value = 10 end
-            g_client.setMissileAlpha(value / 100)
-            local widget = panels.graphicsEffectsPanel:recursiveGetChildById('setMissileAlphaScroll')
+            if g_client and g_client.setMissileAlpha then
+                g_client.setMissileAlpha(value / 100)
+            end
+            local panel = panels and panels.graphicsEffectsPanel
+            local widget = panel and panel:recursiveGetChildById('setMissileAlphaScroll')
             if widget then
                 widget:setText(tr('Opacity Missile: %s%%', value))
             end
@@ -1074,8 +1077,11 @@ return {
         value = 100,
         action = function(value, options, controller, panels, extraWidgets)
             if value < 10 then value = 10 end
-            if g_client then g_client.setOwnSpellEffectAlpha(value / 100) end
-            local widget = panels.graphicsEffectsPanel:recursiveGetChildById('setOwnSpellEffectAlphaScroll')
+            if g_client and g_client.setOwnSpellEffectAlpha then
+                g_client.setOwnSpellEffectAlpha(value / 100)
+            end
+            local panel = panels and panels.graphicsEffectsPanel
+            local widget = panel and panel:recursiveGetChildById('setOwnSpellEffectAlphaScroll')
             if widget then
                 widget:setText(tr('Own Spell Effects: %s%%', value))
             end
@@ -1085,8 +1091,11 @@ return {
         value = 100,
         action = function(value, options, controller, panels, extraWidgets)
             if value < 10 then value = 10 end
-            if g_client then g_client.setOtherPlayerSpellEffectAlpha(value / 100) end
-            local widget = panels.graphicsEffectsPanel:recursiveGetChildById('setOtherPlayerSpellEffectAlphaScroll')
+            if g_client and g_client.setOtherPlayerSpellEffectAlpha then
+                g_client.setOtherPlayerSpellEffectAlpha(value / 100)
+            end
+            local panel = panels and panels.graphicsEffectsPanel
+            local widget = panel and panel:recursiveGetChildById('setOtherPlayerSpellEffectAlphaScroll')
             if widget then
                 widget:setText(tr("Other Players' Effects: %s%%", value))
             end
@@ -1096,8 +1105,11 @@ return {
         value = 100,
         action = function(value, options, controller, panels, extraWidgets)
             if value < 10 then value = 10 end
-            if g_client then g_client.setCreatureSpellEffectAlpha(value / 100) end
-            local widget = panels.graphicsEffectsPanel:recursiveGetChildById('setCreatureSpellEffectAlphaScroll')
+            if g_client and g_client.setCreatureSpellEffectAlpha then
+                g_client.setCreatureSpellEffectAlpha(value / 100)
+            end
+            local panel = panels and panels.graphicsEffectsPanel
+            local widget = panel and panel:recursiveGetChildById('setCreatureSpellEffectAlphaScroll')
             if widget then
                 widget:setText(tr('Creature Spell Effects: %s%%', value))
             end
@@ -1107,8 +1119,11 @@ return {
         value = 100,
         action = function(value, options, controller, panels, extraWidgets)
             if value < 10 then value = 10 end
-            if g_client then g_client.setBossAreaCreatureEffectAlpha(value / 100) end
-            local widget = panels.graphicsEffectsPanel:recursiveGetChildById('setBossAreaCreatureEffectAlphaScroll')
+            if g_client and g_client.setBossAreaCreatureEffectAlpha then
+                g_client.setBossAreaCreatureEffectAlpha(value / 100)
+            end
+            local panel = panels and panels.graphicsEffectsPanel
+            local widget = panel and panel:recursiveGetChildById('setBossAreaCreatureEffectAlphaScroll')
             if widget then
                 widget:setText(tr('Boss Area Creature Spell Effects: %s%%', value))
             end

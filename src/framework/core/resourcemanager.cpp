@@ -921,49 +921,46 @@ std::string ResourceManager::createArchive(const std::unordered_map<std::string,
     return archive;
 }
 
-std::unordered_map<std::string, std::string> ResourceManager::decompressArchive(std::string dataOrPath)
+std::unordered_map<std::string, std::string> ResourceManager::decompressArchive(const std::string& dataOrPath)
 {
     std::unordered_map<std::string, std::string> ret;
     if (dataOrPath.empty())
         return ret;
 
-    std::string data = dataOrPath;
+    std::string fileData;
+    const std::string* data = &dataOrPath;
     const bool canBePath = dataOrPath.size() < 4096 && dataOrPath.find('\0') == std::string::npos;
     const bool looksLikePath = canBePath &&
         (dataOrPath.find('/') != std::string::npos || dataOrPath.find('\\') != std::string::npos);
     if (!hasZipMagic(dataOrPath) && canBePath && (looksLikePath || fileExists(dataOrPath))) {
         try {
-            data = readFileContents(dataOrPath);
+            fileData = readFileContents(dataOrPath);
         } catch (const stdext::exception& e) {
             g_logger.error("decompressArchive: {}", e.what());
             return ret;
         }
+        data = &fileData;
     }
 
-    if (!hasZipMagic(data)) {
+    if (!hasZipMagic(*data)) {
         g_logger.error("decompressArchive: input does not have a valid ZIP signature");
         return ret;
     }
-    if (data.size() > std::numeric_limits<uint32_t>::max()) {
+    if (data->size() > std::numeric_limits<uint32_t>::max()) {
         g_logger.error("decompressArchive: input exceeds the uint32 memory backend limit");
         return ret;
     }
 
     zlib_filefunc_def filefunc32 = {};
     ourmemory_t unzmem = {};
-    unzmem.size = static_cast<uint32_t>(data.size());
-    unzmem.base = static_cast<char*>(malloc(unzmem.size));
-    if (!unzmem.base) {
-        g_logger.error("decompressArchive: unable to allocate {} bytes for ZIP input", unzmem.size);
-        return ret;
-    }
-
-    memcpy(unzmem.base, data.data(), unzmem.size);
+    unzmem.size = static_cast<uint32_t>(data->size());
+    // In unzip mode ioapi_mem only reads from base and never frees or grows it,
+    // so we can point at the caller's buffer instead of copying the whole ZIP.
+    unzmem.base = const_cast<char*>(data->data());
     fill_memory_filefunc(&filefunc32, &unzmem);
 
     unzFile zipfile = unzOpen2(nullptr, &filefunc32);
     if (!zipfile) {
-        free(unzmem.base);
         g_logger.error("decompressArchive: invalid zip archive");
         return ret;
     }
@@ -971,14 +968,12 @@ std::unordered_map<std::string, std::string> ResourceManager::decompressArchive(
     unz_global_info globalInfo = {};
     if (unzGetGlobalInfo(zipfile, &globalInfo) != UNZ_OK) {
         unzClose(zipfile);
-        free(unzmem.base);
         g_logger.error("decompressArchive: unable to read zip global info");
         return ret;
     }
     if (globalInfo.number_entry > MAX_ARCHIVE_ENTRIES) {
         g_logger.error("decompressArchive: too many entries (maximum {})", MAX_ARCHIVE_ENTRIES);
         unzClose(zipfile);
-        free(unzmem.base);
         return ret;
     }
 
@@ -1051,6 +1046,7 @@ std::unordered_map<std::string, std::string> ResourceManager::decompressArchive(
         }
 
         std::string contents;
+        contents.reserve(static_cast<size_t>(fileInfo.uncompressed_size));
         int readResult = UNZ_OK;
         while ((readResult = unzReadCurrentFile(zipfile, readBuffer, READ_SIZE)) > 0) {
             if (static_cast<size_t>(readResult) > MAX_ARCHIVE_FILE_SIZE - contents.size() ||
@@ -1092,6 +1088,5 @@ std::unordered_map<std::string, std::string> ResourceManager::decompressArchive(
         g_logger.error("decompressArchive: unable to close zip archive");
         valid = false;
     }
-    free(unzmem.base);
     return valid ? ret : std::unordered_map<std::string, std::string>{};
 }

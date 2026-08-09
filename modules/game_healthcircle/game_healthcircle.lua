@@ -162,7 +162,12 @@ local arcAnim = {
     skill = {}
 }
 
-local function tweenArc(slot, targetPercent, applyFn, wrap, vital)
+-- Arcs update at 30 Hz; 60 Hz is indistinguishable for pixel-clipped arcs
+-- and doubles the per-frame work during combat.
+local ARC_TWEEN_INTERVAL = 33
+local ARC_APPLY_EPSILON = 0.2
+
+local function tweenArc(slot, targetPercent, applyFn, wrap, vital, visible)
     targetPercent = math.max(0, math.min(100, targetPercent))
 
     local animateEnabled = true
@@ -172,9 +177,10 @@ local function tweenArc(slot, targetPercent, applyFn, wrap, vital)
         animateEnabled = modules.client_options.getOption('showAnimationArcs') ~= false
     end
 
-    if slot.value == nil or not animateEnabled then
+    if slot.value == nil or not animateEnabled or visible == false then
         g_effects.cancelValue(slot)
         slot.value = targetPercent
+        slot.applied = targetPercent
         applyFn(targetPercent)
         return
     end
@@ -193,14 +199,21 @@ local function tweenArc(slot, targetPercent, applyFn, wrap, vital)
 
     g_effects.animateValue(slot, from, targetPercent, duration, function(v)
         slot.value = v
+        -- Skip widget updates that wouldn't move the arc a visible amount;
+        -- the final tick (v == target) always applies.
+        if v ~= targetPercent and slot.applied and math.abs(v - slot.applied) < ARC_APPLY_EPSILON then
+            return
+        end
+        slot.applied = v
         applyFn(v)
-    end, wrap)
+    end, wrap, ARC_TWEEN_INTERVAL)
 end
 
 local function resetArcAnims()
     for _, slot in pairs(arcAnim) do
         g_effects.cancelValue(slot)
         slot.value = nil
+        slot.applied = nil
     end
 end
 
@@ -432,7 +445,7 @@ function whenHealthChange()
             return
         end
         local healthPercent = (player:getHealth() / math.max(player:getMaxHealth(), 1)) * 100
-        tweenArc(arcAnim.health, healthPercent, applyHealthArc, false, true)
+        tweenArc(arcAnim.health, healthPercent, applyHealthArc, false, true, isHealthCircle)
     end
 end
 
@@ -527,7 +540,7 @@ function whenManaChange()
         updateManaShieldDisplay()
 
         local manaPercent = (player:getMana() / maxMana) * 100
-        tweenArc(arcAnim.mana, manaPercent, applyManaArc, false, true)
+        tweenArc(arcAnim.mana, manaPercent, applyManaArc, false, true, isManaCircle)
     end
 end
 

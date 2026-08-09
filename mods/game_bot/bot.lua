@@ -16,6 +16,7 @@ local botWebSockets = {}
 local botMessages = nil
 local botTabs = nil
 local botExecutor = nil
+local fitTabsEvent = nil
 
 local configList = nil
 local enableButton = nil
@@ -140,11 +141,23 @@ function init()
   scheduleEvent(disableBotMiniwindowScroll, 50)
   scheduleEvent(disableBotMiniwindowScroll, 300)
 
+  -- fitTabs measures fonts and re-anchors every tab, so skip height-only
+  -- changes and debounce it while the miniwindow is being resized.
   botTabs.onGeometryChange = function(widget, oldRect, newRect)
     updateBotTabsHeight()
-    if widget.fitTabs then
-      widget.fitTabs()
+    if not widget.fitTabs then
+      return
     end
+    if oldRect and newRect and oldRect.width == newRect.width then
+      return
+    end
+    removeEvent(fitTabsEvent)
+    fitTabsEvent = scheduleEvent(function()
+      fitTabsEvent = nil
+      if botTabs and not botTabs:isDestroyed() and botTabs.fitTabs then
+        botTabs.fitTabs()
+      end
+    end, 50)
   end
 
   editWindow = g_ui.displayUI('edit')
@@ -166,6 +179,8 @@ function terminate()
   relogRecoveryEvent = nil
   removeEvent(botWatchEvent)
   botWatchEvent = nil
+  removeEvent(fitTabsEvent)
+  fitTabsEvent = nil
 
   disconnect(g_game, {
     onGameStart = online,
@@ -673,8 +688,9 @@ local protectedUploadDirs = {
   storage = true,
 }
 
-local function collectConfigFiles(rootPath, excludeRuntime)
+local function collectConfigFiles(rootPath, excludeRuntime, maxTotalBytes)
   local files = {}
+  local totalBytes = 0
   local function visit(path, relativePath)
     for _, entry in ipairs(g_resources.listDirectoryFiles(path, false, false, false) or {}) do
       local fullPath = path .. "/" .. entry
@@ -682,14 +698,24 @@ local function collectConfigFiles(rootPath, excludeRuntime)
       local rootDir = relative:match("^([^/]+)")
       if not (excludeRuntime and protectedUploadDirs[rootDir]) then
         if g_resources.directoryExists(fullPath) then
-          visit(fullPath, relative)
+          if not visit(fullPath, relative) then
+            return false
+          end
         elseif g_resources.fileExists(fullPath) then
-          files[relative] = g_resources.readFileContents(fullPath)
+          local contents = g_resources.readFileContents(fullPath)
+          totalBytes = totalBytes + (contents and contents:len() or 0)
+          if maxTotalBytes and totalBytes > maxTotalBytes then
+            return false
+          end
+          files[relative] = contents
         end
       end
     end
+    return true
   end
-  visit(rootPath, "")
+  if not visit(rootPath, "") then
+    return nil
+  end
   return files
 end
 
@@ -708,6 +734,24 @@ local function removeDirectoryTree(path)
     end
   end
   return g_resources.deleteFile(path)
+end
+
+-- Deletes a config's contents but keeps runtime dirs (storage) untouched,
+-- so replacing a config doesn't require backing up potentially large data.
+local function removeConfigContents(rootPath)
+  for _, entry in ipairs(g_resources.listDirectoryFiles(rootPath, false, false, false) or {}) do
+    if not protectedUploadDirs[entry] then
+      local fullPath = rootPath .. "/" .. entry
+      if g_resources.directoryExists(fullPath) then
+        if not removeDirectoryTree(fullPath) then
+          return false
+        end
+      elseif not g_resources.deleteFile(fullPath) then
+        return false
+      end
+    end
+  end
+  return true
 end
 
 local function writeConfigFiles(configName, files)
@@ -761,8 +805,10 @@ function compressConfig(configName)
   if not g_resources.directoryExists("/bot/" .. configName) then
     return onError("Config " .. configName .. " doesn't exist")
   end
-  local forArchive = collectConfigFiles("/bot/" .. configName, true)
-  if not next(forArchive) then
+  -- Bail out early instead of reading a pathologically large tree into memory;
+  -- the compressed upload limit is ConfigShare.maxBytes anyway.
+  local forArchive = collectConfigFiles("/bot/" .. configName, true, 8 * ConfigShare.maxBytes)
+  if not forArchive or not next(forArchive) then
     return nil
   end
   return g_resources.createArchive(forArchive)
@@ -782,15 +828,29 @@ function decompressConfig(configName, archiveOrFiles)
     return false, tr("Archive is empty, corrupt or unsafe.")
   end
 
+  -- Runtime dirs (storage) are preserved locally, so drop any archive entry
+  -- that would write into them.
+  for file in pairs(files) do
+    local rootDir = tostring(file):gsub("\\", "/"):gsub("^/+", ""):match("^([^/]+)")
+    if rootDir and protectedUploadDirs[rootDir] then
+      files[file] = nil
+    end
+  end
+  if not next(files) then
+    return false, tr("Archive is empty, corrupt or unsafe.")
+  end
+
+  -- Keep storage/ intact: it can hold megabytes of runtime data and the
+  -- archive never contains it, so we only back up and replace script files.
   local rootPath = "/bot/" .. configName
-  local backup = g_resources.directoryExists(rootPath) and collectConfigFiles(rootPath, false) or nil
-  if g_resources.directoryExists(rootPath) and not removeDirectoryTree(rootPath) then
+  local backup = g_resources.directoryExists(rootPath) and collectConfigFiles(rootPath, true) or nil
+  if g_resources.directoryExists(rootPath) and not removeConfigContents(rootPath) then
     return false, tr("Could not replace existing config \"%s\".", configName)
   end
 
   local ok, err = writeConfigFiles(configName, files)
   if not ok then
-    removeDirectoryTree(rootPath)
+    removeConfigContents(rootPath)
     if backup and next(backup) then
       writeConfigFiles(configName, backup)
     end

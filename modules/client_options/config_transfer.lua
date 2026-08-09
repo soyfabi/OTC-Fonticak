@@ -179,6 +179,11 @@ local function exportOptionsCategory(category)
         and modules.game_notifications.ensureScreenshotOptionsPanel then
         modules.game_notifications.ensureScreenshotOptionsPanel()
     end
+    if table.contains(category.panels or {}, 'graphicsAnimationPanel')
+        and not panels.graphicsAnimationPanel
+        and modules.client_options.ensureGraphicsAnimationPanel then
+        modules.client_options.ensureGraphicsAnimationPanel()
+    end
 
     local keys
     if category.id == 'allOptions' and modules.client_options.getOptionKeys then
@@ -522,6 +527,15 @@ local function importPayload(payload, expectedCategory)
     return false, tr('Unknown config category.')
 end
 
+local function fileCategoryFromName(name)
+    for _, category in ipairs(CATEGORIES) do
+        if name:find('^' .. category.id .. '_') then
+            return category.id
+        end
+    end
+    return nil
+end
+
 local function listExportFiles(categoryId)
     ensureExportDir()
     local files = {}
@@ -529,13 +543,17 @@ local function listExportFiles(categoryId)
         if name:lower():find('%.json$') then
             if not categoryId then
                 table.insert(files, name)
-            elseif name:find('^' .. categoryId .. '_') then
-                table.insert(files, name)
             else
-                -- Legacy/custom file names need one decode to identify their category.
-                local payload = select(1, readPayload(name))
-                if payload and payload.category == categoryId then
+                local namedCategory = fileCategoryFromName(name)
+                if namedCategory == categoryId then
                     table.insert(files, name)
+                elseif namedCategory == nil then
+                    -- Only files without a recognizable prefix (legacy/renamed)
+                    -- need a decode to identify their category.
+                    local payload = select(1, readPayload(name))
+                    if payload and payload.category == categoryId then
+                        table.insert(files, name)
+                    end
                 end
             end
         end

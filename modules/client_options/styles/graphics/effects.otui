@@ -112,6 +112,9 @@ UIWidget
       &minimumScrollValue: 10
       &maximumScrollValue: 100
       &scrollSize: 21
+      @onSetup: |
+        local value = modules.client_options.getOption('setMissileAlphaScroll')
+        self:setText(tr('Opacity Missile: %s%%', value))
 
   SmallReversedQtPanel
     anchors.left: parent.left
@@ -126,6 +129,9 @@ UIWidget
       &minimumScrollValue: 10
       &maximumScrollValue: 100
       &scrollSize: 21
+      @onSetup: |
+        local value = modules.client_options.getOption('setOwnSpellEffectAlphaScroll')
+        self:setText(tr('Own Spell Effects: %s%%', value))
 
   SmallReversedQtPanel
     anchors.left: parent.left
@@ -140,6 +146,9 @@ UIWidget
       &minimumScrollValue: 10
       &maximumScrollValue: 100
       &scrollSize: 21
+      @onSetup: |
+        local value = modules.client_options.getOption('setOtherPlayerSpellEffectAlphaScroll')
+        self:setText(tr("Other Players' Effects: %s%%", value))
 
   SmallReversedQtPanel
     anchors.left: parent.left
@@ -154,6 +163,9 @@ UIWidget
       &minimumScrollValue: 10
       &maximumScrollValue: 100
       &scrollSize: 21
+      @onSetup: |
+        local value = modules.client_options.getOption('setCreatureSpellEffectAlphaScroll')
+        self:setText(tr('Creature Spell Effects: %s%%', value))
 
   SmallReversedQtPanel
     anchors.left: parent.left
@@ -168,6 +180,9 @@ UIWidget
       &minimumScrollValue: 10
       &maximumScrollValue: 100
       &scrollSize: 21
+      @onSetup: |
+        local value = modules.client_options.getOption('setBossAreaCreatureEffectAlphaScroll')
+        self:setText(tr('Boss Area Creature Spell Effects: %s%%', value))
 
   OptionsQtButton
     id: resetEffectsButton

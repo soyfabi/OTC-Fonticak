@@ -36,6 +36,7 @@ function terminateMonkWidgets()
     if monkHealthAnim then
         g_effects.cancelValue(monkHealthAnim)
         monkHealthAnim.value = nil
+        monkHealthAnim.applied = nil
     end
     if monkCircleBackground then
         monkCircleBackground:destroy()
@@ -135,14 +136,20 @@ function whenMonkHealthChange()
     if monkHealthAnim.value == nil or not animateEnabled then
         g_effects.cancelValue(monkHealthAnim)
         monkHealthAnim.value = healthPercent
+        monkHealthAnim.applied = healthPercent
         applyMonkHealth(healthPercent)
         return
     end
 
+    -- 30 Hz is enough for the pixel-clipped arc and halves per-frame work.
     g_effects.animateValue(monkHealthAnim, monkHealthAnim.value, healthPercent, nil, function(v)
         monkHealthAnim.value = v
+        if v ~= healthPercent and monkHealthAnim.applied and math.abs(v - monkHealthAnim.applied) < 0.2 then
+            return
+        end
+        monkHealthAnim.applied = v
         applyMonkHealth(v)
-    end, false)
+    end, false, 33)
 end
 
 function whenMonkSereneChange(localplayer, serene)

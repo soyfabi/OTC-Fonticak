@@ -80,7 +80,13 @@ local buttons = { {
         open = "graphicsEffectsPanel"
     }, {
         text = "Animations",
-        open = "graphicsAnimationPanel"
+        open = "graphicsAnimationPanel",
+        -- Lazy-load: do NOT create this panel during client boot.
+        callbackFunc = function()
+            if modules.client_options and modules.client_options.ensureGraphicsAnimationPanel then
+                modules.client_options.ensureGraphicsAnimationPanel()
+            end
+        end
     } }
 }, {
     text = "Sound",
@@ -364,7 +370,7 @@ function controller:onInit()
 
     panels.graphicsPanel = g_ui.loadUI('styles/graphics/graphics', controller.ui.optionsTabContent)
     panels.graphicsEffectsPanel = g_ui.loadUI('styles/graphics/effects', controller.ui.optionsTabContent)
-    panels.graphicsAnimationPanel = g_ui.loadUI('styles/graphics/animation', controller.ui.optionsTabContent)
+    -- graphicsAnimationPanel is lazy-loaded on first use (ensureGraphicsAnimationPanel)
 
     panels.interface = g_ui.loadUI('styles/interface/interface', controller.ui.optionsTabContent)
     panels.interfaceConsole = g_ui.loadUI('styles/interface/console', controller.ui.optionsTabContent)
@@ -432,6 +438,8 @@ function controller:onTerminate()
         removeEvent(autoSwitchPresetEvent)
         autoSwitchPresetEvent = nil
     end
+
+    cancelCategoryAnimations()
 
     -- Make sure all settings are saved before terminating
     g_settings.save()
@@ -836,6 +844,45 @@ function syncNameplateBarAnimation()
     if g_gameConfig.setUiBarAnimationSpeed then
         g_gameConfig.setUiBarAnimationSpeed(tonumber(getOption('uiBarAnimationSpeed')) or 100)
     end
+end
+
+-- Loaded on demand: parsing animation.otui (~375 lines) during boot is wasted
+-- work for players that never open the panel.
+function ensureGraphicsAnimationPanel()
+    local panel = panels.graphicsAnimationPanel
+    if panel and not panel:isDestroyed() then
+        return panel
+    end
+
+    panel = g_ui.loadUI('styles/graphics/animation', controller.ui.optionsTabContent)
+    if not panel then
+        return nil
+    end
+    panel:hide()
+    panels.graphicsAnimationPanel = panel
+
+    -- setup() ran before this panel existed: sync its widgets with the
+    -- current option values and re-apply the master enable states.
+    for key, option in pairs(options) do
+        local widget = panel:recursiveGetChildById(key)
+        if widget then
+            local styleClass = widget:getStyle().__class
+            if styleClass == 'UICheckBox' or styleClass == 'QtCheckBox' then
+                widget:setChecked(option.value and true or false)
+            elseif styleClass == 'UIScrollBar' then
+                widget:setValue(option.value)
+            else
+                local valueBar = widget:recursiveGetChildById('valueBar')
+                if valueBar then
+                    valueBar:setValue(option.value)
+                end
+            end
+        end
+    end
+    applyAnimationMaster(getBoolOption('showAnimationMaster', true))
+    applyOutfitAnimationMaster(getBoolOption('showOutfitAnimationMaster', true))
+    applySlideAnimationMaster(getBoolOption('showSlideAnimationMaster', true))
+    return panel
 end
 
 function applyAnimationMaster(enabled)
@@ -1272,6 +1319,7 @@ end
 function hide()
     -- Save all settings when closing the options window
     g_settings.save()
+    cancelCategoryAnimations()
     controller.ui:hide()
 end
 
@@ -1480,6 +1528,38 @@ local function toggleSubCategories(parent, isOpen)
             end
         end
     end)
+end
+
+-- Stops in-flight category animations (selection glow + accordion tween)
+-- so no timers keep ticking while the window is hidden or terminating.
+function cancelCategoryAnimations()
+    local ui = controller and controller.ui
+    if not ui or ui:isDestroyed() then
+        return
+    end
+
+    local glow = getCategorySelectionGlow(ui.selectedCategoryButton)
+    if glow and glow.stop then
+        -- Keep holdCompleteFrame so the selection frame is intact on reopen.
+        glow:stop()
+        if glow.setPercent then
+            glow:setPercent(100)
+        end
+    end
+
+    if not g_effects or not ui.optionsTabBar then
+        return
+    end
+    for _, category in ipairs(ui.optionsTabBar:getChildren()) do
+        if category.subCategories and category.valueEvent then
+            g_effects.cancelValue(category)
+            local target = category.opened and category.openedSize or category.closedSize
+            if target then
+                category:setHeight(math.floor(target + 0.5))
+            end
+            setSubCategoriesVisible(category, category.opened and true or false, 1)
+        end
+    end
 end
 
 local function close(parent)
