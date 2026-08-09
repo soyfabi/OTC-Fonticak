@@ -136,7 +136,20 @@ SelectionButton < UIButton
     margin-bottom: 20
     margin-left: -10
     idle-animate: true
-  
+    visible: false
+
+  Label
+    id: loading
+    anchors.verticalCenter: parent.verticalCenter
+    anchors.horizontalCenter: parent.horizontalCenter
+    margin-bottom: 20
+    text: ...
+    text-align: center
+    text-auto-resize: true
+    color: $var-text-cip-color
+    font: $var-cip-font
+    phantom: true
+
   Label
     id: name
     anchors.bottom: parent.bottom

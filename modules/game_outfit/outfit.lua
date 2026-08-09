@@ -100,6 +100,273 @@ local CREATURE_MARGIN_TOP_DEFAULT = -30
 local suppressPreviewTransition = false
 local previewTransitionAnim = {}
 
+local tempOutfit = {}
+
+local pendingSelectionFill = nil
+local selectionFillToken = 0
+local selectionLoadingAnim = nil
+local activeSelectionQueue = nil
+local SELECTION_BATCH_SIZE = 24
+local SELECTION_BATCH_DELAY_MS = 1
+local SELECTION_LOADING_ANIM_MS = 280
+local SELECTION_LOADING_FRAMES = { '.', '..', '...' }
+
+local pendingColorFill = nil
+local pendingColorDebounce = nil
+local colorFillToken = 0
+local COLOR_BATCH_SIZE = 24
+local COLOR_BATCH_DELAY_MS = 1
+local COLOR_DEBOUNCE_MS = 30
+
+local pendingSearchRebuild = nil
+local SEARCH_DEBOUNCE_MS = 120
+
+local function cancelPendingSearchRebuild()
+  if pendingSearchRebuild then
+    removeEvent(pendingSearchRebuild)
+    pendingSearchRebuild = nil
+  end
+end
+
+local function cancelSelectionLoadingAnim()
+  if selectionLoadingAnim then
+    removeEvent(selectionLoadingAnim)
+    selectionLoadingAnim = nil
+  end
+end
+
+local function cancelPendingColorFill()
+  if pendingColorDebounce then
+    removeEvent(pendingColorDebounce)
+    pendingColorDebounce = nil
+  end
+  if pendingColorFill then
+    removeEvent(pendingColorFill)
+    pendingColorFill = nil
+  end
+  colorFillToken = colorFillToken + 1
+end
+
+local function cancelPendingSelectionFill()
+  if pendingSelectionFill then
+    removeEvent(pendingSelectionFill)
+    pendingSelectionFill = nil
+  end
+  selectionFillToken = selectionFillToken + 1
+  activeSelectionQueue = nil
+  cancelSelectionLoadingAnim()
+  cancelPendingColorFill()
+  cancelPendingSearchRebuild()
+end
+
+local function startSelectionLoadingAnim()
+  if selectionLoadingAnim then
+    return
+  end
+
+  local frame = 1
+  local function tick()
+    selectionLoadingAnim = nil
+    if not window or window:isDestroyed() or not activeSelectionQueue then
+      return
+    end
+
+    local text = SELECTION_LOADING_FRAMES[frame]
+    frame = frame % #SELECTION_LOADING_FRAMES + 1
+
+    local queue = activeSelectionQueue
+    local hasPending = false
+    for i = queue.index, #queue.items do
+      local button = queue.items[i].button
+      local loading = button and not button:isDestroyed() and button.loading
+      if loading and not loading:isDestroyed() then
+        loading:setText(text)
+        hasPending = true
+      end
+    end
+
+    if hasPending then
+      selectionLoadingAnim = scheduleEvent(tick, SELECTION_LOADING_ANIM_MS)
+    end
+  end
+
+  selectionLoadingAnim = scheduleEvent(tick, SELECTION_LOADING_ANIM_MS)
+end
+
+local function markSelectionButtonLoading(button)
+  if not button then
+    return
+  end
+  button.appliedOutfit = nil
+  if button.outfit and not button.outfit:isDestroyed() then
+    button.outfit:hide()
+  end
+  if button.loading and not button.loading:isDestroyed() then
+    button.loading:setText(SELECTION_LOADING_FRAMES[1])
+    button.loading:show()
+  end
+end
+
+local function markSelectionButtonReady(button)
+  if not button then
+    return
+  end
+  if button.loading and not button.loading:isDestroyed() then
+    button.loading:hide()
+  end
+  if button.outfit and not button.outfit:isDestroyed() then
+    button.outfit:show()
+  end
+end
+
+local function fillSelectionBatch(queue, token)
+  pendingSelectionFill = nil
+  if token ~= selectionFillToken or not window or window:isDestroyed() then
+    return
+  end
+
+  local list = window.ScrollBar and window.ScrollBar.selectionList
+  if not list or list:isDestroyed() then
+    return
+  end
+
+  local last = math.min(queue.index + SELECTION_BATCH_SIZE - 1, #queue.items)
+  for i = queue.index, last do
+    local entry = queue.items[i]
+    local button = entry.button
+    if button and not button:isDestroyed() then
+      entry.apply(button)
+      markSelectionButtonReady(button)
+    end
+  end
+
+  queue.index = last + 1
+  if queue.index <= #queue.items then
+    pendingSelectionFill = scheduleEvent(function()
+      fillSelectionBatch(queue, token)
+    end, SELECTION_BATCH_DELAY_MS)
+  else
+    cancelSelectionLoadingAnim()
+  end
+end
+
+local function startSelectionFill(items)
+  cancelPendingSelectionFill()
+  if not items or #items == 0 then
+    return
+  end
+
+  local token = selectionFillToken
+  local queue = { items = items, index = 1 }
+  activeSelectionQueue = queue
+  startSelectionLoadingAnim()
+  fillSelectionBatch(queue, token)
+end
+
+-- Recolours already-built tiles instead of rebuilding the whole grid, which is
+-- what made every colour click rebuild (and reload) the full selection list.
+local function recolorSelectionButton(button)
+  local outfit = button.appliedOutfit
+  if not outfit then
+    return
+  end
+
+  local kind = button.selectionKind
+  if kind == 'mount' then
+    outfit.head = tempOutfit.mountHead or 0
+    outfit.body = tempOutfit.mountBody or 0
+    outfit.legs = tempOutfit.mountLegs or 0
+    outfit.feet = tempOutfit.mountFeet or 0
+  elseif kind == 'outfit' or kind == 'aura' then
+    outfit.head = tempOutfit.head or 0
+    outfit.body = tempOutfit.body or 0
+    outfit.legs = tempOutfit.legs or 0
+    outfit.feet = tempOutfit.feet or 0
+  else
+    return
+  end
+
+  button.outfit:setOutfit(outfit)
+end
+
+local function recolorBatch(buttons, index, token)
+  pendingColorFill = nil
+  if token ~= colorFillToken or not window or window:isDestroyed() then
+    return
+  end
+
+  local last = math.min(index + COLOR_BATCH_SIZE - 1, #buttons)
+  for i = index, last do
+    local button = buttons[i]
+    if button and not button:isDestroyed() then
+      recolorSelectionButton(button)
+    end
+  end
+
+  if last < #buttons then
+    pendingColorFill = scheduleEvent(function()
+      recolorBatch(buttons, last + 1, token)
+    end, COLOR_BATCH_DELAY_MS)
+  end
+end
+
+-- Tiles still queued in the initial fill read tempOutfit when their turn comes,
+-- so only the ones already drawn need an explicit refresh.
+local function refreshSelectionColors()
+  if not window or window:isDestroyed() then
+    return
+  end
+
+  local list = window.ScrollBar and window.ScrollBar.selectionList
+  if not list or list:isDestroyed() then
+    return
+  end
+
+  local buttons = {}
+  for _, child in ipairs(list:getChildren()) do
+    if child.appliedOutfit then
+      table.insert(buttons, child)
+    end
+  end
+
+  if #buttons == 0 then
+    return
+  end
+
+  colorFillToken = colorFillToken + 1
+  recolorBatch(buttons, 1, colorFillToken)
+end
+
+function scheduleSelectionColorRefresh()
+  if pendingColorDebounce then
+    removeEvent(pendingColorDebounce)
+  end
+  if pendingColorFill then
+    removeEvent(pendingColorFill)
+    pendingColorFill = nil
+  end
+
+  pendingColorDebounce = scheduleEvent(function()
+    pendingColorDebounce = nil
+    refreshSelectionColors()
+  end, COLOR_DEBOUNCE_MS)
+end
+
+local function prioritizeSelectionItem(items, focusedId)
+  if not focusedId or #items == 0 then
+    return
+  end
+  for i, entry in ipairs(items) do
+    if entry.id == focusedId then
+      if i > 1 then
+        local focused = table.remove(items, i)
+        table.insert(items, 1, focused)
+      end
+      return
+    end
+  end
+end
+
 local function isOutfitAnimEnabled(optionKey)
   if modules.client_options and modules.client_options.isOutfitAnimationEnabled then
     return modules.client_options.isOutfitAnimationEnabled(optionKey)
@@ -296,7 +563,6 @@ local presetList = {}
 local pendingStoreTryOn = nil
 local currentPlayerId = nil
 
-local tempOutfit = {}
 local tempFamiliar = {type = 0}
 local ServerData = {
   currentOutfit = {},
@@ -775,6 +1041,7 @@ end
 
 function destroy()
   if window then
+    cancelPendingSelectionFill()
     cancelFamiliarPreviewAnim()
     cancelPreviewTransitions()
     familiarPreviewShown = false
@@ -1046,6 +1313,7 @@ function onHidePresetWindow()
 end
 
 function showPresets()
+  cancelPendingSelectionFill()
   window.ScrollBar.selectionList:destroyChildren()
   window.presetList.selectionList:destroyChildren()
   window.ScrollBar:setVisible(false)
@@ -1110,6 +1378,7 @@ end
 
 function showOutfits(searchText)
   onHidePresetWindow()
+  cancelPendingSelectionFill()
   window.ScrollBar.selectionList.onChildFocusChange = nil
   window.ScrollBar.selectionList:destroyChildren()
   window.filter_outfits.onlyCheck:setEnabled(true)
@@ -1134,6 +1403,10 @@ function showOutfits(searchText)
   end
 
   local focused = nil
+  local fillItems = {}
+  local baseOutfit = table.copy(previewCreature:getOutfit())
+  baseOutfit.mount = 0
+
   for _, outfitData in ipairs(availableOutfits) do
     if searchText and not matchText(searchText, outfitData[2]) then
       goto continue
@@ -1141,13 +1414,9 @@ function showOutfits(searchText)
 
     local button = g_ui.createWidget("SelectionButton", window.ScrollBar.selectionList)
     button:setId(outfitData[1])
-
-    local outfit = table.copy(previewCreature:getOutfit())
-    outfit.type = outfitData[1]
-    outfit.addons = outfitData[3]
-    outfit.mount = 0
-    button.outfit:setOutfit(outfit)
+    button.selectionKind = 'outfit'
     button.name:setText(outfitData[2])
+    markSelectionButtonLoading(button)
 
     local storeMode, storeOffer = getOutfitStoreInfo(outfitData)
     if storeMode ~= 0 then
@@ -1164,8 +1433,30 @@ function showOutfits(searchText)
       configureAddons(outfitData[3])
     end
 
+    local outfitType = outfitData[1]
+    local outfitAddons = outfitData[3]
+    table.insert(fillItems, {
+      id = outfitType,
+      button = button,
+      apply = function(btn)
+        local outfit = table.copy(baseOutfit)
+        outfit.type = outfitType
+        outfit.addons = outfitAddons
+        outfit.mount = 0
+        outfit.head = tempOutfit.head
+        outfit.body = tempOutfit.body
+        outfit.legs = tempOutfit.legs
+        outfit.feet = tempOutfit.feet
+        btn.outfit:setOutfit(outfit)
+        btn.appliedOutfit = outfit
+      end
+    })
+
     :: continue ::
   end
+
+  prioritizeSelectionItem(fillItems, focused)
+  startSelectionFill(fillItems)
 
   local focusedWidget = focused and window.ScrollBar.selectionList[focused] or nil
 
@@ -1181,6 +1472,7 @@ end
 
 function showMounts(searchText)
   onHidePresetWindow()
+  cancelPendingSelectionFill()
   window.ScrollBar.selectionList.onChildFocusChange = nil
   window.ScrollBar.selectionList:destroyChildren()
   window.filter_outfits.onlyCheck:setEnabled(true)
@@ -1204,6 +1496,7 @@ function showMounts(searchText)
   end
 
   local focused = nil
+  local fillItems = {}
   for _, mountData in ipairs(availableMounts) do
     if searchText and not matchText(searchText, mountData[2]) then
       goto continue
@@ -1211,13 +1504,9 @@ function showMounts(searchText)
 
     local button = g_ui.createWidget("SelectionButton", window.ScrollBar.selectionList)
     button:setId(mountData[1])
-
-    button.outfit:setOutfit({type = mountData[1]})
-    button.outfit:setCenter(true)
+    button.selectionKind = 'mount'
     button.name:setText(mountData[2])
-    if button.name:isTextWraped() then
-      button.outfit:setMarginBottom(24)
-    end
+    markSelectionButtonLoading(button)
 
     local storeOffer = tonumber(mountData[3]) or 0
     if storeOffer > 0 then
@@ -1227,13 +1516,38 @@ function showMounts(searchText)
 
     if tempOutfit.mount == mountData[1] then
       focused = mountData[1]
-      if not button.outfit:isColoredMount() then
-        window.appearance.grayHover:setVisible(true)
-      end
     end
+
+    local mountType = mountData[1]
+    local wrapName = button.name:isTextWraped()
+    table.insert(fillItems, {
+      id = mountType,
+      button = button,
+      apply = function(btn)
+        local outfit = {
+          type = mountType,
+          head = tempOutfit.mountHead,
+          body = tempOutfit.mountBody,
+          legs = tempOutfit.mountLegs,
+          feet = tempOutfit.mountFeet
+        }
+        btn.outfit:setOutfit(outfit)
+        btn.appliedOutfit = outfit
+        btn.outfit:setCenter(true)
+        if wrapName then
+          btn.outfit:setMarginBottom(24)
+        end
+        if focused == mountType and not btn.outfit:isColoredMount() then
+          window.appearance.grayHover:setVisible(true)
+        end
+      end
+    })
 
     :: continue ::
   end
+
+  prioritizeSelectionItem(fillItems, focused)
+  startSelectionFill(fillItems)
 
   if #ServerData.mounts == 1 then
     window.ScrollBar.selectionList:focusChild(nil)
@@ -1252,22 +1566,37 @@ end
 
 function showFamiliars()
   onHidePresetWindow()
+  cancelPendingSelectionFill()
   window.ScrollBar.selectionList.onChildFocusChange = nil
   window.ScrollBar.selectionList:destroyChildren()
   window.filter_outfits.onlyCheck:setEnabled(false)
 
   local focused = nil
+  local fillItems = {}
   for _, mountData in ipairs(ServerData.familiars) do
     local button = g_ui.createWidget("SelectionButton", window.ScrollBar.selectionList)
     button:setId(mountData[1])
-
-    button.outfit:setOutfit({type = mountData[1]})
-    button.outfit:setCenter(true)
+    button.selectionKind = 'familiar'
     button.name:setText(mountData[2])
+    markSelectionButtonLoading(button)
+
     if tempOutfit.familiar == mountData[1] then
       focused = mountData[1]
     end
+
+    local familiarType = mountData[1]
+    table.insert(fillItems, {
+      id = familiarType,
+      button = button,
+      apply = function(btn)
+        btn.outfit:setOutfit({type = familiarType})
+        btn.outfit:setCenter(true)
+      end
+    })
   end
+
+  prioritizeSelectionItem(fillItems, focused)
+  startSelectionFill(fillItems)
 
   if #ServerData.familiars == 1 then
     window.ScrollBar.selectionList:focusChild(nil)
@@ -1286,29 +1615,52 @@ end
 
 function showAuras()
   onHidePresetWindow()
+  cancelPendingSelectionFill()
   window.ScrollBar.selectionList.onChildFocusChange = nil
   window.ScrollBar.selectionList:destroyChildren()
   window.filter_outfits.onlyCheck:setEnabled(false)
 
   local focused = nil
+  local fillItems = {}
+  local baseOutfit = table.copy(previewCreature:getOutfit())
+
   for _, auraData in ipairs(ServerData.auras) do
     local button = g_ui.createWidget("SelectionButton", window.ScrollBar.selectionList)
     button:setId(auraData[1])
-
+    button.selectionKind = 'aura'
     button.aura = auraData[3]
     button.auraCategory = auraData[2]
-
-    local outfit = table.copy(previewCreature:getOutfit())
-    outfit.aura = auraData[3]
-    outfit.auraCategory = auraData[2]
-    button.outfit:setOutfit(outfit)
-    button.outfit:setCenter(true)
-    button.outfit:setAnimate(true)
     button.name:setText(auraData[4])
+    markSelectionButtonLoading(button)
+
     if tempOutfit.aura == auraData[3] then
       focused = auraData[1]
     end
+
+    local auraId = auraData[3]
+    local auraCategory = auraData[2]
+    local buttonId = auraData[1]
+    table.insert(fillItems, {
+      id = buttonId,
+      button = button,
+      apply = function(btn)
+        local outfit = table.copy(baseOutfit)
+        outfit.head = tempOutfit.head
+        outfit.body = tempOutfit.body
+        outfit.legs = tempOutfit.legs
+        outfit.feet = tempOutfit.feet
+        outfit.aura = auraId
+        outfit.auraCategory = auraCategory
+        btn.outfit:setOutfit(outfit)
+        btn.appliedOutfit = outfit
+        btn.outfit:setCenter(true)
+        btn.outfit:setAnimate(true)
+      end
+    })
   end
+
+  prioritizeSelectionItem(fillItems, focused)
+  startSelectionFill(fillItems)
 
   if #ServerData.auras == 1 then
     window.ScrollBar.selectionList:focusChild(nil)
@@ -1413,7 +1765,16 @@ end
 function onOutfitSelect(list, focusedChild, unfocusedChild, reason)
   if focusedChild then
     local outfitType = tonumber(focusedChild:getId())
-    local outfit = focusedChild.outfit:getOutfit()
+    local outfit = focusedChild.appliedOutfit or focusedChild.outfit:getOutfit()
+    if not outfit.type or outfit.type == 0 then
+      outfit.type = outfitType
+      for _, outfitData in pairs(ServerData.outfits) do
+        if tonumber(outfitData[1]) == outfitType then
+          outfit.addons = outfitData[3]
+          break
+        end
+      end
+    end
     tempOutfit.type = outfit.type
     tempOutfit.addons = outfit.addons
     showOutfitCheck:setChecked(true)
@@ -1469,7 +1830,7 @@ function onMountSelect(list, focusedChild, unfocusedChild, reason)
 		end
 
     window.appearance.grayHover:setVisible(false)
-    if not focusedChild.outfit:isColoredMount() then
+    if focusedChild.appliedOutfit and not focusedChild.outfit:isColoredMount() then
       window.appearance.grayHover:setVisible(true)
     end
   end
@@ -1633,12 +1994,7 @@ function onColorCheckChange(widget, selectedWidget)
   end
 
   updatePreview()
-
-  if appearanceGroup:getSelectedWidget() == window.appearance.outfitCheck then
-    showOutfits()
-  elseif appearanceGroup:getSelectedWidget() == window.appearance.mountCheck then
-    showMounts()
-  end
+  scheduleSelectionColorRefresh()
 end
 
 function updatePreview(onlyMount)
@@ -1737,15 +2093,25 @@ function rotate(value)
 end
 
 function onFilterSearch(widget)
-  if window.appearance.outfitCheck:isChecked() then
-    showOutfits(widget:getText())
-  elseif window.appearance.mountCheck:isChecked() then
-    showMounts(widget:getText())
-  end
+  local searchText = widget:getText()
+  cancelPendingSearchRebuild()
+
+  pendingSearchRebuild = scheduleEvent(function()
+    pendingSearchRebuild = nil
+    if not window or window:isDestroyed() then
+      return
+    end
+    if window.appearance.outfitCheck:isChecked() then
+      showOutfits(searchText)
+    elseif window.appearance.mountCheck:isChecked() then
+      showMounts(searchText)
+    end
+  end, SEARCH_DEBOUNCE_MS)
 end
 
 function onClearFilterSearch(widget)
   widget:clearText()
+  cancelPendingSearchRebuild()
   if window.appearance.outfitCheck:isChecked() then
     showOutfits()
   elseif window.appearance.mountCheck:isChecked() then
