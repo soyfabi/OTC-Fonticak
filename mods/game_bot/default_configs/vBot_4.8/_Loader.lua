@@ -21,8 +21,8 @@ local luaFiles = {
   "vlib",
   "new_cavebot_lib",
   "configs", -- do not change this and above
+  "cavebot", -- before extras: Skin Monsters / macros call CaveBot.isOn()
   "extras",
-  "cavebot",
   "playerlist",
   "BotServer",
   "alarms",

@@ -61,7 +61,7 @@ BotTabBarButton < UIButton
 
 MiniWindow
   id: botWindow
-  !text: tr('Bot')
+  !text: tr('Bot Hub')
   height: 600
   @onClose: modules.game_bot.onMiniWindowClose()
   &save: true
@@ -71,9 +71,9 @@ MiniWindow
     id: miniwindowIcon
     anchors.top: miniwindowHeader.top
     anchors.left: miniwindowHeader.left
-    margin-top: 2
-    margin-left: 4
-    size: 12 12
+    margin-top: 0
+    margin-left: 3
+    size: 16 16
     image-source: /images/topbuttons/bot
     image-smooth: false
 
@@ -85,10 +85,10 @@ MiniWindow
     margin-top: 2
     margin-left: 20
     margin-right: 50
-    font: verdana-11px-monochrome
+    font: Verdana Bold-11px
     height: 13
     color: #9d9d9dff
-    !text: tr('Bot')
+    !text: tr('Bot Hub')
 
   MiniWindowContents
     anchors.right: parent.right

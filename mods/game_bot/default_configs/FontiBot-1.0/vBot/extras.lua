@@ -292,7 +292,7 @@ if true then
   local stakeBodies = { 4097, 4137, 8738, 18958 }
   local fishingBodies = { 9582 }
   macro(500, function()
-    if not CaveBot.isOn() or not settings.stake then return end
+    if not CaveBot or not CaveBot.isOn or not CaveBot.isOn() or not settings.stake then return end
     for i, tile in ipairs(g_map.getTiles(posz())) do
       local item = tile:getTopThing()
       if item and item:isContainer() then
@@ -438,8 +438,8 @@ addCheckBox("suppliesControl", "TargetBot off if low supply", false, leftPanel,
 if true then
   macro(500, function()
     if not settings.suppliesControl then return end
-    if TargetBot.isOff() then return end
-    if CaveBot.isOff() then return end
+    if not TargetBot or not TargetBot.isOff or TargetBot.isOff() then return end
+    if not CaveBot or not CaveBot.isOff or CaveBot.isOff() then return end
     if type(hasSupplies()) == 'table' then
       TargetBot.setOff()
     end
