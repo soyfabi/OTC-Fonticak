@@ -1,0 +1,11 @@
+Module
+  name: client_profiles
+  description: Client profiles
+  author: Vithrax
+  website: discord_Vithrax#5814
+  sandboxed: true
+  reloadable: false
+  dependencies: [ client_options ]
+  scripts: [ profiles ]
+  @onLoad: init()
+  @onUnload: terminate()

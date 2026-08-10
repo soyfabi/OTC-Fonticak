@@ -34,7 +34,7 @@ Module
     - game_playermount
     - game_ruleviolation
     - game_market
-    - game_spells
+    - game_spellist
     - game_cooldown
     - game_modaldialog
     - game_unjustifiedpoints
@@ -52,5 +52,8 @@ Module
     - game_rewardwall
     - game_forge
     - game_inspect
+    - client_profiles
+    - game_bot
+    - game_store
   @onLoad: init()
   @onUnload: terminate()

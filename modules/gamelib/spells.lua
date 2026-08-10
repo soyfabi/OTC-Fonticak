@@ -1,7 +1,7 @@
 SpelllistSettings = {
     ['Default'] = {
-        iconFile = '/images/game/spells/spell-icons-32x32',
-        iconsFolder = '/images/game/spells/',
+        iconFile = '/modules/game_spellist/images/spell-icons-32x32',
+        iconsFolder = '/modules/game_spellist/images/',
         iconsForGameCooldown = '/images/game/spells/spell-icons-20x20',
         iconSize = {
             width = 32,

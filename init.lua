@@ -123,9 +123,6 @@ end
 g_html.addGlobalStyle('/data/styles/html.css')
 g_html.addGlobalStyle('/data/styles/custom.css')
 
--- try to add mods path too
-g_resources.addSearchPath(g_resources.getWorkDir() .. 'mods', true)
-
 -- setup directory for saving configurations (%APPDATA%/otcFonticak)
 setupSingleUserWriteDir()
 
@@ -156,9 +153,8 @@ local function loadModules()
     g_modules.autoLoadModules(999)
     g_modules.ensureModuleLoaded('game_interface')
 
-    -- mods 1000-9999
+    -- remaining modules 1000-9999
     g_modules.autoLoadModules(9999)
-    g_modules.ensureModuleLoaded('client_mods')
 
     local script = '/' .. g_app.getCompactName() .. 'rc.lua'
 

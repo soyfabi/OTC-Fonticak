@@ -239,8 +239,8 @@ function UIItem:onClick(mousePos)
         return
     end
 
-    if modules.game_itemselector then
-        modules.game_itemselector.show(self)
+    if modules.game_bot and modules.game_bot.showItemSelector then
+        modules.game_bot.showItemSelector(self)
     end
 end
 

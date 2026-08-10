@@ -1,0 +1,327 @@
+TibiaSpellListEntry < UIWidget
+  height: 34
+  focusable: false
+  border-width: 0
+  change-cursor-image: false
+  background-color: alpha
+
+  UIWidget
+    id: icon
+    size: 32 32
+    anchors.left: parent.left
+    anchors.top: parent.top
+    margin-left: 1
+    margin-top: 1
+    phantom: true
+    focusable: false
+    border-width: 0
+    image-source: /modules/game_spellist/images/spell-icons-32x32
+
+  Panel
+    id: gray
+    size: 32 32
+    anchors.left: icon.left
+    anchors.top: icon.top
+    image-source: /images/ui/ditherpattern
+    visible: false
+    phantom: true
+    focusable: false
+
+  Label
+    id: name
+    anchors.left: icon.right
+    anchors.right: parent.right
+    anchors.bottom: parent.verticalCenter
+    margin-left: 3
+    margin-bottom: 1
+    margin-right: 4
+    color: #c0c0c0
+    font: verdana-11px-antialised
+    phantom: true
+    focusable: false
+
+  Label
+    id: words
+    anchors.left: icon.right
+    anchors.right: parent.right
+    anchors.top: parent.verticalCenter
+    margin-left: 3
+    margin-top: 1
+    margin-right: 4
+    color: #c0c0c0
+    font: verdana-11px-antialised
+    phantom: true
+    focusable: false
+
+TibiaSpellInfoEntry < UIWidget
+  height: 14
+  focusable: false
+  phantom: true
+
+  Label
+    id: key
+    anchors.left: parent.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    anchors.right: parent.horizontalCenter
+    text-align: topRight
+    color: #d6b45c
+    font: verdana-11px-antialised
+    text-wrap: true
+    margin-right: 3
+    phantom: true
+
+  Label
+    id: value
+    anchors.left: parent.horizontalCenter
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    text-align: topLeft
+    color: #f4f4f4
+    font: verdana-11px-antialised
+    text-wrap: true
+    margin-left: 3
+    phantom: true
+
+MiniWindow
+  id: spellListWidget
+  text: ''
+  height: 380
+  width: 192
+  focusable: true
+  @onClose: modules.game_spellist.onMiniWindowClose()
+  @onOpen: modules.game_spellist.onMiniWindowOpen()
+  &save: true
+  &autoOpen: false
+  &minimumHeight: 280
+
+  UIWidget
+    id: spellListIcon
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 3
+    margin-left: 4
+    size: 14 14
+    image-source: /modules/game_spellist/images/icon-spell-list-widget
+    phantom: true
+    focusable: false
+
+  Label
+    id: spellListTitle
+    anchors.top: parent.top
+    anchors.left: spellListIcon.right
+    margin-top: 1
+    margin-left: 2
+    height: 14
+    width: 72
+    text: Spell List
+    font: verdana-11px-antialised
+    color: #c0c0c0
+    text-align: left
+    phantom: true
+    focusable: false
+
+  UIButton
+    id: menuButton
+    anchors.top: minimizeButton.top
+    anchors.right: minimizeButton.left
+    margin-right: 3
+    size: 12 12
+    image-source: /images/ui/miniwindow_buttons
+    image-clip: 113 1 12 12
+    @onClick: modules.game_spellist.onExtraMenu()
+    $hover:
+      image-clip: 113 15 12 12
+    $pressed:
+      image-clip: 113 29 12 12
+
+  Panel
+    id: infoPanel
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    phantom: true
+    focusable: true
+    height: 170
+    margin-left: 3
+    margin-right: 3
+    margin-bottom: 4
+
+    HorizontalSeparator
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      margin-left: 2
+      margin-right: 2
+
+    Label
+      id: spellName
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+      margin-top: 3
+      color: #f4f4f4
+      font: verdana-11px-antialised
+      text-align: center
+      text-auto-resize: true
+
+    TibiaSpellInfoEntry
+      id: formula
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+      height: 28
+
+    TibiaSpellInfoEntry
+      id: vocation
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+
+    TibiaSpellInfoEntry
+      id: group
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+
+    TibiaSpellInfoEntry
+      id: type
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+
+    TibiaSpellInfoEntry
+      id: magicType
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+
+    TibiaSpellInfoEntry
+      id: cooldown
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+
+    TibiaSpellInfoEntry
+      id: mana
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+
+    TibiaSpellInfoEntry
+      id: minLevel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+
+    TibiaSpellInfoEntry
+      id: premium
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+
+    TibiaSpellInfoEntry
+      id: price
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+
+  TextEdit
+    id: searchText
+    anchors.top: miniwindowHeaderBorder.bottom
+    anchors.left: parent.left
+    anchors.right: miniwindowScrollBar.left
+    margin-top: 2
+    margin-left: 3
+    margin-right: 1
+    height: 18
+    font: verdana-11px-antialised
+    color: #c0c0c0
+    !placeholder: tr('Type to search')
+    placeholder-color: #707070
+    padding: 2
+    padding-right: 16
+    focusable: true
+    change-cursor-image: false
+    image-source: /images/ui/textedit
+    image-border: 1
+    border-width: 1
+    border-color: #000000
+    $focus:
+      border-width: 1
+      border-color: #ffffff
+    $!focus:
+      border-width: 1
+      border-color: #000000
+
+  UIWidget
+    id: searchFocusBorder
+    anchors.top: searchText.top
+    anchors.bottom: searchText.bottom
+    anchors.left: searchText.left
+    anchors.right: searchText.right
+    border-width: 1
+    border-color: #ffffff
+    visible: false
+    phantom: true
+    focusable: false
+
+  Label
+    id: searchCaretMeasure
+    font: verdana-11px-antialised
+    text-auto-resize: true
+    visible: false
+    phantom: true
+    focusable: false
+
+  UIWidget
+    id: searchCaret
+    anchors.top: searchText.top
+    anchors.left: searchText.left
+    margin-top: 3
+    margin-left: 3
+    width: 1
+    height: 11
+    background-color: #c0c0c0
+    visible: false
+    phantom: true
+    focusable: false
+
+  Button
+    id: clearSearch
+    anchors.top: searchText.top
+    anchors.bottom: searchText.bottom
+    anchors.right: searchText.right
+    size: 18 18
+    margin-right: 0
+    font: verdana-11px-antialised
+    color: #c0c0c0
+    text: x
+    focusable: false
+    phantom: false
+
+  MiniWindowContents
+    id: contentsPanel
+    anchors.top: searchText.bottom
+    anchors.left: parent.left
+    anchors.right: miniwindowScrollBar.left
+    anchors.bottom: infoPanel.top
+    margin-top: 2
+    margin-left: 3
+    margin-right: 1
+    margin-bottom: 2
+    vertical-scrollbar: miniwindowScrollBar
+    focusable: true
+    always-show-vertical-scrollbar: true
+
+    Panel
+      id: spellsPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      padding-right: 2
+      focusable: false
+      layout:
+        type: verticalBox
+        fit-children: true

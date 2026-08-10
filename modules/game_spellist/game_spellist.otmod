@@ -1,0 +1,9 @@
+Module
+  name: game_spellist
+  description: Tibia Spell List
+  author: Christianlb && ..
+  sandboxed: true
+  dependencies: [ gamelib ]
+  scripts: [ game_spellist ]
+  @onLoad: init()
+  @onUnload: terminate()
