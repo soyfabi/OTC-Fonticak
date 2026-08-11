@@ -17,7 +17,7 @@ No paid plan needed. Free KV limits are enough for personal/friend sharing.
 ## Deploy
 
 ```bash
-cd services/bot-config-api
+cd tools/services/bot-config-api
 npm install
 npx wrangler login
 npm run kv:create

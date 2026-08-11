@@ -3,6 +3,7 @@
 BotTextEditor = BotTextEditor or {}
 
 local activeWindow
+local DEFAULT_WIDTH = 420
 
 function BotTextEditor.init()
   connect(g_game, { onGameEnd = BotTextEditor.destroy })
@@ -45,6 +46,33 @@ local function normalizeArgs(text, options, callback)
   return text, options, callback
 end
 
+-- InputBoxLabel is fixed-size and does not wrap. Long text paints outside the window.
+local function addDescriptionLabels(window, description)
+  local labels = {}
+  if not description or description == '' then
+    return labels
+  end
+  for line in description:gmatch('[^\r\n]+') do
+    table.insert(labels, window:addLabel(line))
+  end
+  return labels
+end
+
+local function fitDescriptionLabels(window, labels)
+  local padding = (window:getPaddingLeft() or 0) + (window:getPaddingRight() or 0)
+  local contentWidth = math.max(80, window:getWidth() - padding)
+
+  for _, label in ipairs(labels) do
+    if label and not label:isDestroyed() then
+      label:setFixedSize(false)
+      label:setTextWrap(true)
+      label:setTextHorizontalAutoResize(false)
+      label:setTextVerticalAutoResize(true)
+      label:setWidth(contentWidth)
+    end
+  end
+end
+
 -- also works as BotTextEditor.show(text, callback)
 function BotTextEditor.show(text, options, callback) -- callback = function(newText)
   text, options, callback = normalizeArgs(text, options, callback)
@@ -65,22 +93,29 @@ function BotTextEditor.show(text, options, callback) -- callback = function(newT
     activeWindow = nil
   end
 
-  local window
+  local window = UIInputBox.create(title, onOk, onCancel)
+  local labels = addDescriptionLabels(window, description)
+
+  local edit
   if options.multiline then
-    window = UIInputBox.create(title, onOk, onCancel)
-    if description ~= '' then
-      window:addLabel(description)
-    end
-    local edit = window:addTextEdit(nil, text, nil, 12)
-    window:display()
-    if edit and edit.focus then
-      edit:focus()
-      if edit.grabKeyboard then
-        edit:grabKeyboard()
-      end
-    end
+    edit = window:addTextEdit(nil, text, nil, options.rows or 12)
   else
-    window = displayInputBox(title, description, onOk, onCancel, text)
+    edit = window:addLineEdit(nil, text, options.maxLength)
+  end
+
+  -- display() reapplies InputBoxWindow style (default width 260); set size after that
+  window:display()
+  window:setWidth(options.width or DEFAULT_WIDTH)
+  if options.height then
+    window:setHeight(options.height)
+  end
+  fitDescriptionLabels(window, labels)
+
+  if edit and edit.focus then
+    edit:focus()
+    if options.multiline and edit.grabKeyboard then
+      edit:grabKeyboard()
+    end
   end
 
   activeWindow = window
