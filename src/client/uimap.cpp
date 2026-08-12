@@ -82,6 +82,7 @@ void UIMap::drawSelf(const DrawPoolType drawPane)
         g_drawPool.addBoundingRect(m_mapRect.expanded(1), Color::black);
         g_drawPool.addAction([] {glDisable(GL_BLEND); });
         g_drawPool.addFilledRect(m_mapRect, Color::alpha);
+        g_drawPool.setVkMapHole(m_mapRect);
         g_drawPool.addAction([] {glEnable(GL_BLEND); });
     }
 }

@@ -434,7 +434,7 @@ local function applyFloorImage(showFloor)
   if showFloor then
     window.preview.previewoutfit:setImageSource('/images/game/outfit_ground')
   else
-    window.preview.previewoutfit:setImageSource('/game_cyclopedia/images/ui/panel-background')
+    window.preview.previewoutfit:setImageSource('/images/game/cyclopedia/ui/panel-background')
   end
 end
 

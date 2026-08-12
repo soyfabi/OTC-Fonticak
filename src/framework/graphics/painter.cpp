@@ -38,6 +38,10 @@ Painter::Painter()
 {
     setResolution(g_window.getSize());
 
+    // Pure Vulkan mode: no shader programs / GL state.
+    if (!g_window.hasGLContext())
+        return;
+
     const auto& getProgram = [](const std::string_view vertexSourceCode, const std::string_view fragmentSourceCode) {
         auto program = std::make_shared<PainterShaderProgram>();
         assert(program);

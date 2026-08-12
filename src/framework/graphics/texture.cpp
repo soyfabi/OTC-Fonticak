@@ -23,6 +23,7 @@
 #include "texture.h"
 
 #include "drawpoolmanager.h"
+#include <framework/platform/platformwindow.h>
 #include "graphics.h"
 #include "image.h"
 #include "textureatlas.h"
@@ -43,6 +44,10 @@ Texture::Texture(const Size& size) : m_uniqueId(UID.fetch_add(1))
     generateHash();
     g_stats.addTexture();
     if (!setupSize(size))
+        return;
+
+    // Pure Vulkan mode: zero GL calls (GLEW functions are nullptrs).
+    if (!g_window.hasGLContext())
         return;
 
     createTexture();

@@ -26,6 +26,7 @@
 #include "painter.h"
 #include "texturemanager.h"
 #include <framework/core/logger.h>
+#include <framework/platform/platformwindow.h>
 
 Graphics g_graphics;
 
@@ -36,6 +37,19 @@ inline std::string_view glString(GLenum name) {
 
 void Graphics::init()
 {
+    // Pure Vulkan mode: skip all GL/GLEW calls (they would be nullptrs).
+    if (!g_window.hasGLContext()) {
+        if (m_maxTextureSize == -1)
+            m_maxTextureSize = 16384;
+
+        m_ok = true;
+
+        g_painter = std::make_unique<Painter>();
+        g_textures.init();
+        g_fonts.init();
+        return;
+    }
+
     if (const auto* v = reinterpret_cast<const char*>(glGetString(GL_VENDOR)))
         m_vendor = v;
 

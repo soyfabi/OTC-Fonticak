@@ -29,6 +29,8 @@ struct GraphicsConfig
     uint16_t maxAtlasSize = 8192;
     int16_t  mapAtlasSize = 0;
     int16_t foregroundAtlasSize = 2048;
+    // "gl" | "vulkan" — read at startup; changing it requires a client restart.
+    std::string renderBackend = "gl";
 };
 
 struct FontConfig
@@ -60,6 +62,12 @@ public:
     ConfigPtr load(const std::string& file);
 
     bool unload(const std::string& file);
+
+    // Saves the render backend choice to config.ini so it survives a restart.
+    // The engine reads this value at STARTUP, so the change only takes effect after relaunching.
+    void setRenderBackend(const std::string& backend);
+    std::string getRenderBackend() { return m_publicConfig.graphics.renderBackend; }
+
     void remove(const ConfigPtr& config);
 
     void saveSettings();

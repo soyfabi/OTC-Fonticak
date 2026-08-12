@@ -22,6 +22,8 @@
 
 #include "configmanager.h"
 #include <INIReader.h>
+#include <fstream>
+#include <vector>
 #include "resourcemanager.h"
 
 ConfigManager g_configs;
@@ -123,6 +125,84 @@ bool ConfigManager::unload(const std::string& file)
     return false;
 }
 
+void ConfigManager::setRenderBackend(const std::string& backend)
+{
+    if (backend != "gl" && backend != "vulkan") {
+        g_logger.warning("[config] unknown render backend '{}' - ignoring", backend);
+        return;
+    }
+
+    m_publicConfig.graphics.renderBackend = backend;
+
+    // Resolve the on-disk config.ini (CWD is unreliable; use absolute VFS path).
+    std::string path;
+    const std::string realDir = g_resources.getRealDir("/config.ini");
+    if (!realDir.empty()) {
+        path = realDir;
+        if (!path.empty() && path.back() != '/' && path.back() != '\\')
+            path.push_back('/');
+        path += "config.ini";
+    } else if (!g_resources.getWorkDir().empty()) {
+        path = g_resources.getWorkDir() + "config.ini";
+    } else {
+        path = g_resources.getBinaryPath();
+        const auto slash = path.find_last_of("/\\");
+        path = (slash == std::string::npos) ? "config.ini" : path.substr(0, slash + 1) + "config.ini";
+    }
+
+    std::ifstream in(path);
+    if (!in.is_open()) {
+        g_logger.warning("[config] cannot open {} to write the backend", path);
+        return;
+    }
+
+    std::vector<std::string> lines;
+    std::string line;
+    bool replaced = false;
+    bool inGraphics = false;
+    int graphicsInsertAt = -1;
+
+    while (std::getline(in, line)) {
+        const auto trimmedStart = line.find_first_not_of(" \t");
+        const std::string view = trimmedStart == std::string::npos ? line : line.substr(trimmedStart);
+
+        if (!view.empty() && view.front() == '[') {
+            inGraphics = (view.rfind("[graphics]", 0) == 0);
+            if (inGraphics)
+                graphicsInsertAt = static_cast<int>(lines.size()) + 1;
+        }
+
+        if (view.rfind("renderBackend", 0) == 0) {
+            lines.push_back("renderBackend = " + backend);
+            replaced = true;
+        } else {
+            lines.push_back(line);
+        }
+    }
+    in.close();
+
+    if (!replaced) {
+        const std::string entry = "renderBackend = " + backend;
+        if (graphicsInsertAt >= 0 && graphicsInsertAt <= static_cast<int>(lines.size()))
+            lines.insert(lines.begin() + graphicsInsertAt, entry);
+        else {
+            lines.emplace_back("[graphics]");
+            lines.push_back(entry);
+        }
+    }
+
+    std::ofstream out(path, std::ios::trunc);
+    if (!out.is_open()) {
+        g_logger.warning("[config] cannot write {}", path);
+        return;
+    }
+
+    for (const auto& l : lines)
+        out << l << '\n';
+
+    g_logger.info("[config] render backend set to '{}' ({}) - takes effect after a client restart", backend, path);
+}
+
 void ConfigManager::remove(const ConfigPtr& config) { m_configs.remove(config); }
 
 void ConfigManager::saveSettings()
@@ -144,7 +224,8 @@ void ConfigManager::loadPublicConfig(const std::string& fileName) {
         m_publicConfig.graphics.maxAtlasSize = std::max<int>(2048, reader.GetInteger("graphics", "maxAtlasSize", m_publicConfig.graphics.maxAtlasSize));
         m_publicConfig.graphics.mapAtlasSize = reader.GetInteger("graphics", "mapAtlasSize", m_publicConfig.graphics.mapAtlasSize);
         m_publicConfig.graphics.foregroundAtlasSize = reader.GetInteger("graphics", "foregroundAtlasSize", m_publicConfig.graphics.foregroundAtlasSize);
-        
+        m_publicConfig.graphics.renderBackend = reader.Get("graphics", "renderBackend", m_publicConfig.graphics.renderBackend);
+
         m_publicConfig.font.widget = reader.Get("font", "widget", m_publicConfig.font.widget);
         m_publicConfig.font.staticText = reader.Get("font", "static-text", m_publicConfig.font.staticText);
         m_publicConfig.font.animatedText = reader.Get("font", "animated-text", m_publicConfig.font.animatedText);

@@ -51,6 +51,8 @@ public:
 
     void init() override;
     void terminate() override;
+    bool hasGLContext() const override;
+    void ensureGLContext() override;
 
     void move(const Point& pos) override;
     void resize(const Size& size) override;
@@ -94,6 +96,11 @@ private:
     };
     std::vector<CursorState> m_cursors;
 
+public:
+    // Window handle for the Vulkan renderer (needed to create the Win32 surface).
+    void* getNativeWindowHandle() const override { return static_cast<void*>(m_window); }
+
+private:
     HWND m_window;
     HINSTANCE m_instance;
     HDC m_deviceContext;

@@ -3,11 +3,36 @@ UIWidget
   visible: false
 
   OptionsLabel
-    !text: 'Antialiasing Mode:'
+    !text: tr('Graphics Engine:')
     anchors.left: parent.left
     margin-left: 18
     color: #c0c0c0ff
     anchors.top: parent.top
+
+  OptionsComboBox
+    id: graphicsEngine
+    width: 180
+    margin-left: 10
+    anchors.verticalCenter: prev.verticalCenter
+    anchors.left: prev.right
+    mouse-scroll: false
+
+  UIWidget
+    id: graphicsEngineHelp
+    image-source: /images/icons/show_gui_help_grey
+    image-color: #ffffffff
+    size: 12 12
+    anchors.verticalCenter: graphicsEngine.verticalCenter
+    anchors.left: graphicsEngine.right
+    margin-left: 6
+
+  OptionsLabel
+    !text: 'Antialiasing Mode:'
+    anchors.left: parent.left
+    margin-left: 18
+    color: #c0c0c0ff
+    anchors.top: graphicsEngine.bottom
+    margin-top: 10
 
   OptionsComboBox
     id: antialiasingMode
@@ -20,7 +45,7 @@ UIWidget
   SmallReversedQtPanel
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.top: prev.bottom
+    anchors.top: antialiasingMode.bottom
     margin-top: 7
     height: 22
   

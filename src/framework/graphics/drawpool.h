@@ -173,6 +173,12 @@ protected:
         std::function<void()> action{ nullptr };
         std::shared_ptr<CoordsBuffer> coords;
         PoolState state;
+        // Vulkan feeder markers for bind/release framebuffer actions.
+        uint8_t vkFbMarker{ 0 };   // 0 = regular, 1 = bind, 2 = release
+        uint8_t vkFbFlip{ 0 };
+        float vkFbOpacity{ 1.f };
+        Size vkFbSize;
+        Rect vkFbDest;
     };
 
     struct DrawObjectState
@@ -361,7 +367,16 @@ private:
 
     SpinLock m_threadLock;
 
+    // Vulkan path: dest/src + map hole published under m_threadLock with the object list.
+    Rect m_vkPendingFbDest;
+    Rect m_vkPendingFbSrc;
+    Rect m_vkFbDest;
+    Rect m_vkFbSrc;
+    Rect m_vkPendingMapHole;
+    Rect m_vkMapHole;
+
     friend class DrawPoolManager;
+    friend class VkDrawFeeder;
 };
 
 extern DrawPoolManager g_drawPool;

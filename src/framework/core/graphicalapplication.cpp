@@ -44,6 +44,10 @@
 #endif
 #include <framework/html/htmlmanager.h>
 #include <framework/platform/platformwindow.h>
+#ifdef WIN32
+#include <framework/graphics/vulkan/vkcontext.h>
+#include <framework/graphics/vulkan/vkfeeder.h>
+#endif
 
 GraphicalApplication g_app;
 
@@ -264,15 +268,40 @@ void GraphicalApplication::run()
             continue;
         }
 
+#ifdef WIN32
+            auto& vkCtx = VkContext::instance();
+            const bool vkGameFrame = vkCtx.isReady() && vkCtx.getBatch().isReady();
+#endif
         {
             AutoStat s(STATS_RENDER, "DrawPool");
+#ifdef WIN32
+            if (vkGameFrame)
+                VkDrawFeeder::instance().feedFrame(vkCtx.getBatch(), vkCtx.getExtent());
+            else if (g_window.hasGLContext())
+                g_drawPool.draw();
+            else
+                VkDrawFeeder::instance().consumeAllPools();
+#else
             g_drawPool.draw();
+#endif
         }
 
         // update screen pixels
         {
             AutoStat s(STATS_RENDER, "SwapBuffers");
+#ifdef WIN32
+            if (!vkCtx.isReady() || !vkCtx.drawFrame(vkGameFrame ? 0.0f : 0.05f,
+                                                     vkGameFrame ? 0.0f : 0.10f,
+                                                     vkGameFrame ? 0.0f : 0.25f)) {
+                if (vkGameFrame) {
+                    for (int8_t i = -1; ++i < static_cast<int8_t>(DrawPoolType::LAST);)
+                        g_drawPool.get(static_cast<DrawPoolType>(i))->repaint();
+                }
+                g_window.swapBuffers();
+            }
+#else
             g_window.swapBuffers();
+#endif
         }
 
         if (m_graphicFrameCounter.update()) {

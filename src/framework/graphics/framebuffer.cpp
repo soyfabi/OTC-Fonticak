@@ -28,11 +28,16 @@
 #include "framework/core/asyncdispatcher.h"
 #include "framework/core/eventdispatcher.h"
 #include "framework/core/graphicalapplication.h"
+#include <framework/platform/platformwindow.h>
 
 uint32_t FrameBuffer::boundFbo = 0;
 
 FrameBuffer::FrameBuffer()
 {
+    // Pure Vulkan mode: glGenFramebuffers is nullptr without a GL context.
+    if (!g_window.hasGLContext())
+        return;
+
     glGenFramebuffers(1, &m_fbo);
     if (!m_fbo)
         g_logger.warning("Unable to create framebuffer object");
@@ -64,6 +69,10 @@ bool FrameBuffer::resize(const Size& size)
 
     m_screenCoordsBuffer.clear();
     m_screenCoordsBuffer.addRect(Rect{ 0, 0, size });
+
+    // Pure Vulkan mode: without a context we do not attach the texture to the FBO.
+    if (!g_window.hasGLContext())
+        return true;
 
     internalBind();
     glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, m_texture->getId(), 0);

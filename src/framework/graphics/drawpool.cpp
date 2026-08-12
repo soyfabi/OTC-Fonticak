@@ -281,12 +281,22 @@ void DrawPool::release() {
         for (auto& objs : m_objects)
             objs.clear();
         m_objectsFlushed.clear();
+
+        // Vulkan: publish blit dest/src even when content hash is unchanged.
+        SpinLock::Guard guard(m_threadLock);
+        m_vkFbDest = m_vkPendingFbDest;
+        m_vkFbSrc = m_vkPendingFbSrc;
+        m_vkMapHole = m_vkPendingMapHole;
         return;
     }
 
     m_refreshTimer.restart();
 
     SpinLock::Guard guard(m_threadLock);
+
+    m_vkFbDest = m_vkPendingFbDest;
+    m_vkFbSrc = m_vkPendingFbSrc;
+    m_vkMapHole = m_vkPendingMapHole;
 
     m_objectsDraw[0].clear();
 
@@ -475,6 +485,10 @@ void DrawPool::bindFrameBuffer(const Size& size, const Color& color)
         frame->resize(size);
         frame->bind();
     });
+
+    auto& bindObject = m_objects[m_type == DrawPoolType::MAP ? THIRD : FIRST].back();
+    bindObject.vkFbMarker = 1;
+    bindObject.vkFbSize = size;
 }
 void DrawPool::releaseFrameBuffer(const Rect& dest)
 {
@@ -491,6 +505,12 @@ void DrawPool::releaseFrameBuffer(const Rect& dest, uint8_t flipDirection)
         drawState.execute(this);
         frame->draw(dest, flipDirection);
     });
+
+    auto& releaseObject = m_objects[m_type == DrawPoolType::MAP ? THIRD : FIRST].back();
+    releaseObject.vkFbMarker = 2;
+    releaseObject.vkFbFlip = flipDirection;
+    releaseObject.vkFbDest = dest;
+    releaseObject.vkFbOpacity = getCurrentState().opacity;
 
     if (hasFrameBuffer() && !dest.isNull()) m_hashCtrl.put(dest.hash());
     --m_bindedFramebuffers;

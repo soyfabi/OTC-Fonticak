@@ -188,7 +188,7 @@ OutfitWindow < MainWindow
     anchors.left: parent.left
     margin-top: 29
     margin-left: 16
-    image-source: /game_cyclopedia/images/ui/bestiary-slot
+    image-source: /images/game/cyclopedia/ui/bestiary-slot
     padding-top: 0
     padding-bottom: 0
     padding-left: 0
@@ -200,7 +200,7 @@ OutfitWindow < MainWindow
     FlatPanel
       id: movement
       size: 131 22
-      image-source: /game_cyclopedia/images/ui/panel-background
+      image-source: /images/game/cyclopedia/ui/panel-background
       padding: 1 1 1 1
       anchors.top: parent.top
       anchors.left: parent.left
@@ -310,7 +310,7 @@ OutfitWindow < MainWindow
     FlatPanel
       id: showoutfit
       size: 131 22
-      image-source: /game_cyclopedia/images/ui/panel-background
+      image-source: /images/game/cyclopedia/ui/panel-background
       padding: 1 1 1 1
       anchors.top: parent.top
       anchors.left: parent.left
@@ -338,7 +338,7 @@ OutfitWindow < MainWindow
     FlatPanel
       id: showAura
       size: 131 22
-      image-source: /game_cyclopedia/images/ui/panel-background
+      image-source: /images/game/cyclopedia/ui/panel-background
       padding: 1 1 1 1
       anchors.top: parent.top
       anchors.left: parent.left
@@ -366,7 +366,7 @@ OutfitWindow < MainWindow
     FlatPanel
       id: showfamiliar
       size: 131 22
-      image-source: /game_cyclopedia/images/ui/panel-background
+      image-source: /images/game/cyclopedia/ui/panel-background
       padding: 1 1 1 1
       anchors.top: parent.top
       anchors.left: parent.left
@@ -394,7 +394,7 @@ OutfitWindow < MainWindow
     FlatPanel
       id: showfloor
       size: 131 22
-      image-source: /game_cyclopedia/images/ui/panel-background
+      image-source: /images/game/cyclopedia/ui/panel-background
       padding: 1 1 1 1
       anchors.top: parent.top
       anchors.left: parent.left
@@ -425,7 +425,7 @@ OutfitWindow < MainWindow
     margin-top: 29
     margin-left: 498
     !text: tr('Manage Presets')
-    image-source: /game_cyclopedia/images/ui/bestiary-slot
+    image-source: /images/game/cyclopedia/ui/bestiary-slot
     image-border-top: 18
     image-border-bottom: 2
     image-border-left: 2
@@ -518,7 +518,7 @@ OutfitWindow < MainWindow
     anchors.left: parent.left
     margin-top: 29
     margin-left: 498
-    image-source: /game_cyclopedia/images/ui/bestiary-slot
+    image-source: /images/game/cyclopedia/ui/bestiary-slot
     image-border-top: 18
     image-border-bottom: 2
     image-border-left: 2
@@ -599,7 +599,7 @@ OutfitWindow < MainWindow
   FlatPanel
     id: presetList
     size: 240 430
-    image-source: /game_cyclopedia/images/ui/panel-background
+    image-source: /images/game/cyclopedia/ui/panel-background
     padding: 1 1 1 1
     anchors.top: parent.top
     anchors.right: parent.right
@@ -633,7 +633,7 @@ OutfitWindow < MainWindow
   FlatPanel
     id: ScrollBar
     size: 240 430
-    image-source: /game_cyclopedia/images/ui/panel-background
+    image-source: /images/game/cyclopedia/ui/panel-background
     padding: 1 1 1 1
     anchors.top: parent.top
     anchors.right: parent.right
@@ -679,7 +679,7 @@ OutfitWindow < MainWindow
     anchors.left: parent.left
     margin-top: 255
     margin-left: 16
-    image-source: /game_cyclopedia/images/ui/bestiary-slot
+    image-source: /images/game/cyclopedia/ui/bestiary-slot
     image-border-top: 18
     image-border-bottom: 2
     image-border-left: 2
@@ -695,7 +695,7 @@ OutfitWindow < MainWindow
     FlatPanel
       id: addon1
       size: 131 22
-      image-source: /game_cyclopedia/images/ui/panel-background
+      image-source: /images/game/cyclopedia/ui/panel-background
       padding: 1 1 1 1
       anchors.top: parent.top
       anchors.left: parent.left
@@ -723,7 +723,7 @@ OutfitWindow < MainWindow
     FlatPanel
       id: addon2
       size: 131 22
-      image-source: /game_cyclopedia/images/ui/panel-background
+      image-source: /images/game/cyclopedia/ui/panel-background
       padding: 1 1 1 1
       anchors.top: parent.top
       anchors.left: parent.left
@@ -751,7 +751,7 @@ OutfitWindow < MainWindow
     FlatPanel
       id: aura
       size: 131 22
-      image-source: /game_cyclopedia/images/ui/panel-background
+      image-source: /images/game/cyclopedia/ui/panel-background
       padding: 1 1 1 1
       anchors.top: parent.top
       anchors.left: parent.left
@@ -780,7 +780,7 @@ OutfitWindow < MainWindow
     FlatPanel
       id: mount
       size: 131 22
-      image-source: /game_cyclopedia/images/ui/panel-background
+      image-source: /images/game/cyclopedia/ui/panel-background
       padding: 1 1 1 1
       anchors.top: parent.top
       anchors.left: parent.left
@@ -807,7 +807,7 @@ OutfitWindow < MainWindow
     FlatPanel
       id: randommount
       size: 131 22
-      image-source: /game_cyclopedia/images/ui/panel-background
+      image-source: /images/game/cyclopedia/ui/panel-background
       padding: 1 1 1 1
       anchors.top: parent.top
       anchors.left: parent.left
@@ -845,7 +845,7 @@ OutfitWindow < MainWindow
     anchors.left: parent.left
     margin-top: 255
     margin-left: 166
-    image-source: /game_cyclopedia/images/ui/bestiary-slot
+    image-source: /images/game/cyclopedia/ui/bestiary-slot
     image-border-top: 18
     image-border-bottom: 2
     image-border-left: 2
@@ -961,7 +961,7 @@ OutfitWindow < MainWindow
     FlatPanel
       id: aura
       size: 230 20
-      image-source: /game_cyclopedia/images/ui/panel-background
+      image-source: /images/game/cyclopedia/ui/panel-background
       padding: 1 1 1 1
       anchors.top: parent.top
       anchors.left: parent.left
@@ -993,7 +993,7 @@ OutfitWindow < MainWindow
     FlatPanel
       id: familiar
       size: 230 20
-      image-source: /game_cyclopedia/images/ui/panel-background
+      image-source: /images/game/cyclopedia/ui/panel-background
       padding: 1 1 1 1
       anchors.top: parent.top
       anchors.left: parent.left
@@ -1025,7 +1025,7 @@ OutfitWindow < MainWindow
     FlatPanel
       id: preset
       size: 230 20
-      image-source: /game_cyclopedia/images/ui/panel-background
+      image-source: /images/game/cyclopedia/ui/panel-background
       padding: 1 1 1 1
       anchors.top: parent.top
       anchors.left: parent.left

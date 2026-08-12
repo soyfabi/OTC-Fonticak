@@ -198,6 +198,10 @@ void DrawPoolManager::preDraw(const DrawPoolType type, const std::function<void(
     select(type);
     const auto pool = getCurrentPool();
 
+    // Vulkan path: dest/src go to the pool explicitly.
+    pool->m_vkPendingFbDest = dest;
+    pool->m_vkPendingFbSrc = src;
+
     pool->resetState();
 
     if (f) f();

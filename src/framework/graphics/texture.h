@@ -67,6 +67,9 @@ public:
     bool canCacheInAtlas() const { return getProp(Prop::_allowAtlasCache); }
     bool setupSize(const Size& size);
 
+    bool hasPendingImage() const { return m_image != nullptr; }
+    bool isReloadableFromFile() const { return !m_source.empty(); }
+
     virtual void allowAtlasCache();
 
 protected:
@@ -93,6 +96,10 @@ protected:
 
     ImagePtr m_image;
 
+    // Path of the file this texture was created from (set by TextureManager).
+    // Empty = the texture came from memory and must not be cleared by GC file-reload.
+    std::string m_source;
+
     enum Prop : uint16_t
     {
         hasMipMaps = 1 << 0,
@@ -111,4 +118,6 @@ protected:
     friend class GarbageCollection;
     friend class TextureManager;
     friend class TextureAtlas;
+    // Vulkan renderer stage 4: the feeder reads m_image/m_source for atlas upload.
+    friend class VkDrawFeeder;
 };

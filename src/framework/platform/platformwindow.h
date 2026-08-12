@@ -55,6 +55,9 @@ public:
     virtual void init() = 0;
     virtual void terminate() = 0;
 
+    // Native window handle for the Vulkan renderer (Win32 surface). None by default.
+    virtual void* getNativeWindowHandle() const { return nullptr; }
+
     virtual void move(const Point& pos) = 0;
     virtual void resize(const Size& size) = 0;
     virtual void show() = 0;
@@ -62,6 +65,10 @@ public:
     virtual void maximize() = 0;
     virtual void poll() = 0;
     virtual void swapBuffers() = 0;
+    // Vulkan mode may start without an OpenGL context. hasGLContext() reports whether GL
+    // exists; ensureGLContext() creates it on the fly when Vulkan init fails.
+    virtual bool hasGLContext() const { return true; }
+    virtual void ensureGLContext() {}
     virtual void showMouse() = 0;
     virtual void hideMouse() = 0;
     virtual void displayFatalError(const std::string_view /*message*/) {}

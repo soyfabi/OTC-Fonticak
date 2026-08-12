@@ -27,12 +27,18 @@
 #include "client/creature.h"
 #include "framework/core/eventdispatcher.h"
 #include "framework/core/graphicalapplication.h"
+#include <framework/platform/platformwindow.h>
 
 uint32_t ShaderProgram::m_currentProgram = 0;
 
 ShaderProgram::ShaderProgram() :m_programId(glCreateProgram())
 {
     m_uniformLocations.fill(-1);
+
+    // Pure-Vulkan mode: no GL context, glCreateProgram legitimately returns 0.
+    if (!m_programId && !g_window.hasGLContext())
+        return;
+
     if (!m_programId)
         g_logger.fatal("Unable to create GL shader program");
 }

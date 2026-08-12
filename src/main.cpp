@@ -22,10 +22,17 @@
 
 #include "client/client.h"
 #include "client/gameconfig.h"
+#include "framework/core/configmanager.h"
 #include "framework/core/graphicalapplication.h"
 #include "framework/core/resourcemanager.h"
 #include "framework/luaengine/luainterface.h"
 #include "framework/platform/platform.h"
+#ifdef WIN32
+#include "framework/graphics/graphics.h"
+#include "framework/graphics/vulkan/vkcontext.h"
+#include "framework/graphics/vulkan/vkloader.h"
+#include "framework/platform/platformwindow.h"
+#endif
 #ifdef ANDROID
 #include <android/log.h>
 #define ALOGD(...) __android_log_print(ANDROID_LOG_DEBUG, "OTClientMobile", __VA_ARGS__)
@@ -166,6 +173,28 @@ void printHelp(const std::string& executableName)
         if (!g_lua.safeRunScript("init.lua"))
             g_logger.fatal("Unable to run script init.lua!");
         ALOGD("main: init.lua executed successfully");
+
+        // Vulkan renderer init (after init.lua so the log file is open).
+        if (g_configs.getPublicConfig().graphics.renderBackend == "vulkan") {
+#ifdef WIN32
+            const auto& size = g_window.getSize();
+            if (!VkContext::instance().init(g_window.getNativeWindowHandle(), size.width(), size.height())) {
+                g_logger.info("[vulkan] backend unavailable, rendering with OpenGL");
+
+                if (!g_window.hasGLContext()) {
+                    g_window.ensureGLContext();
+                    g_graphics.init();
+                }
+            }
+#else
+            g_logger.info("[vulkan] backend available only on Windows, rendering with OpenGL");
+#endif
+        }
+#ifdef WIN32
+        else {
+            VkLoader::instance().probeDevices();
+        }
+#endif
 
         // the run application main loop
         g_app.run();

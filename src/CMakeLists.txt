@@ -472,6 +472,14 @@ if (TOGGLE_FRAMEWORK_GRAPHICS)
           framework/graphics/texturemanager.cpp
           framework/graphics/xbrz.cpp
           framework/graphics/shadermanager.cpp
+          # Vulkan renderer: sources compile on all platforms; bodies are under #ifdef WIN32
+          # (window surface is Win32-only for now; vulkan-headers is windows-only in vcpkg.json).
+          framework/graphics/vulkan/vkloader.cpp
+          framework/graphics/vulkan/vkcontext.cpp
+          framework/graphics/vulkan/vkrect.cpp
+          framework/graphics/vulkan/vkatlas.cpp
+          framework/graphics/vulkan/vkbatch.cpp
+          framework/graphics/vulkan/vkfeeder.cpp
           framework/platform/win32window.cpp
           framework/platform/x11window.cpp
           framework/ui/uianchorlayout.cpp

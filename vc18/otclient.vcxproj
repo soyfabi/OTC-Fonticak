@@ -476,6 +476,12 @@
     <ClCompile Include="..\src\framework\graphics\textureatlas.cpp" />
     <ClCompile Include="..\src\framework\graphics\texturemanager.cpp" />
     <ClCompile Include="..\src\framework\graphics\xbrz.cpp" />
+    <ClCompile Include="..\src\framework\graphics\vulkan\vkloader.cpp" />
+    <ClCompile Include="..\src\framework\graphics\vulkan\vkcontext.cpp" />
+    <ClCompile Include="..\src\framework\graphics\vulkan\vkrect.cpp" />
+    <ClCompile Include="..\src\framework\graphics\vulkan\vkatlas.cpp" />
+    <ClCompile Include="..\src\framework\graphics\vulkan\vkbatch.cpp" />
+    <ClCompile Include="..\src\framework\graphics\vulkan\vkfeeder.cpp" />
     <ClCompile Include="..\src\framework\html\cssparser.cpp" />
     <ClCompile Include="..\src\framework\html\htmlmanager.cpp" />
     <ClCompile Include="..\src\framework\html\htmlnode.cpp" />
@@ -656,6 +662,12 @@
     <ClInclude Include="..\src\framework\graphics\texture.h" />
     <ClInclude Include="..\src\framework\graphics\textureatlas.h" />
     <ClInclude Include="..\src\framework\graphics\texturemanager.h" />
+    <ClInclude Include="..\src\framework\graphics\vulkan\vkloader.h" />
+    <ClInclude Include="..\src\framework\graphics\vulkan\vkcontext.h" />
+    <ClInclude Include="..\src\framework\graphics\vulkan\vkrect.h" />
+    <ClInclude Include="..\src\framework\graphics\vulkan\vkatlas.h" />
+    <ClInclude Include="..\src\framework\graphics\vulkan\vkbatch.h" />
+    <ClInclude Include="..\src\framework\graphics\vulkan\vkfeeder.h" />
     <ClInclude Include="..\src\framework\graphics\vertexarray.h" />
     <ClInclude Include="..\src\framework\graphics\xbrz.h" />
     <ClInclude Include="..\src\framework\graphics\xbrz_config.h" />

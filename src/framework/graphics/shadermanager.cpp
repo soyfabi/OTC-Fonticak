@@ -26,8 +26,15 @@
 #include "framework/core/eventdispatcher.h"
 #include "framework/core/resourcemanager.h"
 #include "shader/shadersources.h"
+#include <framework/platform/platformwindow.h>
 
 ShaderManager g_shaders;
+
+// Pure Vulkan mode has no GL context: compiling GLSL painter shaders is impossible.
+static bool skipGlShaders()
+{
+    return !g_window.hasGLContext();
+}
 
 void ShaderManager::init() { PainterShaderProgram::release(); }
 void ShaderManager::terminate() { clear(); }
@@ -46,6 +53,9 @@ void ShaderManager::putShader(std::string name, const PainterShaderProgramPtr& s
 
 void ShaderManager::createShader(const std::string_view name, bool useFramebuffer)
 {
+    if (skipGlShaders())
+        return;
+
     g_mainDispatcher.addEvent([this, name = name.data(), useFramebuffer] {
         const auto& shader = std::make_shared<PainterShaderProgram>();
         shader->setUseFramebuffer(useFramebuffer);
@@ -56,6 +66,9 @@ void ShaderManager::createShader(const std::string_view name, bool useFramebuffe
 
 void ShaderManager::createFragmentShader(const std::string_view name, const std::string_view file, bool useFramebuffer)
 {
+    if (skipGlShaders())
+        return;
+
     const auto& filePath = g_resources.resolvePath(file.data());
     g_mainDispatcher.addEvent([this, name = name.data(), filePath, useFramebuffer] {
         const auto& shader = std::make_shared<PainterShaderProgram>();
@@ -82,6 +95,9 @@ void ShaderManager::createFragmentShader(const std::string_view name, const std:
 
 void ShaderManager::createFragmentShaderFromCode(const std::string_view name, const std::string_view code, bool useFramebuffer)
 {
+    if (skipGlShaders())
+        return;
+
     g_mainDispatcher.addEvent([this, name = name.data(), code = code.data(), useFramebuffer] {
         const auto& shader = std::make_shared<PainterShaderProgram>();
         shader->setUseFramebuffer(useFramebuffer);

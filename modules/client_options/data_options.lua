@@ -844,6 +844,25 @@ return {
             panels.graphicsPanel:recursiveGetChildById('antialiasingMode'):setCurrentOptionByData(value, true)
         end
     },
+    graphicsEngine                    = {
+        -- 0 = auto, 1 = DirectX 12 (UI label), 2 = OpenGL, 3 = Vulkan
+        -- Persistencia real en config.ini: solo "gl" o "vulkan" (3).
+        value = 0,
+        action = function(value, options, controller, panels, extraWidgets)
+            if not panels or not panels.graphicsPanel then
+                return
+            end
+
+            local combo = panels.graphicsPanel:recursiveGetChildById('graphicsEngine')
+            if combo then
+                combo:setCurrentOptionByData(value, true)
+            end
+
+            if modules.client_options and modules.client_options.updateGraphicsEngineHelpTooltip then
+                modules.client_options.updateGraphicsEngineHelpTooltip(panels, value)
+            end
+        end
+    },
     hdGraphics                        = {
         value = false,
         action = function(value, options, controller, panels, extraWidgets)

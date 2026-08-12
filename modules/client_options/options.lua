@@ -33,6 +33,67 @@ local GAME_WINDOW_MESSAGE_CHILDREN = {
 }
 local showMessagesCascadeLock = false
 
+local GRAPHICS_ENGINE_DISPLAY_NAMES = {
+    [0] = 'DirectX 12',
+    'DirectX 12',
+    'OpenGL',
+    'Vulkan (experimental)'
+}
+
+local GRAPHICS_ENGINE_HELP_BODY = tr(
+    'In general, the client will automatically select the best graphics engine for you. Select the graphics engine of your choice from the drop-down menu if you should experience problems with the pre-selected one. Note that a restart of the client is necessary for this change to take effect.')
+
+-- Nil = selection untouched since last confirm. Backend is written only on Ok/close.
+pendingRenderBackendFrom = nil
+
+function updateGraphicsEngineHelpTooltip(panelsArg, engineValue)
+    local p = panelsArg or panels
+    if not p or not p.graphicsPanel then
+        return
+    end
+
+    local help = p.graphicsPanel:recursiveGetChildById('graphicsEngineHelp')
+    if not help then
+        return
+    end
+
+    local engineName = GRAPHICS_ENGINE_DISPLAY_NAMES[engineValue] or GRAPHICS_ENGINE_DISPLAY_NAMES[0]
+    help:setTooltip(tr('Your current graphics engine is %s.\n\n%s', engineName, GRAPHICS_ENGINE_HELP_BODY))
+end
+
+local function commitRenderBackendChange()
+    local from = pendingRenderBackendFrom
+    pendingRenderBackendFrom = nil
+
+    if from == nil then
+        return
+    end
+
+    local to = getOption('graphicsEngine')
+    if from == to or not g_configs.setRenderBackend then
+        return
+    end
+
+    -- 3 = Vulkan; everything else uses the existing GL/DX path ("gl").
+    g_configs.setRenderBackend(to == 3 and 'vulkan' or 'gl')
+
+    local function doRestart()
+        if g_app and g_app.restart then
+            g_app.restart()
+        end
+    end
+
+    if g_game.isOnline() then
+        displayGeneralBox(tr('Restart required'),
+            tr('Changing the graphics engine requires a client restart.\nYou are currently logged in - restart now?'), {
+                { text = tr('Restart'), callback = doRestart },
+                { text = tr('Later'), callback = function() end }
+            }, doRestart, function() end)
+    else
+        scheduleEvent(doRestart, 200)
+    end
+end
+
 -- Hook into application exit to ensure settings are saved
 local function onAppExit()
     g_settings.save()
@@ -167,6 +228,7 @@ end
 
 local function setupComboBox()
     local crosshairCombo = panels.interface:recursiveGetChildById('crosshair')
+    local graphicsEngineCombobox = panels.graphicsPanel:recursiveGetChildById('graphicsEngine')
     local antialiasingModeCombobox = panels.graphicsPanel:recursiveGetChildById('antialiasingMode')
     local floorViewModeCombobox = panels.graphicsEffectsPanel:recursiveGetChildById('floorViewMode')
     local framesRarityCombobox = panels.interface:recursiveGetChildById('frames')
@@ -201,6 +263,27 @@ local function setupComboBox()
         
         -- The mouseControlMode action handler will take care of updating
         -- classicControl and smartLeftClick, and their UI visibility
+    end
+
+    if graphicsEngineCombobox then
+        for k, t in ipairs({
+            '(auto-select)',
+            'DirectX 12',
+            'OpenGL',
+            'Vulkan (experimental)'
+        }) do
+            graphicsEngineCombobox:addOption(t, k - 1)
+        end
+
+        graphicsEngineCombobox.onOptionChange = function(comboBox, option)
+            local data = comboBox:getCurrentOption().data
+            if pendingRenderBackendFrom == nil then
+                pendingRenderBackendFrom = getOption('graphicsEngine')
+            end
+            setOption('graphicsEngine', data)
+        end
+
+        updateGraphicsEngineHelpTooltip(panels, getOption('graphicsEngine'))
     end
 
     for k, t in pairs({ 'None', 'Antialiasing', 'Smooth Retro' }) do
@@ -330,6 +413,17 @@ local function setup()
     end
     
     scheduleEvent(syncControlModeComboboxes, 100)
+
+    -- Source of truth for the engine combo is config.ini (renderBackend).
+    if g_configs.getRenderBackend then
+        local backend = g_configs.getRenderBackend()
+        local engine = getOption('graphicsEngine')
+        if backend == 'vulkan' and engine ~= 3 then
+            setOption('graphicsEngine', 3)
+        elseif backend ~= 'vulkan' and engine == 3 then
+            setOption('graphicsEngine', 2)
+        end
+    end
 
     local talkOnRightClick = panels.miscGameplay and panels.miscGameplay:recursiveGetChildById('talkOnRightClick')
     if talkOnRightClick then
@@ -1318,12 +1412,14 @@ end
 
 function hide()
     -- Save all settings when closing the options window
+    commitRenderBackendChange()
     g_settings.save()
     cancelCategoryAnimations()
     controller.ui:hide()
 end
 
 function saveOptions()
+    commitRenderBackendChange()
     g_settings.save()
 end
 

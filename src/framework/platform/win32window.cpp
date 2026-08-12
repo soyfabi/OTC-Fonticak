@@ -23,9 +23,11 @@
 #ifdef WIN32
 
 #include "win32window.h"
+#include <framework/core/configmanager.h>
 #include <framework/core/eventdispatcher.h>
 #include <framework/util/stats.h>
 #include <framework/graphics/image.h>
+#include <framework/graphics/vulkan/vkcontext.h>
 
 #include <timeapi.h>
 
@@ -226,6 +228,33 @@ void WIN32Window::init()
     m_instance = GetModuleHandle(nullptr);
 
     internalCreateWindow();
+
+    // In Vulkan mode we do NOT create an OpenGL context: loading the GL ICD alone is
+    // 100-200 MB and never draws a frame here. If Vulkan init fails later, main.cpp
+    // creates the context via ensureGLContext().
+    if (g_configs.getPublicConfig().graphics.renderBackend == "vulkan") {
+        g_logger.info("renderBackend=vulkan: skipping OpenGL context creation");
+        return;
+    }
+
+    internalCreateGLContext();
+    internalRestoreGLContext();
+}
+
+bool WIN32Window::hasGLContext() const
+{
+#ifdef OPENGL_ES
+    return m_eglContext != 0;
+#else
+    return m_wglContext != nullptr;
+#endif
+}
+
+void WIN32Window::ensureGLContext()
+{
+    if (hasGLContext())
+        return;
+
     internalCreateGLContext();
     internalRestoreGLContext();
 }
@@ -427,6 +456,10 @@ void WIN32Window::internalDestroyGLContext()
 
 void WIN32Window::internalRestoreGLContext() const
 {
+    // Pure-Vulkan mode: there is no GL/EGL context to restore.
+    if (!hasGLContext())
+        return;
+
 #ifdef OPENGL_ES
     if (!eglMakeCurrent(m_eglDisplay, m_eglSurface, m_eglSurface, m_eglContext))
         g_logger.fatal("Unable to make current EGL context");
@@ -865,6 +898,10 @@ LRESULT WIN32Window::windowProc(const HWND hWnd, const uint32_t uMsg, const WPAR
 
 void WIN32Window::swapBuffers()
 {
+    // Without a GL context (pure Vulkan mode) there is nothing to present via this route.
+    if (!hasGLContext())
+        return;
+
 #ifdef OPENGL_ES
     eglSwapBuffers(m_eglDisplay, m_eglSurface);
 #else
@@ -1064,6 +1101,20 @@ void WIN32Window::setVerticalSync(bool enable)
     m_vsyncApplied = false;
 
     g_mainDispatcher.addEvent([this, enable] {
+        // Pure Vulkan: vsync picks FIFO vs IMMEDIATE on the swapchain (no WGL).
+        // Must mark applied, or Lua falls back to a software 100 FPS cap.
+        if (!hasGLContext()) {
+            if (g_configs.getPublicConfig().graphics.renderBackend == "vulkan") {
+                m_vsyncApplied = enable;
+                auto& vk = VkContext::instance();
+                if (vk.isReady()) {
+                    const auto size = getSize();
+                    vk.recreateSwapchain(size.width(), size.height());
+                }
+            }
+            return;
+        }
+
 #ifdef OPENGL_ES
         if (eglSwapInterval(m_eglDisplay, enable ? 1 : 0) != EGL_TRUE) {
             g_logger.error("Error while setting vsync");

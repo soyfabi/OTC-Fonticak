@@ -23,12 +23,17 @@
 #include "shader.h"
 
 #include "graphics.h"
+#include <framework/platform/platformwindow.h>
 #include "framework/core/eventdispatcher.h"
 #include "framework/core/graphicalapplication.h"
 #include "framework/core/resourcemanager.h"
 
 Shader::Shader(ShaderType shaderType) : m_shaderId(glCreateShader(static_cast<GLenum>(shaderType))), m_shaderType(shaderType)
 {
+    // Pure-Vulkan mode: no GL context, glCreateShader legitimately returns 0.
+    if (!m_shaderId && !g_window.hasGLContext())
+        return;
+
     if (!m_shaderId)
         g_logger.fatal("Unable to create GL shader");
 }

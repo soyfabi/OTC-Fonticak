@@ -3523,6 +3523,14 @@ function g_configs.load(file) end
 ---@return boolean
 function g_configs.unload(file) end
 
+--- Sets the render backend written to config.ini ("gl" or "vulkan"). Takes effect after restart.
+---@param backend string
+function g_configs.setRenderBackend(backend) end
+
+--- Returns the render backend loaded from config.ini at startup.
+---@return string
+function g_configs.getRenderBackend() end
+
 ---@param file string
 ---@return Config
 function g_configs.create(file) end
