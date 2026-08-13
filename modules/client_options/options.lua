@@ -41,7 +41,7 @@ local GRAPHICS_ENGINE_DISPLAY_NAMES = {
 }
 
 local GRAPHICS_ENGINE_HELP_BODY = tr(
-    'In general, the client will automatically select the best graphics engine for you. Select the graphics engine of your choice from the drop-down menu if you should experience problems with the pre-selected one. Note that a restart of the client is necessary for this change to take effect.')
+    'In general, the client will automatically select the best graphics\nengine for you. Select the graphics engine of your choice from the\ndrop-down menu if you should experience problems with the\npre-selected one. Note that a restart of the client is necessary for\nthis change to take effect.')
 
 -- Nil = selection untouched since last confirm. Backend is written only on Ok/close.
 pendingRenderBackendFrom = nil

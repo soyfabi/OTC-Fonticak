@@ -2,50 +2,64 @@ UIWidget
   anchors.fill: parent
   visible: false
 
-  OptionsLabel
-    !text: tr('Graphics Engine:')
+  UIWidget
     anchors.left: parent.left
-    margin-left: 18
-    color: #c0c0c0ff
+    anchors.right: parent.right
     anchors.top: parent.top
+    height: 22
 
-  OptionsComboBox
-    id: graphicsEngine
-    width: 180
-    margin-left: 10
-    anchors.verticalCenter: prev.verticalCenter
-    anchors.left: prev.right
-    mouse-scroll: false
+    OptionsLabel
+      !text: tr('Graphics Engine:')
+      anchors.left: parent.left
+      margin-left: 18
+      color: #c0c0c0ff
+      anchors.verticalCenter: parent.verticalCenter
+      text-align: left
+
+    OptionsComboBox
+      id: graphicsEngine
+      width: 180
+      margin-left: 10
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.left: prev.right
+      mouse-scroll: false
+
+    UIWidget
+      id: graphicsEngineHelp
+      image-source: /images/icons/show_gui_help_grey
+      image-color: #ffffffff
+      size: 12 12
+      anchors.verticalCenter: graphicsEngine.verticalCenter
+      anchors.left: graphicsEngine.right
+      margin-left: 6
 
   UIWidget
-    id: graphicsEngineHelp
-    image-source: /images/icons/show_gui_help_grey
-    image-color: #ffffffff
-    size: 12 12
-    anchors.verticalCenter: graphicsEngine.verticalCenter
-    anchors.left: graphicsEngine.right
-    margin-left: 6
-
-  OptionsLabel
-    !text: 'Antialiasing Mode:'
     anchors.left: parent.left
-    margin-left: 18
-    color: #c0c0c0ff
-    anchors.top: graphicsEngine.bottom
+    anchors.right: parent.right
+    anchors.top: prev.bottom
     margin-top: 10
+    height: 22
 
-  OptionsComboBox
-    id: antialiasingMode
-    width: 180
-    margin-left: 10
-    anchors.verticalCenter: prev.verticalCenter
-    anchors.left: prev.right
-    mouse-scroll: false
+    OptionsLabel
+      !text: 'Antialiasing Mode:'
+      anchors.left: parent.left
+      margin-left: 18
+      color: #c0c0c0ff
+      anchors.verticalCenter: parent.verticalCenter
+      text-align: left
+
+    OptionsComboBox
+      id: antialiasingMode
+      width: 180
+      margin-left: 10
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.left: prev.right
+      mouse-scroll: false
 
   SmallReversedQtPanel
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.top: antialiasingMode.bottom
+    anchors.top: prev.bottom
     margin-top: 7
     height: 22
   

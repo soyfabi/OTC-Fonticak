@@ -262,6 +262,8 @@ return {
     -- Unchecked (default): hold Ctrl to move the full stack.
     -- Checked: move the full stack without holding Ctrl.
     moveStack                         = false,
+    -- Allow mini-windows to float over the game area instead of dock-only.
+    freeWindowPlacement               = true,
     useDefaultKeyboardDelay           = {
         value = true,
         action = function(value, options, controller, panels, extraWidgets)
@@ -1024,8 +1026,11 @@ return {
     showLeftExtraPanel                = {
         value = false,
         action = function(value, options, controller, panels, extraWidgets)
-            modules.game_interface.getLeftExtraPanel():setOn(value)
-            -- Update action bars when left extra panel visibility changes
+            if modules.game_interface.setExtraPanelsFromOption then
+                modules.game_interface.setExtraPanelsFromOption('left', value)
+            else
+                modules.game_interface.getLeftExtraPanel():setOn(value)
+            end
             if modules.game_actionbar and modules.game_actionbar.updateVisibleWidgetsExternal then
                 addEvent(function()
                     modules.game_actionbar.updateVisibleWidgetsExternal()
@@ -1037,7 +1042,9 @@ return {
         value = true,
         action = function(value, options, controller, panels, extraWidgets)
             modules.game_interface.getLeftPanel():setOn(value)
-            -- Update action bars when left panel visibility changes
+            if modules.game_interface.scheduleSidebarLayoutUpdate then
+                modules.game_interface.scheduleSidebarLayoutUpdate()
+            end
             if modules.game_actionbar and modules.game_actionbar.updateVisibleWidgetsExternal then
                 addEvent(function()
                     modules.game_actionbar.updateVisibleWidgetsExternal()
@@ -1048,8 +1055,11 @@ return {
     showRightExtraPanel               = {
         value = false,
         action = function(value, options, controller, panels, extraWidgets)
-            modules.game_interface.getRightExtraPanel():setOn(value)
-            -- Update action bars when right extra panel visibility changes
+            if modules.game_interface.setExtraPanelsFromOption then
+                modules.game_interface.setExtraPanelsFromOption('right', value)
+            else
+                modules.game_interface.getRightExtraPanel():setOn(value)
+            end
             if modules.game_actionbar and modules.game_actionbar.updateVisibleWidgetsExternal then
                 addEvent(function()
                     modules.game_actionbar.updateVisibleWidgetsExternal()

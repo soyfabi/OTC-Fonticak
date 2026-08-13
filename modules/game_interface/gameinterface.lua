@@ -52,19 +52,6 @@ local mobileConfig = {
 }
 local isExtendedViewActive = false
 
-local function updateSidePanelButtons()
-    leftIncreaseSidePanels:setEnabled(not modules.client_options.getOption('showLeftExtraPanel'))
-    if g_platform.isMobile() then
-        leftDecreaseSidePanels:setEnabled(false)
-    else
-        leftDecreaseSidePanels:setEnabled(
-            modules.client_options.getOption('showLeftPanel') or
-            modules.client_options.getOption('showLeftExtraPanel'))
-    end
-    rightIncreaseSidePanels:setEnabled(not modules.client_options.getOption('showRightExtraPanel'))
-    rightDecreaseSidePanels:setEnabled(modules.client_options.getOption('showRightExtraPanel'))
-end
-
 local function applyMobileMargins()
     if g_platform.isMobile() then
         gameRightPanel:setMarginBottom(mobileConfig.mobileHeightShortcuts)
@@ -131,6 +118,7 @@ function init()
     gameRightLockPanel = gameRootPanel:recursiveGetChildById('rightLock')
     gameLeftLockPanel = gameRootPanel:recursiveGetChildById('leftLock')
 
+    initSidebarColumns()
     updateSidePanelButtons()
     applyMobileMargins()
 
@@ -260,6 +248,7 @@ function terminate()
         })
     end
 
+    terminateSidebarColumns()
     logoutButton:destroy()
     gameRootPanel:destroy()
     Keybind.delete("Movement", "Stop All Actions")
@@ -269,6 +258,7 @@ end
 
 function onGameStart()
     show()
+    restoreSidebarColumnCounts()
     updateSidePanelButtons()
     applyMobileMargins()
 end
@@ -338,9 +328,7 @@ function hide()
 end
 
 function save()
-    local settings = {}
-    settings.splitterMarginBottom = bottomSplitter:getMarginBottom()
-    g_settings.setNode('game_interface', settings)
+    saveSidebarColumnCounts()
 end
 
 function load()
@@ -1744,10 +1732,16 @@ function getLeftPanel()
 end
 
 function getRightExtraPanel()
+    if gameRightExtraPanels and gameRightExtraPanels[1] and not gameRightExtraPanels[1]:isDestroyed() then
+        return gameRightExtraPanels[1]
+    end
     return gameRightExtraPanel
 end
 
 function getLeftExtraPanel()
+    if gameLeftExtraPanels and gameLeftExtraPanels[1] and not gameLeftExtraPanels[1]:isDestroyed() then
+        return gameLeftExtraPanels[1]
+    end
     return gameLeftExtraPanel
 end
 
@@ -1835,17 +1829,14 @@ function setupViewMode(mode)
         gameMapPanel:addAnchor(AnchorTop, 'gameTopPanel', AnchorBottom)
         gameRootPanel:addAnchor(AnchorTop, 'parent', AnchorTop)
         gameLeftPanel:setOn(modules.client_options.getOption('showLeftPanel'))
-        gameRightExtraPanel:setOn(modules.client_options.getOption('showRightExtraPanel'))
-        gameLeftExtraPanel:setOn(modules.client_options.getOption('showLeftExtraPanel'))
         gameLeftPanel:setImageColor('white')
         gameRightPanel:setImageColor('white')
-        gameRightExtraPanel:setImageColor('white')
-        gameLeftExtraPanel:setImageColor('white')
         gameLeftPanel:setMarginTop(0)
         gameRightPanel:setMarginTop(0)
-        gameRightExtraPanel:setMarginTop(0)
-        gameLeftExtraPanel:setMarginTop(0)
         gameBottomPanel:setImageColor('white')
+        applyExtraPanelsViewMode(false,
+            modules.client_options.getOption('showLeftExtraPanel'),
+            modules.client_options.getOption('showRightExtraPanel'))
     end
 
     if mode == 0 then
@@ -1876,15 +1867,10 @@ function setupViewMode(mode)
         gameRootPanel:fill('parent')
         gameLeftPanel:setImageColor('alpha')
         gameRightPanel:setImageColor('alpha')
-        gameRightExtraPanel:setImageColor('alpha')
-        gameLeftExtraPanel:setImageColor('alpha')
         gameLeftPanel:setOn(true)
         gameLeftPanel:setVisible(true)
         gameRightPanel:setOn(true)
-        gameRightExtraPanel:setOn(false)
-        gameRightExtraPanel:setVisible(false)
-        gameLeftExtraPanel:setOn(false)
-        gameLeftExtraPanel:setVisible(false)
+        applyExtraPanelsViewMode(true, false, false)
         gameMapPanel:setOn(true)
         gameBottomPanel:setImageColor('#ffffff88')
     end
@@ -1906,108 +1892,6 @@ end
 function updateStatsBar(dimension, placement)
     StatsBar.updateCurrentStats(dimension, placement)
     StatsBar.updateStatsBarOption()
-end
-
-function onIncreaseLeftPanels()
-    leftDecreaseSidePanels:setEnabled(true)
-    if not modules.client_options.getOption('showLeftPanel') then
-        modules.client_options.setOption('showLeftPanel', true)
-        -- Update action bars when left panel is shown
-        if modules.game_actionbar and modules.game_actionbar.updateVisibleWidgetsExternal then
-            addEvent(function()
-                modules.game_actionbar.updateVisibleWidgetsExternal()
-            end)
-        end
-        return
-    end
-
-    if not modules.client_options.getOption('showLeftExtraPanel') then
-        modules.client_options.setOption('showLeftExtraPanel', true)
-        leftIncreaseSidePanels:setEnabled(false)
-        -- Update action bars when left extra panel is shown
-        if modules.game_actionbar and modules.game_actionbar.updateVisibleWidgetsExternal then
-            addEvent(function()
-                modules.game_actionbar.updateVisibleWidgetsExternal()
-            end)
-        end
-        return
-    end
-end
-
-local function movePanel(mainpanel)
-    for _, widget in pairs(mainpanel:getChildren()) do
-        if widget then
-            local panel = modules.game_interface.findContentPanelAvailable(widget, widget:getMinimumHeight())
-            if panel then
-                if not panel:hasChild(widget) then
-                    widget:close()
-                    panel:addChild(widget)
-                else
-                    print("Error: Attempt to add a widget that already exists in the target panel")
-                end
-            else
-                print("Warning: No suitable panel found for widget, unable to move")
-            end
-        end
-    end
-end
-
-function onDecreaseLeftPanels()
-    leftIncreaseSidePanels:setEnabled(true)
-    if modules.client_options.getOption('showLeftExtraPanel') then
-        modules.client_options.setOption('showLeftExtraPanel', false)
-        movePanel(gameLeftExtraPanel)
-        if g_platform.isMobile() then
-            leftDecreaseSidePanels:setEnabled(false)
-        end
-        -- Update action bars when left extra panel is hidden
-        if modules.game_actionbar and modules.game_actionbar.updateVisibleWidgetsExternal then
-            addEvent(function()
-                modules.game_actionbar.updateVisibleWidgetsExternal()
-            end)
-        end
-        return
-    end
-
-    if not g_platform.isMobile() then
-        if modules.client_options.getOption('showLeftPanel') then
-            modules.client_options.setOption('showLeftPanel', false)
-            movePanel(gameLeftPanel)
-            leftDecreaseSidePanels:setEnabled(false)
-            -- Update action bars when left panel is hidden
-            if modules.game_actionbar and modules.game_actionbar.updateVisibleWidgetsExternal then
-                addEvent(function()
-                    modules.game_actionbar.updateVisibleWidgetsExternal()
-                end)
-            end
-            return
-        end
-    end
-end
-
-function onIncreaseRightPanels()
-    rightIncreaseSidePanels:setEnabled(false)
-    rightDecreaseSidePanels:setEnabled(true)
-    modules.client_options.setOption('showRightExtraPanel', true)
-    -- Update action bars when right extra panel is shown
-    if modules.game_actionbar and modules.game_actionbar.updateVisibleWidgetsExternal then
-        addEvent(function()
-            modules.game_actionbar.updateVisibleWidgetsExternal()
-        end)
-    end
-end
-
-function onDecreaseRightPanels()
-    rightIncreaseSidePanels:setEnabled(true)
-    rightDecreaseSidePanels:setEnabled(false)
-    movePanel(gameRightExtraPanel)
-    modules.client_options.setOption('showRightExtraPanel', false)
-    -- Update action bars when right extra panel is hidden
-    if modules.game_actionbar and modules.game_actionbar.updateVisibleWidgetsExternal then
-        addEvent(function()
-            modules.game_actionbar.updateVisibleWidgetsExternal()
-        end)
-    end
 end
 
 function setupOptionsMainButton()

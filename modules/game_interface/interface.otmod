@@ -4,7 +4,7 @@ Module
   author: OTClient team
   website: https://github.com/edubart/otclient
   sandboxed: true
-  scripts: [ widgets/uigamemap, widgets/uiitem, widgets/statsbar, gameinterface ]
+  scripts: [ widgets/uigamemap, widgets/uiitem, widgets/statsbar, sidebar_columns, gameinterface ]
   load-later:
     - game_walk
     - game_joystick

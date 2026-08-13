@@ -75,7 +75,19 @@ UIWidget
     OptionCheckBox
       id: showRightExtraPanel
       !text: tr('Show an extra right panel')
-      
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBoxMarked
+      id: freeWindowPlacement
+      !text: tr('Free window placement')
+      !tooltip: tr('Allows mini-windows such as the minimap, containers and trackers\nto be placed freely over the game area instead of only in the side\npanels. Positions are saved per character.\n\nIf this option is disabled, windows will bounce back to the side docks.')
+
   SmallReversedQtPanel
     anchors.left: parent.left
     anchors.right: parent.right

@@ -1,17 +1,136 @@
 -- @docclass
 UIMiniWindowContainer = extends(UIWidget, 'UIMiniWindowContainer')
 
+local SIDEBAR_FREE_SPACE_IMAGE = '/images/ui/2pixel_up_frame_borderimage'
+local SIDEBAR_FREE_SPACE_BORDER = 2
+
 function UIMiniWindowContainer.create()
     local container = UIMiniWindowContainer.internalCreate()
     container.scheduledWidgets = {}
     container:setFocusable(false)
     container:setPhantom(true)
+    connect(container, {
+        onGeometryChange = function(widget)
+            if type(widget.scheduleSidebarFreeSpaceRefresh) == 'function' then
+                widget:scheduleSidebarFreeSpaceRefresh()
+            end
+        end
+    })
     return container
 end
 
--- TODO: connect to window onResize event
--- TODO: try to resize another widget?
--- TODO: try to find another panel?
+local function isSidebarFreeSpaceWidget(widget)
+    return widget and widget._sidebarFreeSpaceWidget == true
+end
+
+local function isSidebarSystemWidget(widget)
+    return isSidebarFreeSpaceWidget(widget)
+end
+
+local function shouldManageSidebarFreeSpace(container)
+    if not container or container:isDestroyed() or not container:isVisible() then
+        return false
+    end
+
+    if container.ignoreFillAll or container.isHorizontalPanel or container.onlyPhantomDrop then
+        return false
+    end
+
+    return true
+end
+
+local function ensureSidebarFreeSpaceWidget(container)
+    local widget = container._sidebarFreeSpaceWidget
+    if widget and not widget:isDestroyed() then
+        return widget
+    end
+
+    widget = g_ui.createWidget('UIWidget')
+    widget:setId('sidebarFreeSpace')
+    widget._sidebarFreeSpaceWidget = true
+    widget:setPhantom(true)
+    widget:setFocusable(false)
+    widget:setImageSource(SIDEBAR_FREE_SPACE_IMAGE)
+    widget:setImageBorder(SIDEBAR_FREE_SPACE_BORDER)
+    if widget.setImageRepeatedFromBottom then
+        widget:setImageRepeatedFromBottom(true)
+    end
+
+    container._sidebarFreeSpaceWidget = widget
+    return widget
+end
+
+function UIMiniWindowContainer:scheduleSidebarFreeSpaceRefresh()
+    if self._sidebarFreeSpaceRefreshScheduled or self._sidebarFreeSpaceRefreshing then
+        return
+    end
+
+    self._sidebarFreeSpaceRefreshScheduled = true
+    addEvent(function()
+        if self and not self:isDestroyed() and self._sidebarFreeSpaceRefreshScheduled then
+            self._sidebarFreeSpaceRefreshScheduled = nil
+            self:refreshSidebarFreeSpace()
+        end
+    end)
+end
+
+function UIMiniWindowContainer:refreshSidebarFreeSpace()
+    if self._sidebarFreeSpaceRefreshing then
+        return
+    end
+
+    self._sidebarFreeSpaceRefreshScheduled = nil
+    self._sidebarFreeSpaceRefreshing = true
+
+    local function finish()
+        self._sidebarFreeSpaceRefreshing = nil
+    end
+
+    local filler = self._sidebarFreeSpaceWidget
+
+    if not shouldManageSidebarFreeSpace(self) then
+        if filler and not filler:isDestroyed() then
+            filler:destroy()
+        end
+        self._sidebarFreeSpaceWidget = nil
+        finish()
+        return
+    end
+
+    local usedHeight = 0
+    local children = self:getChildren()
+    for i = 1, #children do
+        local child = children[i]
+        if child:isVisible() and not isSidebarFreeSpaceWidget(child) then
+            usedHeight = usedHeight + child:getHeight()
+        end
+    end
+
+    local availableHeight = self:getHeight() - self:getPaddingTop() - self:getPaddingBottom()
+    local freeHeight = math.max(0, availableHeight - usedHeight)
+
+    if freeHeight <= 0 then
+        if filler and not filler:isDestroyed() then
+            filler:hide()
+            filler:setHeight(0)
+        end
+        finish()
+        return
+    end
+
+    filler = ensureSidebarFreeSpaceWidget(self)
+    if filler:getParent() ~= self then
+        self:addChild(filler)
+    else
+        self:moveChildToIndex(filler, self:getChildCount())
+    end
+
+    filler:setWidth(math.max(0, self:getWidth() - self:getPaddingLeft() - self:getPaddingRight()))
+    filler:setHeight(freeHeight)
+    filler:show()
+    finish()
+end
+
 function UIMiniWindowContainer:fitAll(noRemoveChild)
     if not self:isVisible() then
         return
@@ -23,9 +142,15 @@ function UIMiniWindowContainer:fitAll(noRemoveChild)
 
     if not noRemoveChild then
         local children = self:getChildren()
-        if #children > 0 then
-            noRemoveChild = children[#children]
-        else
+        for i = #children, 1, -1 do
+            if not isSidebarSystemWidget(children[i]) then
+                noRemoveChild = children[i]
+                break
+            end
+        end
+
+        if not noRemoveChild then
+            self:refreshSidebarFreeSpace()
             return
         end
     end
@@ -33,13 +158,14 @@ function UIMiniWindowContainer:fitAll(noRemoveChild)
     local sumHeight = 0
     local children = self:getChildren()
     for i = 1, #children do
-        if children[i]:isVisible() then
+        if children[i]:isVisible() and not isSidebarSystemWidget(children[i]) then
             sumHeight = sumHeight + children[i]:getHeight()
         end
     end
 
     local selfHeight = self:getHeight() - (self:getPaddingTop() + self:getPaddingBottom())
     if sumHeight <= selfHeight then
+        self:refreshSidebarFreeSpace()
         return
     end
 
@@ -61,7 +187,7 @@ function UIMiniWindowContainer:fitAll(noRemoveChild)
         end
 
         local child = children[i]
-        if child ~= noRemoveChild and not child.save then
+        if child ~= noRemoveChild and not isSidebarSystemWidget(child) and not child.save then
             local childHeight = child:getHeight()
             sumHeight = sumHeight - childHeight
             table.insert(removeChildren, child)
@@ -75,17 +201,18 @@ function UIMiniWindowContainer:fitAll(noRemoveChild)
         end
 
         local child = children[i]
-        if child ~= noRemoveChild and child:isVisible() then
+        if child ~= noRemoveChild and not isSidebarSystemWidget(child) and child:isVisible() then
             local childHeight = child:getHeight()
             sumHeight = sumHeight - childHeight
             table.insert(removeChildren, child)
         end
     end
 
-    -- close widgets
     for i = 1, #removeChildren do
         removeChildren[i]:close()
     end
+
+    self:refreshSidebarFreeSpace()
 end
 
 function UIMiniWindowContainer:fits(child, minContentHeight, maxContentHeight)
@@ -100,7 +227,7 @@ function UIMiniWindowContainer:fits(child, minContentHeight, maxContentHeight)
     local totalHeight = 0
     local children = self:getChildren()
     for i = 1, #children do
-        if children[i]:isVisible() then
+        if children[i]:isVisible() and not isSidebarSystemWidget(children[i]) then
             totalHeight = totalHeight + children[i]:getHeight()
         end
     end
@@ -143,9 +270,9 @@ function UIMiniWindowContainer:onDrop(widget, mousePos)
 
         self:insertChild(targetIndex, widget)
 
-        if widget:getId() == "botWindow" and
-            (widget:getParent():getId() == "gameLeftPanel" or widget:getParent():getId() == "gameLeftExtraPanel" or
-                widget:getParent():getId() == "gameRightExtraPanel") then
+        local parentId = widget:getParent() and widget:getParent():getId() or ''
+        if widget:getId() == 'botWindow' and
+            (parentId == 'gameLeftPanel' or parentId:find('^gameLeftExtraPanel') or parentId:find('^gameRightExtraPanel')) then
             widget:getParent():setWidth(190)
         end
         self:fitAll(widget)
@@ -174,9 +301,10 @@ function UIMiniWindowContainer:onDrop(widget, mousePos)
 
             self:insertChild(targetIndex, widget)
 
-            if widget:getId() == "botWindow" and
-                (widget:getParent():getId() == "gameLeftPanel" or widget:getParent():getId() == "gameLeftExtraPanel" or
-                    widget:getParent():getId() == "gameRightExtraPanel") then
+            local droppedParentId = widget:getParent() and widget:getParent():getId() or ''
+            if widget:getId() == 'botWindow' and
+                (droppedParentId == 'gameLeftPanel' or droppedParentId:find('^gameLeftExtraPanel') or
+                    droppedParentId:find('^gameRightExtraPanel')) then
                 widget:getParent():setWidth(190)
             end
 
@@ -239,7 +367,7 @@ end
 function UIMiniWindowContainer:order()
     local children = self:getChildren()
     for i = 1, #children do
-        if not children[i].miniLoaded then
+        if not children[i].miniLoaded and not isSidebarSystemWidget(children[i]) then
             return
         end
     end
@@ -255,7 +383,9 @@ function UIMiniWindowContainer:saveChildren()
     local children = self:getChildren()
     local ignoreIndex = 0
     for i = 1, #children do
-        if children[i].save then
+        if isSidebarSystemWidget(children[i]) then
+            ignoreIndex = ignoreIndex + 1
+        elseif children[i].save then
             children[i]:saveParentIndex(self:getId(), i - ignoreIndex)
         else
             ignoreIndex = ignoreIndex + 1

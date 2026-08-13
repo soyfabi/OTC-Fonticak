@@ -1,6 +1,96 @@
 -- @docclass
 UIMiniWindow = extends(UIWindow, 'UIMiniWindow')
 
+-- Free window placement: mini-windows can float over the game area instead of
+-- only docking into side panels. Positions are stored as screen fractions per
+-- character. Toggle with the "freeWindowPlacement" option (default on).
+local FLOATING_SETTINGS_NODE = 'floatingMiniWindows'
+
+local function freePlacementEnabled()
+    if not modules.client_options or not modules.client_options.getOption then
+        return true
+    end
+
+    local v = modules.client_options.getOption('freeWindowPlacement')
+    return v == nil or v == true
+end
+
+local function floatingStoreKey()
+    local char = g_game.getCharacterName()
+    if char and #char > 0 then
+        return char
+    end
+    return 'default'
+end
+
+local function floatingGameRoot()
+    return modules.game_interface and modules.game_interface.getRootPanel and modules.game_interface.getRootPanel()
+end
+
+local function saveFloatingPosition(widget)
+    if not widget.save then
+        return
+    end
+
+    local root = floatingGameRoot()
+    if not root or root:isDestroyed() then
+        return
+    end
+
+    local rootSize = root:getSize()
+    if rootSize.width <= 0 or rootSize.height <= 0 then
+        return
+    end
+
+    local pos = widget:getPosition()
+    local rootPos = root:getPosition()
+    local node = g_settings.getNode(FLOATING_SETTINGS_NODE) or {}
+    local key = floatingStoreKey()
+
+    node[key] = node[key] or {}
+    node[key][widget:getId()] = {
+        fx = (pos.x - rootPos.x) / rootSize.width,
+        fy = (pos.y - rootPos.y) / rootSize.height
+    }
+
+    g_settings.setNode(FLOATING_SETTINGS_NODE, node)
+end
+
+local function eraseFloatingPosition(widget)
+    local node = g_settings.getNode(FLOATING_SETTINGS_NODE)
+    if not node then
+        return
+    end
+
+    local key = floatingStoreKey()
+    if node[key] then
+        node[key][widget:getId()] = nil
+        g_settings.setNode(FLOATING_SETTINGS_NODE, node)
+    end
+end
+
+local function readFloatingPosition(widget)
+    local node = g_settings.getNode(FLOATING_SETTINGS_NODE)
+    local key = floatingStoreKey()
+    if node and node[key] then
+        return node[key][widget:getId()]
+    end
+    return nil
+end
+
+function UIMiniWindow.raiseAllFloating()
+    local root = floatingGameRoot()
+    if not root or root:isDestroyed() then
+        return
+    end
+
+    for _, child in ipairs(root:getChildren()) do
+        if child.floating then
+            child:raise()
+        end
+    end
+end
+
 function UIMiniWindow.create()
     local miniwindow = UIMiniWindow.internalCreate()
     miniwindow.UIMiniWindowContainer = true
@@ -21,6 +111,12 @@ function UIMiniWindow:close(dontSave)
     if not self:isExplicitlyVisible() then
         return
     end
+
+    if self.floating then
+        self.floating = nil
+        eraseFloatingPosition(self)
+    end
+
     self:setVisible(false)
 
     if not dontSave then
@@ -30,6 +126,60 @@ function UIMiniWindow:close(dontSave)
     end
 
     signalcall(self.onClose, self)
+end
+
+function UIMiniWindow:setFloating()
+    local root = floatingGameRoot()
+
+    if root and not root:isDestroyed() and self:getParent() ~= root then
+        local p = self:getParent()
+        if p then
+            p:removeChild(self)
+        end
+        root:addChild(self)
+    end
+
+    self.floating = true
+    self._fromSidebar = false
+    self.oldParentDrag = nil
+
+    self:raise()
+    saveFloatingPosition(self)
+end
+
+function UIMiniWindow:scheduleFloatingRestore()
+    if not freePlacementEnabled() then
+        return
+    end
+
+    local stored = readFloatingPosition(self)
+    if not stored then
+        return
+    end
+
+    removeEvent(self._floatRestoreEvent)
+
+    self._floatRestoreEvent = scheduleEvent(function()
+        self._floatRestoreEvent = nil
+
+        local root = floatingGameRoot()
+        if not root or root:isDestroyed() then
+            return
+        end
+
+        local rootSize = root:getSize()
+        local rootPos = root:getPosition()
+        if rootSize.width <= 0 or rootSize.height <= 0 then
+            return
+        end
+
+        self:setFloating()
+        self:setPosition({
+            x = math.floor(rootPos.x + (stored.fx or 0) * rootSize.width + 0.5),
+            y = math.floor(rootPos.y + (stored.fy or 0) * rootSize.height + 0.5)
+        })
+        self:bindRectToParent()
+    end, 650)
 end
 
 function UIMiniWindow:minimize(dontSave)
@@ -216,6 +366,8 @@ function UIMiniWindow:setupOnStart()
             end
         end
     end
+
+    self:scheduleFloatingRestore()
 end
 
 function UIMiniWindow:onVisibilityChange(visible)
@@ -230,8 +382,14 @@ function UIMiniWindow:onDragEnter(mousePos)
 
     g_effects.cancelMove(self)
     self.smoothDropActive = nil
+    self._fromSidebar = false
+
+    if self.floating then
+        self._floatDragStart = self:getPosition()
+    end
 
     if parent:getClassName() == 'UIMiniWindowContainer' then
+        self._fromSidebar = true
         self.oldParentDrag = parent
         self.oldParentDragIndex = parent:getChildIndex(self)
         local containerParent = parent:getParent()
@@ -259,20 +417,59 @@ function UIMiniWindow:onDragLeave(droppedWidget, mousePos)
         self.movedIndex = nil
     end
 
+    local function bounceBackToOrigin()
+        if not self.oldParentDrag or self.oldParentDrag:isDestroyed() then
+            return false
+        end
+
+        local virtualParent = self:getParent()
+        if virtualParent then
+            virtualParent:removeChild(self)
+        end
+
+        self.oldParentDrag:insertChild(self.oldParentDragIndex, self)
+        self.movedWidget = nil
+        return true
+    end
+
+    local needsBounce = false
+    local floatReleaseAllowed = freePlacementEnabled() and not droppedWidget and not self.locked
+
+    if (self.moveOnlyToMain or droppedWidget and droppedWidget.onlyPhantomDrop) and not floatReleaseAllowed then
+        if not droppedWidget or (self.moveOnlyToMain and not droppedWidget.onlyPhantomDrop) or
+            (not self.moveOnlyToMain and droppedWidget.onlyPhantomDrop) then
+            needsBounce = true
+        end
+    end
+
+    local landedParent = self:getParent()
+    local landedOnSidebar = landedParent and landedParent:getClassName() == 'UIMiniWindowContainer'
+
+    local wantsFloat = self._fromSidebar and not landedOnSidebar and not needsBounce and
+        freePlacementEnabled() and not self.locked and not (droppedWidget and droppedWidget.onlyPhantomDrop)
+
+    local stayFloating = self.floating and not landedOnSidebar and not needsBounce and freePlacementEnabled()
+
+    -- Classic dock-only: leaving a sidebar without landing on another must bounce.
+    if not needsBounce and not wantsFloat and not stayFloating and self._fromSidebar and not landedOnSidebar then
+        needsBounce = true
+    end
+
+    if wantsFloat or stayFloating then
+        self:setFloating()
+    elseif needsBounce then
+        bounceBackToOrigin()
+    elseif landedOnSidebar and self.floating then
+        self.floating = nil
+        eraseFloatingPosition(self)
+    end
+
+    self._fromSidebar = false
+
     if not self.smoothDropActive then
         self:saveParent(self:getParent())
     end
 
-    -- Note: It seems to prevent the minimap, inventory, and health widgets from moving off the interface panel.
-    if self.moveOnlyToMain or droppedWidget and droppedWidget.onlyPhantomDrop then
-        if not (droppedWidget) or (self.moveOnlyToMain and not (droppedWidget.onlyPhantomDrop)) or
-            (not (self.moveOnlyToMain) and droppedWidget.onlyPhantomDrop) then
-            local virtualParent = self:getParent()
-            virtualParent:removeChild(self)
-            self.oldParentDrag:insertChild(self.oldParentDragIndex, self)
-            self.movedWidget = nil
-        end
-    end
     return true
 end
 
@@ -320,7 +517,26 @@ function UIMiniWindow:onDragMove(mousePos, mouseMoved)
         self.movedWidget = nil
     end
 
-    return UIWindow.onDragMove(self, mousePos, mouseMoved)
+    local moved = UIWindow.onDragMove(self, mousePos, mouseMoved)
+
+    -- With free placement off, keep moveOnlyToMain windows X-locked to their dock panel.
+    if self.moveOnlyToMain and not freePlacementEnabled() and self.oldParentDrag and not self.oldParentDrag:isDestroyed() then
+        local cRect = self.oldParentDrag:getPaddingRect()
+        local wSize = self:getSize()
+        local lockedX = cRect.x
+        local minY = cRect.y
+        local maxY = cRect.y + math.max(0, cRect.height - wSize.height)
+        local clampedY = math.max(minY, math.min(self:getY(), maxY))
+
+        if lockedX ~= self:getX() or clampedY ~= self:getY() then
+            self:setPosition({
+                x = lockedX,
+                y = clampedY
+            })
+        end
+    end
+
+    return moved
 end
 
 function UIMiniWindow:onMousePress()
