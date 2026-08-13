@@ -430,6 +430,75 @@ local function fitAllVerticalSidebars()
     end
 end
 
+local MAP_ASPECT_RATIO = 15 / 11
+
+local function getMapAspectRatio()
+    if gameMapPanel and not gameMapPanel:isDestroyed() then
+        local dim = gameMapPanel:getVisibleDimension()
+        if dim and dim.width and dim.height and dim.height > 0 then
+            return dim.width / dim.height
+        end
+    end
+    return MAP_ASPECT_RATIO
+end
+
+local function getBottomAreaMinMargin()
+    local actionBars = 0
+    if modules.game_actionbar and modules.game_actionbar.getActiveBottomBars then
+        actionBars = modules.game_actionbar.getActiveBottomBars() or 0
+    end
+    return 125 + (35 * actionBars)
+end
+
+-- When side columns change map width, shrink/grow the map height via the bottom
+-- splitter so the main view stays top-aligned at the correct aspect ratio.
+function fitMapHeightToAspectRatio()
+    if currentViewMode and currentViewMode ~= 0 then
+        return
+    end
+
+    if modules.client_options and modules.client_options.getOption('dontStretchShrink') then
+        return
+    end
+
+    if not gameMapPanel or gameMapPanel:isDestroyed() then
+        return
+    end
+    if not bottomSplitter or bottomSplitter:isDestroyed() then
+        return
+    end
+
+    local aspect = getMapAspectRatio()
+    if aspect <= 0 then
+        return
+    end
+
+    local widgetWidth = gameMapPanel:getWidth()
+    local paddingH = gameMapPanel:getPaddingLeft() + gameMapPanel:getPaddingRight()
+    local paddingV = gameMapPanel:getPaddingTop() + gameMapPanel:getPaddingBottom()
+    local internalWidth = widgetWidth - paddingH
+    if internalWidth <= 0 then
+        return
+    end
+
+    local idealInternalHeight = math.floor(internalWidth / aspect + 0.5)
+    local idealWidgetHeight = idealInternalHeight + paddingV
+    local currentWidgetHeight = gameMapPanel:getHeight()
+    local currentMargin = bottomSplitter:getMarginBottom()
+    local totalHeight = currentWidgetHeight + currentMargin
+    local targetMargin = totalHeight - idealWidgetHeight
+
+    local parent = bottomSplitter:getParent()
+    local parentH = parent and parent:getHeight() or 0
+    local minM = getBottomAreaMinMargin()
+    local maxM = math.max(minM, parentH - 150)
+    targetMargin = math.max(minM, math.min(targetMargin, maxM))
+
+    if math.abs(targetMargin - currentMargin) > 1 then
+        bottomSplitter:setMarginBottom(targetMargin)
+    end
+end
+
 function updateSidebarControlStates()
     if not leftIncreaseSidePanels or leftIncreaseSidePanels:isDestroyed() then
         return
@@ -464,7 +533,12 @@ function refreshSidebarLayout()
 
     reanchorCenterToSidebars()
     updateSidebarControlStates()
-    addEvent(fitAllVerticalSidebars)
+    addEvent(function()
+        fitMapHeightToAspectRatio()
+        fitAllVerticalSidebars()
+        -- Second pass after anchors settle to the new column widths.
+        scheduleEvent(fitMapHeightToAspectRatio, 50)
+    end)
 
     if clamped then
         saveSidebarColumnCounts()
@@ -635,6 +709,29 @@ function initSidebarColumns()
             scheduleSidebarLayoutUpdate()
         end
     end
+
+    -- Mouse wheel on the +/- sidebar buttons:
+    -- wheel up = right arrow (increase), wheel down = left arrow (decrease).
+    local function bindSidePanelWheel(increaseBtn, decreaseBtn, onIncrease, onDecrease)
+        local function onWheel(widget, mousePos, direction)
+            if direction == MouseWheelUp then
+                onIncrease()
+            elseif direction == MouseWheelDown then
+                onDecrease()
+            end
+            return true
+        end
+
+        if increaseBtn and not increaseBtn:isDestroyed() then
+            increaseBtn.onMouseWheel = onWheel
+        end
+        if decreaseBtn and not decreaseBtn:isDestroyed() then
+            decreaseBtn.onMouseWheel = onWheel
+        end
+    end
+
+    bindSidePanelWheel(leftIncreaseSidePanels, leftDecreaseSidePanels, onIncreaseLeftPanels, onDecreaseLeftPanels)
+    bindSidePanelWheel(rightIncreaseSidePanels, rightDecreaseSidePanels, onIncreaseRightPanels, onDecreaseRightPanels)
 end
 
 function terminateSidebarColumns()
