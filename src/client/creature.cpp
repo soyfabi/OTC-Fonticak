@@ -844,7 +844,9 @@ void Creature::nextWalkUpdate()
 
 void Creature::updateWalk(const bool isPreWalking)
 {
-    const float walkTicksPerPixel = getStepDuration(true) / static_cast<float>(g_gameConfig.getSpriteSize());
+    // Use diagonal-aware duration (false). With true, diagonals finish the tile early and then
+    // freeze until the remaining ~2/3 of the step time elapses (slow/stuttery feel).
+    const float walkTicksPerPixel = getStepDuration(false) / static_cast<float>(g_gameConfig.getSpriteSize());
 
     const int totalPixelsWalked = std::min<int>(m_walkTimer.ticksElapsed() / walkTicksPerPixel, g_gameConfig.getSpriteSize());
 
