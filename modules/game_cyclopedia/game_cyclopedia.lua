@@ -9,6 +9,7 @@ function init()
 	connect(g_game, { 
 		onEnterGame = registerBestiaryProtocol,
 		onPendingGame = registerBestiaryProtocol,
+		onGameStart = onCyclopediaGameStart,
 		onGameEnd = onCyclopediaGameEnd
 	})
 	if registerBestiaryProtocol then
@@ -36,6 +37,7 @@ function terminate()
 	disconnect(g_game, { 
 		onEnterGame = registerBestiaryProtocol,
 		onPendingGame = registerBestiaryProtocol,
+		onGameStart = onCyclopediaGameStart,
 		onGameEnd = onCyclopediaGameEnd
 	})
 	
@@ -74,6 +76,12 @@ end
 
 function getCurrentType()
 	return currentType
+end
+
+function onCyclopediaGameStart()
+	if restoreBestiaryTracker then
+		restoreBestiaryTracker()
+	end
 end
 
 function onCyclopediaGameEnd()

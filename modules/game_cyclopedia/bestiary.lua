@@ -484,6 +484,29 @@ function terminateBestiary()
 	end
 end
 
+function restoreBestiaryTracker()
+	if not bestiaryTrackerWindow then
+		local char = g_game.getCharacterName()
+		local settings = g_settings.getNode('CharMiniWindows')
+		local saved = char and settings and settings[char] and settings[char].bestiaryTrackerWindow
+		if not saved or saved.closed then
+			return
+		end
+	end
+
+	local window = ensureBestiaryTrackerWindow()
+	if not window then
+		return
+	end
+	if window.setupOnStart then
+		window:setupOnStart()
+	end
+	if window:isVisible() and g_game.isOnline() then
+		requestBestiaryTrackerRefresh()
+		scheduleBestiaryTrackerRefresh()
+	end
+end
+
 function onBestiaryGameEnd()
 	stopBestiaryMonsterRefresh()
 	if bestiaryTrackerRefreshEvent then
@@ -492,7 +515,8 @@ function onBestiaryGameEnd()
 	end
 	trackedCreatures = {}
 	if bestiaryTrackerWindow then
-		bestiaryTrackerWindow:hide()
+		-- Don't save closed=true on logout, or the tracker never comes back.
+		bestiaryTrackerWindow:close(true)
 		local contentsPanel = bestiaryTrackerWindow:recursiveGetChildById('contentsPanel')
 		if contentsPanel then
 			contentsPanel:destroyChildren()
@@ -1193,6 +1217,7 @@ ensureBestiaryTrackerWindow = function()
 	end
 
 	bestiaryTrackerWindow:setup()
+	bestiaryTrackerWindow:hide()
 	bestiaryTrackerWindow:setupOnStart()
 	return bestiaryTrackerWindow
 end

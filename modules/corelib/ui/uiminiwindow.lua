@@ -91,6 +91,147 @@ function UIMiniWindow.raiseAllFloating()
     end
 end
 
+function UIMiniWindow:dockToSidebar()
+    removeEvent(self._floatRestoreEvent)
+    self._floatRestoreEvent = nil
+    self.floating = nil
+
+    local parent = self:getParent()
+    if parent and parent:getClassName() == 'UIMiniWindowContainer' then
+        return
+    end
+
+    local panel
+    if modules.game_interface and modules.game_interface.findContentPanelAvailable then
+        panel = modules.game_interface.findContentPanelAvailable(self, self:getMinimumHeight())
+    end
+    if (not panel or panel:isDestroyed()) and modules.game_interface and modules.game_interface.getRightPanel then
+        panel = modules.game_interface.getRightPanel()
+    end
+    if not panel or panel:isDestroyed() then
+        return
+    end
+
+    if parent then
+        parent:removeChild(self)
+    end
+    panel:addChild(self)
+    self:saveParent(panel)
+    self:fitOnParent()
+end
+
+function UIMiniWindow.dockAllFloating()
+    local root = floatingGameRoot()
+    if not root or root:isDestroyed() then
+        return
+    end
+
+    local toDock = {}
+    for _, child in ipairs(root:getChildren()) do
+        if child and not child:isDestroyed() and child:getClassName() == 'UIMiniWindow' then
+            table.insert(toDock, child)
+        end
+    end
+
+    for _, window in ipairs(toDock) do
+        window:dockToSidebar()
+    end
+end
+
+local OPEN_HIGHLIGHT_COLOR = '#FFFFFF'
+local OPEN_HIGHLIGHT_WIDTH = 2
+local OPEN_HIGHLIGHT_HOLD_TIME = 90
+local OPEN_HIGHLIGHT_FADE_TIME = 420
+local OPEN_HIGHLIGHT_DEBOUNCE_TIME = 120
+local OPEN_HIGHLIGHT_LOGIN_SUPPRESSION_TIME = 2000
+local openHighlightEnabled = g_game.isOnline()
+local openHighlightEnableEvent
+
+connect(g_game, {
+    onGameStart = function()
+        openHighlightEnabled = false
+        removeEvent(openHighlightEnableEvent)
+        openHighlightEnableEvent = scheduleEvent(function()
+            openHighlightEnableEvent = nil
+            openHighlightEnabled = true
+        end, OPEN_HIGHLIGHT_LOGIN_SUPPRESSION_TIME)
+    end,
+    onGameEnd = function()
+        removeEvent(openHighlightEnableEvent)
+        openHighlightEnableEvent = nil
+        openHighlightEnabled = false
+    end
+})
+
+local function clearOpenHighlight(miniwindow)
+    removeEvent(miniwindow._openHighlightFadeEvent)
+    removeEvent(miniwindow._openHighlightDestroyEvent)
+    miniwindow._openHighlightFadeEvent = nil
+    miniwindow._openHighlightDestroyEvent = nil
+
+    local overlay = miniwindow._openHighlightOverlay
+    if overlay then
+        removeEvent(overlay.fadeEvent)
+        overlay.fadeEvent = nil
+        if not overlay:isDestroyed() then
+            overlay:destroy()
+        end
+        miniwindow._openHighlightOverlay = nil
+    end
+end
+
+local function playOpenHighlight(miniwindow)
+    if not openHighlightEnabled or not g_game.isOnline() or miniwindow:isDestroyed() or not miniwindow:isVisible() then
+        return
+    end
+
+    local now = g_clock.millis()
+    local currentOverlay = miniwindow._openHighlightOverlay
+    if currentOverlay and not currentOverlay:isDestroyed() and miniwindow._openHighlightLastStart
+        and now - miniwindow._openHighlightLastStart < OPEN_HIGHLIGHT_DEBOUNCE_TIME then
+        return
+    end
+
+    clearOpenHighlight(miniwindow)
+    miniwindow._openHighlightLastStart = now
+
+    local overlay = g_ui.createWidget('UIWidget', miniwindow)
+    overlay:setId('miniwindowOpenHighlight')
+    overlay._miniwindowOpenHighlight = true
+    overlay:setPhantom(true)
+    overlay:setFocusable(false)
+    overlay:setBorderColor(OPEN_HIGHLIGHT_COLOR)
+    overlay:setBorderWidth(OPEN_HIGHLIGHT_WIDTH)
+    overlay:setOpacity(1)
+    overlay:fill('parent')
+    overlay:show()
+    overlay:raise()
+
+    miniwindow._openHighlightOverlay = overlay
+    miniwindow._openHighlightFadeEvent = scheduleEvent(function()
+        if miniwindow:isDestroyed() or overlay:isDestroyed() then
+            return
+        end
+        miniwindow._openHighlightFadeEvent = nil
+        g_effects.fadeOut(overlay, OPEN_HIGHLIGHT_FADE_TIME)
+    end, OPEN_HIGHLIGHT_HOLD_TIME)
+
+    miniwindow._openHighlightDestroyEvent = scheduleEvent(function()
+        if miniwindow:isDestroyed() then
+            return
+        end
+        miniwindow._openHighlightDestroyEvent = nil
+        if miniwindow._openHighlightOverlay == overlay then
+            removeEvent(overlay.fadeEvent)
+            overlay.fadeEvent = nil
+            if not overlay:isDestroyed() then
+                overlay:destroy()
+            end
+            miniwindow._openHighlightOverlay = nil
+        end
+    end, OPEN_HIGHLIGHT_HOLD_TIME + OPEN_HIGHLIGHT_FADE_TIME + 60)
+end
+
 function UIMiniWindow.create()
     local miniwindow = UIMiniWindow.internalCreate()
     miniwindow.UIMiniWindowContainer = true
@@ -104,6 +245,9 @@ function UIMiniWindow:open(dontSave)
             closed = false
         })
     end
+    if not dontSave and not self._restoringOnStart then
+        playOpenHighlight(self)
+    end
     signalcall(self.onOpen, self)
 end
 
@@ -111,6 +255,8 @@ function UIMiniWindow:close(dontSave)
     if not self:isExplicitlyVisible() then
         return
     end
+
+    clearOpenHighlight(self)
 
     if self.floating then
         self.floating = nil
@@ -161,6 +307,9 @@ function UIMiniWindow:scheduleFloatingRestore()
 
     self._floatRestoreEvent = scheduleEvent(function()
         self._floatRestoreEvent = nil
+        if not freePlacementEnabled() then
+            return
+        end
 
         local root = floatingGameRoot()
         if not root or root:isDestroyed() then
@@ -268,8 +417,11 @@ function UIMiniWindow:setup()
 end
 
 function UIMiniWindow:setupOnStart()
+    self._restoringOnStart = true
+
     local char = g_game.getCharacterName()
     if not char or #char == 0 then
+        self._restoringOnStart = nil
         return
     end
 
@@ -296,11 +448,12 @@ function UIMiniWindow:setupOnStart()
         if selfSettings.parentId then
             local parent = rootWidget:recursiveGetChildById(selfSettings.parentId)
             if parent and parent:isVisible() then
-                if parent:getClassName() == 'UIMiniWindowContainer' and selfSettings.index and parent:isOn() then
+                local parentIsSidebar = parent:getClassName() == 'UIMiniWindowContainer'
+                if parentIsSidebar and selfSettings.index and parent:isOn() then
                     self.miniIndex = selfSettings.index
                     parent:scheduleInsert(self, selfSettings.index)
                     newParentSet = true
-                elseif selfSettings.position then
+                elseif selfSettings.position and freePlacementEnabled() then
                     self:setParent(parent, true)
                     self:setPosition(topoint(selfSettings.position))
                     newParentSet = true
@@ -338,6 +491,13 @@ function UIMiniWindow:setupOnStart()
         self:setParent(oldParent)
     end
 
+    if not freePlacementEnabled() then
+        local parent = self:getParent()
+        if self.floating or (parent and parent:getClassName() ~= 'UIMiniWindowContainer') then
+            self:dockToSidebar()
+        end
+    end
+
     self.miniLoaded = true
 
     if self.save then
@@ -368,6 +528,7 @@ function UIMiniWindow:setupOnStart()
     end
 
     self:scheduleFloatingRestore()
+    self._restoringOnStart = nil
 end
 
 function UIMiniWindow:onVisibilityChange(visible)
@@ -392,10 +553,28 @@ function UIMiniWindow:onDragEnter(mousePos)
         self._fromSidebar = true
         self.oldParentDrag = parent
         self.oldParentDragIndex = parent:getChildIndex(self)
+        -- Keep the hole the dragged window occupied so the window below does
+        -- not snap upward. onDragMove later slides that hole to the drop slot.
+        local nextChild = parent:getChildByIndex(self.oldParentDragIndex + 1)
         local containerParent = parent:getParent()
         parent:removeChild(self)
         containerParent:addChild(self)
         parent:saveChildren()
+
+        if nextChild and not nextChild:isDestroyed() and nextChild:getParent() == parent
+            and not nextChild._sidebarFreeSpaceWidget and nextChild:isVisible() then
+            local gap = self:getHeight()
+            g_effects.cancelValue(nextChild)
+            nextChild:setMarginTop(gap)
+            nextChild:setMarginBottom(0)
+            self.movedWidget = nextChild
+            self.movedIndex = 0
+            self.movedOldMargin = 0
+            self.setMovedChildMargin = function(v)
+                nextChild:setMarginTop(v)
+                nextChild:setMarginBottom(0)
+            end
+        end
     end
 
     local oldPos = self:getPosition()
@@ -408,13 +587,104 @@ function UIMiniWindow:onDragEnter(mousePos)
     return true
 end
 
+local function isSidebarDropTarget(widget)
+    while widget and not widget:isDestroyed() do
+        if widget:getClassName() == 'UIMiniWindowContainer' then
+            return true
+        end
+        widget = widget:getParent()
+    end
+    return false
+end
+
+local SMOOTH_DRAG_GAP_MS = 95
+
+local function roundMargin(value)
+    return math.floor((value or 0) + 0.5)
+end
+
+-- Tween both margins together. Moving the hole from above a window to below
+-- it must shrink marginTop while growing marginBottom, or the window snaps.
+local function animateGapTo(child, endTop, endBot)
+    if not child or child:isDestroyed() then
+        return
+    end
+
+    endTop = endTop or 0
+    endBot = endBot or 0
+    local startTop = child:getMarginTop() or 0
+    local startBot = child:getMarginBottom() or 0
+
+    if math.abs(startTop - endTop) < 0.5 and math.abs(startBot - endBot) < 0.5 then
+        g_effects.cancelValue(child)
+        child:setMarginTop(endTop)
+        child:setMarginBottom(endBot)
+        return
+    end
+
+    g_effects.animateValue(child, 0, 1, SMOOTH_DRAG_GAP_MS, function(t)
+        if child:isDestroyed() then
+            return
+        end
+        child:setMarginTop(roundMargin(startTop + (endTop - startTop) * t))
+        child:setMarginBottom(roundMargin(startBot + (endBot - startBot) * t))
+    end)
+end
+
+-- Drag gaps always close to 0. Never restore a mid-animation leftover margin.
+local function clearMovedChildGap(self, instant)
+    local child = self.movedWidget
+    self.movedWidget = nil
+    self.setMovedChildMargin = nil
+    self.movedOldMargin = nil
+    self.movedIndex = nil
+
+    if not child or child:isDestroyed() then
+        return
+    end
+
+    if instant then
+        g_effects.cancelValue(child)
+        child:setMarginTop(0)
+        child:setMarginBottom(0)
+        return
+    end
+
+    animateGapTo(child, 0, 0)
+end
+
+local function resetContainerDragMargins(container)
+    if not container or container:isDestroyed() then
+        return
+    end
+
+    for _, child in ipairs(container:getChildren()) do
+        if child and not child:isDestroyed() and not child._sidebarFreeSpaceWidget then
+            g_effects.cancelValue(child)
+            if child:getMarginTop() ~= 0 then
+                child:setMarginTop(0)
+            end
+            if child:getMarginBottom() ~= 0 then
+                child:setMarginBottom(0)
+            end
+        end
+    end
+end
+
 function UIMiniWindow:onDragLeave(droppedWidget, mousePos)
-    if self.movedWidget then
-        self.setMovedChildMargin(self.movedOldMargin or 0)
-        self.movedWidget = nil
-        self.setMovedChildMargin = nil
-        self.movedOldMargin = nil
-        self.movedIndex = nil
+    local droppingOnSidebar = isSidebarDropTarget(droppedWidget)
+    clearMovedChildGap(self, true)
+
+    local dropContainer = droppedWidget
+    while dropContainer and not dropContainer:isDestroyed() do
+        if dropContainer:getClassName() == 'UIMiniWindowContainer' then
+            resetContainerDragMargins(dropContainer)
+            break
+        end
+        dropContainer = dropContainer:getParent()
+    end
+    if self.oldParentDrag and not self.oldParentDrag:isDestroyed() then
+        resetContainerDragMargins(self.oldParentDrag)
     end
 
     local function bounceBackToOrigin()
@@ -442,8 +712,16 @@ function UIMiniWindow:onDragLeave(droppedWidget, mousePos)
         end
     end
 
+    -- During drag the window is reparented to the game root, so getParent() is
+    -- not the sidebar. Use the drop target (and onDrop's smooth-drop flag).
     local landedParent = self:getParent()
-    local landedOnSidebar = landedParent and landedParent:getClassName() == 'UIMiniWindowContainer'
+    local landedOnSidebar = isSidebarDropTarget(droppedWidget)
+        or (landedParent and landedParent:getClassName() == 'UIMiniWindowContainer')
+
+    if self.smoothDropActive then
+        landedOnSidebar = true
+        needsBounce = false
+    end
 
     local wantsFloat = self._fromSidebar and not landedOnSidebar and not needsBounce and
         freePlacementEnabled() and not self.locked and not (droppedWidget and droppedWidget.onlyPhantomDrop)
@@ -479,7 +757,8 @@ function UIMiniWindow:onDragMove(mousePos, mouseMoved)
     local overAnyWidget = false
     for i = 1, #children do
         local child = children[i]
-        if child:getParent():getClassName() == 'UIMiniWindowContainer' then
+        local parent = child:getParent()
+        if parent and parent:getClassName() == 'UIMiniWindowContainer' and not child._sidebarFreeSpaceWidget then
             overAnyWidget = true
 
             local childCenterY = child:getY() + child:getHeight() / 2
@@ -487,34 +766,40 @@ function UIMiniWindow:onDragMove(mousePos, mouseMoved)
                 break
             end
 
-            if self.movedWidget then
-                self.setMovedChildMargin(self.movedOldMargin or 0)
-                self.setMovedChildMargin = nil
+            local useTop = mousePos.y < childCenterY
+            local sameSlot = self.movedWidget == child and ((useTop and self.movedIndex == 0) or (not useTop and self.movedIndex == 1))
+            if sameSlot then
+                break
             end
 
-            if mousePos.y < childCenterY then
-                self.movedOldMargin = child:getMarginTop()
-                self.setMovedChildMargin = function(v)
+            local sameChild = self.movedWidget == child
+            if self.movedWidget and not sameChild then
+                clearMovedChildGap(self, false)
+            end
+
+            local gap = self:getHeight()
+            local endTop = useTop and gap or 0
+            local endBot = useTop and 0 or gap
+
+            self.setMovedChildMargin = function(v)
+                if useTop then
                     child:setMarginTop(v)
-                end
-                self.movedIndex = 0
-            else
-                self.movedOldMargin = child:getMarginBottom()
-                self.setMovedChildMargin = function(v)
+                    child:setMarginBottom(0)
+                else
+                    child:setMarginTop(0)
                     child:setMarginBottom(v)
                 end
-                self.movedIndex = 1
             end
-
+            self.movedIndex = useTop and 0 or 1
+            self.movedOldMargin = 0
             self.movedWidget = child
-            self.setMovedChildMargin(self:getHeight())
+            animateGapTo(child, endTop, endBot)
             break
         end
     end
 
     if not overAnyWidget and self.movedWidget then
-        self.setMovedChildMargin(self.movedOldMargin or 0)
-        self.movedWidget = nil
+        clearMovedChildGap(self, false)
     end
 
     local moved = UIWindow.onDragMove(self, mousePos, mouseMoved)
@@ -654,6 +939,10 @@ function UIMiniWindow:saveParent(parent)
             parent:saveChildren()
         else
             self:saveParentPosition(parent:getId(), self:getPosition())
+        end
+        if self._lastSavedContainer ~= parent then
+            self._lastSavedContainer = parent
+            signalcall(self.onContainerChanged, self, parent)
         end
     end
 end

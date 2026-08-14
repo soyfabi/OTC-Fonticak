@@ -264,6 +264,24 @@ function UIMiniWindowContainer:onDrop(widget, mousePos)
             targetIndex = self:getChildCount() + 1
         end
 
+        -- Collapse drag preview margins before layout; leftover top/bottom
+        -- margin looks like permanent empty space between docked windows.
+        for _, child in ipairs(self:getChildren()) do
+            if child and not child:isDestroyed() and not child._sidebarFreeSpaceWidget then
+                g_effects.cancelValue(child)
+                if child:getMarginTop() ~= 0 then
+                    child:setMarginTop(0)
+                end
+                if child:getMarginBottom() ~= 0 then
+                    child:setMarginBottom(0)
+                end
+            end
+        end
+        widget.movedWidget = nil
+        widget.setMovedChildMargin = nil
+        widget.movedOldMargin = nil
+        widget.movedIndex = nil
+
         if floatingParent then
             floatingParent:removeChild(widget)
         end
@@ -311,6 +329,17 @@ function UIMiniWindowContainer:onDrop(widget, mousePos)
             self:fitAll(widget)
             self:saveChildren()
             widget.smoothDropActive = nil
+
+            for _, child in ipairs(self:getChildren()) do
+                if child and not child:isDestroyed() and not child._sidebarFreeSpaceWidget then
+                    if child:getMarginTop() ~= 0 then
+                        child:setMarginTop(0)
+                    end
+                    if child:getMarginBottom() ~= 0 then
+                        child:setMarginBottom(0)
+                    end
+                end
+            end
         end)
 
         return true

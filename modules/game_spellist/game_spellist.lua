@@ -490,6 +490,13 @@ function online()
   if t_spelllist and t_spelllist.setupOnStart then
     t_spelllist:setupOnStart()
   end
+  if t_spelllist and t_spelllist:isVisible() and not t_spelllist:getParent() then
+    local panel = modules.game_interface.findContentPanelAvailable(t_spelllist, t_spelllist:getMinimumHeight())
+    if panel then
+      panel:addChild(t_spelllist)
+    end
+  end
+  setButtonOn(t_spelllist and t_spelllist:isVisible())
   onConfigureList()
 end
 
@@ -500,7 +507,8 @@ function offline()
   learnedSpells = {}
   selectedSpellWidget = nil
   if t_spelllist then
-    t_spelllist:close()
+    -- Logout must not persist closed=true, or the list never reopens.
+    t_spelllist:close(true)
   end
   setButtonOn(false)
 end

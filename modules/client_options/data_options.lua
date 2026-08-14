@@ -263,7 +263,14 @@ return {
     -- Checked: move the full stack without holding Ctrl.
     moveStack                         = false,
     -- Allow mini-windows to float over the game area instead of dock-only.
-    freeWindowPlacement               = true,
+    freeWindowPlacement               = {
+        value = true,
+        action = function(value)
+            if not value and UIMiniWindow and UIMiniWindow.dockAllFloating then
+                UIMiniWindow.dockAllFloating()
+            end
+        end
+    },
     useDefaultKeyboardDelay           = {
         value = true,
         action = function(value, options, controller, panels, extraWidgets)
