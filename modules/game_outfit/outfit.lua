@@ -111,6 +111,19 @@ local SELECTION_BATCH_DELAY_MS = 1
 local SELECTION_LOADING_ANIM_MS = 280
 local SELECTION_LOADING_FRAMES = { '.', '..', '...' }
 
+-- Viewport hydration (keep animations on visible tiles; free off-screen creatures).
+local SELECTION_CARD_WIDTH = 108
+local SELECTION_CARD_HEIGHT = 100
+local SELECTION_CARD_SPACING = 2
+local SELECTION_COLUMNS = 2
+local SELECTION_HYDRATION_BUFFER_ROWS = 2
+local SELECTION_HYDRATION_MAX_ITEMS = 24
+local SELECTION_HYDRATION_BATCH_SIZE = 8
+
+local hydratedButtons = {}
+local selectionHydrationEvent = nil
+local selectionScrollHooked = false
+
 local pendingColorFill = nil
 local pendingColorDebounce = nil
 local colorFillToken = 0
@@ -120,6 +133,47 @@ local COLOR_DEBOUNCE_MS = 30
 
 local pendingSearchRebuild = nil
 local SEARCH_DEBOUNCE_MS = 120
+
+local function getSelectionList()
+  return window and window.ScrollBar and window.ScrollBar.selectionList
+end
+
+local function getSelectionScrollBar()
+  return window and window.ScrollBar and window.ScrollBar.outfitScrollBar
+end
+
+local function getButtonKey(button)
+  return button and tostring(button) or ''
+end
+
+local function clearSelectionHydrationEvent()
+  if selectionHydrationEvent then
+    removeEvent(selectionHydrationEvent)
+    selectionHydrationEvent = nil
+  end
+end
+
+local function releaseSelectionHydration()
+  clearSelectionHydrationEvent()
+  local hydrated = {}
+  for _, button in pairs(hydratedButtons) do
+    table.insert(hydrated, button)
+  end
+  for _, button in ipairs(hydrated) do
+    if button and not button:isDestroyed() and button.outfit and not button.outfit:isDestroyed() then
+      button.outfit:hide()
+      if button.outfit.setCreature then
+        button.outfit:setCreature(nil)
+      end
+      button.appliedOutfit = nil
+      button.__selectionHydrated = false
+      if button.loading and not button.loading:isDestroyed() then
+        button.loading:show()
+      end
+    end
+  end
+  hydratedButtons = {}
+end
 
 local function cancelPendingSearchRebuild()
   if pendingSearchRebuild then
@@ -157,40 +211,7 @@ local function cancelPendingSelectionFill()
   cancelSelectionLoadingAnim()
   cancelPendingColorFill()
   cancelPendingSearchRebuild()
-end
-
-local function startSelectionLoadingAnim()
-  if selectionLoadingAnim then
-    return
-  end
-
-  local frame = 1
-  local function tick()
-    selectionLoadingAnim = nil
-    if not window or window:isDestroyed() or not activeSelectionQueue then
-      return
-    end
-
-    local text = SELECTION_LOADING_FRAMES[frame]
-    frame = frame % #SELECTION_LOADING_FRAMES + 1
-
-    local queue = activeSelectionQueue
-    local hasPending = false
-    for i = queue.index, #queue.items do
-      local button = queue.items[i].button
-      local loading = button and not button:isDestroyed() and button.loading
-      if loading and not loading:isDestroyed() then
-        loading:setText(text)
-        hasPending = true
-      end
-    end
-
-    if hasPending then
-      selectionLoadingAnim = scheduleEvent(tick, SELECTION_LOADING_ANIM_MS)
-    end
-  end
-
-  selectionLoadingAnim = scheduleEvent(tick, SELECTION_LOADING_ANIM_MS)
+  releaseSelectionHydration()
 end
 
 local function markSelectionButtonLoading(button)
@@ -198,8 +219,12 @@ local function markSelectionButtonLoading(button)
     return
   end
   button.appliedOutfit = nil
+  button.__selectionHydrated = false
   if button.outfit and not button.outfit:isDestroyed() then
     button.outfit:hide()
+    if button.outfit.setCreature then
+      button.outfit:setCreature(nil)
+    end
   end
   if button.loading and not button.loading:isDestroyed() then
     button.loading:setText(SELECTION_LOADING_FRAMES[1])
@@ -219,35 +244,225 @@ local function markSelectionButtonReady(button)
   end
 end
 
-local function fillSelectionBatch(queue, token)
-  pendingSelectionFill = nil
-  if token ~= selectionFillToken or not window or window:isDestroyed() then
-    return
+local function hydrateSelectionButton(button)
+  if not button or button:isDestroyed() then
+    return false
   end
 
-  local list = window.ScrollBar and window.ScrollBar.selectionList
-  if not list or list:isDestroyed() then
-    return
+  if button.__selectionHydrated then
+    markSelectionButtonReady(button)
+    return false
   end
 
-  local last = math.min(queue.index + SELECTION_BATCH_SIZE - 1, #queue.items)
-  for i = queue.index, last do
-    local entry = queue.items[i]
-    local button = entry.button
-    if button and not button:isDestroyed() then
-      entry.apply(button)
-      markSelectionButtonReady(button)
+  local apply = button.__selectionApply
+  if not apply then
+    return false
+  end
+
+  apply(button)
+  markSelectionButtonReady(button)
+  button.__selectionHydrated = true
+  hydratedButtons[getButtonKey(button)] = button
+  return true
+end
+
+local function dehydrateSelectionButton(button)
+  if not button or not button.__selectionHydrated then
+    return false
+  end
+
+  if not button:isDestroyed() and button.outfit and not button.outfit:isDestroyed() then
+    button.outfit:hide()
+    if button.outfit.setCreature then
+      button.outfit:setCreature(nil)
     end
   end
 
-  queue.index = last + 1
-  if queue.index <= #queue.items then
-    pendingSelectionFill = scheduleEvent(function()
-      fillSelectionBatch(queue, token)
-    end, SELECTION_BATCH_DELAY_MS)
-  else
-    cancelSelectionLoadingAnim()
+  button.appliedOutfit = nil
+  button.__selectionHydrated = false
+  hydratedButtons[getButtonKey(button)] = nil
+
+  if button.loading and not button.loading:isDestroyed() then
+    button.loading:show()
   end
+
+  return true
+end
+
+local function getSelectionHydrationWindow(totalCount, bufferRows)
+  local panel = getSelectionList()
+  if not panel or totalCount <= 0 then
+    return 1, 0
+  end
+
+  local viewportHeight = panel:getHeight() - panel:getPaddingTop() - panel:getPaddingBottom()
+  if viewportHeight <= 0 then
+    viewportHeight = panel:getHeight()
+  end
+
+  local scrollY = 0
+  local scroll = getSelectionScrollBar()
+  if scroll then
+    scrollY = scroll:getValue() or 0
+  end
+
+  bufferRows = bufferRows == nil and SELECTION_HYDRATION_BUFFER_ROWS or bufferRows
+  local rowStride = SELECTION_CARD_HEIGHT + SELECTION_CARD_SPACING
+  local firstVisibleRow = math.max(0, math.floor(scrollY / rowStride))
+  local startRow = math.max(0, firstVisibleRow - bufferRows)
+  local visibleRows = math.max(1, math.ceil(viewportHeight / rowStride))
+  local endRow = firstVisibleRow + visibleRows + bufferRows
+  local startIndex = startRow * SELECTION_COLUMNS + 1
+  local endIndex = math.min(totalCount, (endRow + 1) * SELECTION_COLUMNS)
+
+  if startIndex <= endIndex then
+    endIndex = math.min(endIndex, startIndex + SELECTION_HYDRATION_MAX_ITEMS - 1)
+  end
+
+  return startIndex, endIndex
+end
+
+local function scheduleSelectionListHydration(reason)
+  clearSelectionHydrationEvent()
+
+  local token = selectionFillToken
+
+  local function updateHydration()
+    selectionHydrationEvent = nil
+    if token ~= selectionFillToken or not window or window:isDestroyed() then
+      return
+    end
+
+    local list = getSelectionList()
+    if not list or list:isDestroyed() then
+      return
+    end
+
+    local children = list:getChildren()
+    local visibleChildren = {}
+    for _, child in ipairs(children) do
+      if child:isVisible() then
+        table.insert(visibleChildren, child)
+      end
+    end
+
+    local totalCount = #visibleChildren
+    if totalCount == 0 then
+      releaseSelectionHydration()
+      cancelSelectionLoadingAnim()
+      return
+    end
+
+    local startIndex, endIndex = getSelectionHydrationWindow(totalCount)
+    local visibleStart, visibleEnd = getSelectionHydrationWindow(totalCount, 0)
+    local desired = {}
+    local focused = list:getFocusedChild()
+
+    if focused and focused:isVisible() then
+      desired[getButtonKey(focused)] = true
+    end
+
+    for index = startIndex, endIndex do
+      local child = visibleChildren[index]
+      if child then
+        desired[getButtonKey(child)] = true
+      end
+    end
+
+    -- Keep focused + currently visible tiles hydrated first.
+    if focused then
+      hydrateSelectionButton(focused)
+    end
+    for index = visibleStart, visibleEnd do
+      hydrateSelectionButton(visibleChildren[index])
+    end
+
+    local stale = {}
+    for key, button in pairs(hydratedButtons) do
+      if not desired[key] then
+        table.insert(stale, button)
+      end
+    end
+    for _, button in ipairs(stale) do
+      dehydrateSelectionButton(button)
+    end
+
+    local pending = {}
+    for index = startIndex, endIndex do
+      local child = visibleChildren[index]
+      if child and not child.__selectionHydrated then
+        table.insert(pending, child)
+      end
+    end
+
+    if #pending == 0 then
+      cancelSelectionLoadingAnim()
+      return
+    end
+
+    local pendingIndex = 1
+    local function hydrateBatch()
+      pendingSelectionFill = nil
+      if token ~= selectionFillToken or not window or window:isDestroyed() then
+        return
+      end
+
+      local batchEnd = math.min(pendingIndex + SELECTION_HYDRATION_BATCH_SIZE - 1, #pending)
+      for i = pendingIndex, batchEnd do
+        hydrateSelectionButton(pending[i])
+      end
+      pendingIndex = batchEnd + 1
+
+      if pendingIndex <= #pending then
+        pendingSelectionFill = scheduleEvent(hydrateBatch, SELECTION_BATCH_DELAY_MS)
+      else
+        cancelSelectionLoadingAnim()
+      end
+    end
+
+    hydrateBatch()
+  end
+
+  if reason == 'scroll' then
+    updateHydration()
+  else
+    selectionHydrationEvent = scheduleEvent(updateHydration, 16)
+  end
+end
+
+local function startSelectionLoadingAnim()
+  if selectionLoadingAnim then
+    return
+  end
+
+  local frame = 1
+  local function tick()
+    selectionLoadingAnim = nil
+    if not window or window:isDestroyed() then
+      return
+    end
+
+    local text = SELECTION_LOADING_FRAMES[frame]
+    frame = frame % #SELECTION_LOADING_FRAMES + 1
+
+    local list = getSelectionList()
+    local hasPending = false
+    if list and not list:isDestroyed() then
+      for _, button in ipairs(list:getChildren()) do
+        local loading = button and not button:isDestroyed() and button.loading
+        if loading and not loading:isDestroyed() and loading:isVisible() then
+          loading:setText(text)
+          hasPending = true
+        end
+      end
+    end
+
+    if hasPending then
+      selectionLoadingAnim = scheduleEvent(tick, SELECTION_LOADING_ANIM_MS)
+    end
+  end
+
+  selectionLoadingAnim = scheduleEvent(tick, SELECTION_LOADING_ANIM_MS)
 end
 
 local function startSelectionFill(items)
@@ -256,15 +471,45 @@ local function startSelectionFill(items)
     return
   end
 
-  local token = selectionFillToken
-  local queue = { items = items, index = 1 }
-  activeSelectionQueue = queue
+  for _, entry in ipairs(items) do
+    local button = entry.button
+    if button and not button:isDestroyed() then
+      button.__selectionApply = entry.apply
+      button.__selectionHydrated = false
+      markSelectionButtonLoading(button)
+    end
+  end
+
+  activeSelectionQueue = { items = items, index = 1 }
   startSelectionLoadingAnim()
-  fillSelectionBatch(queue, token)
+  scheduleSelectionListHydration('open')
 end
 
--- Recolours already-built tiles instead of rebuilding the whole grid, which is
--- what made every colour click rebuild (and reload) the full selection list.
+local function hookSelectionListScroll()
+  if selectionScrollHooked or not window or window:isDestroyed() then
+    return
+  end
+
+  local scroll = getSelectionScrollBar()
+  local list = getSelectionList()
+  if scroll then
+    connect(scroll, {
+      onValueChange = function()
+        scheduleSelectionListHydration('scroll')
+      end
+    })
+  end
+  if list then
+    connect(list, {
+      onGeometryChange = function()
+        scheduleSelectionListHydration('geometry')
+      end
+    })
+  end
+  selectionScrollHooked = true
+end
+
+-- Recolours already-built tiles instead of rebuilding the whole grid.
 local function recolorSelectionButton(button)
   local outfit = button.appliedOutfit
   if not outfit then
@@ -310,21 +555,35 @@ local function recolorBatch(buttons, index, token)
   end
 end
 
--- Tiles still queued in the initial fill read tempOutfit when their turn comes,
--- so only the ones already drawn need an explicit refresh.
+-- Only refresh hydrated tiles in/near the viewport. Deferred tiles pick up
+-- tempOutfit automatically when they hydrate.
 local function refreshSelectionColors()
   if not window or window:isDestroyed() then
     return
   end
 
-  local list = window.ScrollBar and window.ScrollBar.selectionList
+  local list = getSelectionList()
   if not list or list:isDestroyed() then
     return
   end
 
-  local buttons = {}
+  local children = {}
   for _, child in ipairs(list:getChildren()) do
-    if child.appliedOutfit then
+    if child:isVisible() then
+      table.insert(children, child)
+    end
+  end
+
+  local startIndex, endIndex = getSelectionHydrationWindow(#children)
+  local buttons = {}
+  local focused = list:getFocusedChild()
+  if focused and focused.__selectionHydrated and focused.appliedOutfit then
+    table.insert(buttons, focused)
+  end
+
+  for index = startIndex, endIndex do
+    local child = children[index]
+    if child and child ~= focused and child.__selectionHydrated and child.appliedOutfit then
       table.insert(buttons, child)
     end
   end
@@ -346,10 +605,28 @@ function scheduleSelectionColorRefresh()
     pendingColorFill = nil
   end
 
+  -- Slightly longer debounce while dragging colors keeps the preview snappy
+  -- without flooding the selection list.
+  local debounce = COLOR_DEBOUNCE_MS
+  if g_mouse.isPressed(MouseLeftButton) then
+    debounce = 50
+  end
+
   pendingColorDebounce = scheduleEvent(function()
     pendingColorDebounce = nil
     refreshSelectionColors()
-  end, COLOR_DEBOUNCE_MS)
+  end, debounce)
+end
+
+local function clearSelectionCreatures(container)
+  if not container or container:isDestroyed() then
+    return
+  end
+  for _, child in ipairs(container:getChildren()) do
+    if child.outfit and not child.outfit:isDestroyed() and child.outfit.setCreature then
+      child.outfit:setCreature(nil)
+    end
+  end
 end
 
 local function prioritizeSelectionItem(items, focusedId)
@@ -1002,6 +1279,7 @@ function create(player, outfitList, creatureMount, mountList, familiarList, wing
 
   showOutfitCheck:setEnabled(creatureMount)
   colorBoxGroup.onSelectionChange = onColorCheckChange
+  hookSelectionListScroll()
 
   appearanceGroup = UIRadioGroup.create()
   appearanceGroup:addWidget(window.appearance.presetCheck)
@@ -1047,8 +1325,26 @@ function destroy()
     familiarPreviewShown = false
     suppressPreviewTransition = false
     g_client.setInputLockWidget()
-    window:destroy()
+
+    local win = window
     window = nil
+    selectionScrollHooked = false
+
+    -- Close instantly for the user; free creatures before sync destroy.
+    if not win:isDestroyed() then
+      win:hide()
+    end
+
+    local selectionList = win.ScrollBar and win.ScrollBar.selectionList
+    local presetsList = win.presetList and win.presetList.selectionList
+    if selectionList and not selectionList:isDestroyed() then
+      selectionList.onChildFocusChange = nil
+      clearSelectionCreatures(selectionList)
+    end
+    if presetsList and not presetsList:isDestroyed() then
+      presetsList.onChildFocusChange = nil
+      clearSelectionCreatures(presetsList)
+    end
 
     movementCheck = nil
     showFloorCheck = nil
@@ -1090,6 +1386,10 @@ function destroy()
 
     saveSettings()
     settings = {}
+
+    if not win:isDestroyed() then
+      win:destroy()
+    end
   end
 end
 
@@ -1686,6 +1986,9 @@ function showAuras()
 end
 
 function onPresetSelect(widget)
+  if not window or window:isDestroyed() then
+    return true
+  end
   if not widget then
     return true
   end
@@ -1763,6 +2066,10 @@ function onPresetSelect(widget)
 end
 
 function onOutfitSelect(list, focusedChild, unfocusedChild, reason)
+  if not window or window:isDestroyed() then
+    return
+  end
+
   if focusedChild then
     local outfitType = tonumber(focusedChild:getId())
     local outfit = focusedChild.appliedOutfit or focusedChild.outfit:getOutfit()
@@ -1804,6 +2111,10 @@ function onOutfitSelect(list, focusedChild, unfocusedChild, reason)
 end
 
 function onMountSelect(list, focusedChild, unfocusedChild, reason)
+  if not window or window:isDestroyed() then
+    return
+  end
+
   if focusedChild then
     local mountType = tonumber(focusedChild:getId())
     tempOutfit.mount = mountType
@@ -1837,6 +2148,10 @@ function onMountSelect(list, focusedChild, unfocusedChild, reason)
 end
 
 function onFamiliarSelect(list, focusedChild, unfocusedChild, reason)
+  if not window or window:isDestroyed() then
+    return
+  end
+
   if focusedChild then
     local mountType = tonumber(focusedChild:getId())
     tempOutfit.familiar = mountType
@@ -1847,6 +2162,10 @@ function onFamiliarSelect(list, focusedChild, unfocusedChild, reason)
 end
 
 function onAuraSelect(list, focusedChild, unfocusedChild, reason)
+  if not window or window:isDestroyed() then
+    return
+  end
+
   if focusedChild then
     tempOutfit.aura = focusedChild.aura
     tempOutfit.auraCategory = focusedChild.auraCategory
