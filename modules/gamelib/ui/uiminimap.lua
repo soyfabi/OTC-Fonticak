@@ -10,7 +10,8 @@ function UIMinimap:onSetup()
     self.zoomOutWidget = self:getChildById('zoomOutButton')
     self.flags = {}
     self.fullMapView = false
-    self.zoomMinimap = 0
+    -- CrystalOTC default: render the compact minimap one level closer.
+    self.zoomMinimap = 1
     self.zoomFullmap = 0
     self.alternatives = {}
     self.onAddAutomapFlag = function(pos, icon, description)
@@ -72,11 +73,9 @@ function UIMinimap:load()
                 self:addFlag(flag.position, flag.icon, flag.description)
             end
         end
-        self.zoomMinimap = settings.zoom
-        self.zoomFullmap = settings.zoomFull or settings.zoom
-        self:setZoom(self.zoomMinimap)
-
+        self.zoomFullmap = settings.zoomFull or self.zoomMinimap
     end
+    self:setZoom(self.zoomMinimap)
 end
 
 function UIMinimap:save()
@@ -92,7 +91,6 @@ function UIMinimap:save()
             })
         end
     end
-    settings.zoom = self.zoomMinimap
     settings.zoomFull = self.zoomFullmap
     g_settings.setNode('Minimap', settings)
 end
@@ -129,7 +127,7 @@ function UIMinimap:setCrossPosition(pos)
         if self:getParent():getId() == "MapBase" then
             cross:setIcon('/game_cyclopedia/images/icon-map-player')
         else
-            cross:setIcon('/images/game/minimap/cross')
+            cross:setIcon('/game_cyclopedia/images/icon-map-player-green')
         end
         self.cross = cross
     end

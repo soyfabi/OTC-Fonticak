@@ -287,6 +287,15 @@ function consoleController:onInit()
           callback = sendCurrentMessage,
         }
       }, consolePanel)
+    -- Permanent toggle for Options > General Hotkeys. Enter no longer closes
+    -- a lasting Chat On; only Escape and this binding do.
+    Keybind.new("Chat", "Enable/Disable Chat", "Ctrl+Enter", "")
+    Keybind.bind("Chat", "Enable/Disable Chat", {
+        {
+          type = KEY_DOWN,
+          callback = toggleChatHotkey,
+        }
+      }, gameRootPanel)
     Keybind.new("Chat Channel", "Open Channel List", "Ctrl+O", "")
     Keybind.bind("Chat Channel", "Open Channel List", {
         {
@@ -434,20 +443,37 @@ function switchChatOnCall()
 
     if isChatEnabled() and consoleToggleChat.isChecked then
         toggleChat()
-    else
-        local message = consoleTextEdit:getText()
-        if message == '' then
-            if not isChatEnabled() then
-                -- opening chat from walk mode: temporary ('*') so one Enter sends and returns to WASD
-                walkAfterSend = true
-                toggleChat()
-            else
-                -- empty Enter: cancel temporary chat / disable chat -> back to WASD
-                walkAfterSend = false
-                toggleChat()
-            end
-        end
+        return
     end
+
+    local message = consoleTextEdit:getText()
+    if message ~= '' then
+        return
+    end
+
+    if not isChatEnabled() then
+        -- Opening from walk mode stays temporary ('*'): one send returns to WASD.
+        walkAfterSend = true
+        toggleChat()
+        return
+    end
+
+    -- Empty Enter only cancels the temporary chat. A lasting Chat On is left
+    -- alone so accidental Enter does not kick you back to WASD.
+    if walkAfterSend then
+        walkAfterSend = false
+        toggleChat()
+    end
+end
+
+function toggleChatHotkey()
+    if not g_game.isOnline() or modules.game_hotkeys.areHotkeysDisabled() then
+        return
+    end
+
+    -- Hotkey always flips lasting chat mode, never the temporary Enter flow.
+    walkAfterSend = false
+    toggleChat()
 end
 
 function disableChatOnCall()
@@ -456,6 +482,7 @@ function disableChatOnCall()
     end
 
     if isChatEnabled() and not consoleToggleChat.isChecked then
+        walkAfterSend = false
         toggleChat()
     end
 end
@@ -473,6 +500,7 @@ function consoleController:onTerminate()
     Keybind.delete("Chat Channel", "Open Channel List")
     Keybind.delete("Chat Channel", "Open Help Channel")
     Keybind.delete("Chat", "Send current chat line")
+    Keybind.delete("Chat", "Enable/Disable Chat")
     saveCommunicationSettings()
     clearReadOnlyTab()
     if readOnlyModeEnabled then

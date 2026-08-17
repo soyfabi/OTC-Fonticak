@@ -11,6 +11,7 @@ PhantomMiniWindow
     phantom: true
 
     Button
+      id: collapsedResizer
       size: 44 20
       image-source: /images/options/button_enlarge
       image-clip: 0 0 44 20

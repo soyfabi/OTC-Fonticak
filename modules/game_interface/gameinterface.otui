@@ -7,6 +7,16 @@ GameSidePanel < UIMiniWindowContainer
     type: verticalBox
     //spacing: 1
 
+GameTopHorizontalPanel < UIMiniWindowContainer
+  image-source: /images/ui/2pixel_up_frame_borderimage
+  image-border: 2
+  height: 200
+  width: 198
+  &ignoreFillAll: true
+  &isHorizontalPanel: true
+  layout:
+    type: horizontalBox
+
 SelectColumnButton < CheckBox
   visible: false
   opacity: 0.3
@@ -49,6 +59,29 @@ UIWidget
   id: gameRootPanel
   anchors.fill: parent
   anchors.top: topMenu.bottom
+
+  GameTopHorizontalPanel
+    id: gameLeftTopPanel
+    anchors.left: parent.left
+    anchors.top: parent.top
+    focusable: false
+    visible: true
+    on: true
+    $!on:
+      height: 0
+      visible: false
+
+  GameTopHorizontalPanel
+    id: gameRightTopPanel
+    anchors.right: parent.right
+    anchors.top: parent.top
+    padding-left: 2
+    focusable: false
+    visible: true
+    on: true
+    $!on:
+      height: 0
+      visible: false
 
   GameMapPanel
     id: gameMapPanel
@@ -204,8 +237,9 @@ UIWidget
   GameSidePanel
     id: gameLeftPanel
     anchors.left: parent.left
-    anchors.top: parent.top
+    anchors.top: gameLeftTopPanel.bottom
     anchors.bottom: parent.bottom
+    margin-top: 1
     focusable: false
     visible: true
     on: true
@@ -216,8 +250,9 @@ UIWidget
   GameSidePanel
     id: gameLeftExtraPanel
     anchors.left: prev.right
-    anchors.top: parent.top
+    anchors.top: gameLeftTopPanel.bottom
     anchors.bottom: parent.bottom
+    margin-top: 1
     margin-left: 1
     focusable: false
     visible: true
@@ -229,7 +264,8 @@ UIWidget
   GameSidePanel
     id: gameMainRightPanel
     anchors.right: parent.right
-    anchors.top: parent.top
+    anchors.top: gameRightTopPanel.bottom
+    margin-top: 1
     &ignoreFillAll: true
     &onlyPhantomDrop: true
     height: 200
@@ -247,8 +283,9 @@ UIWidget
   GameSidePanel
     id: gameRightExtraPanel
     anchors.right: prev.left
-    anchors.top: parent.top
+    anchors.top: gameRightTopPanel.bottom
     anchors.bottom: parent.bottom
+    margin-top: 1
     margin-right: 1
     focusable: false
     visible: true

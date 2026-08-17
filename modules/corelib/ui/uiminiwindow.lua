@@ -447,7 +447,12 @@ function UIMiniWindow:setupOnStart()
     if selfSettings then
         if selfSettings.parentId then
             local parent = rootWidget:recursiveGetChildById(selfSettings.parentId)
-            if parent and parent:isVisible() then
+            -- Horizontal minimap slots can still be hidden while the saved
+            -- sidebar columns are being restored. They become visible a moment
+            -- later, so do not reject the persisted parent during that window.
+            local parentAvailable = parent and
+                (parent:isVisible() or (parent.isHorizontalPanel and parent:isOn()))
+            if parentAvailable then
                 local parentIsSidebar = parent:getClassName() == 'UIMiniWindowContainer'
                 if parentIsSidebar and selfSettings.index and parent:isOn() then
                     self.miniIndex = selfSettings.index
@@ -523,6 +528,11 @@ function UIMiniWindow:setupOnStart()
             parentId == "gameRightExtraPanel" then
             if parent:isVisible() then
                 parent:setWidth(190)
+                -- The horizontal top bar is sized from this column, so it must
+                -- be recomputed or it keeps the wider default and juts out.
+                if modules.game_interface and modules.game_interface.scheduleSidebarLayoutUpdate then
+                    modules.game_interface.scheduleSidebarLayoutUpdate()
+                end
             end
         end
     end
@@ -560,8 +570,11 @@ function UIMiniWindow:onDragEnter(mousePos)
         parent:removeChild(self)
         containerParent:addChild(self)
         parent:saveChildren()
+        if parent.isHorizontalPanel and type(parent.redistributeChildrenWidths) == 'function' then
+            parent:redistributeChildrenWidths()
+        end
 
-        if nextChild and not nextChild:isDestroyed() and nextChild:getParent() == parent
+        if not parent.isHorizontalPanel and nextChild and not nextChild:isDestroyed() and nextChild:getParent() == parent
             and not nextChild._sidebarFreeSpaceWidget and nextChild:isVisible() then
             local gap = self:getHeight()
             g_effects.cancelValue(nextChild)
@@ -706,8 +719,10 @@ function UIMiniWindow:onDragLeave(droppedWidget, mousePos)
     local floatReleaseAllowed = freePlacementEnabled() and not droppedWidget and not self.locked
 
     if (self.moveOnlyToMain or droppedWidget and droppedWidget.onlyPhantomDrop) and not floatReleaseAllowed then
-        if not droppedWidget or (self.moveOnlyToMain and not droppedWidget.onlyPhantomDrop) or
-            (not self.moveOnlyToMain and droppedWidget.onlyPhantomDrop) then
+        local widgetAllowsHorizontal = self.allowHorizontalDrop and droppedWidget and droppedWidget.isHorizontalPanel
+        if not widgetAllowsHorizontal and (not droppedWidget or
+            (self.moveOnlyToMain and not droppedWidget.onlyPhantomDrop) or
+            (not self.moveOnlyToMain and droppedWidget.onlyPhantomDrop)) then
             needsBounce = true
         end
     end
@@ -805,7 +820,10 @@ function UIMiniWindow:onDragMove(mousePos, mouseMoved)
     local moved = UIWindow.onDragMove(self, mousePos, mouseMoved)
 
     -- With free placement off, keep moveOnlyToMain windows X-locked to their dock panel.
-    if self.moveOnlyToMain and not freePlacementEnabled() and self.oldParentDrag and not self.oldParentDrag:isDestroyed() then
+    -- Windows that may also dock into the horizontal top panels are exempt: those panels
+    -- sit outside their origin column, so the lock would pin them in place.
+    if self.moveOnlyToMain and not self.allowHorizontalDrop and not freePlacementEnabled()
+        and self.oldParentDrag and not self.oldParentDrag:isDestroyed() then
         local cRect = self.oldParentDrag:getPaddingRect()
         local wSize = self:getSize()
         local lockedX = cRect.x

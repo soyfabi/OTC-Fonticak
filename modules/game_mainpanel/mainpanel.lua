@@ -156,6 +156,33 @@ local function createButton_large(id, description, image, callback, special, fro
     return button
 end
 
+local function createGoldFrame(panel, targetId, borderId)
+    if not panel or panel:isDestroyed() or panel:getChildById(borderId) then
+        return
+    end
+
+    local target = panel:getChildById(targetId)
+    if not target or target:isDestroyed() then
+        return
+    end
+
+    local border = g_ui.createWidget('UIWidget', panel)
+    border:setId(borderId)
+    border:setPhantom(true)
+    border:addAnchor(AnchorTop, targetId, AnchorTop)
+    border:addAnchor(AnchorLeft, targetId, AnchorLeft)
+    border:addAnchor(AnchorBottom, targetId, AnchorBottom)
+    border:addAnchor(AnchorRight, targetId, AnchorRight)
+    border:setMarginTop(-1)
+    border:setMarginLeft(-1)
+    border:setMarginBottom(-1)
+    border:setMarginRight(-1)
+    border:setImageSource('/images/store/rectangle-highlight')
+    -- El marco tiene 1px de grosor: sin 9-slice el escalado horizontal borra los lados
+    border:setImageBorder(1)
+    border:raise()
+end
+
 local function createButton(id, description, image, callback, special, front, index)
     local panel
     if special then
@@ -201,6 +228,8 @@ optionsController:setUI('mainoptionspanel', modules.game_interface.getMainRightP
 function optionsController:onInit()
     createButton_large('Store shop', tr('Store shop'), '/images/store/button-store-up', toggleStore,
     false, 8)
+    createGoldFrame(optionsController.ui.onPanel, 'resizer', 'resizerBorder')
+    createGoldFrame(optionsController.ui.offPanel, 'collapsedResizer', 'collapsedResizerBorder')
 
     if not optionPanel then
         optionPanel = g_ui.loadUI('option_control_buttons', modules.client_options:getPanel())

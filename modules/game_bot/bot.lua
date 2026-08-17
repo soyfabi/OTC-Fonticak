@@ -73,7 +73,7 @@ function init()
 
   initCallbacks()
 
-  botButton = modules.game_mainpanel.addToggleButton('botButton', tr('Bot Hub'), '/images/options/bot', toggle, false, 99999)
+  botButton = modules.game_mainpanel.addSpecialToggleButton('botButton', tr('Bot Hub'), '/images/options/bot', toggle, false, 3)
   botButton:setOn(false)
   botButton:show()
 

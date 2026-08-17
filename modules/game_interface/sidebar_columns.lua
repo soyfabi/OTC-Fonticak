@@ -3,6 +3,8 @@
 
 local SIDEBAR_COLUMN_WIDTH = 198
 local ABSOLUTE_MIN_MAP_WIDTH = 160
+local MAX_HORIZONTAL_SIDEBAR_COLUMNS = 2
+local VERTICAL_COLUMNS_UNDER_HORIZONTAL = 2
 local pendingSidebarLayoutEvent = nil
 local restoringSidebarCounts = false
 
@@ -243,10 +245,21 @@ local function closeSidebarMiniwindows(mainpanel)
     end
 end
 
+local function isHorizontalBarActive(side)
+    local topPanel = side == 'left' and gameLeftTopPanel or gameRightTopPanel
+    if not topPanel or topPanel:isDestroyed() or not topPanel:isOn() then
+        return false
+    end
+    return topPanel:getWidth() > 0 and topPanel:getHeight() > 0
+end
+
 local function applyVerticalSidebarAnchors(panel, side, columnIndex, chainHookId)
     if not panel or panel:isDestroyed() or not panel:isOn() then
         return
     end
+
+    local topPanelId = side == 'left' and 'gameLeftTopPanel' or 'gameRightTopPanel'
+    local underHorizontal = isHorizontalBarActive(side) and columnIndex <= VERTICAL_COLUMNS_UNDER_HORIZONTAL
 
     panel:breakAnchors()
 
@@ -256,9 +269,13 @@ local function applyVerticalSidebarAnchors(panel, side, columnIndex, chainHookId
         else
             panel:addAnchor(AnchorLeft, chainHookId, AnchorRight)
         end
-        panel:addAnchor(AnchorTop, 'parent', AnchorTop)
+        if underHorizontal then
+            panel:addAnchor(AnchorTop, topPanelId, AnchorBottom)
+        else
+            panel:addAnchor(AnchorTop, 'parent', AnchorTop)
+        end
         panel:addAnchor(AnchorBottom, 'parent', AnchorBottom)
-        panel:setMarginTop(0)
+        panel:setMarginTop(underHorizontal and 1 or 0)
         if columnIndex > 1 then
             panel:setMarginLeft(1)
         else
@@ -271,18 +288,28 @@ local function applyVerticalSidebarAnchors(panel, side, columnIndex, chainHookId
                 panel:addAnchor(AnchorRight, 'parent', AnchorRight)
                 panel:addAnchor(AnchorTop, 'gameMainRightPanel', AnchorBottom)
                 panel:addAnchor(AnchorBottom, 'parent', AnchorBottom)
+                panel:setMarginTop(0)
             else
                 panel:addAnchor(AnchorRight, chainHookId or 'parent', AnchorRight)
-                panel:addAnchor(AnchorTop, 'parent', AnchorTop)
+                if underHorizontal then
+                    panel:addAnchor(AnchorTop, topPanelId, AnchorBottom)
+                else
+                    panel:addAnchor(AnchorTop, 'parent', AnchorTop)
+                end
                 panel:addAnchor(AnchorBottom, 'parent', AnchorBottom)
+                panel:setMarginTop(underHorizontal and 1 or 0)
             end
         else
             panel:addAnchor(AnchorRight, chainHookId, AnchorLeft)
-            panel:addAnchor(AnchorTop, 'parent', AnchorTop)
+            if underHorizontal then
+                panel:addAnchor(AnchorTop, topPanelId, AnchorBottom)
+            else
+                panel:addAnchor(AnchorTop, 'parent', AnchorTop)
+            end
             panel:addAnchor(AnchorBottom, 'parent', AnchorBottom)
             panel:setMarginRight(1)
+            panel:setMarginTop(underHorizontal and 1 or 0)
         end
-        panel:setMarginTop(0)
     end
 end
 
@@ -325,7 +352,122 @@ function reanchorVerticalSidebarPanels(side)
     end
 end
 
+local function reanchorMainRightPanel()
+    if not gameMainRightPanel or gameMainRightPanel:isDestroyed() then
+        return
+    end
+
+    gameMainRightPanel:breakAnchors()
+    gameMainRightPanel:addAnchor(AnchorRight, 'parent', AnchorRight)
+    if isHorizontalBarActive('right') and gameRightTopPanel and not gameRightTopPanel:isDestroyed() then
+        gameMainRightPanel:addAnchor(AnchorTop, 'gameRightTopPanel', AnchorBottom)
+        gameMainRightPanel:setMarginTop(1)
+    else
+        gameMainRightPanel:addAnchor(AnchorTop, 'parent', AnchorTop)
+        gameMainRightPanel:setMarginTop(0)
+    end
+end
+
+local function horizontalSidebarColumns(side)
+    local candidates
+    if side == 'left' then
+        candidates = { gameLeftPanel, gameLeftExtraPanels[1] }
+    else
+        candidates = { gameRightPanel, gameRightExtraPanels[1] }
+    end
+
+    local columns = {}
+    for i = 1, #candidates do
+        local panel = candidates[i]
+        if panel and not panel:isDestroyed() and isSidebarPanelOpen(panel) then
+            columns[#columns + 1] = panel
+            if #columns >= MAX_HORIZONTAL_SIDEBAR_COLUMNS then
+                break
+            end
+        end
+    end
+    return columns
+end
+
+-- The bar has to end exactly where the columns below it end, so measure their
+-- real widths and gutters instead of assuming every column is SIDEBAR_COLUMN_WIDTH.
+local function horizontalPanelWidth(side)
+    local columns = horizontalSidebarColumns(side)
+    if #columns == 0 then
+        return 0
+    end
+
+    local width = 0
+    for i = 1, #columns do
+        local panel = columns[i]
+        width = width + panel:getWidth()
+        if i > 1 then
+            width = width + panel:getMarginLeft() + panel:getMarginRight()
+        end
+    end
+    return width
+end
+
+function updateHorizontalPanelWidths()
+    if gameLeftTopPanel and not gameLeftTopPanel:isDestroyed() then
+        local leftWidth = horizontalPanelWidth('left')
+        if leftWidth <= 0 then
+            gameLeftTopPanel:setWidth(0)
+            gameLeftTopPanel:setVisible(false)
+        else
+            gameLeftTopPanel:setWidth(leftWidth)
+            if gameLeftTopPanel:isOn() then
+                gameLeftTopPanel:setVisible(true)
+            end
+            if type(gameLeftTopPanel.redistributeChildrenWidths) == 'function' then
+                gameLeftTopPanel:redistributeChildrenWidths()
+            end
+        end
+    end
+
+    if gameRightTopPanel and not gameRightTopPanel:isDestroyed() then
+        local rightWidth = horizontalPanelWidth('right')
+        if rightWidth <= 0 then
+            gameRightTopPanel:setWidth(0)
+            gameRightTopPanel:setVisible(false)
+        else
+            gameRightTopPanel:setWidth(rightWidth)
+            if gameRightTopPanel:isOn() then
+                gameRightTopPanel:setVisible(true)
+            end
+            if type(gameRightTopPanel.redistributeChildrenWidths) == 'function' then
+                gameRightTopPanel:redistributeChildrenWidths()
+            end
+        end
+    end
+end
+
+local function raiseHorizontalPanels()
+    if gameLeftTopPanel and not gameLeftTopPanel:isDestroyed() and gameLeftTopPanel:isVisible() then
+        gameLeftTopPanel:raise()
+    end
+    if gameRightTopPanel and not gameRightTopPanel:isDestroyed() and gameRightTopPanel:isVisible() then
+        gameRightTopPanel:raise()
+    end
+end
+
+local function raiseSidebarControlButtons()
+    if leftIncreaseSidePanels and not leftIncreaseSidePanels:isDestroyed() then
+        leftIncreaseSidePanels:raise()
+    end
+    if leftDecreaseSidePanels and not leftDecreaseSidePanels:isDestroyed() then
+        leftDecreaseSidePanels:raise()
+    end
+    if rightIncreaseSidePanels and not rightIncreaseSidePanels:isDestroyed() then
+        rightIncreaseSidePanels:raise()
+    end
+    if rightDecreaseSidePanels and not rightDecreaseSidePanels:isDestroyed() then
+        rightDecreaseSidePanels:raise()
+    end
+end
+
 local function reanchorAllVerticalSidebarPanels()
+    reanchorMainRightPanel()
     reanchorVerticalSidebarPanels('left')
     reanchorVerticalSidebarPanels('right')
 end
@@ -525,17 +667,23 @@ function refreshSidebarLayout()
         return
     end
 
+    updateHorizontalPanelWidths()
     reanchorAllVerticalSidebarPanels()
     local clamped = clampSidebarPanelsToAvailableSpace()
     if clamped then
+        updateHorizontalPanelWidths()
         reanchorAllVerticalSidebarPanels()
     end
 
     reanchorCenterToSidebars()
     updateSidebarControlStates()
+    raiseHorizontalPanels()
+    raiseSidebarControlButtons()
     addEvent(function()
         fitMapHeightToAspectRatio()
         fitAllVerticalSidebars()
+        raiseHorizontalPanels()
+        raiseSidebarControlButtons()
         -- Second pass after anchors settle to the new column widths.
         scheduleEvent(fitMapHeightToAspectRatio, 50)
     end)
@@ -732,6 +880,10 @@ function initSidebarColumns()
 
     bindSidePanelWheel(leftIncreaseSidePanels, leftDecreaseSidePanels, onIncreaseLeftPanels, onDecreaseLeftPanels)
     bindSidePanelWheel(rightIncreaseSidePanels, rightDecreaseSidePanels, onIncreaseRightPanels, onDecreaseRightPanels)
+
+    updateHorizontalPanelWidths()
+    raiseHorizontalPanels()
+    raiseSidebarControlButtons()
 end
 
 function terminateSidebarColumns()

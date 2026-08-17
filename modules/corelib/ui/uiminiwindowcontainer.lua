@@ -3,6 +3,33 @@ UIMiniWindowContainer = extends(UIWidget, 'UIMiniWindowContainer')
 
 local SIDEBAR_FREE_SPACE_IMAGE = '/images/ui/2pixel_up_frame_borderimage'
 local SIDEBAR_FREE_SPACE_BORDER = 2
+local BOT_WINDOW_COLUMN_WIDTH = 190
+
+-- The bot window forces its column narrower than the default. The horizontal top
+-- bar is sized from the columns below it, so it has to be recomputed afterwards
+-- or it keeps the old width and juts out over the column edge.
+local function applyBotWindowColumnWidth(widget)
+    if not widget or widget:isDestroyed() or widget:getId() ~= 'botWindow' then
+        return
+    end
+
+    local column = widget:getParent()
+    if not column or column:isDestroyed() then
+        return
+    end
+
+    local columnId = column:getId() or ''
+    if columnId ~= 'gameLeftPanel' and not columnId:find('^gameLeftExtraPanel')
+        and not columnId:find('^gameRightExtraPanel') then
+        return
+    end
+
+    column:setWidth(BOT_WINDOW_COLUMN_WIDTH)
+
+    if modules.game_interface and modules.game_interface.scheduleSidebarLayoutUpdate then
+        modules.game_interface.scheduleSidebarLayoutUpdate()
+    end
+end
 
 function UIMiniWindowContainer.create()
     local container = UIMiniWindowContainer.internalCreate()
@@ -11,6 +38,16 @@ function UIMiniWindowContainer.create()
     container:setPhantom(true)
     connect(container, {
         onGeometryChange = function(widget)
+            if type(widget.scheduleSidebarFreeSpaceRefresh) == 'function' then
+                widget:scheduleSidebarFreeSpaceRefresh()
+            end
+            if widget.isHorizontalPanel and type(widget.redistributeChildrenWidths) == 'function' then
+                widget:redistributeChildrenWidths()
+            end
+        end,
+        -- Docking or undocking a window leaves the container the same size, so
+        -- onGeometryChange never fires and the filler keeps its previous height.
+        onLayoutUpdate = function(widget)
             if type(widget.scheduleSidebarFreeSpaceRefresh) == 'function' then
                 widget:scheduleSidebarFreeSpaceRefresh()
             end
@@ -61,7 +98,14 @@ local function ensureSidebarFreeSpaceWidget(container)
 end
 
 function UIMiniWindowContainer:scheduleSidebarFreeSpaceRefresh()
-    if self._sidebarFreeSpaceRefreshScheduled or self._sidebarFreeSpaceRefreshing then
+    if self._sidebarFreeSpaceRefreshScheduled then
+        return
+    end
+
+    -- A refresh in flight resizes the filler, which fires the layout hooks again.
+    -- Remember it instead of dropping it or the container keeps the stale size.
+    if self._sidebarFreeSpaceRefreshing then
+        self._sidebarFreeSpaceRefreshPending = true
         return
     end
 
@@ -76,6 +120,7 @@ end
 
 function UIMiniWindowContainer:refreshSidebarFreeSpace()
     if self._sidebarFreeSpaceRefreshing then
+        self._sidebarFreeSpaceRefreshPending = true
         return
     end
 
@@ -84,6 +129,10 @@ function UIMiniWindowContainer:refreshSidebarFreeSpace()
 
     local function finish()
         self._sidebarFreeSpaceRefreshing = nil
+        if self._sidebarFreeSpaceRefreshPending then
+            self._sidebarFreeSpaceRefreshPending = nil
+            self:scheduleSidebarFreeSpaceRefresh()
+        end
     end
 
     local filler = self._sidebarFreeSpaceWidget
@@ -102,7 +151,9 @@ function UIMiniWindowContainer:refreshSidebarFreeSpace()
     for i = 1, #children do
         local child = children[i]
         if child:isVisible() and not isSidebarFreeSpaceWidget(child) then
-            usedHeight = usedHeight + child:getHeight()
+            -- Drag previews park a gap on the window margins, so it counts as used
+            -- space until the drop settles.
+            usedHeight = usedHeight + child:getHeight() + child:getMarginTop() + child:getMarginBottom()
         end
     end
 
@@ -111,6 +162,9 @@ function UIMiniWindowContainer:refreshSidebarFreeSpace()
 
     if freeHeight <= 0 then
         if filler and not filler:isDestroyed() then
+            if filler:getParent() == self then
+                self:moveChildToIndex(filler, self:getChildCount())
+            end
             filler:hide()
             filler:setHeight(0)
         end
@@ -125,9 +179,18 @@ function UIMiniWindowContainer:refreshSidebarFreeSpace()
         self:moveChildToIndex(filler, self:getChildCount())
     end
 
-    filler:setWidth(math.max(0, self:getWidth() - self:getPaddingLeft() - self:getPaddingRight()))
-    filler:setHeight(freeHeight)
-    filler:show()
+    -- Only touch the filler when something actually changed: resizing it feeds
+    -- the layout hooks that scheduled this refresh in the first place.
+    local freeWidth = math.max(0, self:getWidth() - self:getPaddingLeft() - self:getPaddingRight())
+    if filler:getWidth() ~= freeWidth then
+        filler:setWidth(freeWidth)
+    end
+    if filler:getHeight() ~= freeHeight then
+        filler:setHeight(freeHeight)
+    end
+    if not filler:isExplicitlyVisible() then
+        filler:show()
+    end
     finish()
 end
 
@@ -215,6 +278,43 @@ function UIMiniWindowContainer:fitAll(noRemoveChild)
     self:refreshSidebarFreeSpace()
 end
 
+function UIMiniWindowContainer:redistributeChildrenWidths()
+    if not self.isHorizontalPanel then
+        return
+    end
+
+    if self:isDestroyed() or not self:isVisible() then
+        return
+    end
+
+    local children = self:getChildren()
+    local visibleChildren = {}
+    for i = 1, #children do
+        if children[i]:isExplicitlyVisible() and not isSidebarSystemWidget(children[i]) then
+            visibleChildren[#visibleChildren + 1] = children[i]
+        end
+    end
+
+    local count = #visibleChildren
+    if count == 0 then
+        return
+    end
+
+    local availableWidth = self:getWidth() - self:getPaddingLeft() - self:getPaddingRight()
+    if availableWidth <= 0 then
+        return
+    end
+
+    local widthPerChild = math.floor(availableWidth / count)
+    if widthPerChild <= 0 then
+        return
+    end
+
+    for i = 1, count do
+        visibleChildren[i]:setWidth(widthPerChild)
+    end
+end
+
 function UIMiniWindowContainer:fits(child, minContentHeight, maxContentHeight)
     if self.ignoreFillAll then
         return 0
@@ -244,13 +344,41 @@ function UIMiniWindowContainer:fits(child, minContentHeight, maxContentHeight)
 end
 
 function UIMiniWindowContainer:onDrop(widget, mousePos)
-    if (self.onlyPhantomDrop and not (widget.moveOnlyToMain)) or (widget.moveOnlyToMain and not (self.onlyPhantomDrop)) then
+    if self.isHorizontalPanel and not widget.allowHorizontalDrop then
+        return true
+    end
+
+    if self.onlyPhantomDrop and not widget.moveOnlyToMain then
+        return true
+    end
+
+    if widget.moveOnlyToMain and not self.onlyPhantomDrop
+        and not (widget.allowHorizontalDrop and self.isHorizontalPanel) then
         return true
     end
 
     if widget.UIMiniWindowContainer then
         local floatingParent = widget:getParent()
         if floatingParent == self then
+            if self.isHorizontalPanel and type(self.redistributeChildrenWidths) == 'function' then
+                self:redistributeChildrenWidths()
+            end
+            return true
+        end
+
+        if self.isHorizontalPanel then
+            if floatingParent then
+                floatingParent:removeChild(widget)
+            end
+            self:addChild(widget)
+            widget.movedWidget = nil
+            widget.setMovedChildMargin = nil
+            widget.movedOldMargin = nil
+            widget.movedIndex = nil
+            widget.smoothDropActive = nil
+            self:redistributeChildrenWidths()
+            self:saveChildren()
+            signalcall(widget.onContainerChanged, widget, self)
             return true
         end
 
@@ -261,7 +389,12 @@ function UIMiniWindowContainer:onDrop(widget, mousePos)
             local index = self:getChildIndex(widget.movedWidget)
             targetIndex = index + widget.movedIndex
         else
+            -- Land before the free-space filler, it always has to stay last.
             targetIndex = self:getChildCount() + 1
+            local filler = self._sidebarFreeSpaceWidget
+            if filler and not filler:isDestroyed() and filler:getParent() == self then
+                targetIndex = targetIndex - 1
+            end
         end
 
         -- Collapse drag preview margins before layout; leftover top/bottom
@@ -288,11 +421,7 @@ function UIMiniWindowContainer:onDrop(widget, mousePos)
 
         self:insertChild(targetIndex, widget)
 
-        local parentId = widget:getParent() and widget:getParent():getId() or ''
-        if widget:getId() == 'botWindow' and
-            (parentId == 'gameLeftPanel' or parentId:find('^gameLeftExtraPanel') or parentId:find('^gameRightExtraPanel')) then
-            widget:getParent():setWidth(190)
-        end
+        applyBotWindowColumnWidth(widget)
         self:fitAll(widget)
 
         local targetPos = widget:getPosition()
@@ -319,16 +448,12 @@ function UIMiniWindowContainer:onDrop(widget, mousePos)
 
             self:insertChild(targetIndex, widget)
 
-            local droppedParentId = widget:getParent() and widget:getParent():getId() or ''
-            if widget:getId() == 'botWindow' and
-                (droppedParentId == 'gameLeftPanel' or droppedParentId:find('^gameLeftExtraPanel') or
-                    droppedParentId:find('^gameRightExtraPanel')) then
-                widget:getParent():setWidth(190)
-            end
+            applyBotWindowColumnWidth(widget)
 
             self:fitAll(widget)
             self:saveChildren()
             widget.smoothDropActive = nil
+            signalcall(widget.onContainerChanged, widget, self)
 
             for _, child in ipairs(self:getChildren()) do
                 if child and not child:isDestroyed() and not child._sidebarFreeSpaceWidget then

@@ -5,6 +5,8 @@ gameRightPanel = nil
 gameRightExtraPanel = nil
 gameLeftPanel = nil
 gameLeftExtraPanel = nil
+gameLeftTopPanel = nil
+gameRightTopPanel = nil
 gameSelectedPanel = nil
 panelsList = {}
 panelsRadioGroup = nil
@@ -102,6 +104,8 @@ function init()
     gameRightExtraPanel = gameRootPanel:getChildById('gameRightExtraPanel')
     gameLeftExtraPanel = gameRootPanel:getChildById('gameLeftExtraPanel')
     gameLeftPanel = gameRootPanel:getChildById('gameLeftPanel')
+    gameLeftTopPanel = gameRootPanel:getChildById('gameLeftTopPanel')
+    gameRightTopPanel = gameRootPanel:getChildById('gameRightTopPanel')
     gameBottomPanel = gameRootPanel:getChildById('gameBottomPanel')
     gameTopPanel = gameRootPanel:getChildById('gameTopPanel')
     gameBottomStatsBarPanel = gameRootPanel:getChildById('gameBottomStatsBarPanel')
@@ -1725,6 +1729,14 @@ end
 
 function getMainRightPanel()
     return gameMainRightPanel
+end
+
+function getLeftTopPanel()
+    return gameLeftTopPanel
+end
+
+function getRightTopPanel()
+    return gameRightTopPanel
 end
 
 function getLeftPanel()
