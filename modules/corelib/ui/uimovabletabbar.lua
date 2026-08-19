@@ -192,6 +192,7 @@ end
 local function onTabDragLeave(tab)
     updateMargins(tab.tabBar)
     tab.tabBar.selected = nil
+    signalcall(tab.tabBar.onTabReorder, tab.tabBar, tab)
     return true
 end
 

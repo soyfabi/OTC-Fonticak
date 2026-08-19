@@ -48,6 +48,53 @@ local function fitBotTabs()
   tabsWidget.fitTabs = fitBotTabs
 
   local tabs = tabsWidget.tabs
+
+  -- Bring back any tabs the moveable tab bar hid when they didn't fit;
+  -- fitBotTabs scales all widths to fit, so nothing should stay hidden.
+  if tabsWidget.preTabs and #tabsWidget.preTabs > 0 then
+    for i = #tabsWidget.preTabs, 1, -1 do
+      local t = tabsWidget.preTabs[i]
+      table.insert(tabs, 1, t)
+      t:setVisible(true)
+    end
+    tabsWidget.preTabs = {}
+  end
+  if tabsWidget.postTabs and #tabsWidget.postTabs > 0 then
+    for _, t in ipairs(tabsWidget.postTabs) do
+      table.insert(tabs, t)
+      t:setVisible(true)
+    end
+    tabsWidget.postTabs = {}
+  end
+
+  -- Restore the order the user dragged the tabs into (persisted in storage).
+  local savedOrder = context.storage and context.storage.tabOrder
+  if type(savedOrder) == "table" and #savedOrder > 1 then
+    local byName = {}
+    for _, t in ipairs(tabs) do
+      byName[t:getText()] = t
+    end
+    local reordered = {}
+    local placed = {}
+    for _, name in ipairs(savedOrder) do
+      local t = byName[name]
+      if t and not placed[t] then
+        placed[t] = true
+        table.insert(reordered, t)
+      end
+    end
+    for _, t in ipairs(tabs) do
+      if not placed[t] then
+        table.insert(reordered, t)
+      end
+    end
+    if #reordered == #tabs then
+      for i, t in ipairs(reordered) do
+        tabs[i] = t
+      end
+    end
+  end
+
   local count = #tabs
   if count == 0 then
     return
@@ -124,21 +171,21 @@ local function fitBotTabs()
   end
   widths = applyWidths(widths, total)
 
+  local cumulative = 0
   for i, t in ipairs(tabs) do
     t:breakAnchors()
     t:addAnchor(AnchorTop, "parent", AnchorTop)
-    if i == 1 then
-      t:addAnchor(AnchorLeft, "parent", AnchorLeft)
-    else
-      t:addAnchor(AnchorLeft, "prev", AnchorRight)
-    end
+    t:addAnchor(AnchorLeft, "parent", AnchorLeft)
     t:setWidth(widths[i])
+    t:setMarginLeft(cumulative)
+    cumulative = cumulative + widths[i] + spacing
   end
 end
 
 context.addTab = function(name)
   local tab = context.tabs:getTab(name)
   if tab then -- return existing tab
+    fitBotTabs()
     return tab.tabPanel.content
   end
 
@@ -154,6 +201,19 @@ context.getTab = context.addTab
 context.fitBotTabs = fitBotTabs
 if context.tabs then
   context.tabs.fitTabs = fitBotTabs
+  context.tabs.onTabReorder = function(tabBar, tab)
+    if not context.storage then
+      return
+    end
+    local order = {}
+    for _, t in ipairs(tabBar.tabs) do
+      order[#order + 1] = t:getText()
+    end
+    context.storage.tabOrder = order
+    if context.saveConfig then
+      context.saveConfig()
+    end
+  end
 end
 
 context.setDefaultTab = function(name)
