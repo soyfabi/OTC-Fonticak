@@ -1,13 +1,11 @@
 Module
   name: game_forge
   description: game_forge
-  author: game_forge
-  website: game_forge
-  scripts: [ game_forge_helpers.lua, game_forge.lua, game_forge_protocol.lua, forgeprotocol.lua ]
+  scripts: [ styles, game_forge_protocol, forgeprotocol, game_forge, menu/* ]
   sandboxed: false
   @onLoad: |
     initForgeProtocolBridge()
-    ForgeController:init()
+    init()
   @onUnload: |
-    ForgeController:terminate()
     terminateForgeProtocolBridge()
+    terminate()

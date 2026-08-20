@@ -1,0 +1,480 @@
+ForgeActionButton < UIButton
+  image-source: /images/ui/button-grey-up
+  image-border: 5
+  opacity: 1.0
+
+  $pressed:
+    image-source: /images/ui/button-grey-down
+
+ForgeCountContent < Panel
+  anchors.verticalCenter: parent.verticalCenter
+  anchors.horizontalCenter: parent.horizontalCenter
+  height: 16
+  margin-top: 1
+  clipping: false
+  phantom: true
+  layout:
+    type: horizontalBox
+    fit-children: true
+    spacing: 1
+
+TransferListItem < Item
+  Label
+    id: charges2
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    margin-bottom: -2
+    margin-right: 1
+    phantom: true
+    text-auto-resize: true
+    font: verdana-11px-rounded
+    color: #bfbfbf
+    visible: false
+
+TransferWindow < Panel
+  id: transferPanel
+  visible: false
+  anchors.top: fusionButton.bottom
+  margin-top: 5
+  anchors.left: fusionButton.left
+  anchors.right: historyButton.right
+  anchors.bottom: prev.bottom
+  margin-bottom: 5
+
+  UIWindow
+    id: transferWindow1
+    text: Select Items for the Transfer
+    color: #dfdfdf88
+    font: Verdana Bold-11px
+    text-offset: 4 2
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    image-border: 6
+    image-border-top: 27
+    draggable: false
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: -1
+    height: 111
+
+    ScrollablePanel
+      id: transferContent
+      vertical-scrollbar: transferScrollBar
+      padding: 1
+      border-width-top: 1
+      border-width-left: 1
+      border-width-right: 1
+      border-width-bottom: 1
+      border-color-bottom: #808080
+      border-color-right: #808080
+      border-color-left: #131313
+      border-color-top: #131313
+      background-color: #404040
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 22
+      margin-left: 7
+      width: 165
+      height: 82
+
+      layout:
+        type: grid
+        cell-size: 34 34
+        cell-spacing: 3
+        flow: true
+
+    VerticalQtScrollBar
+      id: transferScrollBar
+      anchors.top: transferContent.top
+      anchors.right: transferContent.right
+      anchors.bottom: transferContent.bottom
+      step: 30
+      pixel-scroll: true
+      margin-top: 1
+      margin-right: 1
+      margin-bottom: 1
+      
+    Panel
+      id: previewTransferPanel
+      anchors.top: prev.top
+      anchors.left: prev.right
+      anchors.right: parent.right
+      anchors.bottom: prev.bottom
+      margin-right: 5
+
+      UIWidget
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.left: parent.left
+        margin-left: 38
+        margin-bottom: 9
+        image-source: /images/game/forge/icon-arrow-rightlarge
+      UIWidget
+        anchors.verticalCenter: prev.verticalCenter
+        anchors.left: prev.right
+        margin-left: 6
+        image-source: /images/game/forge/icon-arrow-rightlarge
+      UIWidget
+        anchors.verticalCenter: prev.verticalCenter
+        anchors.left: prev.right
+        margin-left: 6
+        image-source: /images/game/forge/icon-arrow-rightlarge
+
+      CheckBox
+        id: transferConvergence
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        margin-left: 12
+        margin-bottom: -4
+        text: Convergence
+        font: verdana-11px-monochrome
+        color: #c0c0c0
+        text-offset: 16 0
+        text-auto-resize: true
+        @onHoverChange: modules.game_forge.Forge.Transfer.onWidgetHover(self, value)
+
+    ScrollablePanel
+      id: transferContent2
+      vertical-scrollbar: transferScrollBar2
+      padding: 1
+      border-width-top: 1
+      border-width-left: 1
+      border-width-right: 1
+      border-width-bottom: 1
+      border-color-bottom: #808080
+      border-color-right: #808080
+      border-color-left: #131313
+      border-color-top: #131313
+      background-color: #404040
+      anchors.top: parent.top
+      anchors.right: parent.right
+      margin-top: 22
+      margin-right: 7
+      width: 165
+      height: 82
+
+      layout:
+        type: grid
+        cell-size: 34 34
+        cell-spacing: 1
+        flow: true
+
+    VerticalQtScrollBar
+      id: transferScrollBar2
+      anchors.top: transferContent2.top
+      anchors.right: transferContent2.right
+      anchors.bottom: transferContent2.bottom
+      step: 30
+      pixel-scroll: true
+      margin-top: 1
+      margin-right: 1
+      margin-bottom: 1
+
+  UIWindow
+    text: Transfer Requirements
+    id: transferRequirements
+    color: #dfdfdf88
+    font: verdana-11px-antialised
+    text-offset: 2 1
+    text-align: top
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    image-border: 6
+    image-border-top: 27
+    draggable: false
+    anchors.top: transferWindow1.bottom
+    anchors.left: prev.left
+    anchors.right: prev.right
+    height: 117
+    margin-top: 6
+
+    Panel
+      id: previewTransferForgeItem
+      size: 66 89
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 22
+      margin-left: 7
+
+      Item1Px
+        id: previewTransferItem
+        size: 66 66
+        fixed-item-size: false
+        padding: 1
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        virtual: true
+        draggable: false
+        focusable: true
+
+        UIWidget
+          id: bigtier
+          size: 19 16
+          image-source: /images/inventory/tiers-strip-big
+          image-clip: 0 0 10 9
+          image-size: 18 16
+          anchors.top: parent.top
+          anchors.right: parent.right
+          margin-right: -1
+          phantom: true
+          focusable: false
+          visible: false
+          image-smooth: true
+
+      UIWidget
+        id: previewTransferQuestionMark
+        anchors.verticalCenter: previewTransferItem.verticalCenter
+        anchors.horizontalCenter: previewTransferItem.horizontalCenter
+        image-source: /images/icons_big/icon-questionmark
+
+      Panel
+        id: previewCount
+        image-source: /images/ui/button-verydarkgrey-down
+        image-border: 10
+        anchors.top: previewTransferItem.bottom
+        anchors.left: previewTransferItem.left
+        margin-top: 3
+        size: 66 20
+
+        ForgeCountContent
+          Label
+            id: previewTransferItemCount
+            !text: '0/1'
+            text-align: center
+            text-auto-resize: true
+            font: Verdana Bold-11px
+
+      UIWidget
+        id: previewTransferHoverArea
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        focusable: false
+        @onHoverChange: modules.game_forge.Forge.Transfer.onWidgetHover(self, value)
+
+    Panel
+      id: requiredForgeItem
+      size: 66 89
+      anchors.top: previewTransferForgeItem.top
+      anchors.left: previewTransferForgeItem.right
+      margin-left: 6
+
+      Item1Px
+        id: requiredItem
+        size: 66 66
+        fixed-item-size: false
+        anchors.top: parent.top
+        draggable: false
+        focusable: true
+
+      Panel
+        id: requiredCount
+        image-source: /images/ui/button-verydarkgrey-down
+        image-border: 10
+        anchors.top: requiredItem.bottom
+        anchors.left: requiredItem.left
+        margin-top: 3
+        size: 66 20
+
+        ForgeCountContent
+          Label
+            id: requiredTransferCount1
+            !text: '100'
+            text-align: center
+            text-auto-resize: true
+            font: Verdana Bold-11px
+
+          UIWidget
+            id: requiredDustIcon
+            size: 9 6
+            fixed-size: true
+            image-source: /images/icons/icon-currency-dust
+
+      UIWidget
+        id: requiredDustHoverArea
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        focusable: false
+        @onHoverChange: modules.game_forge.Forge.Transfer.onWidgetHover(self, value)
+
+    Panel
+      id: requiredCoreForgeItem
+      size: 66 89
+      anchors.top: previewTransferForgeItem.top
+      anchors.left: requiredForgeItem.right
+      margin-left: 6
+
+      Item1Px
+        id: requiredCoreItem
+        size: 66 66
+        fixed-item-size: false
+        anchors.top: parent.top
+        draggable: false
+        focusable: true
+
+      Panel
+        id: requiredCoreCountPanel
+        image-source: /images/ui/button-verydarkgrey-down
+        image-border: 10
+        anchors.top: requiredCoreItem.bottom
+        anchors.left: requiredCoreItem.left
+        margin-top: 3
+        size: 66 20
+
+        ForgeCountContent
+          Label
+            id: requiredCoreCount
+            !text: '0'
+            text-align: center
+            text-auto-resize: true
+            font: Verdana Bold-11px
+
+          UIWidget
+            id: requiredCoreIcon
+            size: 9 9
+            fixed-size: true
+            image-source: /images/icons/icon-currency-exaltedcore
+
+      UIWidget
+        id: requiredCoreHoverArea
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        focusable: false
+        @onHoverChange: modules.game_forge.Forge.Transfer.onWidgetHover(self, value)
+
+    UIWidget
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.left: prev.right
+      margin-top: 8
+      margin-left: 53
+      image-source: /images/game/forge/icon-arrow-rightlarge
+
+    Panel
+      id: transferActionWrapper
+      anchors.top: parent.top
+      anchors.right: parent.right
+      margin-top: 22
+      margin-right: 7
+      size: 128 89
+
+      ForgeActionButton
+        id: transferButtonProcced
+        anchors.top: parent.top
+        anchors.left: parent.left
+        size: 128 66
+        @onHoverChange: modules.game_forge.Forge.Transfer.onWidgetHover(self, value)
+
+        Item
+          id: firstButtonPreviewItem
+          image-source:
+          fixed-item-size: false
+          padding: 0
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.left: parent.left
+          margin-left: 14
+          size: 32 32
+          phantom: true
+          visible: false
+
+        UIWidget
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.horizontalCenter: parent.horizontalCenter
+          size: 15 7
+          margin-top: 0
+          image-source: /images/game/forge/icon_3arrows
+          phantom: true
+
+        Item
+          id: secondButtonPreviewItem
+          image-source:
+          fixed-item-size: false
+          padding: 0
+          anchors.top: firstButtonPreviewItem.top
+          anchors.left: prev.right
+          margin-left: 12
+          size: 32 32
+          phantom: true
+          visible: false
+
+        UIWidget
+          id: firstButtonPreviewQuestionMark
+          anchors.verticalCenter: firstButtonPreviewItem.verticalCenter
+          anchors.horizontalCenter: firstButtonPreviewItem.horizontalCenter
+          image-source: /images/icons_big/icon-questionmark
+          phantom: true
+
+        UIWidget
+          id: secondButtonPreviewQuestionMark
+          anchors.verticalCenter: secondButtonPreviewItem.verticalCenter
+          anchors.horizontalCenter: secondButtonPreviewItem.horizontalCenter
+          image-source: /images/icons_big/icon-questionmark
+          phantom: true
+
+        UIWidget
+          id: chainTransparent
+          anchors.top: parent.top
+          anchors.left: parent.left
+          margin-top: 1
+          margin-left: 1
+          size: 126 64
+          image-source: /images/ui/ditherpattern
+          image-repeated: true
+          phantom: true
+          focusable: false
+
+      Panel
+        anchors.top: transferButtonProcced.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        margin-top: 3
+        height: 20
+        image-source: /images/ui/button-verydarkgrey-down
+        image-border: 10
+
+        Label
+          id: requiredTransferMoney
+          text: 1
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.horizontalCenter: parent.horizontalCenter
+          margin-top: 2
+          margin-right: 5
+          font: verdana-11px-monochrome
+          text-auto-resize: true
+
+        UIWidget
+          anchors.verticalCenter: prev.verticalCenter
+          anchors.left: prev.right
+          margin-left: 2
+          margin-top: -1
+          image-source: /images/icons/icon-goldcoin
+
+      UIWidget
+        id: transferButtonHoverArea
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        focusable: false
+        @onHoverChange: modules.game_forge.Forge.Transfer.onWidgetHover(self, value)
+
+  QtPanel
+    id: firstTooltip
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 32
+    margin-left: -1
+    height: 75
+    @onHoverChange: modules.game_forge.Forge.Transfer.onWidgetHover(self, value)
+
+    Label
+      id: description
+      anchors.fill: parent
+      margin-top: 2
+      text-wrap: true
+      font: verdana-11px-rounded-lowspace
+      color: #c0c0c0

@@ -177,6 +177,8 @@ end
 
 local function parseHistory(msg)
   local history = {}
+  local currentPage = msg:getU16()
+  local lastPage = msg:getU16()
   local count = msg:getU16()
 
   for i = 1, count do
@@ -187,7 +189,7 @@ local function parseHistory(msg)
     })
   end
 
-  ForgeSystem.onForgeHistory(history)
+  ForgeSystem.onForgeHistory(currentPage, lastPage, history)
 end
 
 local function parseForgeMessage(protocolGame, msg)
@@ -279,8 +281,12 @@ function ForgeProtocol.sendClose()
   sendRequest(ForgeRequest.Close)
 end
 
-function ForgeProtocol.sendHistory()
-  sendRequest(ForgeRequest.History)
+function ForgeProtocol.sendHistory(page)
+  local msg = OutputMessage.create()
+  msg:addU8(ForgeOpcode.Request)
+  msg:addU8(ForgeRequest.History)
+  msg:addU16(tonumber(page) or 0)
+  send(msg)
 end
 
 function ForgeProtocol.sendForgeFusion(convergence, itemId, tier, secondItemId, boostSuccess, protectTierLoss)

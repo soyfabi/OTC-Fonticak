@@ -1,4 +1,4 @@
--- Bridges Forgotten Server custom forge protocol (0xE2/0xE3) to the Mehah HTML forge UI.
+-- Bridges Fantoner-Server custom forge protocol (0xE2/0xE3) to the CrystalOTC forge UI.
 
 ResourceBank = 0
 ResourceInventory = 1
@@ -121,8 +121,7 @@ function ForgeSystem.init(classPrice, transferMap, fusionPrices, transferPrices,
     dustLevel = dustPrice
   }
 
-  ForgeController._pendingForgeConfig = config
-  addEvent(ForgeController.applyPendingForgeConfig)
+  onEngineForgeConfig(config)
 end
 
 function ForgeSystem.setResourceBalances(balances)
@@ -130,14 +129,24 @@ function ForgeSystem.setResourceBalances(balances)
     return
   end
 
-  local cached = ForgeController.forgeBalances
-  cached.bank = balances[ResourceBank] or cached.bank
-  cached.inventory = balances[ResourceInventory] or cached.inventory
-  cached.dust = balances[ResourceForgeDust] or cached.dust
-  cached.slivers = balances[ResourceForgeSlivers] or cached.slivers
-  cached.cores = balances[ResourceForgeExaltedCore] or cached.cores
+  local player = g_game.getLocalPlayer()
+  if Forge then
+    Forge.customBalances = Forge.customBalances or {}
+    Forge.customBalances.bank = balances[ResourceBank] or Forge.customBalances.bank or 0
+    Forge.customBalances.inventory = balances[ResourceInventory] or Forge.customBalances.inventory or 0
+    Forge.customBalances.dust = balances[ResourceForgeDust] or Forge.customBalances.dust or 0
+    Forge.customBalances.slivers = balances[ResourceForgeSlivers] or Forge.customBalances.slivers or 0
+    Forge.customBalances.cores = balances[ResourceForgeExaltedCore] or Forge.customBalances.cores or 0
+  end
 
-  ForgeController:updateResourceBalances()
+  if not player then
+    return
+  end
+
+  player:setResourceBalance(ResourceForgeDust + 50, balances[ResourceForgeDust] or 0)
+  player:setResourceBalance(ResourceForgeSlivers + 50, balances[ResourceForgeSlivers] or 0)
+  player:setResourceBalance(ResourceForgeExaltedCore + 50, balances[ResourceForgeExaltedCore] or 0)
+  onResourceBalance()
 end
 
 function ForgeSystem.onForgeData(fusionData, fusionConvergenceData, transferData, transferConvergenceData, maxPlayerDust)
@@ -149,13 +158,13 @@ function ForgeSystem.onForgeData(fusionData, fusionConvergenceData, transferData
     dustLevel = maxPlayerDust
   }
 
-  ForgeController._pendingForgeOpenData = payload
-  addEvent(ForgeController.applyPendingForgeOpenData)
+  onOpenExaltationForge(payload)
 end
 
 function ForgeSystem.onForgeFusion(convergence, success, otherItem, otherTier, itemId, tier, resultType, itemResult,
                                    tierResult, count)
-  ForgeController._pendingForgeResult = {
+  onEngineForgeResult({
+    actionType = ACTION_FUSION_TYPE,
     leftItemId = otherItem,
     leftTier = otherTier,
     rightItemId = itemId,
@@ -164,12 +173,12 @@ function ForgeSystem.onForgeFusion(convergence, success, otherItem, otherTier, i
     bonus = resultType,
     coreCount = count or 0,
     convergence = convergence
-  }
-  addEvent(ForgeController.applyPendingForgeResult)
+  })
 end
 
 function ForgeSystem.onForgeTransfer(convergence, success, otherItem, otherTier, itemId, tier)
-  ForgeController._pendingForgeResult = {
+  onEngineForgeResult({
+    actionType = ACTION_TRANSFER_TYPE,
     leftItemId = otherItem,
     leftTier = otherTier,
     rightItemId = itemId,
@@ -177,30 +186,58 @@ function ForgeSystem.onForgeTransfer(convergence, success, otherItem, otherTier,
     success = success,
     bonus = 0,
     convergence = convergence
-  }
-  addEvent(ForgeController.applyPendingForgeResult)
+  })
 end
 
-function ForgeSystem.onForgeHistory(history)
+function ForgeSystem.onForgeHistory(currentPage, lastPage, history)
   local historyList = {}
   for _, entry in ipairs(history or {}) do
     table.insert(historyList, {
-      createdAt = entry[1],
-      actionType = entry[2],
-      description = entry[3]
+      date = os.date("%Y-%m-%d %H:%M", tonumber(entry[1]) or 0),
+      action = entry[2],
+      details = entry[3]
     })
   end
 
-  ForgeController._pendingForgeHistory = historyList
-  addEvent(ForgeController.applyPendingForgeHistory)
+  onForgeHistory(currentPage, lastPage, historyList)
 end
 
 function ForgeSystem.show()
-  addEvent(ForgeController.showForgeWindow)
+  forgeOpenRequest()
 end
 
 function offlineForge()
-  ForgeController:hide()
+  Forge:close()
+end
+
+function forgeOpenRequest()
+  if g_game.useCustomForgeProtocol() then
+    ForgeProtocol.sendOpen()
+  else
+    g_game.openPortableForgeRequest()
+  end
+end
+
+function forgeSendHistory(page)
+  if g_game.useCustomForgeProtocol() then
+    ForgeProtocol.sendHistory(page)
+  else
+    g_game.sendForgeHistory(page)
+  end
+end
+
+function forgeSendAction(action, convergence, firstItem, firstTier, secondItem, improveChance, tierLoss)
+  if not g_game.useCustomForgeProtocol() then
+    return g_game.sendForgeAction(action, convergence, firstItem, firstTier, secondItem, improveChance, tierLoss)
+  end
+
+  if action == ACTION_FUSION_TYPE then
+    return ForgeProtocol.sendForgeFusion(convergence, firstItem, firstTier, secondItem, improveChance, tierLoss)
+  elseif action == ACTION_TRANSFER_TYPE then
+    return ForgeProtocol.sendForgeTransfer(convergence, firstItem, firstTier, secondItem)
+  end
+
+  return ForgeProtocol.sendForgeConverter(action)
 end
 
 function initForgeProtocolBridge()

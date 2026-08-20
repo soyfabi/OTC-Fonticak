@@ -1,0 +1,370 @@
+ForgeActionButton < UIButton
+  image-source: /images/ui/button-grey-up
+  image-border: 5
+  opacity: 1.0
+
+  $pressed:
+    image-source: /images/ui/button-grey-down
+
+ForgePanel < Panel
+  size: 153 255
+  color: #dfdfdf
+  text-align: top
+  !text: tr('Convert Dust')
+  padding-top: 21
+  image-source: /images/ui/popupwindow-sem-borda-interna
+  image-border: 20
+  text-offset: 0 2
+  color: #dfdfdf88
+  font: verdana-11px-antialised
+  draggable: false
+
+ForgeTextWithIcon < Panel
+  Label
+    id: value
+    text: Generate 66666
+    anchors.verticalCenter: parent.verticalCenter
+    anchors.horizontalCenter: parent.horizontalCenter
+    text-align: center
+    text-auto-resize: true
+    font: verdana-11px-rounded-lowspace
+    color: #c0c0c0
+    margin-top: 5
+    margin-left: -7
+    
+  UIWidget
+    id: icon
+    anchors.verticalCenter: prev.verticalCenter
+    anchors.left: prev.right
+    margin-left: 5
+    image-source: /images/icons/icon-currency-sliver
+
+ForgeTextWithIcon2 < Panel
+  Label
+    id: value
+    text: 100
+    anchors.verticalCenter: parent.verticalCenter
+    anchors.left: parent.left
+    text-align: left
+    text-auto-resize: true
+    font: verdana-11px-rounded-lowspace
+    color: #c0c0c0
+
+  UIWidget
+    id: icon
+    anchors.verticalCenter: value.verticalCenter
+    anchors.left: value.right
+    margin-left: 6
+    margin-top: 1
+    image-source: /images/icons/icon-currency-dust
+
+  Label
+    id: value2
+    text: to 101
+    anchors.verticalCenter: value.verticalCenter
+    anchors.left: icon.right
+    margin-left: 4
+    text-align: left
+    text-auto-resize: true
+    font: verdana-11px-rounded-lowspace
+    color: #c0c0c0
+
+  UIWidget
+    id: icon2
+    anchors.verticalCenter: value.verticalCenter
+    anchors.left: value2.right
+    margin-left: 6
+    margin-top: 1
+    image-source: /images/icons/icon-currency-dust
+
+ForgeItem < Panel
+  id: forgeItem
+  size: 60 80
+  Item1Px
+    id: item
+    size: 66 66
+    fixed-item-size: false
+    anchors.top: parent.top
+
+  Panel
+    id: countPanel
+    image-source: /images/ui/button-verydarkgrey-down
+    image-border: 10
+    anchors.top: item.bottom
+    anchors.left: prev.left
+    margin-top: 3
+    size: 66 20
+
+    Label
+      id: value
+      text: 100
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.horizontalCenter: parent.horizontalCenter
+      margin-top: 2
+      margin-right: 4
+      text-align: center
+      text-auto-resize: true
+      font: verdana-11px-monochrome
+      
+    UIWidget
+      id: icon
+      anchors.verticalCenter: prev.verticalCenter
+      anchors.left: prev.right
+      margin-top: -1
+      margin-left: 2
+      image-source: /images/icons/icon-currency-sliver
+
+ConversionWindow < Panel
+  id: conversionWindow
+  visible: false
+  margin-top: 5
+  margin-bottom: 5
+
+  ForgePanel
+    id: convertDustPanel
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 2
+    margin-left: -1
+    text-offset: 0 1
+
+    ForgeItem
+      id: forgeItem
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: parent.top
+      margin-top: 6
+      margin-left: -3
+
+    UIWidget
+      id: arrowImage
+      anchors.horizontalCenter: prev.horizontalCenter
+      anchors.top: prev.bottom
+      margin-top: 19
+      margin-left: 3
+      image-source: /images/game/forge/icon-arrow-downlarge.png
+
+    ForgeActionButton
+      id: convertDustProcced
+      anchors.top: arrowImage.bottom
+      anchors.horizontalCenter: arrowImage.horizontalCenter
+      margin-top: 11
+      margin-left: 0
+      size: 83 66
+      @onHoverChange: modules.game_forge.Forge.Conversion.onWidgetHover(self, value)
+
+      UIItem
+        id: rewardItem
+        anchors.centerIn: parent
+        size: 64 64
+        phantom: true
+        fixed-item-size: false
+
+      UIWidget
+        id: chainTransparent1
+        anchors.centerIn: parent
+        size: 79 62
+        image-source: /images/ui/ditherpattern
+        image-repeated: true
+        phantom: true
+        visible: false
+
+    ForgeTextWithIcon
+      id: forgeTextWithIcon
+      anchors.top: convertDustProcced.bottom
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-right: 6
+      margin-left: 6
+      height: 15
+
+    UIWidget
+      id: convertDustHoverArea
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      focusable: false
+      @onHoverChange: modules.game_forge.Forge.Conversion.onWidgetHover(self, value)
+
+  ForgePanel
+    id: convertSilverPanel
+    text: Convert Slivers
+    anchors.top: prev.top
+    anchors.left: prev.right
+    anchors.bottom: prev.bottom
+    margin-left: 6
+    text-offset: 0 1
+    width: 152
+
+    ForgeItem
+      id: forgeItem
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: parent.top
+      margin-top: 6
+      margin-left: -3
+
+    UIWidget
+      id: arrowImage
+      anchors.horizontalCenter: prev.horizontalCenter
+      anchors.top: prev.bottom
+      margin-top: 19
+      margin-left: 4
+      image-source: /images/game/forge/icon-arrow-downlarge.png
+
+    ForgeActionButton
+      id: silverButtonProcced
+      anchors.top: arrowImage.bottom
+      anchors.horizontalCenter: arrowImage.horizontalCenter
+      margin-top: 11
+      size: 83 66
+      @onHoverChange: modules.game_forge.Forge.Conversion.onWidgetHover(self, value)
+
+      UIItem
+        id: rewardItem
+        anchors.centerIn: parent
+        size: 64 64
+        phantom: true
+        fixed-item-size: false
+
+      UIWidget
+        id: chainTransparent2
+        anchors.centerIn: parent
+        size: 79 62
+        image-source: /images/ui/ditherpattern
+        image-repeated: true
+        phantom: true
+        visible: false
+
+    ForgeTextWithIcon
+      id: forgeTextWithIcon
+      anchors.top: silverButtonProcced.bottom
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-right: 6
+      margin-left: 6
+      height: 15
+
+    UIWidget
+      id: convertSilverHoverArea
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      focusable: false
+      @onHoverChange: modules.game_forge.Forge.Conversion.onWidgetHover(self, value)
+
+  ForgePanel
+    id: dustLimitPanel
+    text: Increase Dust Limit
+    anchors.top: prev.top
+    anchors.left: prev.right
+    anchors.right: parent.right
+    margin-top: 0
+    margin-left: 6
+    anchors.bottom: prev.bottom
+    text-offset: 0 1
+
+    ForgeItem
+      id: forgeItem
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: parent.top
+      margin-top: 6
+      margin-left: -3
+
+    UIWidget
+      id: arrowImage
+      anchors.horizontalCenter: prev.horizontalCenter
+      anchors.top: prev.bottom
+      margin-top: 19
+      margin-left: 3
+      image-source: /images/game/forge/icon-arrow-downlarge.png
+
+    ForgeActionButton
+      id: DustLimitProcced
+      anchors.top: arrowImage.bottom
+      anchors.left: parent.left
+      margin-top: 11
+      margin-left: 13
+      size: 128 66
+      @onHoverChange: modules.game_forge.Forge.Conversion.onWidgetHover(self, value)
+
+      UIItem
+        id: DustLimitButtonItem1
+        anchors.top: parent.top
+        anchors.left: parent.left
+        margin-top: 6
+        margin-left: 7
+        size: 64 64
+        fixed-item-size: false
+        phantom: true
+
+      UIItem
+        id: DustLimitButtonItem2
+        anchors.top: parent.top
+        margin-top: -4
+        anchors.left: prev.left
+        margin-left: 50
+        size: 64 64
+        fixed-item-size: false
+        phantom: true
+
+      UIWidget
+        id: chainTransparent3
+        anchors.top: parent.top
+        anchors.left: parent.left
+        margin-top: 2
+        margin-left: 2
+        size: 124 62
+        image-source: /images/ui/ditherpattern
+        image-repeated: true
+        phantom: true
+        visible: false
+
+    Label
+      id: raiseLimitLabel
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: DustLimitProcced.bottom
+      margin-top: 7
+      text: Raise limit from
+      text-align: center
+      text-auto-resize: true
+      font: verdana-11px-rounded-lowspace
+      color: #c0c0c0
+
+    ForgeTextWithIcon2
+      id: ForgeTextWithIcon2
+      anchors.top: raiseLimitLabel.bottom
+      margin-top: 3
+      anchors.left: raiseLimitLabel.left
+      anchors.right: parent.right
+      margin-right: 6
+      height: 9
+
+    UIWidget
+      id: convertLimitHoverArea
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      focusable: false
+      @onHoverChange: modules.game_forge.Forge.Conversion.onWidgetHover(self, value)
+
+  QtPanel
+    id: firstTooltip
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 32
+    margin-left: -1
+    height: 53
+    @onHoverChange: modules.game_forge.Forge.Conversion.onWidgetHover(self, value)
+
+    Label
+      id: description
+      anchors.fill: parent
+      margin-top: 2
+      text-wrap: true
+      font: verdana-11px-rounded-lowspace
+      color: #c0c0c0

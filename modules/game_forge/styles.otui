@@ -1,0 +1,23 @@
+&var-text-cip-color: #c0c0c0
+&var-text-color-disabled: #dfdfdf88
+&var-cip-font: verdana-11px-antialised
+&var-cip-font-new: Verdana Bold-11px
+&var-cip-font-lowspace: Verdana Bold-11px-low-space
+
+Item1Px < UIItem
+  size: 34 34
+  padding: 1
+  image-source: /images/game/forge/slot-forge
+  font: verdana-11px-rounded
+  border-color: white
+  color: white
+
+  $disabled:
+    color: #646464
+
+WindowHigh < Window
+  image-source: /images/ui/window
+  image-border: 6
+
+MainWindowHigh < WindowHigh
+  anchors.centerIn: parent

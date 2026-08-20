@@ -1,0 +1,833 @@
+ForgeActionButton < UIButton
+  image-source: /images/ui/button-grey-up
+  image-border: 5
+  opacity: 1.0
+
+  $pressed:
+    image-source: /images/ui/button-grey-down
+
+ForgeCountContent < Panel
+  anchors.verticalCenter: parent.verticalCenter
+  anchors.horizontalCenter: parent.horizontalCenter
+  height: 16
+  margin-top: 1
+  clipping: false
+  phantom: true
+  layout:
+    type: horizontalBox
+    fit-children: true
+    spacing: 1
+
+FusionToggleQtButton < QtButton
+  $on:
+    image-clip: 0 46 22 23
+    text-offset: 1 1
+  $on $disabled:
+    color: #dfdfdf88
+    opacity: 0.8
+
+FusionHelpIcon < UIWidget
+  size: 12 12
+  fixed-size: true
+  image-source: /images/icons/show_gui_help_grey
+  image-offset: 0 -1
+  margin-left: 4
+
+FusionWindow < Panel
+  visible: false
+  margin-top: 7
+  margin-bottom: 5
+
+  UIWindow
+    id: mainPanel1
+    text: Select Item For Fusion
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    image-border: 6
+    image-border-top: 27
+    draggable: false
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-left: -1
+    color: #dfdfdf88
+    font: Verdana Bold-11px
+    text-offset: 1 2
+    height: 111
+    
+    ScrollablePanel
+      id: contentPanel
+      vertical-scrollbar: fusionScrollBar
+      padding: 1
+      border-width-top: 1
+      border-width-left: 1
+      border-width-right: 1
+      border-width-bottom: 1
+      border-color-bottom: #808080
+      border-color-right: #808080
+      border-color-left: #131313
+      border-color-top: #131313
+      background-color: #404040
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 22
+      margin-left: 7
+      width: 165
+      height: 82
+ 
+      layout:
+        type: grid
+        cell-size: 34 34
+        cell-spacing: 3
+        flow: true
+   
+    VerticalQtScrollBar
+      id: fusionScrollBar
+      anchors.top: contentPanel.top
+      anchors.right: contentPanel.right
+      anchors.bottom: contentPanel.bottom
+      step: 30
+      pixel-scroll: true
+      margin-top: 1
+      margin-right: 1
+      margin-bottom: 1
+
+    Panel
+      id: previewPanel
+      anchors.top: prev.top
+      anchors.left: prev.right
+      anchors.right: parent.right
+      anchors.bottom: prev.bottom
+      margin-right: 5
+ 
+      UIWidget
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.left: parent.left
+        margin-left: 38
+        margin-bottom: 9
+        image-source: /images/game/forge/icon-arrow-rightlarge
+      UIWidget
+        anchors.verticalCenter: prev.verticalCenter
+        anchors.left: prev.right
+        margin-left: 6
+        image-source: /images/game/forge/icon-arrow-rightlarge
+      UIWidget
+        anchors.verticalCenter: prev.verticalCenter
+        anchors.left: prev.right
+        margin-left: 6
+        image-source: /images/game/forge/icon-arrow-rightlarge
+   
+      CheckBox
+        id: convergence
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        margin-left: 12
+        margin-bottom: -4
+        text: Convergence
+        font: verdana-11px-monochrome
+        color: #c0c0c0
+        text-offset: 16 0
+        text-auto-resize: true
+        @onHoverChange: modules.game_forge.Forge.Fusion.onWidgetHover(self, value)
+   
+      Item
+        id: previewItem
+        virtual: true
+        image-source:
+        fixed-item-size: false
+        padding: 0
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.right: parent.right
+        margin-right: 52
+        width: 64
+        height: 64
+
+        UIWidget
+          id: bigtier
+          size: 19 16
+          image-source: /images/inventory/tiers-strip-big
+          image-clip: 0 0 10 9
+          image-size: 18 16
+          anchors.top: parent.top
+          anchors.right: parent.right
+          margin-right: -1
+          phantom: true
+          focusable: false
+          visible: false
+          image-smooth: true
+
+      UIWidget
+        id: previewQuestionMark
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.right: parent.right
+        margin-right: 80
+        image-source: /images/icons_big/icon-questionmark
+
+  UIWindow
+    text: Further Items Needed For Fusion
+    text-align: top
+    text-offset: 2 2
+    id: previewPanel2
+    color: #dfdfdf
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    color: #dfdfdf88
+    font: verdana-11px-monochrome
+    image-border: 6
+    image-border-top: 27
+    draggable: false
+    anchors.top: mainPanel1.bottom
+    anchors.left: prev.left
+    anchors.right: prev.right
+    height: 117
+    margin-top: 6
+
+    ScrollablePanel
+      id: fusionContent2
+      vertical-scrollbar: fusionScrollBar2
+      padding: 1
+      border-width-top: 1
+      border-width-left: 1
+      border-width-right: 1
+      border-width-bottom: 1
+      border-color-bottom: #808080
+      border-color-right: #808080
+      border-color-left: #131313
+      border-color-top: #131313
+      background-color: #404040
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 22
+      margin-left: 7
+      width: 165
+      height: 88
+ 
+      layout:
+        type: grid
+        cell-size: 34 34
+        cell-spacing: 3
+        flow: true
+
+    VerticalQtScrollBar
+      id: fusionScrollBar2
+      anchors.top: fusionContent2.top
+      anchors.right: fusionContent2.right
+      anchors.bottom: fusionContent2.bottom
+      step: 30
+      pixel-scroll: true
+      margin-top: 1
+      margin-right: 1
+      margin-bottom: 1
+
+    Panel
+      id: convergenceDustForgeItem
+      size: 66 89
+      anchors.top: fusionContent2.top
+      anchors.left: fusionContent2.right
+      margin-left: 6
+      visible: false
+
+      Item1Px
+        id: convergenceDustItem
+        size: 66 66
+        fixed-item-size: false
+        anchors.top: parent.top
+        draggable: false
+        focusable: true
+        virtual: true
+
+      Panel
+        id: convergenceDustCountPanel
+        image-source: /images/ui/button-verydarkgrey-down
+        image-border: 10
+        anchors.top: convergenceDustItem.bottom
+        anchors.left: convergenceDustItem.left
+        margin-top: 3
+        size: 66 20
+
+        ForgeCountContent
+          Label
+            id: value
+            !text: '100'
+            text-align: center
+            text-auto-resize: true
+            font: Verdana Bold-11px
+
+          UIWidget
+            id: convergenceDustIcon
+            size: 9 6
+            fixed-size: true
+            image-source: /images/icons/icon-currency-dust
+
+      UIWidget
+        id: convergenceDustHoverArea
+        anchors.fill: parent
+        focusable: false
+        @onHoverChange: modules.game_forge.Forge.Fusion.onWidgetHover(self, value)
+
+    UIWidget
+      id: convergenceRequirementsArrow
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.left: convergenceDustForgeItem.right
+      margin-top: 8
+      margin-left: 62
+      image-source: /images/game/forge/icon-arrow-rightlarge
+      phantom: true
+      focusable: false
+      visible: false
+
+    Panel
+      id: previewFusionForgeItem
+      size: 66 89
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 22
+      margin-left: 7
+
+      Item1Px
+        id: previewItem
+        size: 66 66
+        fixed-item-size: false
+        padding: 1
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+        virtual: true
+        draggable: false
+        focusable: true
+
+        UIWidget
+          id: bigtier
+          size: 19 16
+          image-source: /images/inventory/tiers-strip-big
+          image-clip: 0 0 10 9
+          image-size: 18 16
+          anchors.top: parent.top
+          anchors.right: parent.right
+          margin-right: -1
+          phantom: true
+          focusable: false
+          visible: false
+          image-smooth: true
+
+      UIWidget
+        id: previewQuestionMark
+        anchors.verticalCenter: previewItem.verticalCenter
+        anchors.horizontalCenter: previewItem.horizontalCenter
+        image-source: /images/icons_big/icon-questionmark
+
+      Panel
+        id: previewCount
+        image-source: /images/ui/button-verydarkgrey-down
+        image-border: 10
+        anchors.top: previewItem.bottom
+        anchors.left: previewItem.left
+        margin-top: 3
+        size: 66 20
+
+        ForgeCountContent
+          Label
+            id: value
+            !text: '0/1'
+            text-align: center
+            text-auto-resize: true
+            font: Verdana Bold-11px
+
+      UIWidget
+        id: previewFusionHoverArea
+        anchors.fill: parent
+        focusable: false
+        @onHoverChange: modules.game_forge.Forge.Fusion.onWidgetHover(self, value)
+
+    Panel
+      id: requiredForgeItem
+      size: 66 89
+      anchors.top: previewFusionForgeItem.top
+      anchors.left: previewFusionForgeItem.right
+      margin-left: 6
+
+      Item1Px
+        id: requiredItem
+        size: 66 66
+        fixed-item-size: false
+        anchors.top: parent.top
+        draggable: false
+        focusable: true
+
+      Panel
+        id: requiredCount
+        image-source: /images/ui/button-verydarkgrey-down
+        image-border: 10
+        anchors.top: requiredItem.bottom
+        anchors.left: requiredItem.left
+        margin-top: 3
+        size: 66 20
+
+        ForgeCountContent
+          Label
+            id: value
+            !text: '100'
+            text-align: center
+            text-auto-resize: true
+            font: Verdana Bold-11px
+
+          UIWidget
+            id: requiredDustIcon
+            size: 9 6
+            fixed-size: true
+            image-source: /images/icons/icon-currency-dust
+
+      UIWidget
+        id: requiredDustHoverArea
+        anchors.fill: parent
+        focusable: false
+        @onHoverChange: modules.game_forge.Forge.Fusion.onWidgetHover(self, value)
+
+    Panel
+      id: improveForgePanel
+      anchors.top: requiredForgeItem.top
+      anchors.left: requiredForgeItem.right
+      margin-left: 6
+      size: 138 36
+
+      Label
+        id: successRate
+        anchors.top: parent.top
+        anchors.left: parent.left
+        text: Success Rate:
+        font: verdana-11px-monochrome
+        color: #c0c0c0
+        text-auto-resize: true
+
+      FusionToggleQtButton
+        id: improveButton
+        size: 110 21
+        text: Improve to 65%
+        color: #ffffff
+        anchors.top: successRate.bottom
+        anchors.left: parent.left
+        margin-top: 0
+        margin-left: -1
+        text-offset: 0 1
+
+      Panel
+        id: exaltedCorePanel
+        anchors.top: improveButton.top
+        anchors.left: improveButton.right
+        margin-left: 2
+        image-source: /images/ui/button-verydarkgrey-down
+        image-border: 10
+        width: 26
+        height: 20
+
+        Label
+          id: value
+          text: 1
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.horizontalCenter: parent.horizontalCenter
+          margin-top: 1
+          margin-right: 5
+          text-auto-resize: true
+
+        UIWidget
+          anchors.verticalCenter: prev.verticalCenter
+          anchors.left: prev.right
+          margin-left: 3
+          image-source: /images/icons/icon-currency-exaltedcore
+
+      Label
+        id: successRateValue
+        anchors.top: successRate.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        margin-right: 1
+        text-offset: 0 1
+        text-align: right
+        font: verdana-11px-monochrome
+        color: #F75F5F
+
+      UIWidget
+        id: improveHoverArea
+        anchors.fill: parent
+        focusable: false
+        @onHoverChange: modules.game_forge.Forge.Fusion.onWidgetHover(self, value)
+
+    Panel
+      id: tierLossForgePanel
+      anchors.bottom: requiredForgeItem.bottom
+      anchors.left: requiredForgeItem.right
+      margin-left: 6
+      size: 138 36
+
+      Label
+        id: tierLoss
+        anchors.top: parent.top
+        anchors.left: parent.left
+        text: Tier Loss:
+        font: verdana-11px-monochrome
+        color: #c0c0c0
+        text-auto-resize: true
+
+      FusionToggleQtButton
+        id: tierLossButton
+        size: 110 21
+        text: Reduce to 50%
+        text-offset: 0 1
+        color: #ffffff
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        margin-left: -1
+
+      Panel
+        id: exaltedCorePanel2
+        anchors.top: tierLossButton.top
+        anchors.left: tierLossButton.right
+        margin-left: 2
+        image-source: /images/ui/button-verydarkgrey-down
+        image-border: 10
+        width: 26
+        height: 20
+
+        Label
+          id: value
+          text: 1
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.horizontalCenter: parent.horizontalCenter
+          margin-top: 1
+          margin-right: 5
+          text-auto-resize: true
+
+        UIWidget
+          anchors.verticalCenter: prev.verticalCenter
+          anchors.left: prev.right
+          margin-left: 3
+          image-source: /images/icons/icon-currency-exaltedcore
+
+      Label
+        id: tierLossValue
+        anchors.top: tierLoss.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        margin-right: 1
+        text-offset: 0 1
+        text-align: right
+        font: verdana-11px-monochrome
+        color: #F75F5F
+
+      UIWidget
+        id: tierLossHoverArea
+        anchors.fill: parent
+        focusable: false
+        @onHoverChange: modules.game_forge.Forge.Fusion.onWidgetHover(self, value)
+
+    Panel
+      id: fusionActionWrapper
+      anchors.top: parent.top
+      anchors.right: parent.right
+      margin-top: 22
+      margin-right: 7
+      size: 128 89
+
+      ForgeActionButton
+        id: fusionButtonProcced
+        anchors.top: parent.top
+        anchors.left: parent.left
+        size: 128 66
+        @onHoverChange: modules.game_forge.Forge.Fusion.onWidgetHover(self, value)
+
+        Item
+          id: firstButtonPreviewItem
+          image-source:
+          fixed-item-size: false
+          padding: 0
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.left: parent.left
+          margin-left: 14
+          size: 32 32
+          phantom: true
+          visible: false
+
+        UIWidget
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.horizontalCenter: parent.horizontalCenter
+          size: 15 7
+          margin-top: 0
+          image-source: /images/game/forge/icon_3arrows
+          phantom: true
+
+        Item
+          id: secondButtonPreviewItem
+          image-source:
+          fixed-item-size: false
+          padding: 0
+          anchors.top: firstButtonPreviewItem.top
+          anchors.left: prev.right
+          margin-left: 12
+          size: 32 32
+          phantom: true
+          visible: false
+
+        UIWidget
+          id: firstButtonPreviewQuestionMark
+          anchors.verticalCenter: firstButtonPreviewItem.verticalCenter
+          anchors.horizontalCenter: firstButtonPreviewItem.horizontalCenter
+          image-source: /images/icons_big/icon-questionmark
+          phantom: true
+
+        UIWidget
+          id: secondButtonPreviewQuestionMark
+          anchors.verticalCenter: secondButtonPreviewItem.verticalCenter
+          anchors.horizontalCenter: secondButtonPreviewItem.horizontalCenter
+          image-source: /images/icons_big/icon-questionmark
+          phantom: true
+
+        UIWidget
+          id: chainTransparent
+          anchors.top: parent.top
+          anchors.left: parent.left
+          margin-top: 1
+          margin-left: 1
+          size: 126 64
+          image-source: /images/ui/ditherpattern
+          image-repeated: true
+          phantom: true
+          focusable: false
+
+      Panel
+        anchors.top: fusionButtonProcced.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        margin-top: 3
+        height: 20
+        image-source: /images/ui/button-verydarkgrey-down
+        image-border: 10
+
+        Label
+          id: requiredFusionMoney
+          text: 1
+          anchors.verticalCenter: parent.verticalCenter
+          anchors.horizontalCenter: parent.horizontalCenter
+          margin-top: 2
+          margin-right: 5
+          font: verdana-11px-monochrome
+          text-auto-resize: true
+
+        UIWidget
+          anchors.verticalCenter: prev.verticalCenter
+          anchors.left: prev.right
+          margin-left: 2
+          margin-top: -1
+          image-source: /images/icons/icon-goldcoin
+
+      UIWidget
+        id: fusionButtonHoverArea
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.bottom: parent.bottom
+        focusable: false
+        @onHoverChange: modules.game_forge.Forge.Fusion.onWidgetHover(self, value)
+
+    UIWidget
+      id: fusionRequirementsArrow
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.left: tierLossForgePanel.right
+      margin-top: 8
+      margin-left: 18
+      image-source: /images/game/forge/icon-arrow-rightlarge
+      phantom: true
+      focusable: false
+
+  QtPanel
+    id: firstTooltip
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 32
+    margin-left: -1
+    height: 75
+    @onHoverChange: modules.game_forge.Forge.Fusion.onWidgetHover(self, value)
+
+    Panel
+      id: defaultDescriptionPanel
+      anchors.fill: parent
+      margin-top: 2
+      margin-left: 0
+      margin-right: 2
+
+      Panel
+        id: fusionHelpLine1
+        height: 15
+        anchors.top: parent.top
+        anchors.left: parent.left
+        layout:
+          type: horizontalBox
+          fit-children: true
+          spacing: 2
+
+        Label
+          id: fusionHelpText1
+          !text: tr('The aim of a fusion is to increase the tier of an item.')
+          font: verdana-11px-rounded-lowspace
+          color: #c0c0c0
+          text-auto-resize: true
+
+        FusionHelpIcon
+          id: fusionHelpIcon1
+          !tooltip: tr('Two items can be fused in order to increase the tier of one of them.\nThe two items need to have the same name and tier, and may not be imbued.\nFurther ingredients are also needed.\nIf a fusion attempt fails, one item remains unchanged and the second item loses one tier.\nIf it had no tier, it will be consumed.\nIf the fusion is successful, one item gains a tier and the second item is consumed.')
+
+      Panel
+        id: fusionHelpLine2
+        height: 15
+        anchors.top: fusionHelpLine1.bottom
+        anchors.left: parent.left
+        margin-top: 2
+        layout:
+          type: horizontalBox
+          fit-children: true
+          spacing: 2
+
+        Label
+          id: fusionHelpText2
+          !text: tr('The classification of an item defines its maximum tier.')
+          font: verdana-11px-rounded-lowspace
+          color: #c0c0c0
+          text-auto-resize: true
+
+        FusionHelpIcon
+          id: fusionHelpIcon2
+          !tooltip: tr('\149 Items of classification 4 can be upgraded up to tier 10.\n\149 Items of classification 3 can be upgraded up to tier 3.\n\149 Items of classification 2 can be upgraded up to tier 2.\n\149 Items of classification 1 can be upgraded up to tier 1.\n\149 Items with no classification cannot be upgraded.')
+
+      Panel
+        id: fusionHelpLine3
+        height: 15
+        anchors.top: fusionHelpLine2.bottom
+        anchors.left: parent.left
+        margin-top: 2
+        layout:
+          type: horizontalBox
+          fit-children: true
+          spacing: 2
+
+        Label
+          id: fusionHelpText3
+          !text: tr('If two items are fused, you can spend exaltation cores.')
+          font: verdana-11px-rounded-lowspace
+          color: #c0c0c0
+          text-auto-resize: true
+
+        FusionHelpIcon
+          id: fusionHelpIcon3
+          !tooltip: tr('You can spend up to two exaltation cores.\nOne can increase your chance of a successful fusion.\nAnother can give you a chance to keep the tier of the second item.\nIf the second item has tier 0, a core reduces the chance that it will be consumed.')
+
+      Panel
+        id: fusionHelpLine4
+        height: 15
+        anchors.top: fusionHelpLine3.bottom
+        anchors.left: parent.left
+        margin-top: 2
+        layout:
+          type: horizontalBox
+          fit-children: true
+          spacing: 2
+
+        Label
+          id: fusionHelpText4
+          !text: tr('Items with a tier grant unique bonuses.')
+          font: verdana-11px-rounded-lowspace
+          color: #c0c0c0
+          text-auto-resize: true
+
+        FusionHelpIcon
+          id: fusionHelpIcon4
+          !tooltip: tr('The bonus granted by an item\'s tier depends on its function.\nHigher tiers increase the chance of triggering these effects:\n\149 Weapons: a chance to deal 60%% more damage.\n\149 Armors: a chance to fully mitigate attack damage.\n\149 Helmets: a chance to reduce all cooldowns during combat.\n\149 Legs: a chance to trigger Transcendence, providing damage reduction and enhanced critical hits.\n\149 Boots amplify the effects of other tiered items.')
+
+    Panel
+      id: defaultConvergenceDescriptionPanel
+      anchors.fill: parent
+      margin-top: 2
+      margin-left: 0
+      margin-right: 2
+      visible: false
+
+      Panel
+        id: convergenceHelpLine1
+        height: 15
+        anchors.top: parent.top
+        anchors.left: parent.left
+        layout:
+          type: horizontalBox
+          fit-children: true
+          spacing: 2
+
+        Label
+          id: convergenceHelpText1
+          !text: tr('The goal of a Convergence fusion is to increase the tier of an item.')
+          font: verdana-11px-rounded-lowspace
+          color: #c0c0c0
+          text-auto-resize: true
+
+        FusionHelpIcon
+          id: convergenceHelpIcon1
+          !tooltip: tr('Two items can be fused using Convergence to increase the tier of one of them.\nThe two items must have the same body slot type and may not be imbued.\nFurther ingredients are also required.\nOne item gains a tier and the second item is consumed.')
+
+      Panel
+        id: convergenceHelpLine2
+        height: 15
+        anchors.top: convergenceHelpLine1.bottom
+        anchors.left: parent.left
+        margin-top: 2
+        layout:
+          type: horizontalBox
+          fit-children: true
+          spacing: 2
+
+        Label
+          id: convergenceHelpText2
+          !text: tr('A Convergence fusion has a 100%% success rate.')
+          font: verdana-11px-rounded-lowspace
+          color: #c0c0c0
+          text-auto-resize: true
+
+      Panel
+        id: convergenceHelpLine3
+        height: 15
+        anchors.top: convergenceHelpLine2.bottom
+        anchors.left: parent.left
+        margin-top: 2
+        layout:
+          type: horizontalBox
+          fit-children: true
+          spacing: 2
+
+        Label
+          id: convergenceHelpText3
+          !text: tr('There are no bonus effects from a Convergence fusion.')
+          font: verdana-11px-rounded-lowspace
+          color: #c0c0c0
+          text-auto-resize: true
+
+      Panel
+        id: convergenceHelpLine4
+        height: 15
+        anchors.top: convergenceHelpLine3.bottom
+        anchors.left: parent.left
+        margin-top: 2
+        layout:
+          type: horizontalBox
+          fit-children: true
+          spacing: 2
+
+        Label
+          id: convergenceHelpText4
+          !text: tr('Only items with classification 4 can be fused using Convergence.')
+          font: verdana-11px-rounded-lowspace
+          color: #c0c0c0
+          text-auto-resize: true
+
+    Label
+      id: description
+      anchors.fill: parent
+      margin-top: 2
+      margin-left: 0
+      visible: false
+      text-wrap: true
+      font: verdana-11px-rounded-lowspace
+      color: #c0c0c0

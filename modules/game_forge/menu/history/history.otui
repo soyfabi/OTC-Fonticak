@@ -1,0 +1,223 @@
+ForgeHistoryRow < UIWidget
+  id: historyRow
+  height: 30
+  focusable: false
+
+  Label
+    id: date
+    anchors.left: parent.left
+    anchors.top: parent.top
+    margin-left: 1
+    width: 141
+    font: Verdana Bold-11px
+    color: #C0C0C0
+    text-align: topLeft
+
+  VerticalSeparator
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    margin-left: 148
+
+  Label
+    id: action
+    anchors.left: parent.left
+    anchors.top: parent.top
+    margin-left: 151
+    width: 88
+    font: Verdana Bold-11px
+    color: #C0C0C0
+    text-align: topLeft
+
+  VerticalSeparator
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    margin-left: 243
+
+  UIWidget
+    id: detailsHit
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    margin-left: 246
+    margin-right: 4
+    phantom: false
+    focusable: false
+
+  Label
+    id: details
+    anchors.left: detailsHit.left
+    anchors.right: detailsHit.right
+    anchors.top: detailsHit.top
+    anchors.bottom: detailsHit.bottom
+    margin-left: 0
+    margin-right: 0
+    font: Verdana Bold-11px
+    color: #C0C0C0
+    text-align: topLeft
+    text-auto-resize: false
+    text-wrap: true
+    phantom: true
+    focusable: false
+    clipping: true
+
+HistoryPrevButton < UIButton
+  size: 86 20
+  image-source: /images/game/forge/button-history-previous
+  image-clip: 0 0 86 20
+  $pressed:
+    image-clip: 0 20 86 20
+
+HistoryNextButton < UIButton
+  size: 86 20
+  image-source: /images/game/forge/button-history-next
+  image-clip: 0 0 86 20
+  $pressed:
+    image-clip: 0 20 86 20
+
+HistoryWindow < Panel
+  anchors.top: parent.top
+  anchors.bottom: parent.bottom
+  anchors.left: parent.left
+  anchors.right: parent.right
+  margin-left: -1
+  margin-bottom: 37
+  clipping: false
+  visible: false
+
+  UIWidget
+    id: historyListContainer
+    size: 468 250
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 7
+    margin-left: 0
+    image-source: /images/ui/1pixel-down-frame
+    image-border: 1
+    clipping: true
+
+    UIWidget
+      id: historyListHeader
+      height: 16
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+
+      UIWidget
+        anchors.fill: parent
+        margin: 1
+        background-color: #363636
+
+      Label
+        id: dateHeader
+        text: Date
+        font: Verdana Bold-11px
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        margin-left: 2
+        margin-top: 1
+        color: #C0C0C0
+        width: 142
+
+      VerticalSeparator
+        id: historyHeaderSeparator1
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        margin-left: 149
+        margin-top: 1
+        margin-bottom: 1
+
+      Label
+        id: actionHeader
+        text: Action
+        font: Verdana Bold-11px
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.left: historyHeaderSeparator1.right
+        margin-left: 2
+        margin-top: 1
+        color: #C0C0C0
+        width: 92
+
+      VerticalSeparator
+        id: historyHeaderSeparator2
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        margin-left: 244
+        margin-top: 1
+
+      Label
+        id: detailsHeader
+        text: Details
+        font: Verdana Bold-11px
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.left: historyHeaderSeparator2.right
+        margin-left: 2
+        margin-top: 1
+        color: #C0C0C0
+
+    HorizontalSeparator
+      id: historyHeaderListSeparator
+      anchors.top: historyListHeader.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 0
+      margin-left: 1
+      margin-right: 1
+
+    UIScrollArea
+      id: contentPanel
+      vertical-scrollbar: historyListScrollbar
+      anchors.top: prev.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      margin-top: 1
+      margin-left: 1
+      margin-bottom: 1
+      margin-right: 13
+      background-color: #404040
+      layout:
+        type: verticalBox
+        spacing: 0
+
+    VerticalQtScrollBar
+      id: historyListScrollbar
+      anchors.top: parent.top
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      margin-top: 1
+      margin-right: 1
+      margin-bottom: 1
+      step: 30
+      pixel-scroll: true
+
+  HistoryPrevButton
+    id: historyPrevButton
+    anchors.top: historyListContainer.bottom
+    anchors.left: historyListContainer.left
+    margin-top: 6
+    visible: false
+
+  HistoryNextButton
+    id: historyNextButton
+    anchors.top: historyListContainer.bottom
+    anchors.right: historyListContainer.right
+    margin-top: 6
+    visible: false
+
+  Label
+    id: historyPageLabel
+    anchors.top: historyListContainer.bottom
+    anchors.horizontalCenter: historyListContainer.horizontalCenter
+    margin-top: 10
+    font: Verdana Bold-11px
+    color: #C0C0C0
+    text: Page 1/1
+    text-auto-resize: true

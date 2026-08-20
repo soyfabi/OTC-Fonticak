@@ -1,0 +1,280 @@
+ForgeContainerItem < Panel
+  size: 34 34
+  Panel
+    id: forgeItem
+    anchors.top: parent.top
+    anchors.right: parent.right
+    anchors.left: parent.left
+    anchors.bottom: parent.bottom
+    margin-top: 3
+    margin-left: 3
+    UIWidget
+      id: selectionOverlay
+      anchors.top: parent.top
+      anchors.right: parent.right
+      anchors.left: parent.left
+      anchors.bottom: parent.bottom
+      margin-top: -1
+      margin-left: -1
+      margin-right: -4
+      margin-bottom: -4
+      phantom: true
+      border-width: 0
+
+ForgeItem < Panel
+  id: forgeItem
+  size: 60 80
+  Item
+    id: item
+    size: 64 64
+    margin-left: 3
+    anchors.top: parent.top
+  UIWidget
+    id: image
+    anchors.top: prev.top
+    anchors.left: prev.left
+    image-source: /images/game/forge/dust
+    size: 64 64
+  Panel
+    id: countPanel
+    image-source: /images/ui/item
+    image-border: 10
+    anchors.top: item.bottom
+    margin-top: 2
+    anchors.left: prev.left
+    anchors.right: prev.right
+    size: 86 22
+    Label
+      id: value
+      text: 100
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.horizontalCenter: parent.horizontalCenter
+      margin-right: 5
+      text-align: center
+      text-auto-resize: true
+    UIWidget
+      id: icon
+      anchors.verticalCenter: prev.verticalCenter
+      anchors.left: prev.right
+      margin-left: 5
+      image-source: /images/icons/icon-currency-sliver
+
+ForgeButton < UIWidget
+  anchors.top: parent.top
+  anchors.left: parent.left
+  margin-left: 1
+  size: 116 34
+  UIButton
+    id: button
+    size: 116 34
+    image-source: /images/ui/button-grey-up
+    image-border: 5
+    opacity: 1.0
+    text: Transfer
+    text-offset: 7 1
+    font: verdana-11px-antialised
+    color: #c0c0c0
+    icon-align: left
+    @onMousePress: |
+      modules.game_forge.Forge.onTabButtonIconPress(self:getParent())
+    @onMouseRelease: |
+      modules.game_forge.Forge.onTabButtonIconRelease(self:getParent())
+    $pressed:
+      image-source: /images/ui/button-grey-down
+      text-offset: 8 2
+    $disabled:
+      image-source: /images/ui/button-grey-down
+      text-offset: 8 2
+    $checked:
+      image-source: /images/ui/button-grey-down
+      text-offset: 8 2
+
+ForgeHistoryButton < UIWidget
+  anchors.top: parent.top
+  anchors.left: parent.left
+  margin-left: 1
+  size: 116 34
+  UIButton
+    id: button
+    size: 116 34
+    image-source: /images/ui/button-grey-up
+    image-border: 5
+    opacity: 1.0
+    text: History
+    text-offset: 8 1
+    font: verdana-11px-antialised
+    color: #c0c0c0
+    icon-align: left
+    @onMousePress: |
+      modules.game_forge.Forge.onTabButtonIconPress(self:getParent())
+    @onMouseRelease: |
+      modules.game_forge.Forge.onTabButtonIconRelease(self:getParent())
+    $pressed:
+      image-source: /images/ui/button-grey-down
+      text-offset: 9 2
+    $disabled:
+      image-source: /images/ui/button-grey-down
+      text-offset: 9 2
+    $checked:
+      image-source: /images/ui/button-grey-down
+      text-offset: 9 2
+
+MainWindow
+  @onEscape: modules.game_forge.Forge:close()
+  size: 500 436
+  !text: tr('Exaltation Forge')
+  image-source: /images/ui/popupwindow
+  text-offset: 0 1
+  padding-top: 30
+
+  Panel
+    id: headerPainel
+    width: 468
+    height: 36
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: -1
+    padding: 1
+    image-source: /images/ui/1pixel-down-frame
+    image-border: 1
+
+  QtPanel
+    id: firstTooltip
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 37
+    height: 75
+    visible: false
+
+  HorizontalSeparator
+    id: separator
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 30
+ 
+  Button
+    id: close
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    text: Close
+    size: 43 20
+    text-offset: 0 0
+    
+  Panel
+    id: goldBalancePanel
+    size: 130 20
+    anchors.top: separator.bottom
+    anchors.left: parent.left
+    margin-top: 11
+    image-source: /images/ui/button-verydarkgrey-down
+    image-border: 1
+
+    UIWidget
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      image-source: /images/icons/icon-goldcoin
+      tooltip: Gold Coins
+      margin-right: 3
+      margin-top: 1
+      
+    Label
+      id: value
+      text: 555,5555
+      anchors.right: prev.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 10
+      margin-top: 1
+      text-auto-resize: true
+      font: Verdana Bold-11px
+      color: #c0c0c0
+ 
+  Panel
+    id: dustBalancePanel
+    size: 130 20
+    anchors.top: separator.bottom
+    anchors.left: goldBalancePanel.right
+    margin-top: 11
+    margin-left: 6
+    image-source: /images/ui/button-verydarkgrey-down
+    image-border: 1
+
+    UIWidget
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      image-source: /images/icons/icon-currency-dust
+      tooltip: Dusts
+      margin-right: 3
+      margin-top: 1
+
+    Label
+      id: value
+      text: 2000
+      anchors.right: prev.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 10
+      margin-top: 1
+      text-auto-resize: true
+      font: Verdana Bold-11px
+      color: #c0c0c0
+
+  Panel
+    id: sliverBalancePanel
+    size: 52 20
+    anchors.top: separator.bottom
+    anchors.left: dustBalancePanel.right
+    margin-top: 11
+    margin-left: 6
+    image-source: /images/ui/button-verydarkgrey-down
+    image-border: 1
+
+    UIWidget
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      image-source: /images/icons/icon-currency-sliver
+      tooltip: Slivers
+      margin-right: 3
+      margin-top: 1
+
+    Label
+      id: value
+      text: 0
+      anchors.right: prev.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 10
+      margin-top: 1
+      text-auto-resize: true
+      font: Verdana Bold-11px
+      color: #c0c0c0
+
+  Panel
+    id: coreBalancePanel
+    size: 52 20
+    anchors.top: separator.bottom
+    anchors.left: sliverBalancePanel.right
+    margin-top: 11
+    margin-left: 6
+    image-source: /images/ui/button-verydarkgrey-down
+    image-border: 1
+
+    UIWidget
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      image-source: /images/icons/icon-currency-exaltedcore
+      tooltip: Exalted Cores
+      margin-right: 3
+      margin-top: 1
+
+    Label
+      id: value
+      text: 0
+      anchors.right: prev.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 10
+      margin-top: 1
+      text-auto-resize: true 
+      font: Verdana Bold-11px
+      color: #c0c0c0
+	

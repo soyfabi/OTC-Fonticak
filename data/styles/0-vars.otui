@@ -31,5 +31,7 @@
 &var-cip-font: verdana-11px-antialised
 &var-cip-font-off: verdana-11px-antialised
 &var-cip-font-wheel: Verdana Bold-11px-wheel
+&var-cip-font-new: Verdana Bold-11px
+&var-cip-font-lowspace: Verdana Bold-11px-low-space
 &var-cip-font-mono-rounded: verdana-11px-mono-rounded
 &var-cip-font-rounded-lowspace: verdana-11px-rounded-lowspace

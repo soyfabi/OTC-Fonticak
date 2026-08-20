@@ -1,0 +1,155 @@
+MainWindowHigh
+  margin-top: 34
+  size: 400 201
+  text: Fusion Result
+  font: Verdana Bold-11px
+  color: #909090
+  text-offset: 0 2
+  clipping: false
+
+  Button
+    id: close
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    size: 43 20
+    text:
+    text-offset: 0 0
+
+    UIWidget
+      id: closeDither
+      anchors.centerIn: parent
+      size: 41 18
+      image-source: /images/ui/ditherpattern
+      image-repeated: true
+      phantom: true
+      visible: false
+      focusable: false
+
+  HorizontalSeparator
+    id: separator
+    anchors.bottom: prev.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 11
+
+  Item1Px
+    id: previewItem1
+    image-source:
+    fixed-item-size: false
+    padding: 0
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: -7
+    size: 64 64
+
+    UIWidget
+      id: bigtier
+      size: 19 16
+      image-source: /images/inventory/tiers-strip-big
+      image-clip: 0 0 18 16
+      image-size: 18 16
+      anchors.top: parent.top
+      anchors.right: parent.right
+      margin-right: -1
+      phantom: true
+      focusable: false
+      visible: false
+      image-smooth: true
+
+  Item1Px
+    id: previewItem2
+    image-source:
+    fixed-item-size: false
+    padding: 0
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: -7
+    size: 64 64
+
+    UIWidget
+      id: bigtier
+      size: 19 16
+      image-source: /images/inventory/tiers-strip-big
+      image-clip: 0 0 18 16
+      image-size: 18 16
+      anchors.top: parent.top
+      anchors.right: parent.right
+      margin-right: -1
+      phantom: true
+      focusable: false
+      visible: false
+      image-smooth: true
+
+  UIWidget
+    id: arrowsIcon1
+    anchors.verticalCenter: prev.verticalCenter
+    anchors.horizontalCenter: parent.horizontalCenter
+    margin-top: 1
+    margin-right: 19
+    image-source: /images/game/forge/icon-arrow-rightlarge
+
+  UIWidget
+    id: arrowsIcon2
+    anchors.verticalCenter: prev.verticalCenter
+    anchors.left: prev.right
+    margin-left: 6
+    image-source: /images/game/forge/icon-arrow-rightlarge
+
+  UIWidget
+    id: arrowsIcon3
+    anchors.verticalCenter: prev.verticalCenter
+    anchors.left: prev.right
+    margin-left: 6
+    image-source: /images/game/forge/icon-arrow-rightlarge
+
+  Item1Px
+    id: bonusItem
+    image-source:
+    fixed-item-size: false
+    padding: 0
+    anchors.top: parent.top
+    anchors.horizontalCenter: parent.horizontalCenter
+    margin-top: -7
+    size: 64 64
+    visible: false
+    show-count: false
+    virtual-count: true
+
+  Label
+    id: resultText
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.top: arrowsIcon3.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 29
+    margin-left: 16
+    margin-right: 16
+    text: You transfer was successful.
+    font: verdana-11px-antialised
+    color: #C0C0C0
+    visible: false
+    text-auto-resize: true
+    text-wrap: true
+    text-align: center
+
+  Label
+    id: resultText2
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.top: resultText.bottom
+    margin-top: -1
+    text:
+    font: verdana-11px-antialised
+    color: #C0C0C0
+    visible: false
+    text-auto-resize: true
+    text-wrap: false
+    text-align: center
+
+  UIWidget
+    id: dragonHeader
+    anchors.top: parent.top
+    anchors.horizontalCenter: parent.horizontalCenter
+    margin-top: -104
+    size: 192 70
+    phantom: true
+    image-source: /images/animations/animation-dragonheader
