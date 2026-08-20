@@ -1,60 +1,92 @@
-**🌟Client adapted for TFS 1.8 Downgrade🌟**
+# Fonticak Client
 
-**Fork: OTClient - Redemption** is a highly optimized and customized version of **OTClient**, an open-source alternative client for Tibia. It is designed to offer maximum performance, modularity, and easy customization using C++ for the core engine and Lua for the GUI and gameplay mechanics.
+OTCv8 based client adapted for **TFS 1.8 Downgrade**, focused on performance, modular UI and a fully custom **FontiBot** toolkit.
 
----
-
-## 🚀 Key Features
-
-* **Dual Graphics Engine:** Full and optimized support for **DirectX (DX9/DX11)** and **OpenGL 2.0** with custom shaders.
-* **High Performance:** Smooth and optimized rendering, ideal for high FPS rates and fluid gameplay.
-* **Modular Interface (LUI/OTUI):** Fully customizable GUI using the `.otui` layout design language and `.lua` scripts.
-* **Multiplatform:** Compatible with Windows, Linux (Ubuntu), Android, and experimental builds for Web browsers (WebAssembly).
-* **Security & Encryption:** Built-in support for machine UUID, encrypted password storage, and secure protocols.
+Originally forked from **OTClient - Redemption** (a high-performance OTClient customization by the community).
 
 ---
 
-## 🛠️ Basic Customization
+## ✨ Key Features
 
-Here are a few quick configurations to personalize your client:
+- 🎨 **Dual Graphics Engine:** Full support for **DirectX 9 / 11**, **OpenGL 2.0**, and an experimental **Vulkan** renderer.
+- 🚀 **High Performance:** Optimized rendering pipeline tuned for smooth FPS even on long sessions.
+- 🧩 **Modular Interface (OTUI):** Every UI panel is a Lua module + `.otui` layout, fully themable.
+- 🤖 **FontiBot Suite:** Built-in **CaveBot**, **Healer**, **Trainer**, **Supplier**, **Walker** and draggable Bot Hub tabs.
+- 🪟 **Free Window Placement:** Drag any mini-window anywhere; layout persists between sessions.
+- 📦 **Multi-Platform:** Windows, Linux (Ubuntu), Android (NDK), and experimental WebAssembly builds.
+- 🔐 **Security:** Machine UUID, encrypted password storage, hardened ZIP handling and hash-based config sharing.
+
+---
+
+## 🛠️ Customization
 
 ### 🏷️ Change Client Title
-To change the title displayed on the top window bar:
-* Open the file `modules/startup/startup.lua`.
-* Find the line:
-  ```lua
-  g_window.setTitle(g_app.getName())
-  ```
-* You can change it to a static text, for example:
-  ```lua
-  g_window.setTitle("My Online Server")
-  ```
+Edit `modules/startup/startup.lua` and replace:
+```lua
+g_window.setTitle(g_app.getName())
+```
+with a static title, for example:
+```lua
+g_window.setTitle("My Online Server")
+```
+
+### ⚙️ Graphics Backend
+Switch render backend in `config.ini`:
+```ini
+[graphics]
+renderBackend = gl     ; or "vulkan" / "dx9" / "dx11"
+maxAtlasSize = 8192
+```
+
+### 🎨 Fonts
+The client loads TTF fonts directly with stroke support. Format: `path|size|stroke-width|stroke-color`. See `config.ini` under `[font]`.
+
 ---
 
-## 💻 Compilation
+## 💻 Building (Windows)
 
-### Prerequisites (Windows)
-1. Install **Visual Studio 2022 or 2026** (with C++ support).
-2. Install **CMake**.
-3. **Vcpkg** dependency manager (the project's `vcpkg.json` automatically manages all required dependencies).
+### Prerequisites
+1. **Visual Studio 2022 or 2026** with C++ support.
+2. **CMake 3.16+**.
+3. **[vcpkg](https://github.com/microsoft/vcpkg)** — the project's `vcpkg.json` resolves all required dependencies automatically.
 
-### Quick Steps to Build (CMake)
+### Quick Build
 ```bash
-# 1. Clone the repository
 git clone https://github.com/soyfabi/OTC-Fonticak.git
 cd OTC-Fonticak
 
-# 2. Configure the project
 cmake --preset=default
-
-# 3. Build
 cmake --build --preset=default-release
 ```
+
+The resulting binary will be placed at `otclient_dx_x64.exe` (or the equivalent for your chosen backend).
+
+---
+
+## 📂 Project Layout
+
+| Folder | Purpose |
+|--------|---------|
+| `src/` | C++ core engine (renderer, network, graphics) |
+| `modules/` | Lua gameplay + UI modules (one folder per feature) |
+| `data/` | Assets (sprites, fonts, OTUI themes, icons) |
+| `tools/` | Helper scripts (bot config API, etc.) |
+| `vc18/` | Auxiliary build/runtime tools |
+| `vcpkg_installed/` | Pre-resolved vcpkg dependencies |
+| `docs/` | Internal API and module programming notes |
 
 ---
 
 ## 🤝 Support & Community
 
-* Join our official community on [Discord](https://discord.com/invite/GxTm7DyXVe) to get support, report bugs, or collaborate on development.
-* For more guides about the API and module programming, check the `/docs` folder or the auto-generated `meta.lua` file.
+- 💬 Join the official community on [Discord](https://discord.com/invite/GxTm7DyXVe) for support, bug reports and collaboration.
+- 📘 API reference and module programming guides: see `/docs` or the auto-generated `meta.lua`.
+- 🐛 Found a bug? Open an issue on GitHub.
 
+---
+
+## 📜 Credits
+
+- **OTClient** — Original engine by **edubart** and the OTClient community ([otclient.ovh](https://otclient.ovh)).
+- **OTClient - Redemption** — Base customisation this fork builds upon.
+- **Contributors:** @soyfabi, @otaviokta, and the community.
