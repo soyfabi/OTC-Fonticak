@@ -1,0 +1,6 @@
+&var-cip-font-new: Verdana Bold-11px
+
+MainWindowHigh < Window
+  image-source: /images/ui/window
+  image-border: 6
+  anchors.centerIn: parent

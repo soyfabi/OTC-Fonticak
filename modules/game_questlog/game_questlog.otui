@@ -1,0 +1,417 @@
+TextListQuestLog < Panel
+  font: Verdana Bold-11px
+  size: 358 435
+  text-offset: 24 5
+  text-align: topLeft
+  focusable: false
+  margin-top: 15
+  image-source: /images/ui/1pixel-down-frame
+  image-border: 1
+
+  TextList
+    id: questList
+    vertical-scrollbar: spellsScrollBar
+    anchors.fill: parent
+    margin: 1
+    padding: 0
+    font: Verdana Bold-11px
+    focusable: true
+    background-color: #404040
+    auto-focus: none
+    border-width: 0
+
+  VerticalQtScrollBar
+    id: spellsScrollBar
+    anchors.top: questList.top
+    anchors.bottom: questList.bottom
+    anchors.right: questList.right
+    step: 50
+    pixels-scroll: true
+
+MultiLineQuestLog < Panel
+  font: Verdana Bold-11px
+  text-offset: 24 5
+  text-align: topLeft
+  focusable: false
+  margin-left: -1
+  margin-right: -1
+
+  MultilineTextEdit
+    id: questList
+    vertical-scrollbar: spellsScrollBar
+    anchors.fill: parent
+    margin: 1
+    font: Verdana Bold-11px
+    padding: 5 20 5 5
+    focusable: false
+    text-wrap: true
+    background-color: #363636
+    border-width: 0
+
+  VerticalQtScrollBar
+    id: spellsScrollBar
+    anchors.top: questList.top
+    anchors.bottom: questList.bottom
+    anchors.right: questList.right
+    margin: 1 1 1 0
+    step: 50
+    pixels-scroll: true
+
+TextEditQuestLog < Panel
+  size: 358 20
+  focusable: false
+
+  TextEdit
+    id: SearchEdit
+    anchors.fill: parent
+    focusable: true
+    font: Verdana Bold-11px
+    padding: 2 20 2 4
+    placeholder: Type to search
+    placeholder-color: #6E706F
+
+  UIWidget
+    id: SearchClearButton
+    size: 18 18
+    anchors.right: parent.right
+    anchors.verticalCenter: parent.verticalCenter
+    margin-right: 1
+    image-source: /images/ui/button-erase-18x18-up
+    @onClick: modules.game_questlog.clearQuestLogSearch()
+    $pressed:
+      image-source: /images/ui/button-erase-18x18-down
+
+QuestLogLabel < UIWidget
+  height: 16
+  font: Verdana Bold-11px
+  color: #C0C0C0
+  text-align: left
+  text-offset: 15 -1
+  focusable: true
+  icon-align: left
+  icon-offset: 1 0
+
+  $checked:
+    color: #f4f4f4
+
+  CheckBoxButton
+    id: iconShow
+    anchors.right: parent.right
+    anchors.verticalCenter: parent.verticalCenter
+    icon-source: /game_questlog/images/icon-show-small-on
+    size: 12 12
+    margin-right: 28
+    visible: false
+
+  CheckBoxButton
+    id: iconPin
+    anchors.left: prev.right
+    anchors.verticalCenter: parent.verticalCenter
+    icon-source: /game_questlog/images/icon-pin
+    size: 12 12
+    margin-left: 3
+    visible: false
+
+QuestLogTracker < MiniWindow
+  id: QuestLogTracker
+  !text: tr('Quest Tracker')
+  icon: /images/topbuttons/icon-questtracker-widget
+  icon-offset: 4 2
+  icon-size: 12 12
+  @onOpen: modules.game_questlog.onOpenTracker()
+  @onClose: modules.game_questlog.onCloseTracker()
+  &save: true
+
+  UIWidget
+    id: miniwindowIcon
+    anchors.top: miniwindowHeader.top
+    anchors.left: miniwindowHeader.left
+    margin-top: 2
+    margin-left: 4
+    size: 12 12
+    image-smooth: false
+
+  Label
+    id: miniwindowTitle
+    anchors.top: miniwindowHeader.top
+    anchors.left: miniwindowHeader.left
+    anchors.right: miniwindowHeader.right
+    margin-top: 2
+    margin-left: 20
+    margin-right: 50
+    font: verdana-11px-monochrome
+    height: 13
+    color: #9d9d9dff
+
+  UIButton
+    id: menuButton
+    size: 12 12
+    image-source: /images/ui/miniwindow_buttons
+    image-clip: 12 0 12 12
+
+    $hover:
+      image-clip: 12 0 12 12
+
+    $pressed:
+      image-clip: 12 12 12 12
+
+  UIWidget
+    id: miniborder
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    image-source: /images/ui/miniborder-bottom-left
+    size: 14 14
+    margin-left: 2
+    margin-bottom: 2
+
+  MiniWindowContents
+    id: contentsPanel
+    anchors.top: miniwindowTopBar.bottom
+    anchors.left: parent.left
+    anchors.right: miniwindowScrollBar.left
+    anchors.bottom: parent.bottom
+    margin-left: 3
+    margin-bottom: 3
+    margin-top: -2
+    margin-right: 1
+    vertical-scrollbar: miniwindowScrollBar
+    padding-left: 5
+    padding-right: 5
+    padding-top: 5
+    layout: verticalBox
+    Panel
+      id: list
+      layout:
+        type: verticalBox
+        fit-children: true
+    Panel
+      height: 30
+      margin-top: 5
+      QtButton
+        margin-top: 8
+        anchors.fill: parent
+        text: Add  Tracked  Quest
+        margin-left: 20
+        margin-right: 20
+        color: white
+        @onClick: modules.game_questlog.show()
+
+ButtonTrackerMenuOption < UIButton
+  text-offset: 5 1
+  text-align: left
+  color: white
+  background-color: alpha
+  font: verdana-11px-rounded
+  padding: 3 6
+
+  $hover:
+    background-color: #ffffff1a
+
+  $disabled:
+    color: #c0c0c0ff
+
+QuestTrackerLabel < Panel
+  height: 20
+  layout:
+    type: verticalBox
+    fit-children: true
+
+  $!first:
+    margin-top: 3
+
+  Label
+    id: description
+    text-align: left
+    text-wrap: true
+    text-auto-resize: true
+    color: #cccccc
+    &onMousePress: modules.game_questlog.onQuestTrackerDescriptionClick
+
+    $hover:
+      color: #ffffff
+      background-color: #ffffff11
+  HorizontalSeparator
+    margin-top: 3
+
+TrackerWindowsMenu < PopupMenu
+  width: 304
+
+  ButtonTrackerMenuOption
+    id: remove
+    !text: tr('remove')
+
+QuestLogSidePanel < Panel
+  image-source: /images/ui/t2pixel-up-frame-borderimage
+  image-border: 20
+  text-offset: 0 2
+  text-align: top
+  padding: 7
+  font: Verdana Bold-11px
+  color: #909090
+  focusable: false
+
+MainWindowHigh
+  id: main
+  !text: tr('Quest Log')
+  size: 785 637
+  image-border: 6
+  image-border-top: 27
+  image-border-bottom: 6
+  text-offset: 0 2
+  font: Verdana Bold-11px
+  color: #909090
+  @onEscape: modules.game_questlog.questLogController:close()
+
+  QuestLogSidePanel
+    id: panelQuestLog
+    !text: tr('Quest Lines')
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: -7
+    size: 372 550
+    layout:
+      type: verticalBox
+      spacing: 5
+
+    TextListQuestLog
+      id: areaPanelQuestList
+
+    QtComboBox
+      id: comboBoxFilter
+      width: 270
+      mouse-scroll: false
+
+    TextEditQuestLog
+      id: textEditSearchQuest
+
+    Panel
+      id: filterPanel
+      height: 30
+
+      QtCheckBox
+        id: checkboxShowComplete
+        !text: tr('Show completed')
+        font: Verdana Bold-11px
+        color: #c0c0c0
+        anchors.top: parent.top
+        anchors.left: parent.left
+        width: 115
+        margin-left: -1
+        margin-top: -1
+        text-offset: 16 1
+
+      Label
+        id: lblCompleteNumber
+        font: Verdana Bold-11px
+        color: #70C96B
+        text: 0
+        anchors.top: parent.top
+        anchors.right: parent.right
+        width: 41
+        text-align: right
+        text-offset: 0 0
+        margin-right: 1
+
+      Label
+        !text: tr('Quests completed:')
+        font: Verdana Bold-11px
+        color: #70C96B
+        anchors.top: parent.top
+        anchors.left: checkboxShowComplete.right
+        anchors.right: lblCompleteNumber.left
+        margin-left: 4
+        text-align: right
+        text-offset: 0 0
+
+      QtCheckBox
+        id: checkboxShowShidden
+        !text: tr('Show hidden')
+        font: Verdana Bold-11px
+        color: #c0c0c0
+        anchors.top: checkboxShowComplete.bottom
+        anchors.left: parent.left
+        margin-top: 5
+        width: 115
+        margin-left: -1
+        text-offset: 16 1
+
+      Label
+        id: lblHiddenNumber
+        font: Verdana Bold-11px
+        color: #D9A441
+        text: 0
+        anchors.top: checkboxShowShidden.top
+        anchors.right: parent.right
+        width: 41
+        text-align: right
+        text-offset: 0 1
+        margin-right: 1
+
+      Label
+        !text: tr('Quests hidden:')
+        font: Verdana Bold-11px
+        color: #D9A441
+        anchors.top: checkboxShowShidden.top
+        anchors.left: checkboxShowShidden.right
+        anchors.right: lblHiddenNumber.left
+        margin-left: 4
+        text-align: right
+        text-offset: 0 1
+
+  QuestLogSidePanel
+    id: panelQuestLineSelected
+    anchors.top: panelQuestLog.top
+    anchors.left: panelQuestLog.right
+    margin-left: 11
+    size: 371 550
+    !text: tr('No quest line Selected')
+    layout:
+      type: verticalBox
+      spacing: 5
+
+    TextListQuestLog
+      id: ScrollAreaQuestList
+      height: 200 
+
+    MultiLineQuestLog
+      id: panelQuestInfo
+      height: 300
+      margin-top: -1
+
+    QtCheckBox
+      id: checkboxShowInQuestTracker
+      !text: tr('Show in quest tracker')
+      color: #c0c0c0
+      margin-left: -2
+      margin-top: -2
+      text-offset: 16 0
+
+  HorizontalSeparator
+    anchors.bottom: closeButton.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 11
+
+  Button
+    id: trackerButton
+    size: 86 20
+    !text: tr('Quest Tracker')
+    color: #C0C0C0
+    text-offset: 0 0
+    text-align: center
+    change-cursor-image: false
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    @onClick: modules.game_questlog.questLogController:toggleMiniWindowsTracker()
+
+  Button
+    id: closeButton
+    size: 43 20
+    !text: tr('Close')
+    color: #C0C0C0
+    text-offset: 0 0
+    text-align: center
+    change-cursor-image: false
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    @onClick: modules.game_questlog.questLogController:close()
