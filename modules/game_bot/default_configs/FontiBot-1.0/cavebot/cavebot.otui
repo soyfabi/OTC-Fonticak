@@ -2,9 +2,14 @@ CaveBotAction < Label
   background-color: alpha
   text-offset: 2 0
   focusable: true
+  phantom: false
+  draggable: true
 
   $focus:
     background-color: #00000055
+
+  $dragging:
+    background-color: #ffffff33
 
 CaveBotPanel < Panel
   layout:

@@ -133,8 +133,20 @@ local function pathfinder()
   return true
 end
 
+CaveBot.getNextActionId = function()
+  local maxId = 0
+  if CaveBot.actionList then
+    for _, child in ipairs(CaveBot.actionList:getChildren()) do
+      if child.actionId and child.actionId > maxId then
+        maxId = child.actionId
+      end
+    end
+  end
+  return maxId + 1
+end
+
 -- it adds an action widget to list
-CaveBot.addAction = function(action, value, focus)
+CaveBot.addAction = function(action, value, focus, actionId)
   action = action:lower()
   local raction = CaveBot.Actions[action]
   if not raction then
@@ -143,13 +155,20 @@ CaveBot.addAction = function(action, value, focus)
   if type(value) == 'number' then
     value = tostring(value)
   end
+  if not actionId then
+    actionId = CaveBot.getNextActionId()
+  end
+  actionId = tonumber(actionId) or CaveBot.getNextActionId()
+
   local widget = UI.createWidget("CaveBotAction", CaveBot.actionList)
-  widget:setText(action .. ":" .. value:split("\n")[1])
+  widget.actionId = actionId
   widget.action = action
   widget.value = value
+  widget:setText(actionId .. ". " .. action .. ":" .. value:split("\n")[1])
   if raction.color then
     widget:setColor(raction.color)
   end
+  widget:setDraggable(true)
   widget.onDoubleClick = function(cwidget) -- edit on double click
     if CaveBot.Editor then
       schedule(20, function() -- schedule to have correct focus
@@ -159,6 +178,58 @@ CaveBot.addAction = function(action, value, focus)
         end)
       end)
     end
+  end
+  widget.onDragEnter = function(cwidget, mousePos)
+    cwidget:focus()
+    cwidget.dragMoved = false
+    return true
+  end
+  widget.onDragMove = function(cwidget, mousePos, mouseMoved)
+    local list = cwidget:getParent()
+    if not list then return false end
+
+    local targetChild = list:getChildByPos(mousePos)
+    if not targetChild then
+      local children = list:getChildren()
+      for _, child in ipairs(children) do
+        if mousePos.y >= child:getY() and mousePos.y <= (child:getY() + child:getHeight()) then
+          targetChild = child
+          break
+        end
+      end
+      if not targetChild and #children > 0 then
+        if mousePos.y < children[1]:getY() then
+          targetChild = children[1]
+        elseif mousePos.y > (children[#children]:getY() + children[#children]:getHeight()) then
+          targetChild = children[#children]
+        end
+      end
+    end
+
+    if targetChild and targetChild ~= cwidget then
+      local currentIndex = list:getChildIndex(cwidget)
+      local targetIndex = list:getChildIndex(targetChild)
+      if targetIndex and currentIndex and targetIndex ~= currentIndex then
+        list:moveChildToIndex(cwidget, targetIndex)
+        if list.ensureChildVisible then
+          list:ensureChildVisible(cwidget)
+        end
+        cwidget.dragMoved = true
+      end
+    end
+    return true
+  end
+  widget.onDragLeave = function(cwidget, droppedWidget, mousePos)
+    if cwidget.dragMoved then
+      cwidget.dragMoved = false
+      CaveBot.save()
+    end
+    cwidget:focus()
+    local list = cwidget:getParent()
+    if list and list.ensureChildVisible then
+      list:ensureChildVisible(cwidget)
+    end
+    return true
   end
   if focus then
     widget:focus()
@@ -179,9 +250,10 @@ CaveBot.editAction = function(widget, action, value)
     return warn("Invalid cavebot action widget, has missing action or value")
   end
 
-  widget:setText(action .. ":" .. value:split("\n")[1])
   widget.action = action
   widget.value = value
+  local idPrefix = widget.actionId and (widget.actionId .. ". ") or ""
+  widget:setText(idPrefix .. action .. ":" .. value:split("\n")[1])
   if raction.color then
     widget:setColor(raction.color)
   end

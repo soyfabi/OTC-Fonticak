@@ -56,7 +56,9 @@ CaveBot.Editor.setup = function()
     local index = CaveBot.actionList:getChildIndex(action)
     if index < 2 then return end
     CaveBot.actionList:moveChildToIndex(action, index - 1)
-    CaveBot.actionList:ensureChildVisible(action)
+    if CaveBot.actionList.ensureChildVisible then
+      CaveBot.actionList:ensureChildVisible(action)
+    end
     CaveBot.save()
   end)
   registerAction("edit", function()
@@ -70,7 +72,9 @@ CaveBot.Editor.setup = function()
     local index = CaveBot.actionList:getChildIndex(action)
     if index >= CaveBot.actionList:getChildCount() then return end
     CaveBot.actionList:moveChildToIndex(action, index + 1)
-    CaveBot.actionList:ensureChildVisible(action)
+    if CaveBot.actionList.ensureChildVisible then
+      CaveBot.actionList:ensureChildVisible(action)
+    end
     CaveBot.save()
   end)
   registerAction("remove", function()

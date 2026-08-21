@@ -51,6 +51,7 @@ local bestiaryTrackerRefreshEvent = nil
 local bestiaryMonsterRefreshEvent = nil
 local syncingTrackKillsCheckbox = false
 local selectedBestiaryCharmSlot = 1
+local scheduleBestiaryTrackerRefresh
 local scheduleBestiaryMonsterRefresh
 local stopBestiaryMonsterRefresh
 local bestiaryCategoryImages = {
@@ -1246,7 +1247,7 @@ function requestBestiaryTrackerRefresh()
 	end
 end
 
-local function scheduleBestiaryTrackerRefresh()
+scheduleBestiaryTrackerRefresh = function()
 	if bestiaryTrackerRefreshEvent then
 		return
 	end

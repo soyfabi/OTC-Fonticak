@@ -101,7 +101,7 @@ config = Config.setup("cavebot_configs", configWidget, "cfg", function(name, ena
 
   local cavebotConfig = nil
   for k,v in ipairs(data) do
-    if type(v) == "table" and #v == 2 then
+    if type(v) == "table" and #v >= 2 then
       if v[1] == "config" then
         local status, result = pcall(function()
           return json.decode(v[2])
@@ -125,7 +125,7 @@ config = Config.setup("cavebot_configs", configWidget, "cfg", function(name, ena
           end
         end
       else
-        CaveBot.addAction(v[1], v[2])
+        CaveBot.addAction(v[1], v[2], false, v[3])
       end
     end
   end
@@ -203,15 +203,20 @@ CaveBot.gotoNextWaypointInRange = function()
   local index = ui.list:getChildIndex(currentAction)
   local actions = ui.list:getChildren()
 
+  local function parsePos(val)
+    local re = regexMatch(val, [[([^,]+),([^,]+),([^,]+)]])
+    if re and re[1] and re[1][2] and re[1][3] and re[1][4] then
+      return {x = tonumber(re[1][2]), y = tonumber(re[1][3]), z = tonumber(re[1][4])}
+    end
+    return nil
+  end
+
   -- start searching from current index
   for i, child in ipairs(actions) do
     if i > index then
-      local text = child:getText()
-      if string.starts(text, "goto:") then
-        local re = regexMatch(text, [[(?:goto:)([^,]+),([^,]+),([^,]+)]])
-        local pos = {x = tonumber(re[1][2]), y = tonumber(re[1][3]), z = tonumber(re[1][4])}
-
-        if posz() == pos.z then
+      if child.action == "goto" then
+        local pos = parsePos(child.value)
+        if pos and posz() == pos.z then
           local maxDist = storage.extras.gotoMaxDistance
           if distanceFromPlayer(pos) <= maxDist then
             if findPath(player:getPosition(), pos, maxDist, { ignoreNonPathable = true }) then
@@ -227,12 +232,9 @@ CaveBot.gotoNextWaypointInRange = function()
   -- if not found then damn go from start
   for i, child in ipairs(actions) do
     if i <= index then
-      local text = child:getText()
-      if string.starts(text, "goto:") then
-        local re = regexMatch(text, [[(?:goto:)([^,]+),([^,]+),([^,]+)]])
-        local pos = {x = tonumber(re[1][2]), y = tonumber(re[1][3]), z = tonumber(re[1][4])}
-
-        if posz() == pos.z then
+      if child.action == "goto" then
+        local pos = parsePos(child.value)
+        if pos and posz() == pos.z then
           local maxDist = storage.extras.gotoMaxDistance
           if distanceFromPlayer(pos) <= maxDist then
             if findPath(player:getPosition(), pos, maxDist, { ignoreNonPathable = true }) then
@@ -273,6 +275,14 @@ CaveBot.gotoFirstPreviousReachableWaypoint = function()
   local currentIndex = ui.list:getChildIndex(currentAction)
   local index = ui.list:getChildIndex(currentAction)
 
+  local function parsePos(val)
+    local re = regexMatch(val, [[([^,]+),([^,]+),([^,]+)]])
+    if re and re[1] and re[1][2] and re[1][3] and re[1][4] then
+      return {x = tonumber(re[1][2]), y = tonumber(re[1][3]), z = tonumber(re[1][4])}
+    end
+    return nil
+  end
+
   -- check up to 100 childs
   for i=0,100 do
     index = index - i
@@ -281,18 +291,12 @@ CaveBot.gotoFirstPreviousReachableWaypoint = function()
     end
 
     local child = ui.list:getChildByIndex(index)
-
-    if child then
-      local text = child:getText()
-      if string.starts(text, "goto:") then
-        local re = regexMatch(text, [[(?:goto:)([^,]+),([^,]+),([^,]+)]])
-        local pos = {x = tonumber(re[1][2]), y = tonumber(re[1][3]), z = tonumber(re[1][4])}
-
-        if posz() == pos.z then
-          if distanceFromPlayer(pos) <= storage.extras.gotoMaxDistance/2 then
-            print("found pos, going back "..currentIndex-index.. " waypoints.")
-            return ui.list:focusChild(child)
-          end
+    if child and child.action == "goto" then
+      local pos = parsePos(child.value)
+      if pos and posz() == pos.z then
+        if distanceFromPlayer(pos) <= storage.extras.gotoMaxDistance/2 then
+          print("found pos, going back "..currentIndex-index.. " waypoints.")
+          return ui.list:focusChild(child)
         end
       end
     end
@@ -304,15 +308,21 @@ CaveBot.gotoFirstPreviousReachableWaypoint = function()
 end
 
 CaveBot.getFirstWaypointBeforeLabel = function(label)
-  label = "label:"..label
   label = label:lower()
   local actions = ui.list:getChildren()
   local index
 
+  local function parsePos(val)
+    local re = regexMatch(val, [[([^,]+),([^,]+),([^,]+)]])
+    if re and re[1] and re[1][2] and re[1][3] and re[1][4] then
+      return {x = tonumber(re[1][2]), y = tonumber(re[1][3]), z = tonumber(re[1][4])}
+    end
+    return nil
+  end
+
   -- find index of label
   for i, child in pairs(actions) do
-    local name = child:getText():lower()
-    if name == label then
+    if child.action == "label" and child.value:lower() == label then
       index = i
       break
     end
@@ -328,16 +338,11 @@ CaveBot.getFirstWaypointBeforeLabel = function(label)
     end
 
     local child = ui.list:getChildByIndex(index-i)
-    if child then
-      local text = child:getText()
-      if string.starts(text, "goto:") then
-        local re = regexMatch(text, [[(?:goto:)([^,]+),([^,]+),([^,]+)]])
-        local pos = {x = tonumber(re[1][2]), y = tonumber(re[1][3]), z = tonumber(re[1][4])}
-
-        if posz() == pos.z then
-          if distanceFromPlayer(pos) <= storage.extras.gotoMaxDistance/2 then
-            return ui.list:focusChild(child)
-          end
+    if child and child.action == "goto" then
+      local pos = parsePos(child.value)
+      if pos and posz() == pos.z then
+        if distanceFromPlayer(pos) <= storage.extras.gotoMaxDistance/2 then
+          return ui.list:focusChild(child)
         end
       end
     end
@@ -427,7 +432,7 @@ end
 CaveBot.save = function()
   local data = {}
   for index, child in ipairs(ui.list:getChildren()) do
-    table.insert(data, {child.action, child.value})
+    table.insert(data, {child.action, child.value, child.actionId})
   end
 
   if CaveBot.Config then

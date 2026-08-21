@@ -93,6 +93,12 @@ Config.loadRaw = function(dir, name)
 end
 
 Config.save = function(dir, name, value, forcedExtension)
+  -- A config can be saved from global CaveBot actions even when no profile
+  -- exists or is selected. Ignore that save request instead of constructing a
+  -- path with a nil profile name.
+  if type(name) ~= 'string' or name:len() == 0 then
+    return false
+  end
   if not Config.exist(dir) then
     if not Config.create(dir) then
       return context.error("Can't create config dir: " .. context.configDir .. "/" .. dir)
@@ -258,7 +264,11 @@ Config.setup = function(dir, widget, configExtension, callback)
       end
     end,
     save = function(data)
-      Config.save(dir, context.storage._configs[dir].selected, data, configExtension)
+      local name = context.storage._configs[dir].selected
+      if not name then
+        return false
+      end
+      return Config.save(dir, name, data, configExtension)
     end,
     refresh = refresh,
     reload = refresh,
