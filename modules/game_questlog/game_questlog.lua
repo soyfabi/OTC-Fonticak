@@ -759,6 +759,10 @@ local function hide()
 		g_modalManager.hide(questLogController.ui)
 	end
 	questLogController.ui:hide()
+
+	if modules.game_interface and modules.game_interface.getRootPanel then
+		modules.game_interface.getRootPanel():focus()
+	end
 end
 
 function show()

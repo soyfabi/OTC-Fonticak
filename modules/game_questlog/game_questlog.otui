@@ -32,7 +32,7 @@ MultiLineQuestLog < Panel
   font: Verdana Bold-11px
   text-offset: 24 5
   text-align: topLeft
-  focusable: false
+  focusable: true
   margin-left: -1
   margin-right: -1
 
@@ -43,7 +43,9 @@ MultiLineQuestLog < Panel
     margin: 1
     font: Verdana Bold-11px
     padding: 5 20 5 5
-    focusable: false
+    focusable: true
+    selectable: true
+    editable: false
     text-wrap: true
     background-color: #363636
     border-width: 0
@@ -248,7 +250,7 @@ QuestLogSidePanel < Panel
   padding: 7
   font: Verdana Bold-11px
   color: #909090
-  focusable: false
+  focusable: true
 
 MainWindowHigh
   id: main
