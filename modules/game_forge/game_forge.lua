@@ -744,10 +744,82 @@ local function setResultCloseLocked(closeWidget, locked)
 	end
 end
 
-local function revealResultOutcomeUi(descWidget, description, closeWidget)
+local function playFusionSuccessParticles(resultWindow, descWidget, offsetX, offsetY)
+	if not resultWindow or not descWidget then
+		return
+	end
+
+	local textPos = descWidget:getPosition()
+	local center = {
+		x = textPos.x + math.floor(descWidget:getWidth() / 2) + (offsetX or 0),
+		y = textPos.y + math.floor(descWidget:getHeight() / 2) + (offsetY or 0)
+	}
+
+	for i = 1, 26 do
+		local particle = g_ui.createWidget("UIWidget", resultWindow)
+		local angle = (math.pi * 2 * i / 26) + math.random() * 0.35
+		local distance = 48 + math.random(0, 38)
+		local start = { x = center.x - 4, y = center.y - 4 }
+		local target = {
+			x = math.floor(start.x + math.cos(angle) * distance),
+			y = math.floor(start.y + math.sin(angle) * distance)
+		}
+
+		particle:setSize({ width = 8, height = 8 })
+		particle:setImageSource("/particles/particle.png")
+		particle:setColor("#FFD83D")
+		particle:setOpacity(1)
+		particle:setPosition(start)
+		particle:raise()
+
+		local startedAt = g_clock.millis()
+		local function animateParticle()
+			if not particle or particle:isDestroyed() then
+				return
+			end
+
+			local progress = math.min((g_clock.millis() - startedAt) / 800, 1)
+			local eased = 1 - math.pow(1 - progress, 3)
+			particle:setPosition({
+				x = math.floor(start.x + (target.x - start.x) * eased),
+				y = math.floor(start.y + (target.y - start.y) * eased)
+			})
+			particle:setOpacity(1 - progress)
+
+			if progress < 1 then
+				scheduleEvent(animateParticle, 16)
+			else
+				particle:destroy()
+			end
+		end
+
+		animateParticle()
+	end
+end
+
+local function revealResultOutcomeUi(descWidget, description, closeWidget, success, resultWindow)
 	if descWidget then
 		descWidget:setColoredText(description)
 		descWidget:setVisible(true)
+	end
+
+	if success then
+		local function burst()
+			if not resultWindow or resultWindow:isDestroyed() then
+				return
+			end
+
+			playFusionSuccessParticles(
+				resultWindow,
+				descWidget,
+				math.random(-48, 48),
+				math.random(-12, 12)
+			)
+		end
+
+		burst()
+		scheduleEvent(burst, 200)
+		scheduleEvent(burst, 400)
 	end
 
 	setResultCloseLocked(closeWidget, false)
@@ -1200,7 +1272,7 @@ function Forge:ProcessFlash(item, widget, startDelay, item2, widget2, descWidget
 				end
 
 				onFadeComplete = function()
-					revealResultOutcomeUi(descWidget, description, closeWidget)
+					revealResultOutcomeUi(descWidget, description, closeWidget, success, Forge.resultWindow)
 				end
 
 				if success then
@@ -1208,7 +1280,7 @@ function Forge:ProcessFlash(item, widget, startDelay, item2, widget2, descWidget
 						widget:setVisible(false)
 					end, onFadeComplete)
 				else
-					playResultFade(widget, item, widget2, item2, FORGE_RESULT_FADE_IN_SHADER, "menu/shaders/fade_in_white.frag", FORGE_RESULT_FADE_OUT_RED_SHADER, "menu/shaders/fade_out_red.frag", function()
+					playResultFade(widget, item, widget2, item2, FORGE_RESULT_FADE_IN_SHADER, "menu/shaders/fade_in_white.frag", FORGE_RESULT_FADE_OUT_SHADER, "menu/shaders/fade_out_white.frag", function()
 						widget2:setVisible(false)
 					end, onFadeComplete)
 				end
@@ -1283,8 +1355,8 @@ function Forge:displayResult(actionType, convergence, success, leftItemId, right
 			self.resultWindow = nil
 		end
 
-		forgeOpenRequest()
 		self:close()
+		self:displayPreview()
 	end
 
 	local function beginResultAnimation(leftItem, leftWidget, rightItem, rightWidget, revealTier, resultText)

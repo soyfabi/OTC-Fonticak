@@ -1,3 +1,14 @@
+FusionListItem < Item
+  Label
+    id: charges2
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    margin-bottom: 1
+    margin-right: 4
+    phantom: true
+    text-auto-resize: true
+    font: verdana-11px-antialised
+
 ForgeActionButton < UIButton
   image-source: /images/ui/button-grey-up
   image-border: 5

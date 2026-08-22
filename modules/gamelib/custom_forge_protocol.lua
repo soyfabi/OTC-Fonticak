@@ -23,6 +23,7 @@ end
 function registerCustomForgeOpcode()
   pcall(function()
     ProtocolGame.unregisterOpcode(FORGE_OPCODE_SEND)
+    ProtocolGame.unregisterOpcode(FORGE_OPCODE_RESOURCE_BALANCE)
   end)
   ProtocolGame.registerOpcode(FORGE_OPCODE_SEND, onForgeOpcode)
   ProtocolGame.registerOpcode(FORGE_OPCODE_RESOURCE_BALANCE, onForgeResourceOpcode)

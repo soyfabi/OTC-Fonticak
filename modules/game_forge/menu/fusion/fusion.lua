@@ -1065,7 +1065,7 @@ local function createFusionListItem(parentPanel, itemId, tier, count, index, onC
 	container:setId("container " .. parentPanel:getId())
 
 	local containerPanel = container:getChildById("forgeItem")
-	local itemWidget = g_ui.createWidget("Item", containerPanel)
+	local itemWidget = g_ui.createWidget("FusionListItem", containerPanel)
 
 	Forge.raiseForgeContainerSelectionOverlay(containerPanel)
 
