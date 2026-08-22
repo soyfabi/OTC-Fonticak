@@ -59,7 +59,7 @@ end
 g_app.setName("OTClient - Fonticak");
 g_app.setCompactName("otcFonticak");
 -- Organization kept for PhysFS identity; write dir is set to a single
--- %APPDATA%/otcFonticak folder (not org/app/name nested thrice).
+-- %APPDATA%/otcFonticak folder.
 g_app.setOrganizationName("otcFonticak");
 
 g_app.hasUpdater = function()
@@ -88,7 +88,6 @@ local function setupSingleUserWriteDir()
             end
         end
     end
-    -- Non-Windows / fallback: pref dir without an extra nested folder.
     g_resources.setupUserWriteDir('')
 end
 

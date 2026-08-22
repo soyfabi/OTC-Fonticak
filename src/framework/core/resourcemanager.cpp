@@ -24,6 +24,8 @@
 
 #include <algorithm>
 #include <cstring>
+#include <cstdlib>
+#include <filesystem>
 #include <limits>
 #include <physfs.h>
 #include <unordered_set>
@@ -510,6 +512,19 @@ std::string ResourceManager::getUserDir()
     return getBaseDir() + "/";
 #elif defined(__EMSCRIPTEN__)
     return "/user/";
+#elif defined(WIN32)
+    // Use one Windows preference directory.  PhysFS combines organization
+    // and application names in getPrefDir(), which can produce
+    // %APPDATA%/otcFonticak/otcFonticak when both names match.
+    if (const char* appData = std::getenv("APPDATA"); appData && *appData) {
+        std::string userDir = std::string(appData) + "/" + g_app.getCompactName();
+        std::error_code error;
+        std::filesystem::create_directories(userDir, error);
+        if (!userDir.ends_with('/'))
+            userDir += '/';
+        return userDir;
+    }
+    return PHYSFS_getPrefDir("", g_app.getCompactName().data());
 #else
     static const char* orgName = g_app.getOrganizationName().data();
     static const char* appName = g_app.getCompactName().data();
