@@ -46,10 +46,6 @@ local function onError(protocol, message, errorCode)
         return
     end
 
-    if not errorCode then
-        EnterGame.clearAccountFields()
-    end
-
     local errorBox = displayErrorBox(tr('Login Error'), message)
     connect(errorBox, {
         onOk = EnterGame.show
