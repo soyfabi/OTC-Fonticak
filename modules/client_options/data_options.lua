@@ -1507,6 +1507,14 @@ return {
             end
         end
     },
+    showDeathAnimation = {
+        value = true,
+        action = function(value)
+            if g_gameConfig and g_gameConfig.setShowDeathAnimation then
+                g_gameConfig.setShowDeathAnimation(value ~= false)
+            end
+        end
+    },
     showAnimationSkillBar = {
         value = true
     },

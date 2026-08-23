@@ -45,6 +45,9 @@ public:
 
     void onCreate();
 
+    bool shouldDelayDeathRemoval() const;
+    void scheduleDeathRemoval();
+
     void onAppear() override;
     void onDisappear() override;
 
@@ -312,6 +315,9 @@ private:
 
     Timer m_footTimer;
     Timer m_outfitColorTimer;
+    Timer m_deathAnimationTimer;
+    Otc::Direction m_deathAnimationDirection{ Otc::South };
+    bool m_deathRemovalPending{ false };
 
     Outfit m_outfit;
     Light m_light;

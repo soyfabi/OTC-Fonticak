@@ -1241,6 +1241,7 @@ end
 
 function resetAnimation()
     setOption('showAnimationMaster', true, true)
+    setOption('showDeathAnimation', true, true)
     setOption('showAnimationSkillBar', true, true)
     setOption('showAnimationLevelBar', true, true)
     setOption('showAnimationHealthBar', true, true)

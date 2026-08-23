@@ -72,7 +72,11 @@ void Creature::onCreate() {
 
 void Creature::draw(const Point& dest, const bool drawThings, LightView* /*lightView*/)
 {
-    if (!canBeSeen() || !canDraw() || isDead())
+    constexpr int DEATH_ANIMATION_MS = 700;
+    const bool deathAnimation = g_gameConfig.isShowDeathAnimation() && isDead() && !isLocalPlayer() &&
+                                m_deathAnimationTimer.ticksElapsed() < DEATH_ANIMATION_MS;
+
+    if (!canBeSeen() || !canDraw() || (isDead() && !deathAnimation))
         return;
 
     if (drawThings) {
@@ -85,6 +89,35 @@ void Creature::draw(const Point& dest, const bool drawThings, LightView* /*light
         }
 
         auto _dest = dest + m_walkOffset * g_drawPool.getScaleFactor();
+
+        if (deathAnimation) {
+            const float progress = std::min<float>(
+                static_cast<float>(m_deathAnimationTimer.ticksElapsed()) / DEATH_ANIMATION_MS, 1.f);
+            // One continuous curve: the soul rises first, then gradually
+            // gains lateral movement without a visible direction change.
+            const float eased = progress * progress * (3.f - 2.f * progress);
+            const float lateral = eased * eased;
+            const int diagonalX = static_cast<int>(std::round(lateral * 9.f * g_drawPool.getScaleFactor()));
+            const int diagonalY = static_cast<int>(std::round(eased * 18.f * g_drawPool.getScaleFactor()));
+
+            switch (m_deathAnimationDirection) {
+            case Otc::East:
+                _dest.x -= diagonalX;
+                _dest.y -= diagonalY;
+                break;
+            case Otc::North:
+                _dest.x -= diagonalX;
+                _dest.y += diagonalY;
+                break;
+            case Otc::South:
+            case Otc::West:
+            default:
+                _dest.x += diagonalX;
+                _dest.y -= diagonalY;
+                break;
+            }
+            g_drawPool.setOpacity(1.f - progress);
+        }
 
         auto oldScaleFactor = g_drawPool.getScaleFactor();
 
@@ -102,6 +135,9 @@ void Creature::draw(const Point& dest, const bool drawThings, LightView* /*light
             internalDraw(_dest, getHighlightColor());
 
         g_drawPool.setScaleFactor(oldScaleFactor);
+
+        if (deathAnimation)
+            g_drawPool.resetOpacity();
     }
 
     // drawLight(dest, lightView);
@@ -719,7 +755,33 @@ void Creature::onDisappear()
 
 void Creature::onDeath()
 {
+    if (g_gameConfig.isShowDeathAnimation() && !isLocalPlayer()) {
+        m_deathAnimationDirection = m_direction;
+        m_deathAnimationTimer.restart();
+    }
+
     callLuaField("onDeath");
+}
+
+bool Creature::shouldDelayDeathRemoval() const
+{
+    constexpr int DEATH_ANIMATION_MS = 700;
+    return g_gameConfig.isShowDeathAnimation() && m_healthPercent <= 0 && !isLocalPlayer() &&
+           m_deathAnimationTimer.ticksElapsed() < DEATH_ANIMATION_MS;
+}
+
+void Creature::scheduleDeathRemoval()
+{
+    if (m_deathRemovalPending)
+        return;
+
+    m_deathRemovalPending = true;
+    const auto self = static_self_cast<Creature>();
+    g_dispatcher.scheduleEvent([self] {
+        self->m_deathRemovalPending = false;
+        if (self->getTile())
+            g_map.removeThing(self);
+    }, 700);
 }
 
 void Creature::updateWalkAnimation()
