@@ -192,9 +192,9 @@ function UIStatsBar:setValue(value, total, instant)
         elseif self.statsType == 'skill' then
             animateEnabled = modules.client_options.isBarAnimationEnabled('showAnimationSkillBar')
         elseif self.statsType == 'health' then
-            animateEnabled = modules.client_options.isBarAnimationEnabled('showAnimationHudHealthBar')
+            animateEnabled = modules.client_options.isBarAnimationEnabled('showAnimationHealthBar')
         elseif self.statsType == 'mana' or self.statsType == 'manashield' then
-            animateEnabled = modules.client_options.isBarAnimationEnabled('showAnimationHudManaBar')
+            animateEnabled = modules.client_options.isBarAnimationEnabled('showAnimationManaBar')
         end
     elseif modules.client_options and modules.client_options.getOption then
         if self.statsType == 'experience' then
@@ -202,9 +202,9 @@ function UIStatsBar:setValue(value, total, instant)
         elseif self.statsType == 'skill' then
             animateEnabled = modules.client_options.getOption('showAnimationSkillBar') ~= false
         elseif self.statsType == 'health' then
-            animateEnabled = modules.client_options.getOption('showAnimationHudHealthBar') ~= false
+            animateEnabled = modules.client_options.getOption('showAnimationHealthBar') ~= false
         elseif self.statsType == 'mana' or self.statsType == 'manashield' then
-            animateEnabled = modules.client_options.getOption('showAnimationHudManaBar') ~= false
+            animateEnabled = modules.client_options.getOption('showAnimationManaBar') ~= false
         end
     end
     local canAnimate = not instant and self.statsBarReady and animateEnabled and (isProgressSkill or isVital)

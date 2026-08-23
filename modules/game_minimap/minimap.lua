@@ -338,7 +338,7 @@ local function rescueMinimapFromHiddenSlot()
     end
 
     parent:removeChild(ui)
-    mainRightPanel:insertChild(1, ui)
+        mainRightPanel:addChild(ui)
 end
 
 local function findMinimapDropTarget(window, mousePos)
@@ -799,7 +799,7 @@ function extendedView(extendedView)
         if not dockedInSlot then
             local mainRightPanel = modules.game_interface.getMainRightPanel()
             if not mainRightPanel:hasChild(mapController.ui) then
-                mainRightPanel:insertChild(1, mapController.ui)
+                mainRightPanel:addChild(mapController.ui)
             end
         end
         mapController.ui:show()

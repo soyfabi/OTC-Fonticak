@@ -83,7 +83,7 @@ UIWidget
             OptionCheckBoxMarked
               id: showAnimationHealthBar
               !text: tr('Show Animation Health Bar')
-              !tooltip: tr('Smooth ease-out for the side-panel health bar.')
+              !tooltip: tr('Smooth ease-out for the top health bars (Customisable Status Bars and Status Bars).')
 
           SmallReversedQtPanel
             anchors.left: parent.left
@@ -96,7 +96,7 @@ UIWidget
             OptionCheckBoxMarked
               id: showAnimationManaBar
               !text: tr('Show Animation Mana Bar')
-              !tooltip: tr('Smooth ease-out for the side-panel mana bar.')
+              !tooltip: tr('Smooth ease-out for the top mana bars (Customisable Status Bars and Status Bars).')
 
           SmallReversedQtPanel
             anchors.left: parent.left
@@ -109,7 +109,7 @@ UIWidget
             OptionCheckBoxMarked
               id: showAnimationHudHealthBar
               !text: tr('Show Animation HUD Health Bar')
-              !tooltip: tr('Smooth ease-out for health on Customisable Status Bars\n(top/bottom HUD) and the nameplate bar above your character.')
+              !tooltip: tr('Smooth ease-out for health bars above the player and monsters.')
 
           SmallReversedQtPanel
             anchors.left: parent.left
@@ -122,7 +122,7 @@ UIWidget
             OptionCheckBoxMarked
               id: showAnimationHudManaBar
               !text: tr('Show Animation HUD Mana Bar')
-              !tooltip: tr('Smooth ease-out for mana on Customisable Status Bars\n(top/bottom HUD) and the nameplate bar above your character.')
+              !tooltip: tr('Smooth ease-out for mana bars above the player and monsters.')
 
           SmallReversedQtPanel
             anchors.left: parent.left
@@ -344,6 +344,18 @@ UIWidget
           id: showSpellAnimation
           !text: tr('Show Spell Animation')
           !tooltip: tr('When you unlock a spell by leveling up, play a short animation\nof the spell icon flying into an empty action bar slot.\nRequires Auto Assign Spell.\nIndependent from Animation Master, Outfit Master, Slide Master and Animation Speed.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 7
+        height: 22
+
+        OptionCheckBoxMarked
+          id: showDeathAnimation
+          !text: tr('Show Death Animation')
+          !tooltip: tr('Show a rising, fading soul effect when monsters die.')
 
       SmallReversedQtPanel
         anchors.left: parent.left
