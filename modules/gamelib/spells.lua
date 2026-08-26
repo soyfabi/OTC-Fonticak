@@ -588,12 +588,45 @@ function Spells.sortSpellWidgets(spellList, sortByLevel)
     return widgets
 end
 
-function Spells.filterSpellWidgets(spellList, searchText, playerLevel, filterLevel)
+local VOCATION_FAMILY = {
+    [1] = {1, 5}, -- Sorcerer / Master Sorcerer
+    [5] = {1, 5},
+    [2] = {2, 6}, -- Druid / Elder Druid
+    [6] = {2, 6},
+    [3] = {3, 7}, -- Paladin / Royal Paladin
+    [7] = {3, 7},
+    [4] = {4, 8}, -- Knight / Elite Knight
+    [8] = {4, 8},
+    [9] = {9, 10}, -- Monk / Exalted Monk
+    [10] = {9, 10}
+}
+
+function Spells.spellMatchesVocation(spellVocations, playerVocation)
+    if not playerVocation or playerVocation == 0 then
+        return true
+    end
+    if not spellVocations or #spellVocations == 0 then
+        return true
+    end
+    if table.contains(spellVocations, 0) then
+        return true
+    end
+    local family = VOCATION_FAMILY[playerVocation] or {playerVocation}
+    for _, id in ipairs(family) do
+        if table.contains(spellVocations, id) then
+            return true
+        end
+    end
+    return false
+end
+
+function Spells.filterSpellWidgets(spellList, searchText, playerLevel, filterLevel, playerVocation, filterVocation)
     local search = tostring(searchText or ''):trim():lower()
     for _, widget in ipairs(spellList:getChildren()) do
         local matchesSearch = search:len() == 0 or widget:getText():lower():find(search, 1, true)
         local matchesLevel = not filterLevel or (widget.spellLevel or 0) <= playerLevel
-        widget:setVisible(matchesSearch and matchesLevel)
+        local matchesVocation = not filterVocation or Spells.spellMatchesVocation(widget.voc, playerVocation)
+        widget:setVisible(matchesSearch and matchesLevel and matchesVocation)
     end
 end
 

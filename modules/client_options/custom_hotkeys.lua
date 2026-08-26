@@ -25,7 +25,7 @@ local ActionColors = {
   [HOTKEY_ACTION.USE] = "#b0b0ff",
   [HOTKEY_ACTION.TEXT] = "#dfdfdf",
   [HOTKEY_ACTION.TEXT_AUTO] = "#dfdfdf",
-  [HOTKEY_ACTION.SPELL] = "#dfdfdf",
+  [HOTKEY_ACTION.SPELL] = "#ffda34",
   [HOTKEY_ACTION.SMART_CAST] = "#e788fb"
 }
 
@@ -441,6 +441,25 @@ function addCustomHotkeyRow(hotkeyId, action, data, primary, secondary)
   row.actionType = action
   row.hotkeyData = data
 
+  local spellData = nil
+  if not isItem then
+    if action == HOTKEY_ACTION.SPELL then
+      if data.words and #data.words > 0 then
+        spellData = Spells.getSpellDataByParamWords(data.words:lower()) or Spells.getSpellDataByWords(data.words:lower())
+      end
+      if not spellData and data.id then
+        spellData = Spells.getSpellDataById(data.id)
+      end
+    end
+    if not spellData and actionText and #actionText > 0 then
+      spellData = Spells.getSpellDataByParamWords(actionText:lower()) or Spells.getSpellDataByWords(actionText:lower())
+    end
+  end
+
+  if spellData then
+    color = "#ffda34"
+  end
+
   local actionCol = row:getChildByIndex(1)
   actionCol:setText(actionText)
   actionCol:setColor(color)
@@ -454,11 +473,40 @@ function addCustomHotkeyRow(hotkeyId, action, data, primary, secondary)
     -- Square border around the object, same color as the action text
     actionCol.item:setBorderWidth(1)
     actionCol.item:setBorderColor(color)
+    if actionCol.spellIcon then
+      actionCol.spellIcon:setVisible(false)
+      actionCol.spellIcon:setBorderWidth(0)
+      actionCol.spellIcon:setBorderColor('alpha')
+    end
+    actionCol:setTextOffset({ x = 28, y = 0 })
+  elseif spellData and spellData.clientId then
+    actionCol.item:setVisible(false)
+    actionCol.item:setBorderWidth(0)
+    actionCol.item:setBorderColor('alpha')
+    if actionCol.spellIcon then
+      local iconId = tonumber(spellData.clientId)
+      local source = SpelllistSettings['Default'].iconFile
+      local clip = Spells.getImageClip(iconId, 'Default')
+      if SpellIcons and SpellIcons[spellData.name] and SpelllistSettings['Default'].iconsFolder and Spells.getImageClipNormal then
+        source = SpelllistSettings['Default'].iconsFolder .. SpellIcons[spellData.name][1]
+        clip = Spells.getImageClipNormal(SpellIcons[spellData.name][2])
+      end
+      actionCol.spellIcon:setImageSource(source)
+      actionCol.spellIcon:setImageClip(clip)
+      actionCol.spellIcon:setBorderWidth(1)
+      actionCol.spellIcon:setBorderColor(color)
+      actionCol.spellIcon:setVisible(true)
+    end
     actionCol:setTextOffset({ x = 28, y = 0 })
   else
     actionCol.item:setVisible(false)
     actionCol.item:setBorderWidth(0)
     actionCol.item:setBorderColor('alpha')
+    if actionCol.spellIcon then
+      actionCol.spellIcon:setVisible(false)
+      actionCol.spellIcon:setBorderWidth(0)
+      actionCol.spellIcon:setBorderColor('alpha')
+    end
     actionCol:setTextOffset({ x = 2, y = 0 })
   end
 
@@ -547,39 +595,39 @@ function assignSpellDialog(row)
   for spellName, spellData in pairs(spells) do
     if not player then break end
 
-    if spellMatchesPlayerVocation(spellData, player) then
-      local widget = g_ui.createWidget('CustomHotkeySpellPreview', spellWindow.contentPanel.spellList)
-      local iconId = tonumber(spellData.clientId)
+    local widget = g_ui.createWidget('CustomHotkeySpellPreview', spellWindow.contentPanel.spellList)
+    local iconId = tonumber(spellData.clientId)
 
-      spellRadio:addWidget(widget)
-      widget:setId(spellData.id)
-      widget:setText(spellName.."\n"..spellData.words)
-      widget.words = spellData.words
-      widget.voc = spellData.vocations
-      widget.param = spellData.parameter
-      widget.spellLevel = spellData.level or 0
-      widget.source = SpelllistSettings['Default'].iconFile
-      widget.clip = Spells.getImageClip(iconId, 'Default')
-      if SpellIcons and SpellIcons[spellName] and SpelllistSettings['Default'].iconsFolder and Spells.getImageClipNormal then
-        widget.source = SpelllistSettings['Default'].iconsFolder .. SpellIcons[spellName][1]
-        widget.clip = Spells.getImageClipNormal(SpellIcons[spellName][2])
-      end
-      widget.image:setImageSource(widget.source)
-      widget.image:setImageClip(widget.clip)
+    spellRadio:addWidget(widget)
+    widget:setId(spellData.id)
+    widget:setText(spellName.."\n"..spellData.words)
+    widget.words = spellData.words
+    widget.voc = spellData.vocations
+    widget.param = spellData.parameter
+    widget.spellLevel = spellData.level or 0
+    widget.source = SpelllistSettings['Default'].iconFile
+    widget.clip = Spells.getImageClip(iconId, 'Default')
+    if SpellIcons and SpellIcons[spellName] and SpelllistSettings['Default'].iconsFolder and Spells.getImageClipNormal then
+      widget.source = SpelllistSettings['Default'].iconsFolder .. SpellIcons[spellName][1]
+      widget.clip = Spells.getImageClipNormal(SpellIcons[spellName][2])
+    end
+    widget.image:setImageSource(widget.source)
+    widget.image:setImageClip(widget.clip)
 
-      if spellData.level then
-        widget.levelLabel:setVisible(true)
-        widget.levelLabel:setText(string.format("Level: %d", spellData.level))
-        if player:getLevel() < spellData.level then
-          widget.image.gray:setVisible(true)
-        end
+    if spellData.level then
+      widget.levelLabel:setVisible(true)
+      widget.levelLabel:setText(string.format("Level: %d", spellData.level))
+      if player:getLevel() < spellData.level then
+        widget.image.gray:setVisible(true)
       end
     end
   end
 
   local playerLevel = player and player:getLevel() or 0
+  local playerVocation = player and player:getVocation() or 0
   local spellList = spellWindow.contentPanel.spellList
   local tickWidget = spellWindow.contentPanel.checkPanel.tick
+  local filterVocationWidget = spellWindow.contentPanel.checkPanel.filterVocation
   local sortByLevelWidget = spellWindow.contentPanel.checkPanel.sortByLevel
 
   local function sortSpellWidgets()
@@ -589,12 +637,18 @@ function assignSpellDialog(row)
 
   local filterSpells = function()
     local search = spellWindow.contentPanel.searchText:getText()
-    local filterLevel = tickWidget:isChecked()
-    Spells.filterSpellWidgets(spellList, search, playerLevel, filterLevel)
+    local filterLevel = tickWidget and tickWidget:isChecked()
+    local filterVocation = filterVocationWidget and filterVocationWidget:isChecked()
+    Spells.filterSpellWidgets(spellList, search, playerLevel, filterLevel, playerVocation, filterVocation)
     sortSpellWidgets()
   end
   spellWindow.contentPanel.searchText.onTextChange = filterSpells
-  tickWidget.onCheckChange = filterSpells
+  if tickWidget then
+    tickWidget.onCheckChange = filterSpells
+  end
+  if filterVocationWidget then
+    filterVocationWidget.onCheckChange = filterSpells
+  end
   if sortByLevelWidget then
     sortByLevelWidget.onCheckChange = filterSpells
   end

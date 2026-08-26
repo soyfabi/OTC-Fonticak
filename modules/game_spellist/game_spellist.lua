@@ -622,8 +622,35 @@ function onConfigureList()
       gray:setVisible(player:getLevel() < (spell.level or 0))
     end
 
+    local function openContextMenu(mousePos)
+      selectSpellWidget(widget)
+      local menu = g_ui.createWidget('PopupMenu')
+      menu:setGameMenu(true)
+      menu:addOption(tr('Copy to Clipboard'), function()
+        local textToCopy = (spell.words and #spell.words > 0) and spell.words or (spell.name or '')
+        g_window.setClipboardText(textToCopy)
+      end)
+      if spell.words and #spell.words > 0 and spell.name and spell.name ~= spell.words then
+        menu:addOption(tr('Copy Spell Name'), function()
+          g_window.setClipboardText(spell.name)
+        end)
+      end
+      menu:display(mousePos or g_window.getMousePosition())
+      return true
+    end
+
     widget.onClick = function()
       selectSpellWidget(widget)
+    end
+
+    widget.onDoubleClick = function(self, mousePos)
+      return openContextMenu(mousePos)
+    end
+
+    widget.onMouseRelease = function(self, mousePos, mouseButton)
+      if mouseButton == MouseRightButton then
+        return openContextMenu(mousePos)
+      end
     end
   end
 

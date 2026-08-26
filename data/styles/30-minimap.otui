@@ -1,3 +1,5 @@
+&var-cip-font-new: Verdana Bold-11px
+
 MinimapFlag < UIWidget
   size: 11 11
   focusable: false

@@ -63,6 +63,7 @@ function assignSpell(button, multiSlotIndex)
     local clearButton = content:getChildById('clearButton') or content.clearButton
     local checkPanel = content:getChildById('checkPanel') or content.checkPanel
     local tickWidget = checkPanel and (checkPanel:getChildById('tick') or checkPanel.tick)
+    local filterVocationWidget = checkPanel and (checkPanel:getChildById('filterVocation') or checkPanel.filterVocation)
     local sortByLevelWidget = checkPanel and (checkPanel:getChildById('sortByLevel') or checkPanel.sortByLevel)
     local buttonOk = content:getChildById('buttonOk') or content.buttonOk
     local buttonClose = content:getChildById('buttonClose') or content.buttonClose
@@ -81,7 +82,7 @@ function assignSpell(button, multiSlotIndex)
     window:raise()
     window:focus()
 
-    local playerVocation = translateVocation(player:getVocation())
+    local playerVocation = player:getVocation()
     local playerLevel = player:getLevel()
     local spells = modules.gamelib.SpellInfo['Default']
     local defaultIconsFolder = SpelllistSettings['Default'].iconFile
@@ -94,48 +95,46 @@ function assignSpell(button, multiSlotIndex)
     local function applyFilters()
         local search = searchText and searchText:getText() or ''
         local filterLevel = tickWidget and tickWidget:isChecked()
-        Spells.filterSpellWidgets(spellList, search, playerLevel, filterLevel)
+        local filterVocation = filterVocationWidget and filterVocationWidget:isChecked()
+        Spells.filterSpellWidgets(spellList, search, playerLevel, filterLevel, playerVocation, filterVocation)
         sortSpellWidgets()
     end
 
-    local function fillSpellList(showAll)
+    local function fillSpellList()
         if assignSpellRadio then
             assignSpellRadio:destroy()
         end
         spellList:destroyChildren()
         assignSpellRadio = UIRadioGroup.create()
-        local showAllSpells = showAll or (playerVocation == 0)
         for spellName, spellData in pairs(spells) do
-            if showAllSpells or table.contains(spellData.vocations, playerVocation) then
-                local widget = g_ui.createWidget('SpellPreview', spellList)
-                local spellId = spellData.clientId
-                local clip = Spells.getImageClip(spellId)
-                assignSpellRadio:addWidget(widget)
-                widget:setId(spellData.id)
-                widget:setText(spellName .. "\n" .. spellData.words)
-                widget.words = spellData.words
-                widget.voc = spellData.vocations
-                widget.param = spellData.parameter
-                widget.spellLevel = spellData.level or 0
-                widget.source = defaultIconsFolder
-                widget.clip = clip
-                if widget.image then
-                    widget.image:setImageSource(widget.source)
-                    widget.image:setImageClip(widget.clip)
+            local widget = g_ui.createWidget('SpellPreview', spellList)
+            local spellId = spellData.clientId
+            local clip = Spells.getImageClip(spellId)
+            assignSpellRadio:addWidget(widget)
+            widget:setId(spellData.id)
+            widget:setText(spellName .. "\n" .. spellData.words)
+            widget.words = spellData.words
+            widget.voc = spellData.vocations
+            widget.param = spellData.parameter
+            widget.spellLevel = spellData.level or 0
+            widget.source = defaultIconsFolder
+            widget.clip = clip
+            if widget.image then
+                widget.image:setImageSource(widget.source)
+                widget.image:setImageClip(widget.clip)
+            end
+            if spellData.level and widget.levelLabel then
+                widget.levelLabel:setVisible(true)
+                widget.levelLabel:setText(string.format("Level: %d", spellData.level))
+                if widget.image and widget.image.gray then
+                    widget.image.gray:setVisible(playerLevel < spellData.level)
                 end
-                if spellData.level and widget.levelLabel then
-                    widget.levelLabel:setVisible(true)
-                    widget.levelLabel:setText(string.format("Level: %d", spellData.level))
-                    if widget.image and widget.image.gray then
-                        widget.image.gray:setVisible(playerLevel < spellData.level)
-                    end
-                end
-                local primaryGroup = Spells.getPrimaryGroup(spellData)
-                if primaryGroup ~= -1 and widget.imageGroup then
-                    local offSet = (primaryGroup == 2 and 20) or (primaryGroup == 3 and 40) or 0
-                    widget.imageGroup:setImageClip(offSet .. " 0 20 20")
-                    widget.imageGroup:setVisible(true)
-                end
+            end
+            local primaryGroup = Spells.getPrimaryGroup(spellData)
+            if primaryGroup ~= -1 and widget.imageGroup then
+                local offSet = (primaryGroup == 2 and 20) or (primaryGroup == 3 and 40) or 0
+                widget.imageGroup:setImageClip(offSet .. " 0 20 20")
+                widget.imageGroup:setVisible(true)
             end
         end
 
@@ -172,7 +171,7 @@ function assignSpell(button, multiSlotIndex)
         return widgets
     end
 
-    local widgets = fillSpellList(false)
+    local widgets = fillSpellList()
 
     local preselectSpellData = nil
     local preselectCastParam = nil
@@ -232,6 +231,9 @@ function assignSpell(button, multiSlotIndex)
     if tickWidget then
         tickWidget.onCheckChange = applyFilters
     end
+    if filterVocationWidget then
+        filterVocationWidget.onCheckChange = applyFilters
+    end
     if sortByLevelWidget then
         sortByLevelWidget.onCheckChange = applyFilters
     end
@@ -280,7 +282,15 @@ function assignSpell(button, multiSlotIndex)
     buttonOk.onClick = okFunc
     buttonClose.onClick = closeAssignSpellWindow
     buttonShowAll.onClick = function()
-        fillSpellList(true)
+        if filterVocationWidget then
+            filterVocationWidget:setChecked(false)
+        end
+        if tickWidget then
+            tickWidget:setChecked(false)
+        end
+        if searchText then
+            searchText:clearText()
+        end
         applyFilters()
     end
     window.onEnter = okFunc

@@ -52,7 +52,7 @@ CustomHotkeySpellPreview < UICheckBox
     margin-right: 99
     phantom: true
     visible: false
-    image-source: /images/game/spells/cooldowns
+    image-source: /images/game/spells/spellgroup-icons-20x20
     image-clip: 1 25 20 20
 
   Label
@@ -174,10 +174,24 @@ SpellMainWindow < NewMainWindow
           color: #c0c0c0
 
       CheckBox
-        id: sortByLevel
+        id: filterVocation
         anchors.left: tick.right
         anchors.verticalCenter: parent.verticalCenter
-        margin-left: 16
+        margin-left: 10
+        text: Filter: Vocation
+        font: Verdana Bold-11px
+        color: #c0c0c0
+        checked: true
+        change-cursor-image: false
+        text-auto-resize: true
+        $hover !disabled:
+          color: #c0c0c0
+
+      CheckBox
+        id: sortByLevel
+        anchors.left: filterVocation.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-left: 10
         text: Sort by Level
         font: Verdana Bold-11px
         color: #c0c0c0

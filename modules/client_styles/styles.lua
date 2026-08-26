@@ -24,6 +24,7 @@ end
 function importResources(dir, type, device)
     local path = '/' .. dir .. '/'
     local files = g_resources.listDirectoryFiles(path, true, false, true)
+    table.sort(files)
     for _, file in pairs(files) do
         if g_resources.isFileType(file, type) then
             resourceLoaders[type](file)
