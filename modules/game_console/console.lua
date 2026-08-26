@@ -481,9 +481,15 @@ function disableChatOnCall()
         return
     end
 
-    if isChatEnabled() and not consoleToggleChat.isChecked then
+    if isChatEnabled() and walkAfterSend then
+        consoleTextEdit:clearText()
         walkAfterSend = false
         toggleChat()
+        return
+    end
+
+    if consoleTextEdit:getText() ~= '' then
+        consoleTextEdit:clearText()
     end
 end
 

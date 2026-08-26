@@ -40,7 +40,7 @@ end
 
 function scrollApi.onSelectSlotImbue()
     self.selectedBaseTypeButton = nil
-    self.selectBaseType('powerfullButton', true)
+    self.selectBaseType('intricateButton', true)
     self.window:recursiveGetChildById('imbuementsDetails'):setVisible(false)
 end
 

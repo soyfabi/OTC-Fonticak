@@ -120,6 +120,42 @@ return function(context)
     scheduleEvent(function() burst(16, math.floor(width * 0.6)) end, 240)
   end
 
+  local function getAnimationItemWidgets(targetWindow)
+    local widgets = {}
+    if not targetWindow then
+      return widgets
+    end
+
+    local requiredItems = targetWindow:recursiveGetChildById("requiredItems")
+    if requiredItems then
+      for _, child in ipairs(requiredItems:getChildren()) do
+        if child:isVisible() then
+          local itemChild = child.item or child:getChildById("item")
+          if itemChild and itemChild.getItemId and itemChild:getItemId() > 0 then
+            table.insert(widgets, itemChild)
+          elseif child.getItemId and child:getItemId() > 0 then
+            table.insert(widgets, child)
+          end
+        end
+      end
+    end
+
+    local itemScroll = targetWindow:recursiveGetChildById("itemScroll")
+    if itemScroll and itemScroll:isVisible() then
+      table.insert(widgets, itemScroll)
+    end
+
+    local itemOrScrollContent = targetWindow:recursiveGetChildById("itemOrScrollContent")
+    if itemOrScrollContent then
+      local mainItem = itemOrScrollContent:getChildById("item")
+      if mainItem and mainItem:isVisible() then
+        table.insert(widgets, mainItem)
+      end
+    end
+
+    return widgets
+  end
+
   function imbuementApi.playArrowAnimation(window)
     local targetWindow = window or self.window
     if not targetWindow then
@@ -133,7 +169,7 @@ return function(context)
     end
 
     ensureBlinkShader()
-    local itemWidget = targetWindow:recursiveGetChildById("item") or targetWindow:recursiveGetChildById("itemScroll")
+    local itemWidgets = getAnimationItemWidgets(targetWindow)
 
     if arrow1.animEvents then
       for _, ev in ipairs(arrow1.animEvents) do
@@ -144,8 +180,9 @@ return function(context)
     self.isAnimatingArrows = true
 
     local function flashItem(on)
-      if itemWidget then
-        setWidgetShader(itemWidget, on and IMBUING_BLINK_SHADER or nil)
+      local shader = on and IMBUING_BLINK_SHADER or nil
+      for _, widget in ipairs(itemWidgets) do
+        setWidgetShader(widget, shader)
       end
     end
 
