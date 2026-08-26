@@ -488,6 +488,9 @@ function itemApi.selectImbuementWidget(widget, imbuement)
 
             local function confirm()
                 g_game.applyImbuement(self.selectedSlot, imbuement.id, false)
+                if self.window and context.imbuement and context.imbuement.playArrowAnimation then
+                    context.imbuement.playArrowAnimation(self.window)
+                end
                 if self.confirmWindow then
                     self.confirmWindow:destroy()
                     self.confirmWindow = nil

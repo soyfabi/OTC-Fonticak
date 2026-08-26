@@ -270,6 +270,9 @@ function scrollApi.selectImbuementWidget(widget, imbuement)
 
             local function confirm()
                 g_game.applyImbuement(0, imbuement.id, false)
+                if self.window and context.imbuement and context.imbuement.playArrowAnimation then
+                    context.imbuement.playArrowAnimation(self.window)
+                end
                 if self.confirmWindow then
                     self.confirmWindow:destroy()
                     self.confirmWindow = nil
