@@ -60,7 +60,58 @@ local function moveSpecialToolTip(first)
     SpecialToolTipLabel:setPosition(pos)
 end
 
+local tooltipDelay = 500
+local pendingHoveredWidget = nil
+local pendingTooltipEvent = nil
+
+local function cancelPendingTooltip()
+    if pendingTooltipEvent then
+        removeEvent(pendingTooltipEvent)
+        pendingTooltipEvent = nil
+    end
+    pendingHoveredWidget = nil
+end
+
+local function displayWidgetTooltip(widget)
+    if not widget or g_mouse.isPressed() then
+        return
+    end
+
+    if not widget:isHovered() and not widget:containsPoint(g_window.getMousePosition()) then
+        return
+    end
+
+    if widget.tooltip then
+        g_tooltip.display(widget.tooltip)
+        currentHoveredWidget = widget
+    elseif widget.specialtooltip then
+        g_tooltip.displaySpecial(widget.specialtooltip)
+        currentHoveredWidget = widget
+    elseif widget.parseColoreDisplay then
+        g_tooltip.parseColoreDisplay(widget.parseColoreDisplay)
+        currentHoveredWidget = widget
+    end
+end
+
+local function scheduleTooltip(widget)
+    if not widget or g_mouse.isPressed() then
+        return
+    end
+
+    cancelPendingTooltip()
+
+    pendingHoveredWidget = widget
+    pendingTooltipEvent = scheduleEvent(function()
+        displayWidgetTooltip(widget)
+        pendingTooltipEvent = nil
+        pendingHoveredWidget = nil
+    end, tooltipDelay)
+end
+
 local function onWidgetDestroy(widget)
+    if widget == pendingHoveredWidget then
+        cancelPendingTooltip()
+    end
     if widget == currentHoveredWidget then
         if widget.tooltip or widget.parseColoreDisplay then
             g_tooltip.hide()
@@ -74,17 +125,13 @@ end
 
 local function onWidgetHoverChange(widget, hovered)
     if hovered then
-        if widget.tooltip and not g_mouse.isPressed() then
-            g_tooltip.display(widget.tooltip)
-            currentHoveredWidget = widget
-        elseif widget.specialtooltip and not g_mouse.isPressed() then
-            g_tooltip.displaySpecial(widget.specialtooltip)
-            currentHoveredWidget = widget
-        elseif widget.parseColoreDisplay and not g_mouse.isPressed() then
-            g_tooltip.parseColoreDisplay(widget.parseColoreDisplay)
-            currentHoveredWidget = widget
+        if (widget.tooltip or widget.specialtooltip or widget.parseColoreDisplay) and not g_mouse.isPressed() then
+            scheduleTooltip(widget)
         end
     else
+        if widget == pendingHoveredWidget then
+            cancelPendingTooltip()
+        end
         if widget == currentHoveredWidget then
             if widget.tooltip or widget.parseColoreDisplay then
                 g_tooltip.hide()
@@ -170,6 +217,8 @@ function g_tooltip.terminate()
         onHoverChange = onWidgetHoverChange,
         onDestroy = onWidgetDestroy
     })
+
+    cancelPendingTooltip()
 
     currentHoveredWidget = nil
     toolTipLabel:destroy()

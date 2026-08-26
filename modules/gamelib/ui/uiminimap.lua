@@ -109,9 +109,13 @@ local function onFlagMouseRelease(widget, pos, button)
         return true
 
     elseif button == MouseRightButton then
+        local minimap = widget:getParent()
         local menu = g_ui.createWidget('PopupMenu')
         menu:setGameMenu(true)
-        menu:addOption(tr('Delete mark'), function()
+        menu:addOption(tr('Edit Mark'), function()
+            minimap:createFlagWindow(widget.pos, widget)
+        end)
+        menu:addOption(tr('Delete Mark'), function()
             widget:destroy()
         end)
         menu:display(pos)
@@ -169,6 +173,18 @@ function UIMinimap:addFlag(pos, icon, description, temporary)
     end
     table.insert(self.flags, flag)
     self:centerInPosition(flag, pos)
+end
+
+function UIMinimap:updateFlag(flag, icon, description)
+    if not flag then return end
+    flag.icon = icon
+    flag.description = description
+    if type(tonumber(icon)) == 'number' then
+        flag:setIcon('/images/game/minimap/flag' .. icon)
+    else
+        flag:setIcon(resolvepath(icon, 1))
+    end
+    flag:setTooltip(description)
 end
 
 function UIMinimap:addAlternativeWidget(widget, pos, maxZoom)
@@ -335,7 +351,7 @@ function UIMinimap:onStyleApply(styleName, styleNode)
     end
 end
 
-function UIMinimap:createFlagWindow(pos)
+function UIMinimap:createFlagWindow(pos, existingFlag)
     if self.flagWindow then
         return
     end
@@ -344,25 +360,40 @@ function UIMinimap:createFlagWindow(pos)
     end
 
     self.flagWindow = g_ui.createWidget('MinimapFlagWindow', rootWidget)
+    self.flagWindow:setText(tr(existingFlag and 'Edit Mark' or 'Create Mark'))
 
-    local positionLabel = self.flagWindow:getChildById('position')
     local description = self.flagWindow:getChildById('description')
     local okButton = self.flagWindow:getChildById('okButton')
     local cancelButton = self.flagWindow:getChildById('cancelButton')
 
-    positionLabel:setText(string.format('%i, %i, %i', pos.x, pos.y, pos.z))
-
     local flagRadioGroup = UIRadioGroup.create()
     for i = 0, 19 do
-        local checkbox = self.flagWindow:getChildById('flag' .. i)
-        checkbox.icon = i
-        flagRadioGroup:addWidget(checkbox)
+        local flagButton = self.flagWindow:getChildById('flag' .. i)
+        flagButton.icon = i
+        flagRadioGroup:addWidget(flagButton)
     end
 
-    flagRadioGroup:selectWidget(flagRadioGroup:getFirstWidget())
+    if existingFlag then
+        description:setText(existingFlag.description or '')
+        local icon = tonumber(existingFlag.icon)
+        if icon then
+            local flagButton = self.flagWindow:getChildById('flag' .. icon)
+            if flagButton then
+                flagRadioGroup:selectWidget(flagButton, true)
+            end
+        end
+    else
+        flagRadioGroup:selectWidget(flagRadioGroup:getFirstWidget())
+    end
 
     local successFunc = function()
-        self:addFlag(pos, flagRadioGroup:getSelectedWidget().icon, description:getText())
+        local icon = flagRadioGroup:getSelectedWidget().icon
+        local text = description:getText()
+        if existingFlag then
+            self:updateFlag(existingFlag, icon, text)
+        else
+            self:addFlag(pos, icon, text)
+        end
         self:destroyFlagWindow()
     end
 
