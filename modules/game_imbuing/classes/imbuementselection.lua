@@ -1,4 +1,4 @@
-return function()
+return function(context)
   local selectionApi = {
     pickItem = nil,
     isSelectingScroll = false,
@@ -8,6 +8,21 @@ return function()
   selectionApi.__index = selectionApi
 
   local self = selectionApi
+
+  local function setTargetCursor()
+    if modules.client_options and modules.client_options.getOption and modules.client_options.getOption('nativeCursor') then
+      g_window.setSystemCursor('cross')
+    else
+      g_mouse.pushCursor('target')
+    end
+  end
+
+  local function restoreCursor()
+    if modules.client_options and modules.client_options.getOption and modules.client_options.getOption('nativeCursor') then
+      g_window.restoreMouseCursor()
+    end
+    g_mouse.popCursor('target')
+  end
 
   function selectionApi.startUp()
     self.pickItem = g_ui.createWidget('UIWidget')
@@ -24,7 +39,7 @@ return function()
     end
 
     if self.isSelecting then
-      g_mouse.popCursor('target')
+      restoreCursor()
     end
     self.isSelectingScroll = false
     self.isSelecting = false
@@ -42,7 +57,7 @@ return function()
     self.isSelectingScroll = false
     self.isSelecting = true
     self.pickItem:grabMouse()
-    g_mouse.pushCursor('target')
+    setTargetCursor()
   end
 
   function selectionApi:selectScroll()
@@ -57,10 +72,21 @@ return function()
     self.isSelectingScroll = true
     self.isSelecting = true
     self.pickItem:grabMouse()
-    g_mouse.pushCursor('target')
+    setTargetCursor()
   end
 
   function selectionApi.onChooseItemMouseRelease(widget, mousePosition, mouseButton)
+    if mouseButton == MouseRightButton then
+      self.pickItem:ungrabMouse()
+      restoreCursor()
+      self.isSelectingScroll = false
+      self.isSelecting = false
+      if context.imbuement and context.imbuement.show then
+        context.imbuement.show()
+      end
+      return true
+    end
+
     local item = nil
     if mouseButton == MouseLeftButton then
       local clickedWidget = modules.game_interface.getRootPanel():recursiveGetChildByPos(mousePosition, false)
@@ -91,17 +117,20 @@ return function()
       end
 
       self.pickItem:ungrabMouse()
-      g_mouse.popCursor('target')
+      restoreCursor()
       self.isSelectingScroll = false
       self.isSelecting = false
 
       return true
     else
       modules.game_textmessage.displayFailureMessage(tr('Sorry, not possible.'))
+      if context.imbuement and context.imbuement.show then
+        context.imbuement.show()
+      end
     end
 
     self.pickItem:ungrabMouse()
-    g_mouse.popCursor('target')
+    restoreCursor()
     self.isSelectingScroll = false
     self.isSelecting = false
     return true

@@ -44,12 +44,14 @@ PickItemButton < UIButton
   size: 96 64
   anchors.top: parent.top
   anchors.left: parent.left
-  image-source: /game_imbuing/new_design/images/pick-item-button
+  image-source: /game_imbuing/images/pick-item-button
   image-clip: 0 0 96 64
   @onClick: modules.game_imbuing.onSelectItem()
-  $hover !pressed:
+  $hover !pressed !on:
     image-clip: 0 0 96 64
   $pressed:
+    image-clip: 0 64 96 64
+  $on:
     image-clip: 0 64 96 64
   
 ScrollItemButton < UIButton
@@ -58,12 +60,14 @@ ScrollItemButton < UIButton
   anchors.top: parent.top
   anchors.left: itemButton.right
   margin-left: 6
-  image-source: /game_imbuing/new_design/images/imbue-scroll-button
+  image-source: /game_imbuing/images/imbue-scroll-button
   image-clip: 0 0 96 64
   @onClick: modules.game_imbuing.onSelectScroll()
-  $hover !pressed:
+  $hover !pressed !on:
     image-clip: 0 0 96 64
   $pressed:
+    image-clip: 0 64 96 64
+  $on:
     image-clip: 0 64 96 64
 
 SlotImbuing < UIButton
@@ -84,7 +88,7 @@ SlotImbuing < UIButton
     anchors.left: parent.left
     margin-left: 1
     anchors.verticalCenter: parent.verticalCenter
-    image-source: /game_imbuing/new_design/images/imbuement-icons-64
+    image-source: /game_imbuing/images/imbuement-icons-64
     image-clip: 0 0 64 64
     phantom: true
 
@@ -145,7 +149,7 @@ SelectItemOrScroll < UIWidget
     anchors.top: prev.bottom
     anchors.left: parent.left
     anchors.right: parent.right
-    image-source: /game_imbuing/new_design/images/blocked-panels
+    image-source: /game_imbuing/images/blocked-panels
     margin-top: 11
 
 SelectImbue < UIWidget
@@ -266,7 +270,7 @@ SelectImbue < UIWidget
         anchors.left: parent.left
         &baseImbuement: 0
         margin-left: 116
-        image-source: /game_imbuing/new_design/images/basic-button
+        image-source: /game_imbuing/images/basic-button
         image-clip: 0 0 144 37
         $hover !pressed:
           image-clip: 0 0 144 37
@@ -283,7 +287,7 @@ SelectImbue < UIWidget
         anchors.left: prev.right
         &baseImbuement: 1
         margin-left: 11
-        image-source: /game_imbuing/new_design/images/intricate-button
+        image-source: /game_imbuing/images/intricate-button
         image-clip: 0 0 144 37
         $hover !pressed:
           image-clip: 0 0 144 37
@@ -300,7 +304,7 @@ SelectImbue < UIWidget
         anchors.left: prev.right
         &baseImbuement: 2
         margin-left: 11
-        image-source: /game_imbuing/new_design/images/powerfull-button
+        image-source: /game_imbuing/images/powerfull-button
         image-clip: 0 0 144 37
         $hover !pressed:
           image-clip: 0 0 144 37
@@ -385,7 +389,7 @@ SelectImbue < UIWidget
         anchors.left: prev.right
         anchors.verticalCenter: requiredItems.verticalCenter
         margin-left: 158
-        image-source: /game_forge/images/arrows/icon-arrow-rightlarge
+        image-source: /images/game/forge/icon-arrow-rightlarge
         phantom: false
 
       UIWidget
@@ -394,7 +398,7 @@ SelectImbue < UIWidget
         anchors.left: prev.right
         anchors.verticalCenter: prev.verticalCenter
         margin-left: 12
-        image-source: /game_forge/images/arrows/icon-arrow-rightlarge
+        image-source: /images/game/forge/icon-arrow-rightlarge
         phantom: false
 
       Label
@@ -449,7 +453,7 @@ SelectImbue < UIWidget
     size: 708 141
     anchors.top: prev.top
     anchors.left: prev.left
-    image-source: /game_imbuing/new_design/images/blocked-panel
+    image-source: /game_imbuing/images/blocked-panel
     visible: false
 
 ClearImbue < UIWidget
@@ -758,7 +762,7 @@ ScrollImbue < UIWidget
         anchors.left: parent.left
         margin-left: 193
         &baseImbuement: 1
-        image-source: /game_imbuing/new_design/images/intricate-button
+        image-source: /game_imbuing/images/intricate-button
         image-clip: 0 0 144 37
         $hover !pressed:
           image-clip: 0 0 144 37
@@ -775,7 +779,7 @@ ScrollImbue < UIWidget
         anchors.left: prev.right
         margin-left: 11
         &baseImbuement: 2
-        image-source: /game_imbuing/new_design/images/powerfull-button
+        image-source: /game_imbuing/images/powerfull-button
         image-clip: 0 0 144 37
         $hover !pressed:
           image-clip: 0 0 144 37
@@ -864,7 +868,7 @@ ScrollImbue < UIWidget
         anchors.left: prev.right
         anchors.verticalCenter: requiredItems.verticalCenter
         margin-left: 158
-        image-source: /game_forge/images/arrows/icon-arrow-rightlarge
+        image-source: /images/game/forge/icon-arrow-rightlarge
         phantom: false
 
       UIWidget
@@ -873,7 +877,7 @@ ScrollImbue < UIWidget
         anchors.left: prev.right
         anchors.verticalCenter: prev.verticalCenter
         margin-left: 12
-        image-source: /game_forge/images/arrows/icon-arrow-rightlarge
+        image-source: /images/game/forge/icon-arrow-rightlarge
         phantom: false
 
       Label

@@ -39,11 +39,17 @@ function scrollApi:shutdown()
 end
 
 function scrollApi.onSelectSlotImbue()
-    self.selectBaseType('powerfullButton')
+    self.selectedBaseTypeButton = nil
+    self.selectBaseType('powerfullButton', true)
     self.window:recursiveGetChildById('imbuementsDetails'):setVisible(false)
 end
 
-function scrollApi.selectBaseType(selectedButtonId)
+function scrollApi.selectBaseType(selectedButtonId, force)
+    if not force and self.selectedBaseTypeButton == selectedButtonId then
+        return
+    end
+    self.selectedBaseTypeButton = selectedButtonId
+
     local qualityAndImbuementContent = self.window:recursiveGetChildById("qualityAndImbuementContent")
     if not qualityAndImbuementContent then
         return
@@ -99,6 +105,67 @@ function scrollApi.selectBaseType(selectedButtonId)
     
 end
 
+function scrollApi.getItemCount(itemId)
+    local count = 0
+    for _, container in pairs(g_game.getContainers()) do
+        for _, item in pairs(container:getItems()) do
+            if item:getId() == itemId then
+                count = count + (item:getCount() or 1)
+            end
+        end
+    end
+    return count
+end
+
+function scrollApi.refreshSelected()
+    if not self.window or not self.window:isVisible() or not self.lastSelectedImbuement then
+        return
+    end
+
+    local imbuement = self.lastSelectedImbuement
+    local requiredItems = self.window:recursiveGetChildById("requiredItems")
+    local hasRequiredItems = true
+    if requiredItems then
+        for i = 1, 4 do
+            local itemWidget = requiredItems:getChildById("item"..i)
+            if itemWidget then
+                local source = imbuement.sources and imbuement.sources[i]
+                if source then
+                    local itemCount = scrollApi.getItemCount(source.item:getId())
+                    itemWidget.count:setText(itemCount .."/" .. source.item:getCount())
+                    if itemCount >= source.item:getCount() then
+                        itemWidget.count:setColor("#C0C0C0")
+                    else
+                        hasRequiredItems = false
+                        itemWidget.count:setColor("#C04040")
+                    end
+                end
+            end
+        end
+    end
+
+    local costPanel = self.window:recursiveGetChildById("costPanel")
+    if costPanel then
+        local cost = imbuement.cost or 0
+        local balance = context.getPlayerBalance()
+        if balance < cost then
+            hasRequiredItems = false
+        end
+        costPanel.cost:setColor(balance < cost and "#C04040" or "#C0C0C0")
+    end
+
+    local imbuescrollApply = self.window:recursiveGetChildById("imbuescrollApply")
+    if imbuescrollApply then
+        imbuescrollApply:setEnabled(hasRequiredItems)
+        if not hasRequiredItems then
+           imbuescrollApply:setImageSource("/game_imbuing/images/imbue_empty")
+           imbuescrollApply:setImageClip("0 0 128 66")
+        else
+            imbuescrollApply:setImageSource("/game_imbuing/images/imbue_green")
+        end
+    end
+end
+
 function scrollApi.selectImbuementWidget(widget, imbuement)
     if self.lastselectedwidget then
         self.lastselectedwidget:setBorderWidth(1)
@@ -108,6 +175,7 @@ function scrollApi.selectImbuementWidget(widget, imbuement)
         self.lastselectedwidget:setBorderColorBottom("#2e2e2e")
     end
     self.lastselectedwidget = widget
+    self.lastSelectedImbuement = imbuement
     widget:setBorderWidth(1)
     widget:setBorderColor("white")
 
@@ -129,7 +197,7 @@ function scrollApi.selectImbuementWidget(widget, imbuement)
                 if source then
                     itemWidget.item:setItemId(source.item:getId())
                     itemWidget:setVisible(true)
-                    local itemCount = self.needItems[source.item:getId()] or 0
+                    local itemCount = scrollApi.getItemCount(source.item:getId())
                     itemWidget.count:setText(itemCount .."/" .. source.item:getCount())
                     if itemCount >= source.item:getCount() then
                         itemWidget.count:setColor("#C0C0C0")
@@ -141,8 +209,8 @@ function scrollApi.selectImbuementWidget(widget, imbuement)
                     itemWidget.onHoverChange = function(widget, hovered)
                         local itensDetails = self.window:recursiveGetChildById("itensDetails")
                         if hovered then
-                            local itemCount = self.needItems[source.item:getId()] or 0
-                            if itemCount >= source.item:getCount() then
+                            local count = scrollApi.getItemCount(source.item:getId())
+                            if count >= source.item:getCount() then
                                 itensDetails:setText(string.format("The imbuement you have selected requires %s.", source.description))
                             else
                                 itensDetails:setText(string.format("The imbuement requires %s. Unfortunately you do not own the needed amount.", source.description))
@@ -200,14 +268,12 @@ function scrollApi.selectImbuementWidget(widget, imbuement)
                 self.confirmWindow = nil
             end
 
-            context.imbuement.hide()
-
             local function confirm()
                 g_game.applyImbuement(0, imbuement.id, false)
-                self.confirmWindow:destroy()
-                self.confirmWindow = nil
-
-                context.imbuement.show()
+                if self.confirmWindow then
+                    self.confirmWindow:destroy()
+                    self.confirmWindow = nil
+                end
             end
 
             local function cancelFunc()
@@ -215,13 +281,11 @@ function scrollApi.selectImbuementWidget(widget, imbuement)
                     self.confirmWindow:destroy()
                     self.confirmWindow = nil
                 end
-
-                context.imbuement.show()
             end
 
             self.confirmWindow = displayGeneralBox(tr('Confirm Imbuing'), tr("You are about to imbue your item with \"%s\". This will consume the required astral sources and %s\ngold coins. Do you wish to proceed?", context.capitalize(imbuement.name), context.commaValue(imbuement.cost)),
-            { { text=tr('Yes'), callback=confirm },
-                { text=tr('No'), callback=cancelFunc },
+            { { text=tr('No'), callback=cancelFunc },
+                { text=tr('Yes'), callback=confirm },
             }, confirm, cancelFunc)
         end
     end

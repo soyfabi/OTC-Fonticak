@@ -35,7 +35,7 @@ return function(context)
       return
     end
 
-    self.window = g_ui.displayUI('t_imbui')
+    self.window = g_ui.displayUI('imbui')
     self.selectItemOrScroll = self.window:recursiveGetChildById('selectItemOrScroll')
     self.scrollImbue = self.window:recursiveGetChildById('scrollImbue')
     self.selectImbue = self.window:recursiveGetChildById('selectImbue')
@@ -102,12 +102,42 @@ return function(context)
     self.destroyWindow()
   end
 
+  function imbuementApi:startLiveRefresh()
+    if self.liveRefreshEvent then
+      return
+    end
+
+    self.liveRefreshEvent = cycleEvent(function()
+      if not self.window or not self.window:isVisible() then
+        self:stopLiveRefresh()
+        return
+      end
+
+      self:updateGold()
+
+      if context.item and context.item.refreshSelected then
+        context.item.refreshSelected()
+      end
+      if context.scroll and context.scroll.refreshSelected then
+        context.scroll.refreshSelected()
+      end
+    end, 200)
+  end
+
+  function imbuementApi:stopLiveRefresh()
+    if self.liveRefreshEvent then
+      removeEvent(self.liveRefreshEvent)
+      self.liveRefreshEvent = nil
+    end
+  end
+
   function imbuementApi.show()
     self.ensureWindow()
     self:updateGold()
     self.window:show(true)
     self.window:raise()
     self.window:focus()
+    self:startLiveRefresh()
     if self.messageWindow then
       self.messageWindow:destroy()
       self.messageWindow = nil
@@ -115,12 +145,14 @@ return function(context)
   end
 
   function imbuementApi.hide()
+    self:stopLiveRefresh()
     if self.window then
       self.window:hide()
     end
   end
 
   function imbuementApi.close()
+    self:stopLiveRefresh()
     if g_game.isOnline() then
       g_game.closeImbuingWindow()
     end
@@ -134,36 +166,52 @@ return function(context)
       return
     end
 
-    local player = g_game.getLocalPlayer()
-    local totalGold = 0
-    if player then
-      local bankGold = player:getResourceBalance(ResourceTypes.BANK_BALANCE) or 0
-      local inventoryGold = player:getResourceBalance(ResourceTypes.GOLD_EQUIPPED) or 0
-      totalGold = bankGold + inventoryGold
-    end
-
+    local totalGold = context.getPlayerBalance()
     local formattedGold = context.commaValue(totalGold)
-    local goldPanel = self.window.contentPanel.gold
-    goldPanel:setWidth(getGoldBarWidth(formattedGold))
-    goldPanel.gold:setText(formattedGold)
+    local goldPanel = self.window.contentPanel and self.window.contentPanel.gold
+    if goldPanel then
+      goldPanel:setWidth(getGoldBarWidth(formattedGold))
+      if goldPanel.gold then
+        goldPanel.gold:setText(formattedGold)
+      end
+    end
   end
 
   function imbuementApi:toggleMenu(menu)
-    for key, value in pairs(self) do
-      if type(value) == 'userdata' and key ~= 'window' then
+    self.currentMenu = menu
+    local panels = {
+      selectItemOrScroll = self.selectItemOrScroll,
+      scrollImbue = self.scrollImbue,
+      selectImbue = self.selectImbue,
+      clearImbue = self.clearImbue,
+    }
+
+    for key, widget in pairs(panels) do
+      if widget and widget.show and widget.hide then
         if key == menu then
-          value:show()
+          widget:show()
+          local itemBtn = widget:recursiveGetChildById('itemButton')
+          local scrollBtn = widget:recursiveGetChildById('scrollButton')
+
           if menu == 'selectItemOrScroll' then
             self.window:setHeight(388)
+            if itemBtn then itemBtn:setOn(false) end
+            if scrollBtn then scrollBtn:setOn(false) end
           elseif menu == 'scrollImbue' then
             self.window:setHeight(655)
+            if itemBtn then itemBtn:setOn(false) end
+            if scrollBtn then scrollBtn:setOn(true) end
           elseif menu == 'selectImbue' then
             self.window:setHeight(528)
+            if itemBtn then itemBtn:setOn(true) end
+            if scrollBtn then scrollBtn:setOn(false) end
           elseif menu == 'clearImbue' then
             self.window:setHeight(502)
+            if itemBtn then itemBtn:setOn(true) end
+            if scrollBtn then scrollBtn:setOn(false) end
           end
         else
-          value:hide()
+          widget:hide()
         end
       end
     end
@@ -222,25 +270,27 @@ return function(context)
   end
 
   function imbuementApi.onSelectScroll()
+    if self.currentMenu == 'scrollImbue' then
+      return
+    end
     g_game.selectImbuementScroll()
   end
 
   function imbuementApi.onMessageDialog(type, content)
-    if type > imbuementApi.MessageDialog.ImbuingStationNotFound or not self.window or not self.window:isVisible() then
+    if not self.window then
       return
     end
 
-    self:hide()
     if self.messageWindow then
       self.messageWindow:destroy()
       self.messageWindow = nil
     end
 
     local function confirm()
-      self.messageWindow:destroy()
-      self.messageWindow = nil
-
-      imbuementApi.show()
+      if self.messageWindow then
+        self.messageWindow:destroy()
+        self.messageWindow = nil
+      end
     end
 
     self.messageWindow = displayGeneralBox(tr('Message Dialog'), content or "",
