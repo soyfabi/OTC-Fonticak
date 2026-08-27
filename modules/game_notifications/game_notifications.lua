@@ -68,9 +68,20 @@ end
 
 local function onNotificationTextMessage(mode, message)
     local lowerMessage = message and message:lower() or ""
-    if lowerMessage:find("soul point", 1, true) and
+    if lowerMessage:find("soul", 1, true) and
        (lowerMessage:find("don't have enough", 1, true) or lowerMessage:find("do not have enough", 1, true) or lowerMessage:find("not enough", 1, true)) then
         showOutOfSoulPointsBanner()
+    end
+
+    if lowerMessage:find("no ammunition", 1, true) or
+       lowerMessage:find("no ammo", 1, true) or
+       lowerMessage:find("no arrows", 1, true) or
+       lowerMessage:find("no bolts", 1, true) or
+       lowerMessage:find("out of ammo", 1, true) or
+       lowerMessage:find("out of ammunition", 1, true) or
+       lowerMessage:find("need ammunition", 1, true) or
+       lowerMessage:find("sin munici", 1, true) then
+        showOutOfAmmoBanner()
     end
 
     local achievementName = getAchievementName(message)

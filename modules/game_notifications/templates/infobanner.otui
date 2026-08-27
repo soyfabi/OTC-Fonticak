@@ -1,0 +1,104 @@
+UIWidget
+  id: infoBanner
+  size: 289 105
+  focusable: false
+  phantom: true
+  anchors.top: parent.top
+  anchors.horizontalCenter: parent.horizontalCenter
+
+  UIWidget
+    id: paper
+    anchors.left: parent.left
+    anchors.top: parent.top
+    margin-top: 8
+    size: 0 88
+    image-source: /images/infobanner/backdrop/bottom
+    image-fixed-ratio: false
+    image-rect: 0 0 0 88
+    phantom: true
+
+  UIWidget
+    id: animation
+    anchors.left: parent.left
+    anchors.top: parent.top
+    size: 21 105
+    image-source: /images/infobanner/animation/anim0
+    phantom: true
+
+  UIWidget
+    id: content
+    anchors.fill: parent
+    phantom: true
+
+    UIWidget
+      id: icon
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 3
+      margin-top: -10
+      size: 72 75
+      image-source: /images/infobanner/icons/achievements
+      opacity: 0
+      phantom: true
+
+    UIWidget
+      id: icon2
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 46
+      margin-top: 46
+      size: 10 25
+      image-source: /images/infobanner/backdrop/top
+      opacity: 0
+      phantom: true
+
+    UIWidget
+      id: icon3
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: -1
+      margin-top: 1
+      size: 11 40
+      image-source: /images/infobanner/backdrop/mid
+      opacity: 0
+      phantom: true
+
+    UILabel
+      id: title
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      margin-left: 70
+      margin-right: 18
+      margin-top: 22
+      height: 18
+      font: terminus-14px-bold
+      color: #FFE1B5
+      text-align: center
+      opacity: 0
+      phantom: true
+
+    UILabel
+      id: desc
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      margin-left: 70
+      margin-right: 18
+      margin-top: 45
+      height: 40
+      color: #c0c0c0
+      text-align: center
+      text-wrap: true
+      opacity: 0
+      phantom: true
+
+    UIWidget
+      id: append
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 3
+      margin-top: -10
+      size: 72 75
+      focusable: false
+      phantom: true

@@ -1,14 +1,14 @@
 
 
 local OPEN_FRAMES = {
-    "/game_notifications/assets/images/infobanner/backdrop-infobanner-anim0",
-    "/game_notifications/assets/images/infobanner/backdrop-infobanner-anim1",
-    "/game_notifications/assets/images/infobanner/backdrop-infobanner-anim2", 
-    "/game_notifications/assets/images/infobanner/backdrop-infobanner-anim3",
-    "/game_notifications/assets/images/infobanner/backdrop-infobanner-anim4",
-    "/game_notifications/assets/images/infobanner/backdrop-infobanner-anim5",
-    "/game_notifications/assets/images/infobanner/backdrop-infobanner-anim6", 
-    "/game_notifications/assets/images/infobanner/backdrop-infobanner-anim7"
+    "/images/infobanner/animation/anim0",
+    "/images/infobanner/animation/anim1",
+    "/images/infobanner/animation/anim2", 
+    "/images/infobanner/animation/anim3",
+    "/images/infobanner/animation/anim4",
+    "/images/infobanner/animation/anim5",
+    "/images/infobanner/animation/anim6", 
+    "/images/infobanner/animation/anim7"
 }
 
 local MAX_WIDTH = 289
@@ -101,7 +101,7 @@ local infoPopUp = {
             title = "Outfit Unlocked",
             description = "You have unlocked '%s'", --skinName
             hasCreatureId = true,
-            img = "/game_notifications/assets/images/nodo/icon-infobanner-unlock"
+            img = "/images/infobanner/icons/unlock"
         }
     },
     [eventCategory.CLIENT_EVENT_TYPE_BOSSTIARY] = {
@@ -110,7 +110,7 @@ local infoPopUp = {
             title = "Bosstiary Progress",
             description = "You have progressed '%s'",--progressLevel
             hasRaceId = true,
-            img = "/game_notifications/assets/images/nodo/icon-infobanner-unlock"
+            img = "/images/infobanner/icons/unlock"
         }
     },
     [eventCategory.CLIENT_EVENT_TYPE_BESTIARY] = {
@@ -119,7 +119,7 @@ local infoPopUp = {
             title = "Bestiary Progress",
             description = "You have progressed '%s'", --progressLevel
             hasRaceId = true,
-            img = "/game_notifications/assets/images/nodo/icon-infobanner-unlock"
+            img = "/images/infobanner/icons/unlock"
         }
     },
     [eventCategory.CLIENT_EVENT_TYPE_ACHIEVEMENT] = {
@@ -127,7 +127,7 @@ local infoPopUp = {
         {
             title = "New Achievement",
             description = "You have earned '%s'", --name
-            img = "/game_notifications/assets/images/nodo/icon-infobanner-achievements"
+            img = "/images/infobanner/icons/achievements"
         }
     },
     [eventCategory.CLIENT_EVENT_TYPE_TITLE] = {
@@ -135,7 +135,7 @@ local infoPopUp = {
         {
             title = "Title Gained",
             description = "You have earned '%s'", --name
-            img = "/game_notifications/assets/images/nodo/icon-infobanner-title"
+            img = "/images/infobanner/icons/title"
         }
     },
     [eventCategory.CLIENT_EVENT_TYPE_PROFICIENCY] = {
@@ -144,35 +144,35 @@ local infoPopUp = {
             title = "Weapon Proficiency",
             description = "you have improved '%s'", -- message
             hasItemId = true,
-            img = "/game_notifications/assets/images/nodo/icon-infobanner-unlock"
+            img = "/images/infobanner/icons/unlock"
         }
     },
     [eventCategory.CLIENT_EVENT_TYPE_QUEST] = {
         -- type(int), questName(string), isCompleted(bool)
         [true] = { -- isCompleted(bool)
             title = "Quest completed",
-            description = "you have finished '%s'",
-            img = "/game_notifications/assets/images/nodo/icon-infobanner-quests"
+            description = "You have finished '%s'",
+            img = "/images/infobanner/icons/quests"
         },
         [false] = { -- isCompleted(bool)
             title = "Quest started",
-            description = "you have begun '%s'",
-            img = "/game_notifications/assets/images/nodo/icon-infobanner-quests"
+            description = "You have begun '%s'",
+            img = "/images/infobanner/icons/quests"
         }
     },
     [eventCategory.CLIENT_EVENT_TYPE_LEVEL] = {
         {
             title = "Level %d!",
             description = "You gained hit points, mana, and capacity.",
-            img = "/game_notifications/assets/images/nodo/icon-infobanner-levelup"
+            img = "/images/infobanner/icons/levelup"
         }
     },
     [eventCategory.CLIENT_EVENT_TYPE_SKILL] = {
         -- type(int), skillId(int), level(int)
         {
             title = "%s",
-            description = "your skill has advanced to level %d",
-            img = "/game_notifications/assets/images/nodo/icon-infobanner-skill-%s"
+            description = "Your skill has advanced to level %d",
+            img = "/images/infobanner/icons/skills/%s"
         }
     },
     [eventCategory.CLIENT_EVENT_TYPE_SIMPLE] = {
@@ -180,27 +180,27 @@ local infoPopUp = {
         [eventType.CLIENT_EVENT_CAPACITYLIMIT] = {
             title = "Capacity Limit",
             description = "Remove items before adding new ones.",
-            img = "/game_notifications/assets/images/nodo/icon-infobanner-quests"
+            img = "/images/infobanner/icons/quests"
         },
         [eventType.CLIENT_EVENT_OUTOFAMMO] = {
             title = "Out of Ammunition",
             description = "You have no arrow or bolt equipped.",
-            img = "/game_notifications/assets/images/nodo/icon-infobanner-hint"
+            img = "/images/infobanner/icons/hint"
         },
         [eventType.CLIENT_EVENT_TARGETTOOCLOSE] = {
             title = "Target Too Close",
             description = "You are using a ranged auto-attack at melee distance.",
-            img = "/game_notifications/assets/images/nodo/icon-infobanner-hint"
+            img = "/images/infobanner/icons/hint"
         },
         [eventType.CLIENT_EVENT_OUTOFSOULPOINTS] = {
             title = "Out of Soul Points",
             description = "You don't have enough soul points to cast this spell.",
-            img = "/game_notifications/assets/images/nodo/icon-infobanner-hint"
+            img = "/images/infobanner/icons/hint"
         },
         [eventType.CLIENT_EVENT_TUTORIALCOMPLETE] = {
             title = "Off to New Shores",
             description = "Leave the village and set sail to start your real adventure.",
-            img = "/game_notifications/assets/images/nodo/icon-infobanner-offtonewshores"
+            img = "/images/infobanner/icons/offtonewshores"
         }
     }
 }
@@ -272,6 +272,13 @@ function showOutOfSoulPointsBanner()
         return
     end
     notificationsController:onClientEvent(eventCategory.CLIENT_EVENT_TYPE_SIMPLE, eventType.CLIENT_EVENT_OUTOFSOULPOINTS)
+end
+
+function showOutOfAmmoBanner()
+    if shouldSkipRecentClientEvent("simple:out-of-ammo") then
+        return
+    end
+    notificationsController:onClientEvent(eventCategory.CLIENT_EVENT_TYPE_SIMPLE, eventType.CLIENT_EVENT_OUTOFAMMO)
 end
 
 function showAchievementBanner(name)
@@ -404,8 +411,9 @@ end
 
 function infoBanner_onTerminate()
     notificationsController:hideImmediate()
-    if notificationsController.ui then
-        notificationsController:unloadHtml()
+    if notificationsController.ui and not notificationsController.ui:isDestroyed() then
+        notificationsController.ui:destroy()
+        notificationsController.ui = nil
     end
 end
 
@@ -414,21 +422,26 @@ function notificationsController:ensure()
         return
     end
 
-    self:loadHtml("templates/infobanner.html", modules.game_interface.getMapPanel())
+    local mapPanel = modules.game_interface.getMapPanel()
+    self.ui = g_ui.loadUI("/game_notifications/templates/infobanner", mapPanel)
+    if not self.ui then
+        return
+    end
     self.ui:hide()
 
     self.widgets = {
-        paper = self:findWidget("#paper"),
-        anim = self:findWidget("#animation"),
-        icon = self:findWidget("#icon"),
-        title = self:findWidget("#title"),
-        desc = self:findWidget("#desc"),
-        append = self:findWidget("#append"),
-        fadeTexts = self.ui:querySelectorAll(".fade-text"),
-        fadeIcons = self.ui:querySelectorAll(".fade-icon")
+        paper = self.ui:getChildById("paper"),
+        anim = self.ui:getChildById("animation"),
+        content = self.ui:getChildById("content"),
+        icon = self.ui:recursiveGetChildById("icon"),
+        icon2 = self.ui:recursiveGetChildById("icon2"),
+        icon3 = self.ui:recursiveGetChildById("icon3"),
+        title = self.ui:recursiveGetChildById("title"),
+        desc = self.ui:recursiveGetChildById("desc"),
+        append = self.ui:recursiveGetChildById("append"),
     }
-
-    -- HTML Widget initialized
+    self.widgets.fadeTexts = { self.widgets.title, self.widgets.desc }
+    self.widgets.fadeIcons = { self.widgets.icon, self.widgets.icon2, self.widgets.icon3 }
 end
 
 function notificationsController:updateBannerPosition()
@@ -460,9 +473,10 @@ function notificationsController:cancelEvent()
     end
 end
 
-function notificationsController:reloadBannerHtml()
-    if self.ui then
-        self:unloadHtml()
+function notificationsController:reloadBannerUI()
+    if self.ui and not self.ui:isDestroyed() then
+        self.ui:destroy()
+        self.ui = nil
         self.widgets = {}
     end
     self:ensure()
@@ -565,8 +579,9 @@ function notificationsController:processNext()
         -- Queue empty. Unloading UI.
         self.state = "idle"
         self.activeAdvanceKey = nil
-        if self.ui then
-            self:unloadHtml()
+        if self.ui and not self.ui:isDestroyed() then
+            self.ui:destroy()
+            self.ui = nil
             self.widgets = {}
         end
         return
@@ -575,13 +590,14 @@ function notificationsController:processNext()
     if not data then
         self.state = "idle"
         self.activeAdvanceKey = nil
-        if self.ui then
-            self:unloadHtml()
+        if self.ui and not self.ui:isDestroyed() then
+            self.ui:destroy()
+            self.ui = nil
             self.widgets = {}
         end
         return
     end
-    self:reloadBannerHtml()
+    self:reloadBannerUI()
     self:updateBannerPosition()
     if not self.ui or self.ui:isDestroyed() then
         self.state = "idle"
@@ -608,39 +624,32 @@ function notificationsController:processNext()
 
         if data.extraData.itemId then
             local itemId = data.extraData.itemId
-            local html = string.format([[
-            <uiitem item-id="%d" style="width: 64px; height: 64px"></uiitem>
-            ]], itemId)
-            appendW:append(html)
+            local itemWidget = g_ui.createWidget('UIItem', appendW)
+            itemWidget:setSize({width = 64, height = 64})
+            itemWidget:setItemId(itemId)
         elseif data.extraData.raceId then
             local raceId = data.extraData.raceId
             local raceData = g_things.getRaceData(raceId)
             if not raceData or (raceData.raceId == 0 and (not raceData.outfit or raceData.outfit.type == 0)) then
                 g_logger.warning(string.format("Creature with race id %s was not found.", raceId))
             else
-                local html = string.format([[
-                <uicreature style="width: 64px; height: 64px"/>
-                ]])
-                local outfit = appendW:append(html)
+                local outfit = g_ui.createWidget('UICreature', appendW)
+                outfit:setSize({width = 64, height = 64})
                 outfit:setOutfit(raceData.outfit)
             end
         elseif data.extraData.creatureId then
-            local html = string.format([[
-            <uicreature outfit-id="%d" style="width: 64px; height: 64px"/>
-            ]], data.extraData.creatureId)
+            local outfit = g_ui.createWidget('UICreature', appendW)
+            outfit:setSize({width = 64, height = 64})
             if data.extraData.skinType == skinType.outfit then
-                local outfit = appendW:append(html)
                 outfit:setOutfit({
                     type = data.extraData.creatureId
                 })
             elseif data.extraData.skinType == skinType.addon1 or data.extraData.skinType == skinType.addon2 then
-                local outfit = appendW:append(html)
                 outfit:setOutfit({
                     type = data.extraData.creatureId,
                     addons = data.extraData.skinType
                 })
             elseif data.extraData.skinType == skinType.mount then
-                local outfit = appendW:append(html)
                 outfit:setOutfit({
                     type = data.extraData.creatureId
                 })
@@ -866,8 +875,9 @@ end
 
 function notificationsController:hideImmediate()
     self:cancelEvent()
-    if self.ui then
-        self:unloadHtml()
+    if self.ui and not self.ui:isDestroyed() then
+        self.ui:destroy()
+        self.ui = nil
         self.widgets = {}
     end
     self.queue = {}
