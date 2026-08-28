@@ -408,12 +408,6 @@ bool Tile::removeThing(const ThingPtr thing)
     if (it == m_things.end())
         return false;
 
-    if (auto creature = std::dynamic_pointer_cast<Creature>(thing);
-        creature && creature->shouldDelayDeathRemoval()) {
-        creature->scheduleDeathRemoval();
-        return true;
-    }
-
     markHighlightedThing(Color::white);
 
     m_things.erase(it);

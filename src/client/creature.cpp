@@ -765,23 +765,11 @@ void Creature::onDeath()
 
 bool Creature::shouldDelayDeathRemoval() const
 {
-    constexpr int DEATH_ANIMATION_MS = 700;
-    return g_gameConfig.isShowDeathAnimation() && m_healthPercent <= 0 && !isLocalPlayer() &&
-           m_deathAnimationTimer.ticksElapsed() < DEATH_ANIMATION_MS;
+    return false;
 }
 
 void Creature::scheduleDeathRemoval()
 {
-    if (m_deathRemovalPending)
-        return;
-
-    m_deathRemovalPending = true;
-    const auto self = static_self_cast<Creature>();
-    g_dispatcher.scheduleEvent([self] {
-        self->m_deathRemovalPending = false;
-        if (self->getTile())
-            g_map.removeThing(self);
-    }, 700);
 }
 
 void Creature::updateWalkAnimation()
