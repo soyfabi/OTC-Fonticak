@@ -158,6 +158,7 @@ public:
     const Position& getOldPosition() const { return m_oldPosition; }
     bool isInvisible() { return m_outfit.isEffect() && m_outfit.getAuxId() == 13; }
     bool isDead() { return m_healthPercent <= 0; }
+    Timer& getDeathAnimationTimer() { return m_deathAnimationTimer; }
     bool isHidden() const;
     bool isFullHealth() { return m_healthPercent == 100; }
     bool canBeSeen() { return !isInvisible() || isPlayer(); }

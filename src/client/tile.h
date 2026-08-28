@@ -192,6 +192,7 @@ private:
     void markHighlightedThing(const Color& color);
 
     std::vector<CreaturePtr> m_walkingCreatures;
+    std::vector<CreaturePtr> m_dyingCreatures;
     std::vector<ThingPtr> m_things;
 
     std::unique_ptr<std::vector<EffectPtr>> m_effects;

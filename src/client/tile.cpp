@@ -204,6 +204,21 @@ void Tile::drawCreature(const Point& dest, const int flags, const bool forceDraw
     if (!localPlayerDrawed && g_game.getLocalPlayer() && !g_game.getLocalPlayer()->isWalking() && g_game.getLocalPlayer()->getPosition() == m_position) {
         drawThing(g_game.getLocalPlayer(), dest, flags, drawElevation, lightView);
     }
+
+    if (!m_dyingCreatures.empty()) {
+        constexpr int DEATH_ANIMATION_MS = 700;
+        for (auto it = m_dyingCreatures.begin(); it != m_dyingCreatures.end(); ) {
+            if ((*it)->getDeathAnimationTimer().ticksElapsed() >= DEATH_ANIMATION_MS) {
+                it = m_dyingCreatures.erase(it);
+            } else {
+                if (flags == Otc::DrawLights)
+                    (*it)->drawLight(dest, lightView);
+                else
+                    (*it)->draw(dest, flags & Otc::DrawThings);
+                ++it;
+            }
+        }
+    }
 }
 
 void Tile::drawTop(const Point& dest, const int flags, const bool forceDraw, uint8_t drawElevation)
@@ -244,6 +259,8 @@ void Tile::clean()
     m_highlightedThing = nullptr;
     while (!m_things.empty())
         removeThing(m_things.front());
+
+    m_dyingCreatures.clear();
 
     if (m_effects)
         m_effects->clear();
@@ -407,6 +424,13 @@ bool Tile::removeThing(const ThingPtr thing)
     const auto it = std::ranges::find(m_things, thing);
     if (it == m_things.end())
         return false;
+
+    if (thing->isCreature() && g_gameConfig.isShowDeathAnimation()) {
+        if (auto creature = std::dynamic_pointer_cast<Creature>(thing); creature && creature->isDead() && !creature->isLocalPlayer()) {
+            creature->onDeath();
+            m_dyingCreatures.push_back(creature);
+        }
+    }
 
     markHighlightedThing(Color::white);
 
