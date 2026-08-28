@@ -147,6 +147,11 @@ controller:registerEvents(g_game, {
         if version >= 1000 then
             g_game.enableFeature(GameThingMarks)
             g_game.enableFeature(GamePVPMode)
+            g_game.enableFeature(GamePenalityOnDeath)
+        end
+
+        if version >= 1098 then
+            g_game.enableFeature(GameDeathType)
         end
 
         if version >= 1035 then

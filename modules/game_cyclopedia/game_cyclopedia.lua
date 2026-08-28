@@ -20,7 +20,9 @@ function init()
 	window 	   = g_ui.displayUI('game_cyclopedia')
 	
 	cyclopediaButton = modules.client_topmenu.addRightGameToggleButton('cyclopediaButton', tr('Cyclopedia'), '/images/topbuttons/ciclopedia', toggle, false, 8)
-	bestiaryTrackerButton = modules.client_topmenu.addRightGameToggleButton('bestiaryTrackerButton', tr('Bestiary Tracker'), '/images/topbuttons/bestiaryTracker', toggleTracker, false, 9)
+	bestiaryTrackerButton = modules.client_topmenu.addRightGameToggleButton('bestiaryTrackerButton', tr('Bestiary Tracker'), '/images/options/bestiaryTracker', toggleTracker, false, 9)
+	modules.game_cyclopedia.cyclopediaButton = cyclopediaButton
+	modules.game_cyclopedia.bestiaryTrackerButton = bestiaryTrackerButton
 	contentContainer = window:recursiveGetChildById('contentContainer')
 	buttonSelection = window:recursiveGetChildById('buttonSelection')
 		items = buttonSelection:recursiveGetChildById('items')

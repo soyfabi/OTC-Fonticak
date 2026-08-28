@@ -62,6 +62,7 @@ namespace Proto
         GameServerSupplyStash = 41,
         GameServerSpecialContainer = 42,
         GameServerPartyAnalyzer = 43,
+        GameServerCharmProc = 45,
 
         // all in game opcodes must be greater than 50
         GameServerFirstGameOpcode = 50,

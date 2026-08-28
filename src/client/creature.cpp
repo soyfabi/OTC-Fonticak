@@ -176,6 +176,7 @@ void Creature::draw(const Rect& destRect, const uint8_t size, const bool center)
     // - Drawing itself is NOT clipped to that window (large mounts can overflow).
     // We emulate that with a larger FB and by mapping the virtual window into dest.
     const int spriteSize = g_gameConfig.getSpriteSize();
+    const int nativeSize = std::max<int>(getRealSize(), getExactSize(0, 0, 0));
     const int virtualSize = 2 * spriteSize;
 
     int fbSize = virtualSize;
@@ -188,11 +189,10 @@ void Creature::draw(const Rect& destRect, const uint8_t size, const bool center)
             fbSize += spriteSize;
     }
 
-    const Point origin(fbSize / 2, fbSize / 2);
-
     g_drawPool.bindFrameBuffer(fbSize); {
-        // Origin at FB center == Astra Outfit::draw(Point(0,0)).
-        const Point p = origin + getDisplacement();
+        Point p = center
+            ? Point((fbSize - nativeSize) / 2 + (nativeSize - spriteSize)) + getDisplacement()
+            : Point(fbSize / 2, fbSize / 2) + getDisplacement();
         internalDraw(p);
         if (isMarked())           internalDraw(p, getMarkedColor());
         else if (isHighlighted()) internalDraw(p, getHighlightColor());

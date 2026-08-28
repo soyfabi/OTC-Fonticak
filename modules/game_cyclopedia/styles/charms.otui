@@ -67,6 +67,10 @@ CharmWidget < UIWidget
     anchors.right: parent.right
     margin-top: 24
     margin-right: 7
+    fixed-creature-size: true
+    base-scale: true
+    creature-center: true
+    ignore-displacement-shift: true
     animate: true
     phantom: true
 
@@ -279,8 +283,13 @@ UIWidget
           size: 64 64
           anchors.horizontalCenter: parent.horizontalCenter
           anchors.verticalCenter: parent.verticalCenter
-          background-color: #404040
+          background-color: #d33c3c33
+          fixed-creature-size: true
+          base-scale: true
+          creature-center: true
+          ignore-displacement-shift: true
           animate: true
+          phantom: true
 
   Panel
     id: resetPanel
@@ -482,7 +491,7 @@ UIWidget
     id: blackBG01
     image-source: /images/modern_ui/image1015925
     image-border: 1
-    size: 104 20
+    size: 96 20
     anchors.bottom: parent.bottom
     anchors.left: parent.left
     margin-bottom: 1
@@ -507,19 +516,21 @@ UIWidget
     id: blackBG02
     image-source: /images/modern_ui/image1015925
     image-border: 1
-    size: 104 20
+    size: 110 20
     anchors.bottom: parent.bottom
     anchors.left: blackBG01.right
     margin-left: 6
     margin-bottom: 1
+    !tooltip: tr('Charm Points\n\nEarned by unlocking entries in the Bestiary.')
 
     UIWidget
       id: charmIcon
-      image-source: /images/modern_ui/charm_big
+      image-source: /images/game/cyclopedia/ui/charm-points
       anchors.bottom: parent.bottom
       anchors.right: parent.right
       margin-bottom: 3
       margin-right: 3
+      !tooltip: tr('Charm Points\n\nEarned by unlocking entries in the Bestiary.')
 
     Label
       id: charmAmount
@@ -528,4 +539,35 @@ UIWidget
       anchors.right: charmIcon.left
       margin-bottom: 2
       margin-right: 2
-      width: 80
+      width: 85
+      !tooltip: tr('Charm Points\n\nEarned by unlocking entries in the Bestiary.')
+
+  UIWidget
+    id: blackBG03
+    image-source: /images/modern_ui/image1015925
+    image-border: 1
+    size: 110 20
+    anchors.bottom: parent.bottom
+    anchors.left: blackBG02.right
+    margin-left: 6
+    margin-bottom: 1
+    !tooltip: tr('Minor Charm Echoes\n\nEarned by unlocking or upgrading Major Charm and promoting your character.')
+
+    UIWidget
+      id: echoesIcon
+      image-source: /images/game/cyclopedia/ui/minor-charm-echoes
+      anchors.bottom: parent.bottom
+      anchors.right: parent.right
+      margin-bottom: 3
+      margin-right: 3
+      !tooltip: tr('Minor Charm Echoes\n\nEarned by unlocking or upgrading Major Charm and promoting your character.')
+
+    Label
+      id: echoesAmount
+      text-align: right
+      anchors.bottom: parent.bottom
+      anchors.right: echoesIcon.left
+      margin-bottom: 2
+      margin-right: 2
+      width: 85
+      !tooltip: tr('Minor Charm Echoes\n\nEarned by unlocking or upgrading Major Charm and promoting your character.')

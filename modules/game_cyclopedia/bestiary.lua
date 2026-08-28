@@ -153,6 +153,15 @@ function readCyclopediaCreatureOutfit(msg)
 	}
 end
 
+function readCharmResources(msg)
+	local charmBalance = msg:getU32()
+	local echoeBalance = msg:getU32()
+	local maxCharmBalance = msg:getU32()
+	local maxEchoeBalance = msg:getU32()
+	local goldBalance = msg:getU64()
+	return charmBalance, goldBalance, echoeBalance, maxCharmBalance, maxEchoeBalance
+end
+
 local function readBestiaryOverviewEntry(msg)
 	local raceId = msg:getU16()
 	local progressMarker = msg:getU8()
@@ -181,10 +190,14 @@ local function applyBestiaryCategoryRow(row, entry)
 		return
 	end
 
+	local raceOutfit = entry.outfit or (protoData and protoData[entry.raceId])
+
 	if row.progress > 0 then
-		local raceOutfit = entry.outfit
 		if raceOutfit then
 			bestContainer.creature:setOutfit(raceOutfit)
+		end
+		if bestContainer.creature:getCreature() then
+			bestContainer.creature:getCreature():setShader("")
 		end
 		bestContainer.hideCreature:hide()
 		row:setText(firstToUpper(raceOutfit and raceOutfit.name or "unknown"))
@@ -201,7 +214,13 @@ local function applyBestiaryCategoryRow(row, entry)
 			requestBestiaryMonsterData(entry.raceId)
 		end
 	else
-		bestContainer.hideCreature:show()
+		if raceOutfit then
+			bestContainer.creature:setOutfit(raceOutfit)
+		end
+		if bestContainer.creature:getCreature() then
+			bestContainer.creature:getCreature():setShader("Outfit - cyclopedia-black")
+		end
+		bestContainer.hideCreature:hide()
 		row:setText("Unknown")
 		row.creatureProgressCheck:hide()
 		row.creatureProgress:setText("?")
@@ -751,13 +770,8 @@ function registerBestiaryProtocol()
 			local itemId = msg:getU16()
 			local difficult = msg:getU8()
 			local specialEvent = msg:getU8()
-			local lootName = ""
-			local countMax = 0
-			
-			if (currentLevel > 1) then
-				lootName = msg:getString()
-				countMax = msg:getU8()
-			end
+			local lootName = msg:getString()
+			local countMax = msg:getU8()
 
 			table.insert(tierLoot, {
 				itemId, difficult, lootName, countMax
@@ -780,8 +794,8 @@ function registerBestiaryProtocol()
 				if tierLoot[i][2] == a then
 					table.insert(difficultyList, {
 						itemId = tierLoot[i][1],
-						name = tierLoot[i][3],
-						countMax = tierLoot[i][4]
+						name = currentLevel > 1 and tierLoot[i][3] or "",
+						countMax = currentLevel > 1 and tierLoot[i][4] or 0
 					})
 				end
 			end
@@ -822,15 +836,15 @@ function registerBestiaryProtocol()
 			rarityLoot:setMarginTop(5 + ((a-1) * 40))
 		end
 		
+		local charmPoints = msg:getU16()
+		local attackMode = msg:getU8()
+		local unknownPacket = msg:getU8()
+		local healthMax = msg:getU32()
+		local experience = msg:getU32()
+		local baseSpeed = msg:getU16()
+		local armor = msg:getU16()
+
 		if currentLevel > 1 then
-			local charmPoints = msg:getU16()
-			local attackMode = msg:getU8()
-			local unknownPacket = msg:getU8()
-			local healthMax = msg:getU32()
-			local experience = msg:getU32()
-			local baseSpeed = msg:getU16()
-			local armor = msg:getU16()
-	
 			bestiaryMonster.charmAmount:setText(charmPoints)
 			bestiaryMonster.healthAmount:setText(healthMax)
 			bestiaryMonster.experienceAmount:setText(experience)
@@ -848,75 +862,69 @@ function registerBestiaryProtocol()
 		-- Elements setup
 		local elements = {bestiaryMonster.physicalAmount, bestiaryMonster.earthAmount, bestiaryMonster.fireAmount, bestiaryMonster.deathAmount, bestiaryMonster.energyAmount, bestiaryMonster.holyAmount, bestiaryMonster.iceAmount, bestiaryMonster.healingAmount}
 		
-		if currentLevel > 2 then
-			-- Element Table Initialize
-			local elementWidgetTable = {
-				[0] = bestiaryMonster.physicalAmount,
-				[1] = bestiaryMonster.fireAmount,
-				[2] = bestiaryMonster.earthAmount,
-				[3] = bestiaryMonster.energyAmount,
-				[4] = bestiaryMonster.iceAmount,
-				[5] = bestiaryMonster.holyAmount,
-				[6] = bestiaryMonster.deathAmount,
-				[7] = bestiaryMonster.healingAmount
-			}
-			
-			-- Basic setup for all elements
-			for a = 1, #elements do 
-				elements[a]:setPercent(68) -- Means 100%
-			end
-			
-			-- Actual element Setup
-			local elementsList = msg:getU8()
-			for b = 1, elementsList do
-				local elementId, elementPercent = msg:getU8(), msg:getU16()
-				-- We change each element depending on which element has been altered
-				if elementWidgetTable[elementId] then
-					local elementFormula = (elementPercent / 100)
-					if (elementPercent == 0) then
-						progressPercent = 0
-					elseif (elementPercent == 100) then
-						progressPercent = 68
-					else
-						progressPercent = elementFormula * 68
-					end
-					
-					elementWidgetTable[elementId]:setPercent(progressPercent)
-					if (elementPercent > 100) then
-						elementWidgetTable[elementId]:setBackgroundColor("#18ce18")
-					elseif (elementPercent < 100) then
-						elementWidgetTable[elementId]:setBackgroundColor("#ae0f0f")
-					elseif (elementPercent == 100) then
-						elementWidgetTable[elementId]:setBackgroundColor("#ffffff")
-					end
+		local elementWidgetTable = {
+			[0] = bestiaryMonster.physicalAmount,
+			[1] = bestiaryMonster.fireAmount,
+			[2] = bestiaryMonster.earthAmount,
+			[3] = bestiaryMonster.energyAmount,
+			[4] = bestiaryMonster.iceAmount,
+			[5] = bestiaryMonster.holyAmount,
+			[6] = bestiaryMonster.deathAmount,
+			[7] = bestiaryMonster.healingAmount
+		}
+		
+		-- Basic setup for all elements
+		for a = 1, #elements do 
+			elements[a]:setPercent(currentLevel > 2 and 68 or 0)
+		end
+		
+		-- Actual element Setup
+		local elementsList = msg:getU8()
+		for b = 1, elementsList do
+			local elementId, elementPercent = msg:getU8(), msg:getU16()
+			if currentLevel > 2 and elementWidgetTable[elementId] then
+				local elementFormula = (elementPercent / 100)
+				if (elementPercent == 0) then
+					progressPercent = 0
+				elseif (elementPercent == 100) then
+					progressPercent = 68
+				else
+					progressPercent = elementFormula * 68
+				end
+				
+				elementWidgetTable[elementId]:setPercent(progressPercent)
+				if (elementPercent > 100) then
+					elementWidgetTable[elementId]:setBackgroundColor("#18ce18")
+				elseif (elementPercent < 100) then
+					elementWidgetTable[elementId]:setBackgroundColor("#ae0f0f")
+				elseif (elementPercent == 100) then
+					elementWidgetTable[elementId]:setBackgroundColor("#ffffff")
 				end
 			end
+		end
+	
+		-- Location
+		local locations = msg:getU16()
+		local locationsList = {}
+		for i = 1, locations do
+			locationsList[#locationsList + 1] = msg:getString()
+		end
 		
-			-- Location
-			local locations = msg:getU16()
-			local locationsList = {}
-			for i = 1, locations do
-				locationsList[#locationsList + 1] = msg:getString()
-			end
-			
+		if currentLevel > 2 then
 			bestiaryMonster.locationTextfield:setText(formatLocations(locationsList))
 		else
 			bestiaryMonster.locationTextfield:setText("?")
-			for c = 1, #elements do
-				elements[c]:setPercent(0)
-			end
 		end
 		
-		-- Charms (Not done)
-		if currentLevel > 3 then
-			local hascharm = msg:getU8()
-			if hascharm > 0 then
-				msg:getU8()
-				msg:getU32()
-			else
-				msg:getU8()
-			end
+		-- Charms
+		local hascharm = msg:getU8()
+		if hascharm > 0 then
+			msg:getU8()
+			msg:getU32()
+		else
+			msg:getU8()
 		end
+
 		if scheduleBestiaryMonsterRefresh then
 			scheduleBestiaryMonsterRefresh()
 		end
@@ -943,12 +951,9 @@ function registerBestiaryProtocol()
 		local secondUnlock = msg:getU16()
 		local toKill = msg:getU16()
 		local raceOutfit = readCyclopediaCreatureOutfit(msg)
-		local charmAmount = msg:getU32()
-		local goldAmount = msg:getU32()
-
-		if modules.game_notifications and modules.game_notifications.showBestiaryProgress then
-			modules.game_notifications.showBestiaryProgress(raceId, progress)
-		end
+		local charmAmount, goldAmount, echoeAmount, maxCharmAmount, maxEchoeAmount = readCharmResources(msg)
+		local oldEntry = currentBestiaryEntries[raceId]
+		local oldProgress = oldEntry and oldEntry.progress or nil
 
 		applyBestiaryProgressUpdate({
 			raceId = raceId,
@@ -959,7 +964,13 @@ function registerBestiaryProtocol()
 			toKill = toKill,
 			outfit = raceOutfit
 		})
-		BestiaryChangeAmount(charmAmount, goldAmount)
+		BestiaryChangeAmount(charmAmount, goldAmount, echoeAmount, maxCharmAmount, maxEchoeAmount)
+
+		if oldProgress ~= nil and progress > oldProgress then
+			if modules.game_notifications and modules.game_notifications.showBestiaryProgress then
+				modules.game_notifications.showBestiaryProgress(raceId, progress, raceOutfit)
+			end
+		end
 	end)
 
 	ProtocolGame.unregisterOpcode(CyclopediaOpcode.Send)
@@ -993,16 +1004,40 @@ local function formatNumber(value)
 	return sign .. left .. middle:reverse():gsub('(%d%d%d)', '%1,'):reverse() .. right
 end
 
-function BestiaryChangeAmount(amount,secondAmount)
-if not isBestiaryView() then
-return
-end
-if charmAmountBestiary then
-charmAmountBestiary:setText(formatNumber(amount))
-end
-if goldAmountBestiary then
-goldAmountBestiary:setText(formatNumber(secondAmount))
-end
+local currentCharmBalance = 0
+local currentGoldBalance = 0
+local currentEchoeBalance = 0
+local currentMaxCharmBalance = 0
+local currentMaxEchoeBalance = 0
+
+function BestiaryChangeAmount(amount, secondAmount, echoeAmount, maxCharmAmount, maxEchoeAmount)
+	currentCharmBalance = amount or currentCharmBalance
+	currentGoldBalance = secondAmount or currentGoldBalance
+	currentEchoeBalance = echoeAmount or currentEchoeBalance
+	currentMaxCharmBalance = maxCharmAmount or currentMaxCharmBalance
+	currentMaxEchoeBalance = maxEchoeAmount or currentMaxEchoeAmount
+
+	if not isBestiaryView() then
+		return
+	end
+
+	if charmAmountBestiary then
+		if currentMaxCharmBalance and currentMaxCharmBalance > 0 then
+			charmAmountBestiary:setText(string.format("%s / %s", formatNumber(currentCharmBalance), formatNumber(currentMaxCharmBalance)))
+		else
+			charmAmountBestiary:setText(formatNumber(currentCharmBalance))
+		end
+	end
+	if echoesAmountBestiary then
+		if currentMaxEchoeBalance and currentMaxEchoeBalance > 0 then
+			echoesAmountBestiary:setText(string.format("%s / %s", formatNumber(currentEchoeBalance), formatNumber(currentMaxEchoeBalance)))
+		else
+			echoesAmountBestiary:setText(formatNumber(currentEchoeBalance))
+		end
+	end
+	if goldAmountBestiary then
+		goldAmountBestiary:setText(formatNumber(currentGoldBalance))
+	end
 end
 
 function untrackAllBestiaryCreatures()
@@ -1115,6 +1150,16 @@ ensureBestiaryTrackerWindow = function()
 	bestiaryTrackerWindow = g_ui.createWidget('BestiaryTrackerMini', rightPanel)
 	if not bestiaryTrackerWindow then
 		return nil
+	end
+
+	bestiaryTrackerWindow.onOpen = onBestiaryTrackerOpen
+	bestiaryTrackerWindow.onClose = onBestiaryTrackerClose
+	bestiaryTrackerWindow.onVisibilityChange = function(widget, visible)
+		if visible then
+			onBestiaryTrackerOpen()
+		else
+			onBestiaryTrackerClose()
+		end
 	end
 
 	local toggleFilterButton = bestiaryTrackerWindow:recursiveGetChildById('toggleFilterButton')
@@ -1265,9 +1310,15 @@ function onBestiaryTrackerOpen()
 	if bestiaryTrackerButton then
 		bestiaryTrackerButton:setOn(true)
 	end
-	local topMenuButton = modules.game_cyclopedia.bestiaryTrackerButton
+	local topMenuButton = modules.game_cyclopedia and modules.game_cyclopedia.bestiaryTrackerButton
 	if topMenuButton then
 		topMenuButton:setOn(true)
+	end
+	if modules.game_mainpanel and modules.game_mainpanel.getButton then
+		local btn = modules.game_mainpanel.getButton('bestiaryTrackerButton')
+		if btn then
+			btn:setOn(true)
+		end
 	end
 	scheduleBestiaryTrackerRefresh()
 end
@@ -1276,15 +1327,25 @@ function onBestiaryTrackerClose()
 	if bestiaryTrackerButton then
 		bestiaryTrackerButton:setOn(false)
 	end
-	local topMenuButton = modules.game_cyclopedia.bestiaryTrackerButton
+	local topMenuButton = modules.game_cyclopedia and modules.game_cyclopedia.bestiaryTrackerButton
 	if topMenuButton then
 		topMenuButton:setOn(false)
+	end
+	if modules.game_mainpanel and modules.game_mainpanel.getButton then
+		local btn = modules.game_mainpanel.getButton('bestiaryTrackerButton')
+		if btn then
+			btn:setOn(false)
+		end
 	end
 	if bestiaryTrackerRefreshEvent then
 		removeEvent(bestiaryTrackerRefreshEvent)
 		bestiaryTrackerRefreshEvent = nil
 	end
 end
+
+modules.game_cyclopedia = modules.game_cyclopedia or {}
+modules.game_cyclopedia.onBestiaryTrackerOpen = onBestiaryTrackerOpen
+modules.game_cyclopedia.onBestiaryTrackerClose = onBestiaryTrackerClose
 
 function toggleBestiaryTracker()
 	local window = ensureBestiaryTrackerWindow()
@@ -1378,6 +1439,7 @@ function initBestiary(contentContainer)
 		bestiaryCSelecter = bestiaryContainer:recursiveGetChildById('bestiaryCSelecter')
 		
 		charmAmountBestiary = bestiaryPanel:recursiveGetChildById('charmPoints')
+		echoesAmountBestiary = bestiaryPanel:recursiveGetChildById('echoesPoints')
 		goldAmountBestiary = bestiaryPanel:recursiveGetChildById('goldPoints')
 		bestiaryTrackerButton = bestiaryPanel:recursiveGetChildById('bestiaryTracker')
 		bestiarySearchButton = bestiaryPanel:recursiveGetChildById('searchButton')
@@ -1444,6 +1506,9 @@ function initBestiary(contentContainer)
 	end
 
 	if bestiaryTrackerButton then
+		if bestiaryTrackerWindow then
+			bestiaryTrackerButton:setOn(bestiaryTrackerWindow:isVisible())
+		end
 		bestiaryTrackerButton.onClick = function()
 			toggleBestiaryTracker()
 		end

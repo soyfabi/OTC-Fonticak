@@ -184,6 +184,9 @@ void ProtocolGame::parseMessage(const InputMessagePtr& msg)
                 case Proto::GameServerDeath:
                     parseDeath(msg);
                     break;
+                case 45: // Charm proc / special attack indicator
+                    msg->getU8(); // charm effect / proc type
+                    break;
                 case Proto::GameServerSupplyStash:
                     parseSupplyStash(msg);
                     break;

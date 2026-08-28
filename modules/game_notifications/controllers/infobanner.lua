@@ -289,13 +289,17 @@ function showAchievementBanner(name)
     notificationsController:onClientEvent(eventCategory.CLIENT_EVENT_TYPE_ACHIEVEMENT, name)
 end
 
-function showBestiaryBanner(raceId, progressText)
+function showBestiaryBanner(raceId, progressText, raceOutfit)
     progressText = progressText or "Bestiary progress"
     local key = string.format("bestiary:%s:%s", tostring(raceId or 0), tostring(progressText))
     if shouldSkipRecentClientEvent(key) then
         return
     end
-    notificationsController:onClientEvent(eventCategory.CLIENT_EVENT_TYPE_BESTIARY, raceId or 0, progressText)
+    if raceOutfit and raceId then
+        protoData = protoData or {}
+        protoData[raceId] = raceOutfit
+    end
+    notificationsController:onClientEvent(eventCategory.CLIENT_EVENT_TYPE_BESTIARY, raceId or 0, progressText, raceOutfit)
 end
 
 function notificationsController:onClientEvent(eventCat, ...)
@@ -391,10 +395,22 @@ function notificationsController:onClientEvent(eventCat, ...)
         end
     elseif eventCat == eventCategory.CLIENT_EVENT_TYPE_BESTIARY or eventCat == eventCategory.CLIENT_EVENT_TYPE_BOSSTIARY then
         local raceId = args[1]
-        local progressLevel = args[2]
-        description = type(description) == 'string' and description:format(progressLevel) or description
+        local progressLevel = tostring(args[2] or '')
+        local raceOutfit = args[3]
+        
+        if progressLevel:find("^[Yy]ou have") or progressLevel:find("^[Yy]ou ") then
+            description = progressLevel
+        elseif progressLevel:find("completed", 1, true) then
+            description = string.format("You have completed '%s'", progressLevel:gsub("^the completed ", "the "))
+        elseif progressLevel:find("the Bestiary entry", 1, true) and not progressLevel:find("stage", 1, true) then
+            description = string.format("You have unlocked '%s'", progressLevel)
+        else
+            description = string.format("You have progressed '%s'", progressLevel)
+        end
+
         if popupTemplate.hasRaceId then
             extraData.raceId = raceId
+            extraData.outfit = raceOutfit or (protoData and raceId and protoData[raceId])
         end
 
     elseif eventCat == eventCategory.CLIENT_EVENT_TYPE_ACHIEVEMENT then
@@ -627,15 +643,18 @@ function notificationsController:processNext()
             local itemWidget = g_ui.createWidget('UIItem', appendW)
             itemWidget:setSize({width = 64, height = 64})
             itemWidget:setItemId(itemId)
-        elseif data.extraData.raceId then
+        elseif data.extraData.raceId or data.extraData.outfit then
             local raceId = data.extraData.raceId
-            local raceData = g_things.getRaceData(raceId)
-            if not raceData or (raceData.raceId == 0 and (not raceData.outfit or raceData.outfit.type == 0)) then
-                g_logger.warning(string.format("Creature with race id %s was not found.", raceId))
-            else
+            local raceData = (raceId and raceId > 0) and g_things.getRaceData(raceId) or nil
+            local outfitData = data.extraData.outfit or ((raceData and raceData.raceId ~= 0 and (raceData.outfit and raceData.outfit.type ~= 0)) and raceData.outfit) or (protoData and raceId and protoData[raceId])
+            if outfitData and (outfitData.type and outfitData.type > 0) then
                 local outfit = g_ui.createWidget('UICreature', appendW)
                 outfit:setSize({width = 64, height = 64})
-                outfit:setOutfit(raceData.outfit)
+                outfit:setOutfit(outfitData)
+                outfit:setAnimate(true)
+                outfit:setCenter(true)
+                outfit:addAnchor(AnchorHorizontalCenter, 'parent', AnchorHorizontalCenter)
+                outfit:addAnchor(AnchorVerticalCenter, 'parent', AnchorVerticalCenter)
             end
         elseif data.extraData.creatureId then
             local outfit = g_ui.createWidget('UICreature', appendW)

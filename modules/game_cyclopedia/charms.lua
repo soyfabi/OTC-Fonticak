@@ -214,9 +214,24 @@ local function getAssignedCount()
 	return count
 end
 
+local echoeBalance = 0
+local maxCharmBalance = 0
+local maxEchoeBalance = 0
+
 local function updateBalances()
 	if widgets.charmAmount then
-		widgets.charmAmount:setText(formatNumber(charmBalance))
+		if maxCharmBalance and maxCharmBalance > 0 then
+			widgets.charmAmount:setText(string.format("%s / %s", formatNumber(charmBalance), formatNumber(maxCharmBalance)))
+		else
+			widgets.charmAmount:setText(formatNumber(charmBalance))
+		end
+	end
+	if widgets.echoesAmount then
+		if maxEchoeBalance and maxEchoeBalance > 0 then
+			widgets.echoesAmount:setText(string.format("%s / %s", formatNumber(echoeBalance), formatNumber(maxEchoeBalance)))
+		else
+			widgets.echoesAmount:setText(formatNumber(echoeBalance))
+		end
 	end
 	if widgets.goldPoints then
 		widgets.goldPoints:setText(formatNumber(goldBalance))
@@ -303,6 +318,27 @@ local function refreshMonsterList()
 	refreshSelectButton()
 end
 
+local function formatCharmDescription(charm)
+	local description = charm and charm.description
+	if not description or description == '' then
+		return tr('No description available for this charm.')
+	end
+
+	if description:find('%%') then
+		local tier = (charm.tier and charm.tier > 0) and charm.tier or 1
+		local bonus = charm.bonus or (charm.bonuses and charm.bonuses[tier]) or 5
+		local ok, res = pcall(function()
+			return string.format(description, bonus)
+		end)
+		if ok then
+			return res
+		end
+		description = description:gsub('%%d', tostring(bonus)):gsub('%%%.1f', tostring(bonus)):gsub('%%%%', '%%')
+	end
+
+	return description
+end
+
 local function setupCharmDetails(charm)
 	if not charm then
 		return
@@ -313,26 +349,28 @@ local function setupCharmDetails(charm)
 	local unlocked = charm.activated > 0
 	local assigned = unlocked and charm.asignedStatus
 
+	local cleanDescription = formatCharmDescription(charm)
+
 	if widgets.title then
 		widgets.title:setText(charm.name or tr('Charm Information'))
 	end
 	if widgets.informationText then
-		local description = charm.description
-		if not description or description == '' then
-			description = tr('No description available for this charm.')
-		end
-		widgets.informationText:setText(description)
+		widgets.informationText:setText(cleanDescription)
 	end
 	if widgets.charmImage then
 		widgets.charmImage:setImageSource('/images/game/cyclopedia/monster-bonus-effects/monster-bonus-effects-' .. charm.id)
-		widgets.charmImage:setTooltip(charm.name .. ": " .. charm.description)
+		widgets.charmImage:setTooltip(charm.name .. ": " .. cleanDescription)
 	end
 	if widgets.level then
 		widgets.level:setVisible(unlocked)
 	end
+	local isMinor = minorCharmIds[charm.id] == true or selectedMenu == 'minor'
+	local currentCurrencyBalance = isMinor and echoeBalance or charmBalance
+	local currencyName = isMinor and tr('Minor Charm Echoes') or tr('Charm Points')
+
 	if widgets.charmInfoAmount then
 		widgets.charmInfoAmount:setText(formatNumber(charm.unlockPrice))
-		widgets.charmInfoAmount:setColor(charm.unlockPrice <= charmBalance and '#c0c0c0' or '#d33c3c')
+		widgets.charmInfoAmount:setColor(charm.unlockPrice <= currentCurrencyBalance and '#c0c0c0' or '#d33c3c')
 	end
 	if widgets.goldClearAmount then
 		widgets.goldClearAmount:setText(formatNumber(charm.removeRuneCost))
@@ -344,9 +382,9 @@ local function setupCharmDetails(charm)
 			setEnabled(widgets.unlockButton, false)
 		else
 			widgets.unlockButton:setText(tr('Unlock'))
-			setEnabled(widgets.unlockButton, charm.unlockPrice <= charmBalance)
+			setEnabled(widgets.unlockButton, charm.unlockPrice <= currentCurrencyBalance)
 			widgets.unlockButton.onClick = function()
-				confirmAction(tr('Do you want to unlock the Charm %s? This will cost you %d Charm Points?', charm.name, charm.unlockPrice), function()
+				confirmAction(tr('Do you want to unlock the Charm %s? This will cost you %d %s.', charm.name, charm.unlockPrice, currencyName), function()
 					parseSendBuyCharmRune(charm.id, 0, nil)
 					refreshAfterAction()
 				end)
@@ -398,7 +436,8 @@ local function refreshCharmGrid()
 				image:setImageSource('/images/game/cyclopedia/monster-bonus-effects/monster-bonus-effects-' .. id)
 			end
 
-			local tooltipText = charm.name .. ": " .. charm.description
+			local cleanDescription = formatCharmDescription(charm)
+			local tooltipText = charm.name .. ": " .. cleanDescription
 			row:setTooltip(tooltipText)
 			if image then
 				image:setTooltip(tooltipText)
@@ -462,11 +501,15 @@ local function loadCharmMenu(menu)
 end
 
 function sendBestiaryCharmsData(msg)
-	charmBalance = msg:getU32()
-	goldBalance = msg:getU64()
+	local charmBal, goldBal, echoeBal, maxCharmBal, maxEchoeBal = readCharmResources(msg)
+	charmBalance = charmBal
+	goldBalance = goldBal
+	echoeBalance = echoeBal
+	maxCharmBalance = maxCharmBal
+	maxEchoeBalance = maxEchoeBal
 
 	if BestiaryChangeAmount then
-		BestiaryChangeAmount(charmBalance, goldBalance)
+		BestiaryChangeAmount(charmBalance, goldBalance, echoeBalance, maxCharmBalance, maxEchoeBalance)
 	end
 
 	local charmsList = {}
@@ -507,8 +550,8 @@ function sendBestiaryCharmsData(msg)
 	end
 
 	bestiaryCharmCache = charmsList
-	msg:getU8()
-	resetAllCost = 0
+	resetAllCost = msg:getU32()
+	local emptySlots = msg:getU8()
 
 	finishedMonsters = {}
 	local finishedMonstersSize = msg:getU16()
@@ -616,6 +659,7 @@ function initCharms()
 	widgets.charmListPanel = charmsWindow:recursiveGetChildById('charmListPanel')
 	widgets.goldPoints = charmsWindow:recursiveGetChildById('goldPoints')
 	widgets.charmAmount = charmsWindow:recursiveGetChildById('charmAmount')
+	widgets.echoesAmount = charmsWindow:recursiveGetChildById('echoesAmount')
 	widgets.backButton = charmsWindow:recursiveGetChildById('backButton')
 	widgets.openStore = charmsWindow:recursiveGetChildById('openStore')
 

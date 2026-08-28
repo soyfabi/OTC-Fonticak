@@ -43,27 +43,121 @@ local function getAchievementName(message)
            message:match("[Aa]chievement[ '%\"]+([^'\"]+)['\"]?")
 end
 
+local function findBestiaryOutfitByName(name)
+    if not name or name == "" then
+        return nil, nil
+    end
+    local cleanName = name:lower():gsub("^['\"%s]+", ""):gsub("['\"%s%.]+$", "")
+
+    if protoData then
+        for raceId, outfit in pairs(protoData) do
+            if outfit and outfit.name and outfit.name:lower():gsub("^['\"%s]+", ""):gsub("['\"%s%.]+$", "") == cleanName then
+                return raceId, outfit
+            end
+        end
+    end
+
+    if g_creatures and g_creatures.getCreatureByName then
+        local ok, cType = pcall(function() return g_creatures.getCreatureByName(name) end)
+        if ok and cType and not cType:isNull() then
+            local outfit = cType:getOutfit()
+            if outfit and (outfit.type and outfit.type > 0 or outfit.lookType and outfit.lookType > 0) then
+                return 0, outfit
+            end
+        end
+    end
+
+    if g_map and g_game.getLocalPlayer() then
+        local localPos = g_game.getLocalPlayer():getPosition()
+        if localPos then
+            local specs = g_map.getSpectators(localPos, false)
+            for _, spec in ipairs(specs) do
+                if spec and spec:isMonster() and spec:getName():lower() == cleanName then
+                    return 0, spec:getOutfit()
+                end
+            end
+        end
+    end
+
+    if g_things and g_things.getRacesByName then
+        local ok, races = pcall(function() return g_things.getRacesByName(name) end)
+        if ok and races and #races > 0 then
+            local r = races[1]
+            if r and (r.raceId or r.outfit) then
+                return r.raceId, r.outfit
+            end
+        end
+    end
+    return nil, nil
+end
+
+local function cleanCreatureName(name)
+    if not name then return nil end
+    name = name:gsub("^['\"%s]+", ""):gsub("['\"%s%.]+$", "")
+    return name
+end
+
 local function getBestiaryProgressFromMessage(message)
     if not message then
-        return nil
+        return nil, nil
     end
 
-    local creatureName = message:match("[Yy]ou unlocked the first Bestiary stage for ([^.]+)%.")
+    local progressText, creatureName = message:match("[Yy]ou have progressed ['\"](.- for ([^'\"]+))['\"]")
+    if progressText and creatureName then
+        return progressText, cleanCreatureName(creatureName)
+    end
+
+    progressText, creatureName = message:match("[Yy]ou have completed ['\"](.- for ([^'\"]+))['\"]")
+    if progressText and creatureName then
+        return progressText, cleanCreatureName(creatureName)
+    end
+
+    progressText, creatureName = message:match("[Yy]ou have unlocked ['\"](.- for ([^'\"]+))['\"]")
+    if progressText and creatureName then
+        return progressText, cleanCreatureName(creatureName)
+    end
+
+    creatureName = message:match("[Yy]ou [^%s]+ the first [Bb]estiary stage for (.+)")
     if creatureName then
-        return string.format("the first Bestiary stage for %s", creatureName)
+        creatureName = cleanCreatureName(creatureName)
+        return string.format("the first Bestiary stage for %s", creatureName), creatureName
     end
 
-    creatureName = message:match("[Yy]ou unlocked the second Bestiary stage for ([^.]+)%.")
+    creatureName = message:match("[Yy]ou [^%s]+ the second [Bb]estiary stage for (.+)")
     if creatureName then
-        return string.format("the second Bestiary stage for %s", creatureName)
+        creatureName = cleanCreatureName(creatureName)
+        return string.format("the second Bestiary stage for %s", creatureName), creatureName
     end
 
-    creatureName = message:match("[Yy]ou completed the Bestiary entry for ([^.]+)%.")
+    creatureName = message:match("[Yy]ou [^%s]+ the completed [Bb]estiary entry for (.+)") or
+                   message:match("[Yy]ou [^%s]+ [^%s]+ completed [Bb]estiary entry for (.+)") or
+                   message:match("[Yy]ou completed the [Bb]estiary entry for (.+)") or
+                   message:match("[Yy]ou have completed the [Bb]estiary entry for (.+)") or
+                   message:match("[Yy]ou finished the [Bb]estiary entry for (.+)") or
+                   message:match("[Yy]ou have finished the [Bb]estiary entry for (.+)")
     if creatureName then
-        return string.format("the completed Bestiary entry for %s", creatureName)
+        creatureName = cleanCreatureName(creatureName)
+        return string.format("the completed Bestiary entry for %s", creatureName), creatureName
     end
 
-    return nil
+    creatureName = message:match("[Yy]ou [^%s]+ the [Bb]estiary entry for (.+)") or
+                   message:match("[Yy]ou [^%s]+ [^%s]+ [Bb]estiary entry for (.+)") or
+                   message:match("[Yy]ou unlocked the [Bb]estiary entry for (.+)") or
+                   message:match("[Yy]ou have unlocked the [Bb]estiary entry for (.+)")
+    if creatureName then
+        creatureName = cleanCreatureName(creatureName)
+        return string.format("the Bestiary entry for %s", creatureName), creatureName
+    end
+
+    progressText = message:match("[Yy]ou have progressed ['\"]([^'\"]+)['\"]") or
+                   message:match("[Yy]ou have completed ['\"]([^'\"]+)['\"]") or
+                   message:match("[Yy]ou have unlocked ['\"]([^'\"]+)['\"]")
+    if progressText then
+        creatureName = progressText:match("for (.+)$")
+        return progressText, cleanCreatureName(creatureName)
+    end
+
+    return nil, nil
 end
 
 local function onNotificationTextMessage(mode, message)
@@ -89,9 +183,10 @@ local function onNotificationTextMessage(mode, message)
         showAchievementBanner(achievementName)
     end
 
-    local bestiaryProgress = getBestiaryProgressFromMessage(message)
+    local bestiaryProgress, creatureName = getBestiaryProgressFromMessage(message)
     if bestiaryProgress then
-        showBestiaryBanner(0, bestiaryProgress)
+        local raceId, raceOutfit = findBestiaryOutfitByName(creatureName)
+        showBestiaryBanner(raceId or 0, bestiaryProgress, raceOutfit)
     end
 end
 
@@ -150,10 +245,6 @@ function notificationsController:onGameStart()
         onTakeScreenshot = function(player, screenshotType)
             if screenshotType == ScreenshotType.ACHIEVEMENT then
                 showAchievementBanner()
-            elseif screenshotType == ScreenshotType.BESTIARY_ENTRY_UNLOCKED then
-                showBestiaryBanner(0, "Bestiary entry unlocked")
-            elseif screenshotType == ScreenshotType.BESTIARY_ENTRY_COMPLETED then
-                showBestiaryBanner(0, "Bestiary entry completed")
             end
         end,
         onLevelChange = function(player, level, percent, oldLevel)
@@ -254,12 +345,16 @@ function notificationsController:onGameEnd()
     screenshot_onGameEnd()
 end
 
-function showBestiaryProgress(raceId, progress)
-    local progressText = ({
-        [1] = "first Bestiary stage",
-        [2] = "second Bestiary stage",
-        [3] = "completed Bestiary entry"
-    })[progress] or string.format("Bestiary stage %s", tostring(progress))
+function showBestiaryProgress(raceId, progress, raceOutfit)
+    local name = raceOutfit and raceOutfit.name or (protoData and protoData[raceId] and protoData[raceId].name) or ""
+    local nameSuffix = name ~= "" and (" for " .. name) or ""
 
-    showBestiaryBanner(raceId, progressText)
+    local progressText = ({
+        [1] = "the Bestiary entry" .. nameSuffix,
+        [2] = "the first Bestiary stage" .. nameSuffix,
+        [3] = "the second Bestiary stage" .. nameSuffix,
+        [4] = "the completed Bestiary entry" .. nameSuffix
+    })[progress] or string.format("Bestiary stage %s%s", tostring(progress), nameSuffix)
+
+    showBestiaryBanner(raceId, progressText, raceOutfit)
 end
