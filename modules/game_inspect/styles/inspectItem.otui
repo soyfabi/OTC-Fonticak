@@ -77,7 +77,7 @@ NewMainWindow
       anchors.top: parent.top
       anchors.right: parent.right
       image-source: /images/game/imbuing/slot
-      phantom: true
+      phantom: false
       focusable: false
       visible: false
 
@@ -96,7 +96,7 @@ NewMainWindow
       anchors.right: imbuiSlot2.left
       margin-right: 6
       image-source: /images/game/imbuing/slot
-      phantom: true
+      phantom: false
       focusable: false
       visible: false
 
@@ -115,7 +115,7 @@ NewMainWindow
       anchors.right: imbuiSlot3.left
       margin-right: 6
       image-source: /images/game/imbuing/slot
-      phantom: true
+      phantom: false
       focusable: false
       visible: false
 

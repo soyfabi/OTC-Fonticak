@@ -960,16 +960,40 @@ function onInspection(inspectType, itemName, item, descriptions, imbuements)
         end
     end
     local slotCount = #imbuements
+
+    local imbNames = {}
+    for _, desc in ipairs(descriptions) do
+        local key, value = getDescriptionPair(desc)
+        if key and value then
+            local slotNum = key:match("^Imbuement Slot (%d+)$")
+            if slotNum then
+                imbNames[tonumber(slotNum)] = value
+            end
+        end
+    end
+
     for index, iconId in ipairs(imbuements) do
-        local slotId = IMBUE_SLOT_BY_POSITION[3 - slotCount + index]
-        if not slotId then break end
-        local widget = tibiaInspect:recursiveGetChildById("imbuiSlot" .. slotId)
+        local actualSlot = IMBUE_SLOT_BY_POSITION[3 - slotCount + index]
+        if not actualSlot then break end
+        local widget = tibiaInspect:recursiveGetChildById("imbuiSlot" .. actualSlot)
         if widget then
             widget:setVisible(true)
             if iconId > 0 then
                 local resource = widget:getChildById("resource")
                 if resource then
                     resource:setImageSource(InspectConst.SLOT_ACTIVE_SOURCE_PREFIX .. iconId)
+                end
+            end
+            local name = imbNames[actualSlot]
+            if name and name ~= "(Empty Slot)" then
+                widget:setTooltip(name)
+            else
+                function widget.onHoverChange(self, hovered)
+                    if hovered then
+                        g_tooltip.display("Empty Slot")
+                    else
+                        g_tooltip.hide()
+                    end
                 end
             end
         end

@@ -50,7 +50,7 @@ ImbuementSlot < FlatPanel
     anchors.left: parent.left
     font: verdana-11px-rounded
     color: #ffff00
-    margin-top: 3
+    margin-top: 8
     phantom: true
 
 ImbuementSlotInactive < FlatPanel

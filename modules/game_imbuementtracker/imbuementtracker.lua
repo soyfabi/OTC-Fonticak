@@ -244,19 +244,90 @@ local function addTrackedItem(item)
 end
 
 function onUpdateImbuementTracker(items)
-    imbuementTracker.contentsPanel:destroyChildren()
-    for _, item in ipairs(getTrackedItems(items)) do
-        local trackedItem, duration = addTrackedItem(item)
+    local trackedItems = getTrackedItems(items)
+    local existingChildren = {}
+    for _, child in ipairs(imbuementTracker.contentsPanel:getChildren()) do
+        existingChildren[child:getId()] = child
+    end
+
+    local usedIds = {}
+    for _, item in ipairs(trackedItems) do
+        local itemKey = tostring(item['item']:getId())
+        usedIds[itemKey] = true
+
+        local trackedItem = existingChildren[itemKey]
+        local duration = 0
+        local maxDuration = 0
+
+        local activeSlots = {}
+        for _, imbuementSlot in ipairs(item['slots']) do
+            activeSlots[imbuementSlot['id']] = imbuementSlot
+        end
+
+        local totalSlots = item['totalSlots'] or 0
+        if totalSlots > 0 and item['slots'] then
+            for _, s in ipairs(item['slots']) do
+                if s['duration'] > maxDuration then
+                    maxDuration = s['duration']
+                end
+            end
+        end
+        duration = maxDuration
+
+        if trackedItem then
+            trackedItem.item:setItem(item['item'])
+            ItemsDatabase.setTier(trackedItem.item, trackedItem.item:getItem())
+            local slotPanel = trackedItem.imbuementSlots
+            for _, child in ipairs(slotPanel:getChildren()) do
+                child:destroy()
+            end
+        else
+            trackedItem = g_ui.createWidget('InventoryItem')
+            trackedItem:setId(itemKey)
+            trackedItem.item:setItem(item['item'])
+            ItemsDatabase.setTier(trackedItem.item, trackedItem.item:getItem())
+            trackedItem.item:setVirtual(true)
+        end
+
+        for slotIndex = 0, totalSlots - 1 do
+            local imbuementSlot = activeSlots[slotIndex]
+            if imbuementSlot then
+                local slot = g_ui.createWidget('ImbuementSlot')
+                slot:setId('slot' .. imbuementSlot['id'])
+                slot.icon:setImageSource('/images/game/imbuing/icons/' .. imbuementSlot['iconId'])
+                slot:setMarginLeft(3)
+                setDuration(slot.duration, imbuementSlot['duration'])
+                local imbName = imbuementSlot['name'] or "Imbuement"
+                function slot.onHoverChange(self, hovered)
+                    if hovered then
+                        g_tooltip.display(imbName)
+                    else
+                        g_tooltip.hide()
+                    end
+                end
+                trackedItem.imbuementSlots:addChild(slot)
+            else
+                local inactiveSlot = g_ui.createWidget('ImbuementSlotInactive')
+                inactiveSlot:setId('inactiveSlot' .. slotIndex)
+                inactiveSlot:setMarginLeft(3)
+                function inactiveSlot.onHoverChange(self, hovered)
+                    if hovered then
+                        g_tooltip.display("Empty Slot")
+                    else
+                        g_tooltip.hide()
+                    end
+                end
+                trackedItem.imbuementSlots:addChild(inactiveSlot)
+            end
+        end
+
         local show = true
         local hasActiveImbuements = #item['slots'] > 0 and duration > 0
         local hasSlots = (item['totalSlots'] or 0) > 0
-        
-        -- Show items based on filters
+
         if not hasActiveImbuements and hasSlots and not getFilter('showNoImbuements') then
-            -- Item has slots but no active imbuements, check showNoImbuements filter
             show = false
         elseif not hasActiveImbuements and not hasSlots then
-            -- Item has no slots at all, don't show it
             show = false
         elseif duration > 0 and duration < 3600 and not getFilter('showLessThan1h') then
             show = false
@@ -265,7 +336,22 @@ function onUpdateImbuementTracker(items)
         elseif duration >= 10800 and not getFilter('showMoreThan3h') then
             show = false
         end
-        if show then imbuementTracker.contentsPanel:addChild(trackedItem) end
+
+        if show then
+            if not trackedItem:getParent() then
+                imbuementTracker.contentsPanel:addChild(trackedItem)
+            end
+        else
+            if trackedItem:getParent() then
+                trackedItem:removeChild()
+            end
+        end
+    end
+
+    for id, child in pairs(existingChildren) do
+        if not usedIds[id] then
+            child:destroy()
+        end
     end
 end
 
