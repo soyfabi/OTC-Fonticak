@@ -221,18 +221,28 @@ function bindKeys()
     g_keyboard.bindKeyDown('Ctrl+.', nextViewMode, gameRootPanel)
 
     g_keyboard.bindKeyDown('Ctrl+I', function()
-        if not g_game.isOnline() then return end
+        if not g_game.isOnline() or not modules.game_inspect then return end
+        local mousePos = g_window.getMousePosition()
+        local widget = g_ui.getRootWidget():recursiveGetChildByPos(mousePos, false)
+        if widget then
+            if widget:getClassName() == 'UIItem' then
+                local item = widget:getItem()
+                if item and item:getId() > 0 then
+                    g_game.inspectionObject(InspectObjectTypes.INSPECT_CYCLOPEDIA, item:getId(), 1)
+                    return
+                end
+            end
+        end
         local map = gameMapPanel or getMapPanel()
         if not map then return end
-        local mousePos = g_mouse.getPosition()
         local tile = map:getTile(mousePos)
         if not tile then return end
         local positionOffset = map:getPositionOffset(mousePos)
         local lookThing = tile:getTopLookThingEx(positionOffset)
         local creatureThing = tile:getTopCreatureEx(positionOffset)
-        if creatureThing and modules.game_inspect then
+        if creatureThing then
             g_game.inspectCharacter(creatureThing:getId(), InspectCreaturesTypes.INSPECT_CREATURE)
-        elseif lookThing and lookThing:isItem() and lookThing:isPickupable() and not lookThing:isNotMoveable() and modules.game_inspect then
+        elseif lookThing and lookThing:isItem() and not lookThing:isNotMoveable() then
             g_game.inspectionNormalObject(lookThing:getPosition())
         end
     end, gameRootPanel)
@@ -645,7 +655,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
             g_game.look(lookThing)
         end, shortcut)
         local clientVersion = g_game.getClientVersion()
-        local canInspect = lookThing:isItem() and not lookThing:isNotMoveable() and lookThing:isPickupable()
+        local canInspect = lookThing:isItem() and not lookThing:isNotMoveable()
         if modules.game_inspect and (lookThing:isCreature() or canInspect) then
             menu:addOption(tr('Inspect'), function()
                 if lookThing:isCreature() then
