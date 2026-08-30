@@ -1,0 +1,451 @@
+InspectEquipSlot < UIWidget
+  size: 66 66
+  image-source: /images/ui/item
+  phantom: false
+
+InspectEquipItem < UIItem
+  anchors.centerIn: parent
+  size: 64 64
+  fixed-item-size: false
+  padding: 0
+  image-source:
+  virtual: true
+  phantom: true
+  focusable: false
+  show-count: false
+
+  UIWidget
+    id: tier
+    visible: false
+
+  UIWidget
+    id: bigtier
+    size: 19 16
+    image-source: /images/inventory/tiers-strip-big
+    image-clip: 0 0 10 9
+    image-size: 18 16
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-right: -1
+    phantom: true
+    focusable: false
+    visible: false
+    image-smooth: true
+
+InspectEquipNeckSlot < InspectEquipSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_neck
+    phantom: true
+
+  InspectEquipItem
+    id: equippedItem
+
+InspectEquipHeadSlot < InspectEquipSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_head
+    phantom: true
+
+  InspectEquipItem
+    id: equippedItem
+
+InspectEquipBackSlot < InspectEquipSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_back
+    phantom: true
+
+  InspectEquipItem
+    id: equippedItem
+
+InspectEquipLeftSlot < InspectEquipSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_left_hand
+    phantom: true
+
+  InspectEquipItem
+    id: equippedItem
+
+InspectEquipRingSlot < InspectEquipSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_finger
+    phantom: true
+
+  InspectEquipItem
+    id: equippedItem
+
+InspectEquipBodySlot < InspectEquipSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_torso
+    phantom: true
+
+  InspectEquipItem
+    id: equippedItem
+
+InspectEquipLegSlot < InspectEquipSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_legs
+    phantom: true
+
+  InspectEquipItem
+    id: equippedItem
+
+InspectEquipFeetSlot < InspectEquipSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_feet
+    phantom: true
+
+  InspectEquipItem
+    id: equippedItem
+
+InspectEquipRightSlot < InspectEquipSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_right_hand
+    phantom: true
+
+  InspectEquipItem
+    id: equippedItem
+
+InspectEquipAmmoSlot < InspectEquipSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_hip
+    phantom: true
+
+  InspectEquipItem
+    id: equippedItem
+
+NewMainWindow
+  id: inspectCharacter
+  !text: tr('Inspect Character')
+  font: Verdana Bold-11px
+  color: #909090
+  text-offset: 0 2
+  size: 700 404
+  anchors.centerIn: parent
+  @onEscape: modules.game_inspect.hideCharacter()
+
+  Panel
+    id: contentPanel
+    anchors.fill: parent
+    margin: 12 12 12 12
+
+    Panel
+      id: equipmentPanel
+      size: 210 320
+      clipping: false
+      phantom: false
+      anchors.top: parent.top
+      anchors.left: parent.left
+
+      InspectEquipNeckSlot
+        id: neckSlot
+        anchors.top: parent.top
+        anchors.left: parent.left
+        margin-top: 36
+        &inventorySlot: 2
+
+      InspectEquipHeadSlot
+        id: headSlot
+        anchors.top: parent.top
+        anchors.left: neckSlot.right
+        margin-left: 6
+        &inventorySlot: 1
+
+      InspectEquipBackSlot
+        id: backSlot
+        anchors.top: parent.top
+        anchors.left: headSlot.right
+        margin-top: 36
+        margin-left: 6
+        &inventorySlot: 3
+
+      InspectEquipLeftSlot
+        id: leftSlot
+        anchors.top: neckSlot.bottom
+        anchors.left: neckSlot.left
+        margin-top: 6
+        &inventorySlot: 6
+
+      InspectEquipRingSlot
+        id: ringSlot
+        anchors.top: leftSlot.bottom
+        anchors.left: neckSlot.left
+        margin-top: 6
+        &inventorySlot: 9
+
+      InspectEquipBodySlot
+        id: bodySlot
+        anchors.top: headSlot.bottom
+        anchors.left: headSlot.left
+        margin-top: 6
+        &inventorySlot: 4
+
+      InspectEquipLegSlot
+        id: legSlot
+        anchors.top: bodySlot.bottom
+        anchors.left: headSlot.left
+        margin-top: 6
+        &inventorySlot: 7
+
+      InspectEquipFeetSlot
+        id: feetSlot
+        anchors.top: legSlot.bottom
+        anchors.left: headSlot.left
+        margin-top: 6
+        &inventorySlot: 8
+
+      InspectEquipRightSlot
+        id: rightSlot
+        anchors.top: backSlot.bottom
+        anchors.left: backSlot.left
+        margin-top: 6
+        &inventorySlot: 5
+
+      InspectEquipAmmoSlot
+        id: ammoSlot
+        anchors.top: rightSlot.bottom
+        anchors.left: backSlot.left
+        margin-top: 6
+        &inventorySlot: 10
+
+    Panel
+      id: outfitPanel
+      size: 210 320
+      clipping: false
+      phantom: false
+      anchors.top: equipmentPanel.top
+      anchors.left: equipmentPanel.left
+      visible: false
+
+      UICreature
+        id: Sprite
+        size: 128 128
+        anchors.left: parent.left
+        anchors.top: parent.top
+        margin-left: 9
+        margin-top: 45
+        fixed-creature-size: true
+        base-scale: true
+        creature-center: true
+        ignore-displacement-shift: true
+        phantom: true
+
+    Button
+      id: characterButton
+      anchors.bottom: equipmentPanel.bottom
+      anchors.left: equipmentPanel.left
+      margin-left: 70
+      margin-bottom: 3
+      size: 33 33
+      icon-source: /game_cyclopedia/images/icon-playerdetails
+      icon-offset: 0 0
+      &state: 1
+      !tooltip: tr('Show character outfit')
+      @onClick: modules.game_inspect.toggleCharacterView(self)
+
+    Button
+      id: wheelButton
+      anchors.top: characterButton.top
+      anchors.left: characterButton.right
+      margin-left: 3
+      size: 33 33
+      icon-source: /game_cyclopedia/images/button_wheel
+      icon-offset: 0 0
+      !tooltip: tr('Wheel of Destiny')
+      @onClick: modules.game_inspect.openInspectCharacterWheel()
+      $pressed:
+        icon-offset: 1 1
+
+    Panel
+      id: detailPanel
+      anchors.top: parent.top
+      anchors.left: equipmentPanel.right
+      margin-left: 9
+      size: 450 330
+
+      UIWidget
+        id: imbuiSlot2
+        size: 66 66
+        anchors.top: parent.top
+        anchors.right: parent.right
+        image-source: /images/game/imbuing/slot
+        phantom: true
+        focusable: false
+        visible: false
+
+        UIWidget
+          id: resource
+          size: 64 64
+          anchors.left: parent.left
+          margin-left: 1
+          anchors.verticalCenter: parent.verticalCenter
+          phantom: true
+
+      UIWidget
+        id: imbuiSlot3
+        size: 66 66
+        anchors.top: imbuiSlot2.top
+        anchors.right: imbuiSlot2.left
+        margin-right: 6
+        image-source: /images/game/imbuing/slot
+        phantom: true
+        focusable: false
+        visible: false
+
+        UIWidget
+          id: resource
+          size: 64 64
+          anchors.left: parent.left
+          margin-left: 1
+          anchors.verticalCenter: parent.verticalCenter
+          phantom: true
+
+      UIWidget
+        id: imbuiSlot1
+        size: 66 66
+        anchors.top: imbuiSlot2.top
+        anchors.right: imbuiSlot3.left
+        margin-right: 6
+        image-source: /images/game/imbuing/slot
+        phantom: true
+        focusable: false
+        visible: false
+
+        UIWidget
+          id: resource
+          size: 64 64
+          anchors.left: parent.left
+          margin-left: 1
+          anchors.verticalCenter: parent.verticalCenter
+          phantom: true
+
+      Panel
+        id: itemInfo
+        size: 450 299
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        margin-bottom: 13
+        image-source: /images/ui/1pixel-down-frame
+        image-border: 3
+        border-width: 0
+        background-color: #363636
+
+        UIScrollArea
+          id: itemInfoList
+          vertical-scrollbar: itemInfoScroll
+          anchors.fill: parent
+          padding-left: 2
+          padding-top: 5
+          padding-bottom: 5
+          padding-right: 15
+          layout:
+            type: verticalBox
+            spacing: 0
+
+        VerticalQtScrollBar
+          id: itemInfoScroll
+          anchors.top: itemInfoList.top
+          anchors.bottom: itemInfoList.bottom
+          anchors.right: itemInfoList.right
+          margin: 1 1 1 0
+          step: 16
+          pixel-scroll: true
+
+      Label
+        id: inspectLabel
+        width: 450
+        anchors.bottom: itemInfo.top
+        anchors.left: parent.left
+        margin-bottom: 6
+        text-wrap: true
+        text-auto-resize: true
+        font: Verdana Bold-11px
+        !text: tr('You are inspecting:')
+        text-offset: -1 0
+        color: #c0c0c0
+
+    HorizontalSeparator
+      id: separator
+      anchors.bottom: next.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-bottom: 11
+
+    Panel
+      id: next
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      height: 22
+
+      Button
+        id: closeButton
+        size: 43 20
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        !text: tr('Close')
+        text-offset: 0 0
+        @onClick: modules.game_inspect.hideCharacter()
+
+      Button
+        id: cyclopediaButton
+        size: 64 20
+        anchors.bottom: parent.bottom
+        anchors.right: closeButton.left
+        margin-right: 6
+        visible: false
+        !text: tr('Cyclopedia')
+        text-offset: 0 0
+        @onClick: modules.game_inspect.openSelfInspectCyclopedia()
+
+      Button
+        id: proficiencyButton
+        size: 64 20
+        anchors.bottom: parent.bottom
+        anchors.right: cyclopediaButton.left
+        margin-right: 6
+        visible: false
+        !text: tr('Proficiency')
+        text-offset: 0 0
+        @onClick: modules.game_inspect.openSelfInspectProficiency()
+
+      UIButton
+        id: copyInfo
+        size: 20 20
+        anchors.bottom: parent.bottom
+        anchors.left: parent.left
+        image-source: /images/game/wheel/change_preset_icon
+        image-clip: 0 0 20 20
+        $pressed:
+          image-clip: 0 20 20 20
+        $!pressed:
+          image-clip: 0 0 20 20
+        @onClick: modules.game_inspect.copyCharacterInfo()

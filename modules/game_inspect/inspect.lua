@@ -1,562 +1,988 @@
-InspectController = Controller:new()
+local DETAIL_LABEL_COLUMN_WIDTH = 150
+local DETAIL_VALUE_COLUMN_GAP = 7
+local DETAIL_ROW_HEIGHT = 20
+local detailMeasureLabel
 
--- /*=============================================
--- =            Helpers            =
--- =============================================*/
-
-local function asText(v)
-    return v ~= nil and tostring(v) or ""
+local function measureDetailRowHeight(value, valueWidth)
+    if not detailMeasureLabel then
+        detailMeasureLabel = g_ui.createWidget("Label", g_ui.getRootWidget())
+        detailMeasureLabel:setVisible(false)
+        detailMeasureLabel:setPhantom(true)
+    end
+    detailMeasureLabel:setFont("Verdana Bold-11px")
+    detailMeasureLabel:setTextAutoResize(false)
+    detailMeasureLabel:setTextWrap(true)
+    detailMeasureLabel:setWidth(valueWidth)
+    detailMeasureLabel:setText(value or "")
+    return math.max(DETAIL_ROW_HEIGHT, detailMeasureLabel:getTextSize().height + 2)
 end
 
-local function normalizeDescription(d)
-    if type(d) ~= "table" then
-        return {
-            detail = "",
-            description = asText(d)
-        }
+local function appendDetailRow(parent, key, value)
+    local cyclopedia = modules.game_cyclopedia and modules.game_cyclopedia.Cyclopedia
+    if cyclopedia and cyclopedia.appendDetailKeyValueRow then
+        cyclopedia.appendDetailKeyValueRow(parent, key, value)
+        return
     end
-    return {
-        detail = asText(d.detail or d[1] or d.key),
-        description = asText(d.description or d[2] or d.value)
+    local row = g_ui.createWidget("UIWidget", parent)
+    row:setPhantom(true)
+    local parentWidth = parent:getWidth() > 0 and parent:getWidth() or 425
+    local valueWidth = parentWidth - DETAIL_LABEL_COLUMN_WIDTH - 8
+    local rowHeight = measureDetailRowHeight(value, valueWidth)
+    row:setWidth(parentWidth)
+    row:setHeight(rowHeight)
+    local keyLabel = g_ui.createWidget("Label", row)
+    keyLabel:setText(key .. ":")
+    keyLabel:setColor("#C0C0C0")
+    keyLabel:setFont("Verdana Bold-11px")
+    keyLabel:setTextAlign(AlignTopRight)
+    keyLabel:setTextAutoResize(false)
+    keyLabel:setWidth(DETAIL_LABEL_COLUMN_WIDTH)
+    keyLabel:setHeight(rowHeight)
+    keyLabel:addAnchor(AnchorLeft, "parent", AnchorLeft)
+    keyLabel:addAnchor(AnchorTop, "parent", AnchorTop)
+    local valueLabel = g_ui.createWidget("Label", row)
+    valueLabel:setColor("#C0C0C0")
+    valueLabel:setFont("Verdana Bold-11px")
+    valueLabel:setTextAlign(AlignTopLeft)
+    valueLabel:setTextAutoResize(false)
+    valueLabel:setWidth(valueWidth)
+    valueLabel:setHeight(rowHeight)
+    valueLabel:setTextWrap(true)
+    valueLabel:setText(value)
+    valueLabel:addAnchor(AnchorLeft, "parent", AnchorLeft)
+    valueLabel:addAnchor(AnchorTop, "parent", AnchorTop)
+    valueLabel:setMarginLeft(DETAIL_LABEL_COLUMN_WIDTH + 8)
+end
+
+local function getDescriptionPair(data)
+    if type(data) ~= "table" then
+        return nil, nil
+    end
+    local key = data.key or data[1]
+    local value = data.value or data[2]
+    if key == nil or value == nil or value == "" then
+        return nil, nil
+    end
+    return tostring(key), tostring(value)
+end
+
+local function normalizeCategoryLabel(text)
+    return tostring(text or ""):gsub("^%s+", ""):gsub("%s+$", ""):gsub(":%s*$", "")
+end
+
+local function isInspectDescriptionCategory(text)
+    local label = normalizeCategoryLabel(text)
+    if label == "" then
+        return false
+    end
+    local lower = label:lower()
+    if lower == "level" or lower == "vocation" or lower == "outfit" then
+        return true
+    end
+    if lower:match("^active prey %d+$") then
+        return true
+    end
+    if lower == "weight" or lower == "description" or lower == "tradeable" then
+        return true
+    end
+    if lower:find("position", 1, true) then
+        return true
+    end
+    if lower == "attack" or lower == "defence" or lower == "defense" or lower == "def" or lower == "armor" then
+        return true
+    end
+    if lower == "tier" or lower:find("imbuement", 1, true) then
+        return true
+    end
+    if lower == "capacity" or lower == "classification" or lower == "upgrade classification" then
+        return true
+    end
+    if lower == "weapon type" or lower == "extra def" or lower == "charges" or lower == "duration" then
+        return true
+    end
+    if lower == "range" or lower == "required level" or lower == "hit points" or lower == "magic level" or lower == "speed" then
+        return true
+    end
+    if lower:match("^protection ") or lower:match("^elemental ") or lower:match("^skill ") or lower:match("^mana ") then
+        return true
+    end
+    return false
+end
+
+local function looksLikeInspectDescriptionValue(text)
+    text = normalizeCategoryLabel(text)
+    if text == "" then
+        return false
+    end
+    if text:match("^%-?%d+$") then
+        return true
+    end
+    if text:match("^[%+%-]?%d") then
+        return true
+    end
+    if text:lower() == "yes" or text:lower() == "no" then
+        return true
+    end
+    if text:match("^[%a%-]+$") and text:lower() == text then
+        return true
+    end
+    return false
+end
+
+local function getPlayerInspectDescriptionPair(data)
+    if type(data) ~= "table" then
+        return nil, nil
+    end
+    local wireKey = data.key or data[1]
+    local wireValue = data.value or data[2]
+    if wireKey == nil or wireValue == nil or wireValue == "" then
+        return nil, nil
+    end
+    wireKey = tostring(wireKey)
+    wireValue = tostring(wireValue)
+    if isInspectDescriptionCategory(wireKey) then
+        return wireKey, wireValue
+    end
+    if isInspectDescriptionCategory(wireValue) then
+        return wireValue, wireKey
+    end
+    if looksLikeInspectDescriptionValue(wireKey) and not looksLikeInspectDescriptionValue(wireValue) then
+        return wireValue, wireKey
+    end
+    return wireKey, wireValue
+end
+
+tibiaInspect = nil
+tibiaInspectCharacter = nil
+
+local inspectedItem, inspectedItemName, inspectedDescriptions, characterInspectData, characterInspectTargetId
+local characterInspectPendingOpen = false
+local characterInspectReturnData
+local characterInventoryBySlot = {}
+local characterPlayerDescriptions = {}
+local characterInspectionOutfit, selectedCharacterSlot, selectedCharacterSlotWidget
+local characterInfoItemSelected = false
+local CHARACTER_BUTTON_ICON_OFFSET = {
+    player = { idle = "0 0", pressed = "1 1" },
+    outfit = { idle = "-1 0", pressed = "0 1" }
+}
+local INSPECT_SLOT_WIDGETS = {
+    [InventorySlotHead] = "headSlot",
+    [InventorySlotNeck] = "neckSlot",
+    [InventorySlotBack] = "backSlot",
+    [InventorySlotBody] = "bodySlot",
+    [InventorySlotRight] = "rightSlot",
+    [InventorySlotLeft] = "leftSlot",
+    [InventorySlotLeg] = "legSlot",
+    [InventorySlotFeet] = "feetSlot",
+    [InventorySlotFinger] = "ringSlot",
+    [InventorySlotAmmo] = "ammoSlot"
+}
+
+local function hideItemQuickLootIcon(itemWidget)
+    if not itemWidget then return end
+    local quicklootIcon = itemWidget:recursiveGetChildById("quickloot")
+    if quicklootIcon then
+        quicklootIcon:setVisible(false)
+    end
+end
+
+local function isCharacterSelfInspect()
+    local localPlayer = g_game.getLocalPlayer()
+    if not localPlayer then return false end
+    if characterInspectTargetId and characterInspectTargetId == localPlayer:getId() then
+        return true
+    end
+    if characterInspectData and characterInspectData.playerName then
+        return characterInspectData.playerName:lower() == localPlayer:getName():lower()
+    end
+    return false
+end
+
+local function updateCharacterSelfInspectActions()
+    if not tibiaInspectCharacter then return end
+    local cyclopediaButton = tibiaInspectCharacter:recursiveGetChildById("cyclopediaButton")
+    local proficiencyButton = tibiaInspectCharacter:recursiveGetChildById("proficiencyButton")
+    local selfInspect = isCharacterSelfInspect()
+    if cyclopediaButton then
+        cyclopediaButton:setVisible(selfInspect)
+    end
+    local showProficiency = false
+    if selfInspect and characterInfoItemSelected and selectedCharacterSlot then
+        local cached = characterInventoryBySlot[selectedCharacterSlot]
+        local item = cached and cached.item
+        if item and item.getProficiencyId and item:getProficiencyId() > 0 then
+            showProficiency = true
+        end
+    end
+    if proficiencyButton then
+        proficiencyButton:setVisible(showProficiency)
+    end
+end
+
+local function isTierDetailKey(key)
+    key = tostring(key or ""):gsub("^%s+", ""):gsub("%s+$", "")
+    return key == "Tier" or key:match("^Tier:?%s*$") ~= nil
+end
+
+local function isImbuementSlotsDetailKey(key)
+    return tostring(key or ""):find("Imbuement Slots", 1, true) ~= nil
+end
+
+local function isBodyPositionDetailKey(key)
+    return tostring(key or ""):lower():find("body position", 1, true) ~= nil
+end
+
+local function isClassificationDetailKey(key)
+    key = tostring(key or ""):gsub("^%s+", ""):gsub("%s+$", ""):gsub(":%s*$", "")
+    return key == "Classification" or key == "Upgrade Classification" or key:match("^Classification:?%s*$") ~= nil or key:match("^Upgrade Classification:?%s*$") ~= nil
+end
+
+local IMBUE_SLOT_BY_POSITION = { 1, 3, 2 }
+local ITEM_INFO_WIDTH = 450
+local ITEM_INFO_HEIGHT_DEFAULT = 299
+local ITEM_INFO_HEIGHT_WITH_IMBUEMENT = 246
+
+local function setCharacterInspectDetailLayout(withImbuements)
+    if not tibiaInspectCharacter then return end
+    local itemInfo = tibiaInspectCharacter:recursiveGetChildById("itemInfo")
+    if itemInfo then
+        itemInfo:setSize({
+            width = ITEM_INFO_WIDTH,
+            height = withImbuements and ITEM_INFO_HEIGHT_WITH_IMBUEMENT or ITEM_INFO_HEIGHT_DEFAULT
+        })
+    end
+end
+
+local function getCharacterSelectedItemTier()
+    if not selectedCharacterSlot or not tibiaInspectCharacter then return 0 end
+    local panel = tibiaInspectCharacter.contentPanel.equipmentPanel
+    local slotWidget = panel and panel[INSPECT_SLOT_WIDGETS[selectedCharacterSlot]]
+    local itemWidget = slotWidget and slotWidget:getChildById("equippedItem")
+    local item = itemWidget and itemWidget:getItem()
+    if not item or not item.getTier then return 0 end
+    return item:getTier() or 0
+end
+
+local function buildPlayerDescriptionRows(descriptions)
+    local cyclopedia = modules.game_cyclopedia and modules.game_cyclopedia.Cyclopedia
+    local level, vocation, outfit
+    local preyRows = {}
+    for _, desc in ipairs(descriptions or {}) do
+        local key, value = getPlayerInspectDescriptionPair(desc)
+        if key and value and value ~= "" then
+            if key == "Level" or key:match("^Level:?%s*$") then
+                level = value
+            elseif key == "Vocation" or key:match("^Vocation:?%s*$") then
+                vocation = value
+            elseif key == "Outfit" or key:match("^Outfit:?%s*$") then
+                outfit = value
+            elseif key:match("^Active Prey ") then
+                local serverSlot = tonumber(key:match("Active Prey (%d+)"))
+                preyRows[#preyRows + 1] = {
+                    order = serverSlot or 0,
+                    slot = serverSlot and serverSlot - 1 or 0,
+                    value = value
+                }
+            end
+        end
+    end
+    table.sort(preyRows, function(a, b) return a.order < b.order end)
+    if cyclopedia and cyclopedia.buildCharacterDescriptionRowsFromParts then
+        return cyclopedia.buildCharacterDescriptionRowsFromParts(level, vocation, preyRows, outfit)
+    end
+    local rows = {}
+    if level and level ~= "" then
+        rows[#rows + 1] = { tr("Level"), level }
+    end
+    if vocation and vocation ~= "" then
+        rows[#rows + 1] = { tr("Vocation"), vocation }
+    end
+    for _, prey in ipairs(preyRows) do
+        rows[#rows + 1] = { tr("Active Prey %d", prey.slot), prey.value }
+    end
+    if outfit then
+        rows[#rows + 1] = { tr("Outfit"), outfit }
+    end
+    return rows
+end
+
+local function prepareCharacterItemDescriptionRows(descriptions)
+    local rows = {}
+    local hasClassification = false
+    for _, description in ipairs(descriptions or {}) do
+        local key, value = getPlayerInspectDescriptionPair(description)
+        if key and not isTierDetailKey(key) and value ~= nil and value ~= "" then
+            rows[#rows + 1] = { key, value }
+            if isClassificationDetailKey(key) then
+                hasClassification = true
+            end
+        end
+    end
+    if hasClassification then
+        local tierRow = { tr("Tier"), tostring(getCharacterSelectedItemTier()) }
+        local insertAt = #rows + 1
+        for i, row in ipairs(rows) do
+            if isBodyPositionDetailKey(row[1]) then
+                insertAt = i
+                break
+            end
+        end
+        table.insert(rows, insertAt, tierRow)
+    end
+    return rows
+end
+
+local function hideCharacterInspectImbuements()
+    if not tibiaInspectCharacter then return end
+    for i = 1, 3 do
+        local widget = tibiaInspectCharacter:recursiveGetChildById("imbuiSlot" .. i)
+        if widget then
+            widget:setVisible(false)
+            local resource = widget:getChildById("resource")
+            if resource then
+                resource:setImageClip("0 0 64 64")
+                resource:setImageSource("")
+            end
+        end
+    end
+    local inspectLabel = tibiaInspectCharacter:recursiveGetChildById("inspectLabel")
+    if inspectLabel then
+        inspectLabel:setWidth(450)
+    end
+    setCharacterInspectDetailLayout(false)
+end
+
+local function updateCharacterInspectImbuements(entry)
+    hideCharacterInspectImbuements()
+    if not entry then return end
+    local imbuements = entry.imbuements or {}
+    local imbuementCount = #imbuements
+    if imbuementCount == 0 then return end
+    setCharacterInspectDetailLayout(true)
+    local inspectLabel = tibiaInspectCharacter:recursiveGetChildById("inspectLabel")
+    if inspectLabel then
+        if imbuementCount == 3 then
+            inspectLabel:setWidth(170)
+        elseif imbuementCount == 2 then
+            inspectLabel:setWidth(240)
+        elseif imbuementCount == 1 then
+            inspectLabel:setWidth(315)
+        end
+    end
+    for index, iconId in ipairs(imbuements) do
+        local slotId = IMBUE_SLOT_BY_POSITION[3 - imbuementCount + index]
+        if not slotId then break end
+        local widget = tibiaInspectCharacter:recursiveGetChildById("imbuiSlot" .. slotId)
+        if widget then
+            widget:setVisible(true)
+            local resource = widget:getChildById("resource")
+            if resource then
+                if iconId > 0 then
+                    resource:setImageSource(InspectConst.SLOT_ACTIVE_SOURCE_PREFIX .. iconId)
+                else
+                    resource:setImageSource("")
+                    resource:setImageClip("0 0 64 64")
+                end
+            end
+        end
+    end
+end
+
+local function updateCharacterDetailScroll()
+    local list = tibiaInspectCharacter and tibiaInspectCharacter:recursiveGetChildById("itemInfoList")
+    if not list or list:isDestroyed() then return end
+    addEvent(function()
+        if list and not list:isDestroyed() then
+            list:updateScrollBars()
+        end
+    end)
+end
+
+local function renderCharacterDetailRows(rows)
+    local list = tibiaInspectCharacter and tibiaInspectCharacter:recursiveGetChildById("itemInfoList")
+    if not list then return end
+    list:destroyChildren()
+    for _, row in ipairs(rows or {}) do
+        appendDetailRow(list, row[1], row[2])
+    end
+    updateCharacterDetailScroll()
+end
+
+local function renderCharacterPlayerDetails()
+    if not tibiaInspectCharacter or not characterInspectData then return end
+    characterInfoItemSelected = false
+    selectedCharacterSlot = nil
+    selectedCharacterSlotWidget = nil
+    local inspectLabel = tibiaInspectCharacter:recursiveGetChildById("inspectLabel")
+    if inspectLabel then
+        inspectLabel:setText(tr("You are inspecting:") .. " " .. (characterInspectData.playerName or ""))
+    end
+    hideCharacterInspectImbuements()
+    renderCharacterDetailRows(buildPlayerDescriptionRows(characterPlayerDescriptions))
+end
+
+local function clearCharacterInventorySelection()
+    if selectedCharacterSlotWidget and not selectedCharacterSlotWidget:isDestroyed() then
+        selectedCharacterSlotWidget:setBorderWidth(0)
+    end
+    selectedCharacterSlotWidget = nil
+    selectedCharacterSlot = nil
+    characterInfoItemSelected = false
+    updateCharacterSelfInspectActions()
+end
+
+local function setCharacterInventorySlotSelected(widget, selected)
+    if not widget or widget:isDestroyed() then return end
+    if selected then
+        widget:setBorderWidth(1)
+        widget:setBorderColor("#FFFFFF")
+    else
+        widget:setBorderWidth(0)
+    end
+end
+
+local function refreshCharacterButtonIconOffset(widget, pressed)
+    if not widget or widget:isDestroyed() then return end
+    local mode = widget.state == 2 and "outfit" or "player"
+    local offsetKey = pressed and "pressed" or "idle"
+    widget:setIconOffset(topoint(CHARACTER_BUTTON_ICON_OFFSET[mode][offsetKey]))
+end
+
+local function bindCharacterButtonIcon(widget)
+    if not widget or widget:isDestroyed() then return end
+    refreshCharacterButtonIconOffset(widget, false)
+    function widget:onMousePress(mousePos, mouseButton)
+        if mouseButton == MouseLeftButton then
+            refreshCharacterButtonIconOffset(self, true)
+        end
+        return false
+    end
+    function widget:onMouseRelease(mousePos, mouseButton)
+        if mouseButton == MouseLeftButton then
+            refreshCharacterButtonIconOffset(self, false)
+        end
+        return false
+    end
+end
+
+local function applyCharacterOutfitPreview(spriteWidget)
+    if not spriteWidget or spriteWidget:isDestroyed() then return end
+    spriteWidget:setSize({ height = 192, width = 192 })
+    spriteWidget:setCenter(true)
+    spriteWidget:setFixedCreatureSize(true)
+    spriteWidget:setBaseScale(true)
+    spriteWidget:setIgnoreDisplacementShift(true)
+end
+
+local function setCharacterInspectionOutfit(outfit)
+    if not outfit or (outfit.type or 0) == 0 then
+        characterInspectionOutfit = nil
+        return
+    end
+    characterInspectionOutfit = {
+        familiar = 0, mount = 0,
+        type = outfit.type, auxType = outfit.auxType or 0,
+        head = outfit.head or 0, body = outfit.body or 0,
+        legs = outfit.legs or 0, feet = outfit.feet or 0,
+        addons = outfit.addons or 0
     }
 end
 
-local function normalizeDescriptions(list)
-    if type(list) ~= "table" then
-        return {}
+local function applyCharacterOutfitWidget()
+    if not tibiaInspectCharacter or not characterInspectionOutfit then return end
+    local sprite = tibiaInspectCharacter.contentPanel.outfitPanel and tibiaInspectCharacter.contentPanel.outfitPanel.Sprite
+    if sprite then
+        sprite:setOutfit(characterInspectionOutfit)
+        applyCharacterOutfitPreview(sprite)
     end
-    local out = {}
-    for _, d in ipairs(list) do
-        out[#out + 1] = normalizeDescription(d)
+end
+
+local function setInspectEquipmentSlot(slot, entry)
+    if not tibiaInspectCharacter then return end
+    local panel = tibiaInspectCharacter.contentPanel.equipmentPanel
+    local widgetId = INSPECT_SLOT_WIDGETS[slot]
+    local slotWidget = widgetId and panel and panel[widgetId]
+    if not slotWidget then return end
+    local slotIcon = slotWidget:getChildById("slotIcon")
+    local itemWidget = slotWidget:getChildById("equippedItem")
+    if entry and entry.item then
+        if slotIcon then slotIcon:setVisible(false) end
+        if itemWidget then
+            itemWidget:setVisible(true)
+            itemWidget:setItem(entry.item)
+            hideItemQuickLootIcon(itemWidget)
+            if ItemsDatabase and ItemsDatabase.setTier and entry.item.getTier then
+                ItemsDatabase.setTier(itemWidget, entry.item:getTier() or 0)
+            end
+        end
+    else
+        if slotIcon then slotIcon:setVisible(true) end
+        if itemWidget then
+            itemWidget:setItem(nil)
+            if ItemsDatabase and ItemsDatabase.setTier then
+                ItemsDatabase.setTier(itemWidget, 0)
+            end
+        end
     end
-    return out
+end
+
+local function clearInspectEquipmentSlots()
+    for slot = InventorySlotFirst, InventorySlotLast do
+        setInspectEquipmentSlot(slot, nil)
+    end
+end
+
+local function onCharacterInventorySlotClick(slot, widget)
+    if not tibiaInspectCharacter or not tibiaInspectCharacter:isVisible() then return end
+    local itemWidget = widget:getChildById("equippedItem")
+    local item = itemWidget and itemWidget:getItem()
+    if not item then
+        clearCharacterInventorySelection()
+        renderCharacterPlayerDetails()
+        return
+    end
+    if selectedCharacterSlot == slot then
+        clearCharacterInventorySelection()
+        renderCharacterPlayerDetails()
+        return
+    end
+    clearCharacterInventorySelection()
+    selectedCharacterSlot = slot
+    selectedCharacterSlotWidget = widget
+    characterInfoItemSelected = true
+    setCharacterInventorySlotSelected(widget, true)
+    local cached = characterInventoryBySlot[slot]
+    local itemName = cached and cached.name or item:getName()
+    local inspectLabel = tibiaInspectCharacter:recursiveGetChildById("inspectLabel")
+    if itemName and itemName ~= "" and inspectLabel then
+        inspectLabel:setText(tr("You are inspecting:") .. " " .. itemName)
+    end
+    if cached then
+        updateCharacterInspectImbuements(cached)
+        if cached.descriptions and #cached.descriptions > 0 then
+            renderCharacterDetailRows(prepareCharacterItemDescriptionRows(cached.descriptions))
+        else
+            renderCharacterDetailRows({})
+        end
+    else
+        hideCharacterInspectImbuements()
+        renderCharacterDetailRows({})
+    end
+    updateCharacterSelfInspectActions()
+end
+
+local function bindCharacterInventorySlots()
+    if not tibiaInspectCharacter then return end
+    local panel = tibiaInspectCharacter.contentPanel.equipmentPanel
+    if not panel then return end
+    for slot, widgetId in pairs(INSPECT_SLOT_WIDGETS) do
+        local slotWidget = panel[widgetId]
+        if slotWidget then
+            function slotWidget.onMouseRelease(widget, mousePos, mouseButton)
+                if mouseButton == MouseLeftButton then
+                    onCharacterInventorySlotClick(slot, widget)
+                end
+                return false
+            end
+        end
+    end
+end
+
+local function populateCharacterInspect(data)
+    characterInspectData = data
+    characterInventoryBySlot = {}
+    characterPlayerDescriptions = data.playerDescriptions or {}
+    if data.inventoryItems then
+        for _, entry in ipairs(data.inventoryItems) do
+            if entry.slot ~= nil then
+                characterInventoryBySlot[entry.slot] = entry
+            end
+        end
+    end
+    setCharacterInspectionOutfit(data.outfit)
+    applyCharacterOutfitWidget()
+    clearInspectEquipmentSlots()
+    for slot = InventorySlotFirst, InventorySlotLast do
+        setInspectEquipmentSlot(slot, characterInventoryBySlot[slot])
+    end
+    bindCharacterInventorySlots()
+    renderCharacterPlayerDetails()
+    local playerName = data.playerName or ""
+    tibiaInspectCharacter:setText(tr("Inspect Character %s", playerName))
+    local characterButton = tibiaInspectCharacter:recursiveGetChildById("characterButton")
+    if characterButton then
+        characterButton.state = 1
+        characterButton:setIcon("/game_cyclopedia/images/icon-playerdetails")
+        characterButton:setTooltip(tr("Show character outfit"))
+        bindCharacterButtonIcon(characterButton)
+    end
+    tibiaInspectCharacter.contentPanel.equipmentPanel:setVisible(true)
+    tibiaInspectCharacter.contentPanel.outfitPanel:setVisible(false)
+    updateCharacterSelfInspectActions()
+end
+
+local function buildCharacterInspectCopyText()
+    local inspectName = characterInspectData and characterInspectData.playerName or ""
+    if characterInfoItemSelected and selectedCharacterSlot then
+        local cached = characterInventoryBySlot[selectedCharacterSlot]
+        if cached and cached.name and cached.name ~= "" then
+            inspectName = cached.name
+        end
+    end
+    local lines = { string.format("You are inspecting: %s", inspectName) }
+    if characterInfoItemSelected and selectedCharacterSlot then
+        local cached = characterInventoryBySlot[selectedCharacterSlot]
+        if cached and cached.descriptions then
+            for _, row in ipairs(prepareCharacterItemDescriptionRows(cached.descriptions)) do
+                lines[#lines + 1] = string.format("%s: %s", row[1], row[2])
+            end
+        end
+    else
+        for _, row in ipairs(buildPlayerDescriptionRows(characterPlayerDescriptions)) do
+            lines[#lines + 1] = string.format("%s: %s", row[1], row[2])
+        end
+    end
+    return table.concat(lines, "\n")
+end
+
+function copyCharacterInfo()
+    if not g_window or not g_window.setClipboardText then return end
+    local text = buildCharacterInspectCopyText()
+    if text and text ~= "" then
+        g_window.setClipboardText(text)
+    end
+end
+
+function setInspectTargetId(creatureId)
+    characterInspectTargetId = creatureId
+end
+
+function beginCharacterInspectRequest(creatureId)
+    characterInspectTargetId = creatureId
+    characterInspectPendingOpen = true
+end
+
+local function hideCharacterForWheel()
+    if not tibiaInspectCharacter then return end
+    characterInspectReturnData = {
+        data = characterInspectData,
+        targetId = characterInspectTargetId
+    }
+    hideCharacterInspectImbuements()
+    if g_modalManager then
+        g_modalManager.hide(tibiaInspectCharacter)
+    end
+    tibiaInspectCharacter:hide()
+    clearCharacterInventorySelection()
+end
+
+function openSelfInspectCyclopedia()
+    if not isCharacterSelfInspect() then return end
+    hideCharacter()
+    if modules.game_cyclopedia and modules.game_cyclopedia.show then
+        modules.game_cyclopedia.show("character")
+    end
+end
+
+function openSelfInspectProficiency()
+    if not isCharacterSelfInspect() or not selectedCharacterSlot then return end
+    local cached = characterInventoryBySlot[selectedCharacterSlot]
+    local item = cached and cached.item
+    if not item then return end
+    local proficiencyId = item.getProficiencyId and item:getProficiencyId() or 0
+    if proficiencyId <= 0 then return end
+    hideCharacterForWheel()
+    local proficiencyMod = modules.game_proficiency
+    if proficiencyMod and proficiencyMod.requestOpenWindow then
+        proficiencyMod.requestOpenWindow(item)
+    end
+end
+
+function openInspectCharacterWheel()
+    if not g_game.isOnline() then return end
+    local targetId = characterInspectTargetId
+    if not targetId then return end
+    hideCharacterForWheel()
+    if modules.game_wheel and modules.game_wheel.openForPlayer then
+        modules.game_wheel.openForPlayer(targetId)
+    elseif g_game.openWheel then
+        g_game.openWheel(targetId)
+    end
+end
+
+function toggleCharacterView(widget)
+    if not tibiaInspectCharacter or not widget then return end
+    if widget.state == 1 then
+        widget.state = 2
+        widget:setIcon("/game_cyclopedia/images/icon-equipmentdetails")
+        widget:setTooltip(tr("Show equipment"))
+        refreshCharacterButtonIconOffset(widget, false)
+        clearCharacterInventorySelection()
+        hideCharacterInspectImbuements()
+        renderCharacterPlayerDetails()
+        tibiaInspectCharacter.contentPanel.equipmentPanel:setVisible(false)
+        tibiaInspectCharacter.contentPanel.outfitPanel:setVisible(true)
+        applyCharacterOutfitWidget()
+    else
+        widget.state = 1
+        widget:setIcon("/game_cyclopedia/images/icon-playerdetails")
+        widget:setTooltip(tr("Show character outfit"))
+        refreshCharacterButtonIconOffset(widget, false)
+        tibiaInspectCharacter.contentPanel.equipmentPanel:setVisible(true)
+        tibiaInspectCharacter.contentPanel.outfitPanel:setVisible(false)
+        bindCharacterInventorySlots()
+    end
+end
+
+function hideCharacter()
+    if not tibiaInspectCharacter then return end
+    hideCharacterInspectImbuements()
+    if g_modalManager then
+        g_modalManager.hide(tibiaInspectCharacter)
+    end
+    tibiaInspectCharacter:hide()
+    characterInspectData = nil
+    characterInspectTargetId = nil
+    characterInspectPendingOpen = false
+    characterInspectReturnData = nil
+    characterInventoryBySlot = {}
+    characterPlayerDescriptions = {}
+    characterInspectionOutfit = nil
+    clearCharacterInventorySelection()
+end
+
+function returnToCharacterInspect()
+    if not characterInspectReturnData or not characterInspectReturnData.data then return false end
+    local snapshot = characterInspectReturnData
+    characterInspectReturnData = nil
+    showCharacter(snapshot.data)
+    if snapshot.targetId then
+        characterInspectTargetId = snapshot.targetId
+    end
+    return true
+end
+
+function showCharacter(data)
+    if not tibiaInspectCharacter or not data then return end
+    hide()
+    populateCharacterInspect(data)
+    tibiaInspectCharacter:show(true)
+    if g_modalManager then
+        g_modalManager.show(tibiaInspectCharacter)
+    end
+    tibiaInspectCharacter:raise()
+    tibiaInspectCharacter:focus()
+end
+
+local function onParseCyclopediaCharacterInspection(data)
+    if not data or not data.playerName then return end
+    if not characterInspectPendingOpen then return end
+    characterInspectPendingOpen = false
+    showCharacter(data)
+end
+
+local function hideAll()
+    hide()
+    hideCharacter()
+end
+
+local function buildInspectCopyText()
+    local lines = { string.format("You are inspecting: %s", inspectedItemName or "") }
+    for _, data in ipairs(inspectedDescriptions or {}) do
+        local key, value = getDescriptionPair(data)
+        if key and value then
+            lines[#lines + 1] = string.format("%s: %s", key, value)
+        end
+    end
+    return table.concat(lines, "\n")
+end
+
+function copyInfo()
+    if not g_window or not g_window.setClipboardText then return end
+    local text = buildInspectCopyText()
+    if text and text ~= "" then
+        g_window.setClipboardText(text)
+    end
+end
+
+function openProficiency()
+    if not inspectedItem then return end
+    local proficiencyMod = modules.game_proficiency
+    if not proficiencyMod or not proficiencyMod.requestOpenWindow then return end
+    local item = inspectedItem
+    hide()
+    proficiencyMod.requestOpenWindow(item)
 end
 
 local function normalizeItem(item)
     return type(item) == "number" and Item and Item.create and Item.create(item) or item
 end
 
--- LuaFormatter off
--- slot > 0 → slotIndex = slot - 1  (1-based server → 0-based widget)
--- slot == 0 → slotIndex = 0
-local function normalizeInventoryItems(items)
-    if type(items) ~= "table" then
-        return {}, {}
-    end
-    local list, bySlot = {}, {}
-    for _, data in ipairs(items) do
-        if type(data) == "table" then
-            local slot = tonumber(data.slot)
-            local idx = slot and (slot > 0 and slot - 1 or slot) or nil
-            local entry = {
-                item = normalizeItem(data.item or data.itemId),
-                name = asText(data.name or data.itemName),
-                slot = slot,
-                slotIndex = idx,
-                descriptions = normalizeDescriptions(data.descriptions),
-                imbuements = type(data.imbuements) == "table" and data.imbuements or {}
-            }
-            list[#list + 1] = entry
-            if idx ~= nil then
-                bySlot[idx] = entry
-            end
-        end
-    end
-    return list, bySlot
+local function onParseItemDetailHandler(data)
+    if type(data) ~= "table" then return end
+    local item = normalizeItem(data.item or data.itemId)
+    onInspection(data.inspectionType or 0, data.itemName or data.name or "", item,
+        data.descriptions or {}, data.imbuements or {})
 end
 
--- /*=============================================
--- =            State Builder             =
--- =============================================*/
--- INSPECT_CYCLOPEDIA            → character view (player + equipment slots + outfit)
--- INSPECT_NORMALOBJECT / NPCTRADE → item view (single item, no slots)
-local function buildState(data)
-    if data.inspectionType == InspectObjectTypes.INSPECT_CYCLOPEDIA then
-        local playerName = asText(data.playerName or data.name)
-        local playerDesc = normalizeDescriptions(data.playerDescriptions)
-        local items, bySlot = normalizeInventoryItems(data.inventoryItems)
-        local title = playerName ~= "" and tr("Inspect Character") .. " " .. playerName or tr("Inspect Character")
-        return {
-            isCyclopedia = true,
-            windowTitle = title,
-            playerName = playerName,
-            playerDesc = playerDesc,
-            inventoryItems = items,
-            bySlot = bySlot,
-            selectedSlot = nil,
-            viewState = InspectConst.CYCLOPEDIA_VIEW_INVENTORY,
-            outfit = type(data.outfit) == "table" and data.outfit or nil,
-            activeItem = nil,
-            activeName = playerName,
-            activeDesc = playerDesc,
-            activeImbu = {},
-            creatureId = data.creatureId
-        }
-    end
-    return {
-        isCyclopedia = false,
-        windowTitle = tr("Inspect Object"),
-        playerName = "",
-        playerDesc = {},
-        inventoryItems = {},
-        bySlot = {},
-        selectedSlot = nil,
-        viewState = InspectConst.CYCLOPEDIA_VIEW_INVENTORY,
-        outfit = nil,
-        activeItem = normalizeItem(data.item or data.itemId),
-        activeName = asText(data.itemName or data.name),
-        activeDesc = normalizeDescriptions(data.descriptions),
-        activeImbu = type(data.imbuements) == "table" and data.imbuements or {}
-    }
-end
--- LuaFormatter on
-
--- /*=============================================
--- =            Lifecycle            =
--- =============================================*/
-
-function InspectController:onGameStart()
-    if g_game.getClientVersion() < 1281 then
-        self:scheduleEvent(function()
-            g_modules.getModule("game_inspect"):unload()
-        end, 100, "unloadInspect")
+function init()
+    tibiaInspect = g_ui.displayUI("styles/inspectItem")
+    if not tibiaInspect then
+        g_logger.error("[game_inspect] failed to load styles/inspectItem.otui")
         return
     end
-    self:registerEvents(g_game, {
-        onParseItemDetail = function(...)
-            if not (modules.game_cyclopedia and modules.game_cyclopedia.isVisible()) then
-                self:onInspection(...)
+    hide()
+    tibiaInspectCharacter = g_ui.displayUI("styles/inspectCharacter")
+    if not tibiaInspectCharacter then
+        g_logger.error("[game_inspect] failed to load styles/inspectCharacter.otui")
+        return
+    end
+    hideCharacter()
+
+    local function bindInstantTooltip(widget, text)
+        function widget.onHoverChange(self, hovered)
+            if hovered then
+                g_tooltip.display(text)
+            else
+                g_tooltip.hide()
             end
-        end,
-        onParseCharacterInspection = function(...)
-            self:onInspection(...)
-        end,
-        onInspectionState = function(creatureId, state)
-            g_logger.info(string.format("[InspectController] onInspectionState: creatureId=%s, state=%s TODO: forward state to UI when behavior is defined" ,
-                tostring(creatureId), tostring(state)))
         end
+    end
+    bindInstantTooltip(tibiaInspect:recursiveGetChildById("copyInfo"), tr("Copy information to clipboard"))
+    bindInstantTooltip(tibiaInspectCharacter:recursiveGetChildById("copyInfo"), tr("Copy information to clipboard"))
+
+    connect(g_game, {
+        onParseItemDetail = onParseItemDetailHandler,
+        onParseCharacterInspection = onParseCyclopediaCharacterInspection,
+        onParseCyclopediaCharacterInspection = onParseCyclopediaCharacterInspection,
+        onGameStart = hideAll,
+        onGameEnd = hideAll
     })
 end
 
-function InspectController:onGameEnd()
-    self.state = nil
-    self.layout = nil
-    self.pendingCreatureId = nil
-    self:hide()
-end
-
-function InspectController:onTerminate()
-    self.state = nil
-    self.layout = nil
-    self.pendingCreatureId = nil
-    self:hide()
-end
-
--- /*=============================================
--- =            Incoming Packet            =
--- =============================================*/
-
-function InspectController:onInspection(data)
-    if type(data) ~= "table" or not InspectObjectTypes then
-        return
+function terminate()
+    if tibiaInspect then
+        tibiaInspect:destroy()
+        tibiaInspect = nil
     end
-
-    local t = data.inspectionType
-    if t ~= InspectObjectTypes.INSPECT_CYCLOPEDIA and t ~= InspectObjectTypes.INSPECT_NORMALOBJECT and t ~=
-        InspectObjectTypes.INSPECT_NPCTRADE then
-        return
+    if tibiaInspectCharacter then
+        tibiaInspectCharacter:destroy()
+        tibiaInspectCharacter = nil
     end
-
-    if not data.creatureId and self.pendingCreatureId then
-        data.creatureId = self.pendingCreatureId
-    end
-    self.pendingCreatureId = nil
-
-    self.state = buildState(data)
-    self.layout = self.state.isCyclopedia and InspectConst.LAYOUTS.CYCLOPEDIA or InspectConst.LAYOUTS.NPCTRADE
-    self:show()
+    disconnect(g_game, {
+        onParseItemDetail = onParseItemDetailHandler,
+        onParseCharacterInspection = onParseCyclopediaCharacterInspection,
+        onParseCyclopediaCharacterInspection = onParseCyclopediaCharacterInspection,
+        onGameStart = hideAll,
+        onGameEnd = hideAll
+    })
 end
 
--- /*=============================================
--- =            Capability Checks            =
--- =============================================*/
-
-function InspectController:isCyclopediaInspection()
-    return self.state ~= nil and self.state.isCyclopedia == true
-end
-
-function InspectController:isItemCyclopediaable()
-    local item = self.state and self.state.activeItem
-    return item ~= nil and modules.game_cyclopedia ~= nil and item:getCyclopediaType() > 0
-end
-
-function InspectController:isItemProficiencyable()
-    local item = self.state and self.state.activeItem
-    return item ~= nil and modules.game_proficiency ~= nil and item:getProficiencyId() > 0
-end
-
--- /*=============================================
--- =            UI Management            =
--- =============================================*/
-
-function InspectController:show()
-    if not self.state then
-        return
-    end
-    if not self.ui then
-        self:loadHtml(InspectConst.HTML_PATH)
-    end
-    self:render()
-    self.ui:show()
-    self.ui:raise()
-    self.ui:focus()
-end
-
-function InspectController:hide()
-    if self.ui then
-        self:unloadHtml()
-    end
-end
-
-function InspectController:toggle()
-    if self.ui and self.ui:isVisible() then
-        self:hide()
+function toggle()
+    if tibiaInspect:isVisible() then
+        hide()
     else
-        self:show()
+        show()
     end
 end
 
--- /*=============================================
--- =            Render Engine            =
--- =============================================*/
-
-function InspectController:_scheduleResize()
-    self:scheduleEvent(function()
-        self:resizeDetailRows()
-    end, 50, "resizeDetailRows")
+function hide()
+    if not tibiaInspect then return end
+    if g_modalManager then
+        g_modalManager.hide(tibiaInspect)
+    end
+    tibiaInspect:hide()
+    inspectedItem = nil
+    inspectedItemName = nil
+    inspectedDescriptions = nil
 end
 
-function InspectController:_renderActive()
-    self:renderHeader()
-    self:renderDescriptions()
-    self:_scheduleResize()
+function show()
+    if not tibiaInspect then return end
+    tibiaInspect:show(true)
+    if g_modalManager then
+        g_modalManager.show(tibiaInspect)
+    end
+    tibiaInspect:raise()
+    tibiaInspect:focus()
 end
 
-function InspectController:render()
-    if not self.ui or not self.state then
+function onInspection(inspectType, itemName, item, descriptions, imbuements)
+    if not item then
+        g_logger.warning("[game_inspect] onInspection without item")
         return
     end
-    self.ui:setTitle(self.state.windowTitle)
-    if self.state.isCyclopedia then
-        self:renderInventorySlots()
-        self:renderOutfit()
-        self:renderPanelMode()
+    imbuements = imbuements or {}
+    descriptions = descriptions or {}
+    hideCharacter()
+    show()
+    inspectedItem = item
+    inspectedItemName = itemName or ""
+    inspectedDescriptions = descriptions
+    local proficiencyButton = tibiaInspect:recursiveGetChildById("proficiencyButton")
+    if proficiencyButton then
+        local proficiencyId = item.getProficiencyId and item:getProficiencyId() or 0
+        proficiencyButton:setVisible(proficiencyId > 0)
+    end
+    local imbuementCount = #imbuements
+    if imbuementCount == 3 then
+        tibiaInspect.contentPanel.name:setWidth(170)
+    elseif imbuementCount == 2 then
+        tibiaInspect.contentPanel.name:setWidth(240)
+    elseif imbuementCount == 1 then
+        tibiaInspect.contentPanel.name:setWidth(315)
     else
-        local panel = self:findWidget("#cyclopediaPanel")
-        if panel then
-            panel:setVisible(false)
-        end
+        tibiaInspect.contentPanel.name:setWidth(380)
     end
-    self:_renderActive()
-end
-
-function InspectController:renderHeader()
-    local s = self.state
-    if not s then
-        return
+    tibiaInspect.contentPanel.item:setItemId(item:getId())
+    hideItemQuickLootIcon(tibiaInspect.contentPanel.item)
+    local displayItem = tibiaInspect.contentPanel.item:getItem()
+    if displayItem and item.getTier then
+        displayItem:setTier(item:getTier())
     end
-    local label = self:findWidget("#inspectName")
-    if label then
-        label:setText(s.activeName ~= "" and tr("You are inspecting: ") .. s.activeName or tr("You are inspecting:"))
-    end
-    local itemWidget = self:findWidget("#inspectItem")
-    if itemWidget then
-        if s.activeItem then
-            itemWidget:setItem(s.activeItem)
-            ItemsDatabase.setTier(itemWidget, itemWidget:getItem(), false)
-        else
-            itemWidget:clearItem()
-        end
-    end
-    local slotRow = self:findWidget("#slotRow")
-    local hasImbuements = false
-    if slotRow then
-        slotRow:destroyChildren()
-        for i = 1, 3 do
-            local val = s.activeImbu[4 - i]
-            if val ~= nil then
-                hasImbuements = true
-                local slot = self:createWidgetFromHTML([[<UIButton class="QtBorder imbuementSlot"></UIButton>]], slotRow)
-                local active = val and tonumber(val) and tonumber(val) > 0
-                slot:setImageSource(active and InspectConst.SLOT_ACTIVE_SOURCE_PREFIX .. val or
-                                        InspectConst.SLOT_INACTIVE_SOURCE)
-                slot:setImageClip(InspectConst.SLOT_EMPTY_CLIP)
+    tibiaInspect.contentPanel.name:setText(tr("You are inspecting:") .. " " .. (itemName or ""))
+    for i = 1, 3 do
+        local widget = tibiaInspect:recursiveGetChildById("imbuiSlot" .. i)
+        if widget then
+            widget:setVisible(false)
+            local resource = widget:getChildById("resource")
+            if resource then
+                resource:setImageClip("0 0 64 64")
+                resource:setImageSource("")
             end
         end
-        slotRow:setVisible(hasImbuements)
     end
-    local header = self:findWidget("#headerRow")
-    local scroll = self:findWidget("#itemInfoScroll")
-    if header and scroll then
-        local layout = self.layout
-        local baseHeaderHeight = layout.headerRow.height
-        local baseScrollHeight = layout.itemInfoScroll.height
-
-        if hasImbuements then
-            baseHeaderHeight = 66
-            local totalAvailable = layout.mainColumn.height
-            local gap = 11
-            baseScrollHeight = math.max(0, totalAvailable - baseHeaderHeight - gap)
-        end
-        if header:getHeight() ~= baseHeaderHeight then
-            header:setHeight(baseHeaderHeight)
-        end
-        if scroll:getHeight() ~= baseScrollHeight then
-            scroll:setHeight(baseScrollHeight)
-        end
-    end
-end
-
-function InspectController:renderInventorySlots()
-    local s = self.state
-    if not s then
-        return
-    end
-    local isOutfit = s.viewState == InspectConst.CYCLOPEDIA_VIEW_OUTFIT
-    local inv = self:findWidget("#inventoryPanel")
-    local out = self:findWidget("#outfitPanel")
-    if inv then
-        inv:setVisible(not isOutfit)
-    end
-    if out then
-        out:setVisible(isOutfit)
-    end
-    local selBorder = InspectConst.CYCLOPEDIA_SELECTED_SLOT_BORDER
-    local normBorder = InspectConst.CYCLOPEDIA_SLOT_BORDER
-    for slotIndex, widgetId in pairs(InspectConst.CYCLOPEDIA_SLOT_WIDGETS) do
-        local w = self:findWidget("#" .. widgetId)
-        if w then
-            local entry = s.bySlot[slotIndex]
-            local selected = s.selectedSlot == slotIndex
-            w:setBorderWidth(1)
-            w:setBorderColor(selected and selBorder or normBorder)
-            if entry and entry.item then
-                w:setItem(entry.item)
-                ItemsDatabase.setTier(w, w:getItem(), false)
-                w:setTooltip(entry.name)
-                w:setIcon("")
-            else
-                w:clearItem()
-                w:setTooltip("")
-                local icon = InspectConst.CYCLOPEDIA_SLOT_ICONS[slotIndex]
-                if icon then
-                    w:setIcon(icon)
+    local slotCount = #imbuements
+    for index, iconId in ipairs(imbuements) do
+        local slotId = IMBUE_SLOT_BY_POSITION[3 - slotCount + index]
+        if not slotId then break end
+        local widget = tibiaInspect:recursiveGetChildById("imbuiSlot" .. slotId)
+        if widget then
+            widget:setVisible(true)
+            if iconId > 0 then
+                local resource = widget:getChildById("resource")
+                if resource then
+                    resource:setImageSource(InspectConst.SLOT_ACTIVE_SOURCE_PREFIX .. iconId)
                 end
             end
         end
     end
-end
-
-function InspectController:renderOutfit()
-    local s = self.state
-    if not s then
-        return
-    end
-    local creature = self:findWidget("#outfitCreature")
-    if creature and s.outfit then
-        creature:setOutfit(s.outfit)
-        creature:setCenter(true)
-    end
-end
-
-function InspectController:renderPanelMode()
-    local s = self.state
-    if not s then
-        return
-    end
-    local btn = self:findWidget("#previewOutfit")
-    if btn then
-        local isOutfit = s.viewState == InspectConst.CYCLOPEDIA_VIEW_OUTFIT
-        btn:setIcon(isOutfit and InspectConst.CYCLOPEDIA_EQUIPMENT_ICON or InspectConst.CYCLOPEDIA_PLAYER_ICON)
-    end
-end
-
-local function updateRowHeight(widget, oldRect, newRect)
-    if oldRect.height == newRect.height then
-        return
-    end
-    local parent = widget:getParent()
-    if not parent then
-        return
-    end
-    local k = parent:querySelector(".detailKey")
-    local v = parent:querySelector(".detailValue")
-    parent:setHeight(math.max(19, k and k:getHeight() or 0, v and v:getHeight() or 0) + 2)
-end
-
-function InspectController:renderDescriptions()
-    local list = self:findWidget("#itemInfo")
-    local s = self.state
-    if not list or not s then
+    local list = tibiaInspect:recursiveGetChildById("itemInfoList")
+    if not list then
+        g_logger.warning("[game_inspect] itemInfoList not found")
         return
     end
     list:destroyChildren()
-    for _, d in ipairs(s.activeDesc) do
-        local row = self:createWidgetFromHTML([[
-            <div class="detailRow">
-                <label class="detailKey"></label>
-                <label class="detailValue"></label>
-            </div>
-        ]], list)
-        if row then
-            local key = row:querySelector(".detailKey")
-            local val = row:querySelector(".detailValue")
-            if key then
-                key:setText(d.detail ~= "" and d.detail .. ":" or "")
-                key.onGeometryChange = updateRowHeight
-            end
-            if val then
-                val:setText(d.description)
-                val.onGeometryChange = updateRowHeight
-            end
+    for _, data in ipairs(descriptions) do
+        local key, value = getDescriptionPair(data)
+        if key and value then
+            appendDetailRow(list, key, value)
         end
     end
-end
-
-local function widgetTextHeight(w)
-    if not w then
-        return 0
-    end
-    local h = w:getHeight()
-    local ts = w.getTextSize and w:getTextSize() or nil
-    if ts and ts.height then
-        local tsh = ts.height + w:getPaddingTop() + w:getPaddingBottom()
-        if tsh > h then
-            h = tsh
+    addEvent(function()
+        if list and not list:isDestroyed() then
+            list:updateScrollBars()
         end
-    end
-    return h
-end
-
-function InspectController:resizeDetailRows()
-    local rows = self:findWidgets(".detailRow")
-    if not rows then
-        return
-    end
-    for _, row in ipairs(rows) do
-        if not row:isDestroyed() then
-            local key = row:querySelector(".detailKey")
-            local val = row:querySelector(".detailValue")
-            local rw = row:getWidth()
-            if key and val and rw > 0 then
-                local expectedWidth = rw - key:getWidth() - 5
-                if expectedWidth > 0 and val:getWidth() ~= expectedWidth then
-                    val:setWidth(expectedWidth)
-                end
-            end
-            local kh = widgetTextHeight(key)
-            local vh = widgetTextHeight(val)
-            local h = math.max(19, kh, vh)
-            if key and kh > 0 and key:getHeight() ~= kh then
-                key:setHeight(kh)
-            end
-            if val and vh > 0 and val:getHeight() ~= vh then
-                val:setHeight(vh)
-            end
-            if row:getHeight() ~= h + 2 then
-                row:setHeight(h + 2)
-            end
-        end
-    end
-end
--- LuaFormatter off
-
--- /*=============================================
--- =            Cyclopedia Interactions            =
--- =============================================*/
-function InspectController:onCyclopediaSlotClick(slotIndex)
-    local s = self.state
-    if not s or not s.isCyclopedia then
-        return
-    end
-    local entry = s.bySlot[slotIndex]
-    if not entry then
-        return
-    end
-    s.selectedSlot = slotIndex
-    s.viewState = InspectConst.CYCLOPEDIA_VIEW_INVENTORY
-    s.activeItem = entry.item
-    s.activeName = entry.name
-    s.activeDesc = entry.descriptions
-    s.activeImbu = entry.imbuements
-    self:renderInventorySlots()
-    self:_renderActive()
-end
-
-function InspectController:toggleCyclopediaPreview()
-    local s = self.state
-    if not s or not s.isCyclopedia then
-        return
-    end
-    s.viewState = s.viewState == InspectConst.CYCLOPEDIA_VIEW_INVENTORY and InspectConst.CYCLOPEDIA_VIEW_OUTFIT or
-                      InspectConst.CYCLOPEDIA_VIEW_INVENTORY
-    s.selectedSlot = nil
-    s.activeItem = nil
-    s.activeName = s.playerName
-    s.activeDesc = s.playerDesc
-    s.activeImbu = {}
-    self:renderInventorySlots()
-    self:renderOutfit()
-    self:renderPanelMode()
-    self:_renderActive()
-end
--- LuaFormatter on
-
--- /*=============================================
--- =            External Integrations            =
--- =============================================*/
-function InspectController:toggleCyclopedia()
-    if not self:isItemCyclopediaable() then
-        return
-    end
-    local item = self.state and self.state.activeItem
-    local cyclopedia = modules.game_cyclopedia and modules.game_cyclopedia.Cyclopedia
-    if item and cyclopedia and cyclopedia.openItem then
-        cyclopedia.openItem(item:getId())
-    end
-end
-
-function InspectController:toggleProficiency()
-    if not self:isItemProficiencyable() then
-        return
-    end
-    local item = self.state and self.state.activeItem
-    local proficiency = modules.game_proficiency
-    if item and proficiency and proficiency.requestOpenWindow then
-        proficiency.requestOpenWindow(item)
-    end
-end
-
-function InspectController:copyInformation()
-    local s = self.state
-    if not s then
-        return
-    end
-    local lines = {s.activeName ~= "" and tr("You are inspecting: ") .. s.activeName or tr("You are inspecting:")}
-    for _, d in ipairs(s.activeDesc) do
-        if d.detail ~= "" then
-            lines[#lines + 1] = d.detail .. ": " .. d.description
-        elseif d.description ~= "" then
-            lines[#lines + 1] = d.description
-        end
-    end
-    g_window.setClipboardText(table.concat(lines, "\n"))
-end
-
-function InspectController:showWheel()
-    local s = self.state
-    if not s or not s.creatureId then
-        return
-    end
-    g_game.openWheelOfDestiny(s.creatureId)
+    end)
 end

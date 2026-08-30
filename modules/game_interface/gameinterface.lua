@@ -219,6 +219,23 @@ function bindKeys()
     }, gameRootPanel)
 
     g_keyboard.bindKeyDown('Ctrl+.', nextViewMode, gameRootPanel)
+
+    g_keyboard.bindKeyDown('Ctrl+I', function()
+        if not g_game.isOnline() then return end
+        local map = gameMapPanel or getMapPanel()
+        if not map then return end
+        local mousePos = g_mouse.getPosition()
+        local tile = map:getTile(mousePos)
+        if not tile then return end
+        local positionOffset = map:getPositionOffset(mousePos)
+        local lookThing = tile:getTopLookThingEx(positionOffset)
+        local creatureThing = tile:getTopCreatureEx(positionOffset)
+        if creatureThing and modules.game_inspect then
+            g_game.inspectCharacter(creatureThing:getId(), InspectCreaturesTypes.INSPECT_CREATURE)
+        elseif lookThing and lookThing:isItem() and lookThing:isPickupable() and not lookThing:isNotMoveable() and modules.game_inspect then
+            g_game.inspectionNormalObject(lookThing:getPosition())
+        end
+    end, gameRootPanel)
 end
 
 function terminate()
@@ -629,14 +646,14 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
         end, shortcut)
         local clientVersion = g_game.getClientVersion()
         local canInspect = lookThing:isItem() and not lookThing:isNotMoveable() and lookThing:isPickupable()
-        if clientVersion >= 1281 and modules.game_inspect and (lookThing:isCreature() or canInspect) then
+        if modules.game_inspect and (lookThing:isCreature() or canInspect) then
             menu:addOption(tr('Inspect'), function()
                 if lookThing:isCreature() then
                     g_game.inspectCharacter(lookThing:getId(), InspectCreaturesTypes.INSPECT_CREATURE)
                 elseif canInspect then
                     g_game.inspectionNormalObject(lookThing:getPosition())
                 end
-            end, shortcut)
+            end, '(Ctrl+I)')
         end
         if clientVersion >= 1310 and canInspect and modules.game_cyclopedia and lookThing:getCyclopediaType() > 0 then
             menu:addOption(tr('Cyclopedia'), function()

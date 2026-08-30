@@ -1,8 +1,8 @@
 Module
   name: game_inspect
-  description: game_inspect
+  description: Game Inspect
+  author: Rokam
   sandboxed: true
-  minClientVersion: 1281
   scripts: [ const/inspect_const, inspect ]
-  @onLoad: InspectController:init()
-  @onUnload: InspectController:terminate()
+  @onLoad: init()
+  @onUnload: terminate()

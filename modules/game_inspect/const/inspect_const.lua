@@ -1,6 +1,4 @@
 InspectConst = {
-    HTML_PATH = "template/html/inspect.html",
-
     SLOT_INACTIVE_SOURCE      = "/images/game/imbuing/slot_inactive",
     SLOT_ACTIVE_SOURCE_PREFIX = "/images/game/imbuing/icons/",
     SLOT_EMPTY_CLIP           = "0 0 64 64",
@@ -37,24 +35,5 @@ InspectConst = {
         [7] = "/images/inventory/inventory_feet",
         [8] = "/images/inventory/inventory_finger",
         [9] = "/images/inventory/inventory_hip"
-    },
-
-    LAYOUTS = {
-        NPCTRADE = {
-            inspectWindow  = { width = 450,    height = 258 },
-            inspectContent = { width = "100%", height = 216 },
-            cyclopediaPanel = { width = 225,   height = 216 },
-            mainColumn     = { width = "100%", height = 216 },
-            headerRow      = { width = "100%", height = 60  },
-            itemInfoScroll = { width = "98%",  height = 145 }
-        },
-        CYCLOPEDIA = {
-            inspectWindow  = { width = 668,  height = 355 },
-            inspectContent = { width = "100%", height = 309 },
-            cyclopediaPanel = { width = 225, height = 309 },
-            mainColumn     = { width = 450,  height = 309 },
-            headerRow      = { width = 450,  height = 12  },
-            itemInfoScroll = { width = 445,  height = 286 }
-        }
     }
 }
