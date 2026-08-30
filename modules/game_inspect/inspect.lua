@@ -88,7 +88,7 @@ local function isInspectDescriptionCategory(text)
     if lower:find("position", 1, true) then
         return true
     end
-    if lower == "attack" or lower == "defence" or lower == "defense" or lower == "def" or lower == "armor" then
+    if lower == "attack" or lower == "defence" or lower == "defense" or lower == "def" or lower == "armor" or lower == "protection" then
         return true
     end
     if lower == "tier" or lower:find("imbuement", 1, true) then
@@ -100,7 +100,13 @@ local function isInspectDescriptionCategory(text)
     if lower == "weapon type" or lower == "extra def" or lower == "charges" or lower == "duration" then
         return true
     end
-    if lower == "range" or lower == "required level" or lower == "hit points" or lower == "magic level" or lower == "speed" then
+    if lower == "range" or lower == "required level" or lower == "required magic level" or lower == "hit points" or lower == "hit chance" or lower == "magic level" or lower == "speed" or lower == "professions" then
+        return true
+    end
+    if lower == "max hit points" or lower == "max mana points" or lower == "soul" or lower == "capacity" then
+        return true
+    end
+    if lower:find("leech", 1, true) or lower:find("critical", 1, true) or lower == "skill bonus" then
         return true
     end
     if lower:match("^protection ") or lower:match("^elemental ") or lower:match("^skill ") or lower:match("^mana ") then
