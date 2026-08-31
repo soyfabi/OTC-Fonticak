@@ -277,10 +277,6 @@ function onUpdateImbuementTracker(items)
         if trackedItem then
             trackedItem.item:setItem(item['item'])
             ItemsDatabase.setTier(trackedItem.item, trackedItem.item:getItem())
-            local slotPanel = trackedItem.imbuementSlots
-            for _, child in ipairs(slotPanel:getChildren()) do
-                child:destroy()
-            end
         else
             trackedItem = g_ui.createWidget('InventoryItem')
             trackedItem:setId(itemKey)
@@ -289,35 +285,41 @@ function onUpdateImbuementTracker(items)
             trackedItem.item:setVirtual(true)
         end
 
+        -- Update the imbuement slot widgets in place (reusing them) instead of
+        -- destroying and recreating them on every update. Rebuilding the slots
+        -- while the mouse is over one flips the hover state and makes the tooltip
+        -- flicker, so we only create slots that are missing and only remove the
+        -- ones that no longer exist.
+        local slotPanel = trackedItem.imbuementSlots
+        local usedSlotIds = {}
         for slotIndex = 0, totalSlots - 1 do
+            local slotId = 'slot' .. slotIndex
+            usedSlotIds[slotId] = true
             local imbuementSlot = activeSlots[slotIndex]
-            if imbuementSlot then
-                local slot = g_ui.createWidget('ImbuementSlot')
-                slot:setId('slot' .. imbuementSlot['id'])
-                slot.icon:setImageSource('/images/game/imbuing/icons/' .. imbuementSlot['iconId'])
+            local slot = slotPanel:getChildById(slotId)
+            if not slot then
+                slot = g_ui.createWidget('ImbuementSlot')
+                slot:setId(slotId)
                 slot:setMarginLeft(3)
+                slotPanel:addChild(slot)
+            end
+            if imbuementSlot then
+                slot.icon:setImageSource('/images/game/imbuing/icons/' .. imbuementSlot['iconId'])
+                slot.icon:setImageRect('0 0 32 32')
                 setDuration(slot.duration, imbuementSlot['duration'])
-                local imbName = imbuementSlot['name'] or "Imbuement"
-                function slot.onHoverChange(self, hovered)
-                    if hovered then
-                        g_tooltip.display(imbName)
-                    else
-                        g_tooltip.hide()
-                    end
-                end
-                trackedItem.imbuementSlots:addChild(slot)
+                slot:setTooltip(imbuementSlot['name'] or tr("Imbuement"))
             else
-                local inactiveSlot = g_ui.createWidget('ImbuementSlotInactive')
-                inactiveSlot:setId('inactiveSlot' .. slotIndex)
-                inactiveSlot:setMarginLeft(3)
-                function inactiveSlot.onHoverChange(self, hovered)
-                    if hovered then
-                        g_tooltip.display("Empty Slot")
-                    else
-                        g_tooltip.hide()
-                    end
-                end
-                trackedItem.imbuementSlots:addChild(inactiveSlot)
+                slot.icon:setImageSource('/images/game/trackers/imbue-slot')
+                slot.icon:setImageRect('0 0 32 32')
+                slot.duration:setVisible(false)
+                slot:setTooltip(tr("Empty Slot"))
+            end
+        end
+
+        -- remove leftover slot widgets (e.g. when the item lost an imbuement slot)
+        for _, child in ipairs(slotPanel:getChildren()) do
+            if not usedSlotIds[child:getId()] then
+                child:destroy()
             end
         end
 

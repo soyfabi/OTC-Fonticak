@@ -376,6 +376,16 @@ local function updateCharacterInspectImbuements(entry)
             inspectLabel:setWidth(315)
         end
     end
+    local imbNames = {}
+    for _, desc in ipairs(entry.descriptions or {}) do
+        local key, value = getDescriptionPair(desc)
+        if key and value then
+            local slotNum = key:match("^Imbuement Slot (%d+)$")
+            if slotNum then
+                imbNames[tonumber(slotNum)] = value
+            end
+        end
+    end
     for index, iconId in ipairs(imbuements) do
         local slotId = IMBUE_SLOT_BY_POSITION[3 - imbuementCount + index]
         if not slotId then break end
@@ -389,6 +399,15 @@ local function updateCharacterInspectImbuements(entry)
                 else
                     resource:setImageSource("")
                     resource:setImageClip("0 0 64 64")
+                end
+            end
+            local name = imbNames[index]
+            local tooltipText = (name and name ~= "(Empty Slot)") and name or tr("Empty Slot")
+            function widget.onHoverChange(self, hovered)
+                if hovered then
+                    g_tooltip.display(tooltipText)
+                else
+                    g_tooltip.hide()
                 end
             end
         end
@@ -984,16 +1003,13 @@ function onInspection(inspectType, itemName, item, descriptions, imbuements)
                     resource:setImageSource(InspectConst.SLOT_ACTIVE_SOURCE_PREFIX .. iconId)
                 end
             end
-            local name = imbNames[actualSlot]
-            if name and name ~= "(Empty Slot)" then
-                widget:setTooltip(name)
-            else
-                function widget.onHoverChange(self, hovered)
-                    if hovered then
-                        g_tooltip.display("Empty Slot")
-                    else
-                        g_tooltip.hide()
-                    end
+            local name = imbNames[index]
+            local tooltipText = (name and name ~= "(Empty Slot)") and name or tr("Empty Slot")
+            function widget.onHoverChange(self, hovered)
+                if hovered then
+                    g_tooltip.display(tooltipText)
+                else
+                    g_tooltip.hide()
                 end
             end
         end
