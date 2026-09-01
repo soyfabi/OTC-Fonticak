@@ -34,6 +34,7 @@ ImbuementTrackerMenu < PopupMenu
 
 ImbuementSlot < FlatPanel
   size: 34 34
+  margin: 5
   phantom: false
 
   UIWidget
@@ -55,6 +56,7 @@ ImbuementSlot < FlatPanel
 
 ImbuementSlotInactive < FlatPanel
   size: 34 34
+  margin: 5
   phantom: false
 
   UIWidget
@@ -65,7 +67,7 @@ ImbuementSlotInactive < FlatPanel
     phantom: true
 
 InventoryItem < Panel
-  height: 36
+  height: 46
   margin-top: 3
   layout: anchor
 
@@ -74,15 +76,15 @@ InventoryItem < Panel
     size: 34 34
     padding: 3
     anchors.left: parent.left
-    anchors.top: parent.top
+    anchors.verticalCenter: parent.verticalCenter
     margin-right: 6
   
   Panel
     id: imbuementSlots
-    anchors.top: parent.top
+    anchors.verticalCenter: parent.verticalCenter
     anchors.right: parent.right
     anchors.left: prev.right
-    height: 34
+    height: 44
     layout: horizontalBox
 
 ImbuementTracker < MiniWindow

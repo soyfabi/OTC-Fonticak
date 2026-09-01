@@ -200,6 +200,33 @@ local function setDuration(label, duration)
     label:setVisible(true)
 end
 
+local function formatRemainingTime(duration)
+    if not duration or duration <= 0 then
+        return ""
+    end
+    local hours = math.floor(duration / 3600)
+    local minutes = math.floor((duration % 3600) / 60)
+    local seconds = math.floor(duration % 60)
+    if hours > 0 then
+        if minutes > 0 then
+            return string.format("%dh, %dmin", hours, minutes)
+        end
+        return string.format("%dh", hours)
+    elseif minutes > 0 then
+        return string.format("%dmin", minutes)
+    end
+    return string.format("%dsec", seconds)
+end
+
+local function buildSlotTooltip(name, duration)
+    local tooltip = name or tr("Imbuement")
+    local remaining = formatRemainingTime(duration)
+    if remaining ~= "" then
+        tooltip = tooltip .. "\n" .. tr("Time remaining: %s", remaining)
+    end
+    return tooltip
+end
+
 local function addTrackedItem(item)
     local trackedItem = g_ui.createWidget('InventoryItem')
     trackedItem.item:setItem(item['item'])
@@ -223,9 +250,8 @@ local function addTrackedItem(item)
             local slot = g_ui.createWidget('ImbuementSlot')
             slot:setId('slot' .. imbuementSlot['id'])
             slot.icon:setImageSource('/images/game/imbuing/icons/' .. imbuementSlot['iconId'])
-            slot:setMarginLeft(3)
             setDuration(slot.duration, imbuementSlot['duration'])
-            slot:setTooltip(imbuementSlot['name'])
+            slot:setTooltip(buildSlotTooltip(imbuementSlot['name'], imbuementSlot['duration']))
             trackedItem.imbuementSlots:addChild(slot)
             if imbuementSlot['duration'] > maxDuration then
                 maxDuration = imbuementSlot['duration']
@@ -234,7 +260,6 @@ local function addTrackedItem(item)
             -- Inactive slot placeholder
             local inactiveSlot = g_ui.createWidget('ImbuementSlotInactive')
             inactiveSlot:setId('inactiveSlot' .. slotIndex)
-            inactiveSlot:setMarginLeft(3)
             inactiveSlot:setTooltip(tr("Empty Slot"))
             trackedItem.imbuementSlots:addChild(inactiveSlot)
         end
@@ -300,14 +325,13 @@ function onUpdateImbuementTracker(items)
             if not slot then
                 slot = g_ui.createWidget('ImbuementSlot')
                 slot:setId(slotId)
-                slot:setMarginLeft(3)
                 slotPanel:addChild(slot)
             end
             if imbuementSlot then
                 slot.icon:setImageSource('/images/game/imbuing/icons/' .. imbuementSlot['iconId'])
                 slot.icon:setImageRect('0 0 32 32')
                 setDuration(slot.duration, imbuementSlot['duration'])
-                slot:setTooltip(imbuementSlot['name'] or tr("Imbuement"))
+                slot:setTooltip(buildSlotTooltip(imbuementSlot['name'], imbuementSlot['duration']))
             else
                 slot.icon:setImageSource('/images/game/trackers/imbue-slot')
                 slot.icon:setImageRect('0 0 32 32')
@@ -368,4 +392,3 @@ function onGameEnd()
     imbuementTracker.contentsPanel:destroyChildren()
     saveFilters()
 end
-
