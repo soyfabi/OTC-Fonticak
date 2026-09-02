@@ -1825,6 +1825,7 @@ PreyCreatureTrack < Panel
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
     margin-left: 2
+    margin-right: 6
     phantom: true
 
   UICreature
@@ -1842,7 +1843,8 @@ PreyCreatureTrack < Panel
     anchors.verticalCenter: parent.verticalCenter
     anchors.left: prev.right
     image-source: /images/game/prey/prey-bonus-none-small
-    margin-left: 6
+    margin-left: 10
+    margin-bottom: 6
     phantom: true
 
   UIWidget
@@ -1856,10 +1858,11 @@ PreyCreatureTrack < Panel
 
   ProgressBar
     id: time
-    size: 118 5
-    anchors.bottom: preyAutoExtend.bottom
+    height: 5
+    anchors.left: preyType.right
+    margin-left: 6
+    anchors.bottom: parent.bottom
     anchors.right: prev.left
-    margin-left: 5
     margin-right: 6
     background-color: #C28400
     color: #c0c0c0

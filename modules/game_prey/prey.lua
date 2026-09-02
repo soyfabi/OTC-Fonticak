@@ -512,8 +512,8 @@ end
 
 local preyDescription = {}
 local searchFilterText = ""
-local PREY_STAR_EMPTY = ";"
-local PREY_STAR_FILLED = "^"
+local PREY_STAR_EMPTY = "-"
+local PREY_STAR_FILLED = "*"
 
 local function buildStarBonusString(grade)
 	grade = grade or 0
@@ -1316,6 +1316,7 @@ function show(position)
 
 	updateRerollEvent = cycleEvent(function()
 		updateRerollTime()
+		refreshPreyGoldDisplay()
 	end, 1000)
 end
 
