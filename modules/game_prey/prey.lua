@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_prey/prey.lua
+-- chunkname: @/game_prey/prey.lua
 
 preyWindow = nil
 preyButton = nil
@@ -493,6 +493,7 @@ local PREY_ACTION_BONUSREROLL = 1
 local PREY_ACTION_MONSTERSELECTION = 2
 local PREY_ACTION_REQUEST_ALL_MONSTERS = 3
 local PREY_ACTION_LOCK_PREY = 5
+local PREY_ACTION_CLOSE = 7
 local PREY_UNLOCK_STORE = 1
 local SLOT_STATE_LOCKED = 0
 local SLOT_STATE_INACTIVE = 1
@@ -1269,6 +1270,10 @@ function hide(ignoreTracker)
 		removeEvent(updateRerollEvent)
 
 		updateRerollEvent = nil
+	end
+
+	if g_game.isOnline() then
+		g_game.preyAction(0, PREY_ACTION_CLOSE, 0)
 	end
 end
 

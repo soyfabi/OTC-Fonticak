@@ -226,6 +226,7 @@ function init()
 	end, false, 17)
 
 	Forge.mainButton:setOn(false)
+	Forge:updateButtonHighlight()
 
 	Forge.mainWindow = g_ui.displayUI("game_forge")
 
@@ -271,6 +272,21 @@ function init()
 	Forge.History:createButton()
 	-- our engine emits different event names than the ported client (see adapters below)
 	connect(g_game, {
+		onGameStart = function()
+			scheduleEvent(function()
+				if g_game.isOnline() then
+					if g_game.useCustomForgeProtocol() and ForgeProtocol and ForgeProtocol.requestDustSync then
+						ForgeProtocol.requestDustSync()
+					end
+					Forge:updateButtonHighlight()
+				end
+			end, 300)
+			scheduleEvent(function()
+				if g_game.isOnline() then
+					Forge:updateButtonHighlight()
+				end
+			end, 1200)
+		end,
 		onOpenForge = onOpenExaltationForge,
 		forgeData = onEngineForgeConfig,
 		forgeResultData = onEngineForgeResult,
@@ -281,6 +297,19 @@ function init()
 		end,
 		onGameEnd = function()
 			Forge:close()
+			if Forge.customBalances then
+				Forge.customBalances.dust = 0
+				Forge.customBalances.slivers = 0
+				Forge.customBalances.cores = 0
+				Forge.customBalances.bank = 0
+				Forge.customBalances.inventory = 0
+			end
+			if Forge.mainButton and not Forge.mainButton:isDestroyed() then
+				local highlight = Forge.mainButton:getChildById("highlight")
+				local bright = Forge.mainButton:getChildById("brightButton")
+				if highlight then highlight:setVisible(false) end
+				if bright then bright:setVisible(false) end
+			end
 		end
 	})
 	connect(LocalPlayer, {
@@ -330,6 +359,44 @@ function Forge:getDustLevel()
 	return math.max(0, self.dustLevel or 0)
 end
 
+function Forge:updateButtonHighlight()
+	if not self.mainButton or self.mainButton:isDestroyed() then
+		return
+	end
+
+	local highlight = self.mainButton:getChildById("highlight")
+	if not highlight then
+		highlight = g_ui.createWidget("UIWidget", self.mainButton)
+		highlight:setId("highlight")
+		highlight:setSize("22 22")
+		highlight:setPhantom(true)
+		highlight:setVisible(false)
+		highlight:setImageSource("/images/topbuttons/highlight")
+		highlight:addAnchor(AnchorHorizontalCenter, "parent", AnchorHorizontalCenter)
+		highlight:addAnchor(AnchorVerticalCenter, "parent", AnchorVerticalCenter)
+	end
+
+	local bright = self.mainButton:getChildById("brightButton")
+	if not bright then
+		bright = g_ui.createWidget("UIWidget", self.mainButton)
+		bright:setId("brightButton")
+		bright:setSize("20 20")
+		bright:setPhantom(true)
+		bright:setVisible(false)
+		bright:setImageSource("/images/ui/bright-x20")
+		bright:addAnchor(AnchorTop, "parent", AnchorTop)
+		bright:addAnchor(AnchorLeft, "parent", AnchorLeft)
+	end
+
+	local dust = self:getResourceBalance("dust")
+	local dustLevel = self:getDustLevel()
+	local dustMax = 100 + dustLevel * 20
+	local isFull = (dust >= dustMax) and (dustMax > 0)
+
+	highlight:setVisible(isFull)
+	bright:setVisible(isFull)
+end
+
 function Forge:updateResources()
 	self.goldBalanceValue:setText(self:formatNumber(self:getResourceBalance("money")))
 
@@ -339,6 +406,11 @@ function Forge:updateResources()
 	self.dustBalanceValue:setText(self:formatNumber(self:getResourceBalance("dust")) .. "/" .. self:formatNumber(dustMax))
 	self.sliverBalanceValue:setText(self:getResourceBalance("sliver"))
 	self.coreBalanceValue:setText(self:getResourceBalance("core"))
+	self:updateButtonHighlight()
+
+	if Conversion and Conversion.updateResources then
+		Conversion:updateResources()
+	end
 end
 
 function Forge:resetConvergenceModes()
@@ -474,6 +546,9 @@ function Forge:getResourceBalance(str)
 	local player = g_game.getLocalPlayer()
 
 	if not player then
+		if str == "dust" and self.customBalances and self.customBalances.dust then
+			return self.customBalances.dust
+		end
 		return 0
 	end
 
@@ -486,11 +561,35 @@ function Forge:getResourceBalance(str)
 
 	if g_game.useCustomForgeProtocol() and self.customBalances then
 		if str == "dust" then
-			return self.customBalances.dust or 0
+			local d = self.customBalances.dust
+			if d and d > 0 then return d end
+			local pDust = player:getResourceBalance(70)
+			if pDust and pDust > 0 then return pDust end
+			local pDust23 = player:getResourceBalance(23)
+			if pDust23 and pDust23 > 0 then return pDust23 end
+			local pDust20 = player:getResourceBalance(20)
+			if pDust20 and pDust20 > 0 then return pDust20 end
+			return d or 0
 		elseif str == "sliver" then
-			return self.customBalances.slivers or 0
+			local s = self.customBalances.slivers
+			if s and s > 0 then return s end
+			local pSliver = player:getResourceBalance(71)
+			if pSliver and pSliver > 0 then return pSliver end
+			local pSliver24 = player:getResourceBalance(24)
+			if pSliver24 and pSliver24 > 0 then return pSliver24 end
+			local pSliver21 = player:getResourceBalance(21)
+			if pSliver21 and pSliver21 > 0 then return pSliver21 end
+			return s or 0
 		elseif str == "core" then
-			return self.customBalances.cores or 0
+			local c = self.customBalances.cores
+			if c and c > 0 then return c end
+			local pCore = player:getResourceBalance(72)
+			if pCore and pCore > 0 then return pCore end
+			local pCore25 = player:getResourceBalance(25)
+			if pCore25 and pCore25 > 0 then return pCore25 end
+			local pCore22 = player:getResourceBalance(22)
+			if pCore22 and pCore22 > 0 then return pCore22 end
+			return c or 0
 		end
 	end
 

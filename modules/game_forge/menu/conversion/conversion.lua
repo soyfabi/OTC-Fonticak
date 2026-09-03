@@ -357,10 +357,22 @@ function Conversion:init()
 	self.widgetStorage.dustRewardWidget = dust_rewardWidget
 	self.widgetStorage.dustButtonProcced = dust_buttonProcced
 
+	local function triggerDustConversion()
+		g_logger.info("[Forge] Dust conversion requested")
+		forgeSendAction(ACTION_DUST_TO_SILVER, false, nil, nil, nil)
+	end
+
+	dust_buttonProcced.onClick = triggerDustConversion
 	dust_buttonProcced:raise()
 
-	function dust_buttonProcced.onClick()
-		forgeSendAction(ACTION_DUST_TO_SILVER, false, nil, nil, nil)
+	local dustTextWithIcon = convert_dustPanel:getChildById("forgeTextWithIcon")
+	if dustTextWithIcon then
+		dustTextWithIcon.onClick = triggerDustConversion
+		dustTextWithIcon:raise()
+		local val = dustTextWithIcon:getChildById("value")
+		if val then val.onClick = triggerDustConversion end
+		local icon = dustTextWithIcon:getChildById("icon")
+		if icon then icon.onClick = triggerDustConversion end
 	end
 
 	local convert_silverPanel = mainWindow:getChildById("convertSilverPanel")
@@ -390,10 +402,19 @@ function Conversion:init()
 	self.widgetStorage.silverReward = silver_rewardAmountValue
 	self.widgetStorage.silverButtonProcced = silver_buttonProcced
 
+	local function triggerSilverConversion()
+		g_logger.info("[Forge] Silver conversion requested")
+		forgeSendAction(ACTION_SILVER_TO_CORE, false, nil, nil, nil)
+	end
+
+	silver_buttonProcced.onClick = triggerSilverConversion
 	silver_buttonProcced:raise()
 
-	function silver_buttonProcced.onClick()
-		forgeSendAction(ACTION_SILVER_TO_CORE, false, nil, nil, nil)
+	if silver_rewardAmountWidget then
+		silver_rewardAmountWidget.onClick = triggerSilverConversion
+		silver_rewardAmountWidget:raise()
+		if silver_rewardAmountValue then silver_rewardAmountValue.onClick = triggerSilverConversion end
+		if silver_rewardAmountIcon then silver_rewardAmountIcon.onClick = triggerSilverConversion end
 	end
 
 	local dustLimitPanel = mainWindow:getChildById("dustLimitPanel")
@@ -436,13 +457,25 @@ function Conversion:init()
 	self.widgetStorage.chainTransparent3 = DustLimitProcced:getChildById("chainTransparent3")
 	self.widgetStorage.DustLimitProcced = DustLimitProcced
 
-	DustLimitProcced:raise()
-
-	function DustLimitProcced.onClick()
+	local function triggerLimitConversion()
+		g_logger.info("[Forge] Dust limit increase requested")
 		forgeSendAction(ACTION_INCREASE_DUST_LIMIT, false, nil, nil, nil)
 	end
 
+	DustLimitProcced.onClick = triggerLimitConversion
+	DustLimitProcced:raise()
+
+	if dustLimit_raiseLimitPanel then
+		dustLimit_raiseLimitPanel.onClick = triggerLimitConversion
+		dustLimit_raiseLimitPanel:raise()
+		local val1 = dustLimit_raiseLimitPanel:getChildById("value")
+		if val1 then val1.onClick = triggerLimitConversion end
+		local val2 = dustLimit_raiseLimitPanel:getChildById("value2")
+		if val2 then val2.onClick = triggerLimitConversion end
+	end
+
 	self:setupHovers()
+	self:updateResources()
 end
 
 function Conversion:showWindow()
@@ -479,9 +512,17 @@ function Conversion:showWindow()
 		end
 	end
 
+	self:updateResources()
+
 	if Forge.data and Forge.data.config then
 		self:parseResourcesChange(Forge.data)
 	end
+end
+
+function Conversion:updateResources()
+	local currentLevel = Forge:getDustLevel()
+	local percent = (Forge.data and Forge.data.config and Forge.data.config.dustPercentUpgrade) or 0
+	self:updateConversion(DUST_REQUIRED, DUST_REWARD, SILVER_REQUIRED, SILVER_REWARD, currentLevel, percent)
 end
 
 function Conversion:parseResourcesChange(data)

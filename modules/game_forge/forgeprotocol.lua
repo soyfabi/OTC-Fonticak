@@ -28,12 +28,16 @@ local ForgeResponse = {
 }
 
 local function send(msg)
-  if not protocol then
-    protocol = g_game.getProtocolGame()
+  local p = g_game.getProtocolGame()
+  if not p then
+    g_logger.warning("[Forge] Cannot send packet: getProtocolGame() is nil")
+    return
   end
-  if protocol and not silent then
-    protocol:send(msg)
+  if silent then
+    g_logger.warning("[Forge] Packet suppressed: silent is true")
+    return
   end
+  p:send(msg)
 end
 
 local function readPriceTable(msg)
@@ -318,5 +322,12 @@ function ForgeProtocol.sendForgeConverter(action)
   msg:addU8(ForgeOpcode.Request)
   msg:addU8(ForgeRequest.Convert)
   msg:addU8(action)
+  send(msg)
+end
+
+function ForgeProtocol.requestDustSync()
+  local msg = OutputMessage.create()
+  msg:addU8(ForgeOpcode.Request)
+  msg:addU8(7) -- REQUEST_RESOURCE_SYNC
   send(msg)
 end
