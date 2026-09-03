@@ -183,7 +183,6 @@ function init()
     ProtocolGame.registerExtendedJSONOpcode(ExtendedIds.WheelSkills, onWheelSkillStats)
     if g_game.isOnline() then
         online()
-        skillsWindow:setupOnStart()
     end
 end
 

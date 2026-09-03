@@ -499,20 +499,36 @@ function UIMiniWindowContainer:scheduleInsert(widget, index)
                 oldParent:removeChild(widget)
             end
             self:insertChild(index, widget)
+        else
+            local targetIndex = math.min(index, self:getChildCount())
+            if targetIndex >= 1 and targetIndex <= self:getChildCount() then
+                self:moveChildToIndex(widget, targetIndex)
+            end
+        end
 
-            while true do
-                local placed = false
-                for nIndex, nWidget in pairs(self.scheduledWidgets) do
-                    if nIndex - 1 <= self:getChildCount() then
+        while true do
+            local placed = false
+            for nIndex, nWidget in pairs(self.scheduledWidgets) do
+                if nIndex - 1 <= self:getChildCount() then
+                    local nOldParent = nWidget:getParent()
+                    if nOldParent ~= self then
+                        if nOldParent then
+                            nOldParent:removeChild(nWidget)
+                        end
                         self:insertChild(nIndex, nWidget)
-                        self.scheduledWidgets[nIndex] = nil
-                        placed = true
-                        break
+                    else
+                        local targetIndex = math.min(nIndex, self:getChildCount())
+                        if targetIndex >= 1 and targetIndex <= self:getChildCount() then
+                            self:moveChildToIndex(nWidget, targetIndex)
+                        end
                     end
-                end
-                if not placed then
+                    self.scheduledWidgets[nIndex] = nil
+                    placed = true
                     break
                 end
+            end
+            if not placed then
+                break
             end
         end
     end

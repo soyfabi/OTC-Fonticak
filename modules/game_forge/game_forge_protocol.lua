@@ -130,23 +130,52 @@ function ForgeSystem.setResourceBalances(balances)
   end
 
   local player = g_game.getLocalPlayer()
+  local dustVal = balances[ResourceForgeDust] or balances[20] or balances[23] or balances[70]
+  local sliverVal = balances[ResourceForgeSlivers] or balances[21] or balances[24] or balances[71]
+  local coreVal = balances[ResourceForgeExaltedCore] or balances[22] or balances[25] or balances[72]
+  local bankVal = balances[ResourceBank] or balances[0]
+  local invVal = balances[ResourceInventory] or balances[1]
+  local limitVal = balances[88]
+
   if Forge then
     Forge.customBalances = Forge.customBalances or {}
-    Forge.customBalances.bank = balances[ResourceBank] or Forge.customBalances.bank or 0
-    Forge.customBalances.inventory = balances[ResourceInventory] or Forge.customBalances.inventory or 0
-    Forge.customBalances.dust = balances[ResourceForgeDust] or Forge.customBalances.dust or 0
-    Forge.customBalances.slivers = balances[ResourceForgeSlivers] or Forge.customBalances.slivers or 0
-    Forge.customBalances.cores = balances[ResourceForgeExaltedCore] or Forge.customBalances.cores or 0
+    if bankVal ~= nil then Forge.customBalances.bank = bankVal end
+    if invVal ~= nil then Forge.customBalances.inventory = invVal end
+    if dustVal ~= nil then Forge.customBalances.dust = dustVal end
+    if sliverVal ~= nil then Forge.customBalances.slivers = sliverVal end
+    if coreVal ~= nil then Forge.customBalances.cores = coreVal end
+    if limitVal ~= nil and limitVal >= 100 then
+      Forge.dustLevel = math.max(0, math.floor((limitVal - 100) / 20))
+    end
+    if Forge.updateButtonHighlight then
+      Forge:updateButtonHighlight()
+    end
   end
 
   if not player then
     return
   end
 
-  player:setResourceBalance(ResourceForgeDust + 50, balances[ResourceForgeDust] or 0)
-  player:setResourceBalance(ResourceForgeSlivers + 50, balances[ResourceForgeSlivers] or 0)
-  player:setResourceBalance(ResourceForgeExaltedCore + 50, balances[ResourceForgeExaltedCore] or 0)
+  if dustVal ~= nil then
+    player:setResourceBalance(70, dustVal)
+    player:setResourceBalance(23, dustVal)
+    player:setResourceBalance(20, dustVal)
+  end
+  if sliverVal ~= nil then
+    player:setResourceBalance(71, sliverVal)
+    player:setResourceBalance(24, sliverVal)
+    player:setResourceBalance(21, sliverVal)
+  end
+  if coreVal ~= nil then
+    player:setResourceBalance(72, coreVal)
+    player:setResourceBalance(25, coreVal)
+    player:setResourceBalance(22, coreVal)
+  end
+
   onResourceBalance()
+  if Forge and Forge.updateButtonHighlight then
+    Forge:updateButtonHighlight()
+  end
 end
 
 function ForgeSystem.onForgeData(fusionData, fusionConvergenceData, transferData, transferConvergenceData, maxPlayerDust)
