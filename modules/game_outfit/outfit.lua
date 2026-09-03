@@ -787,6 +787,7 @@ local function animateFamiliarPreview(show, familiarId, direction)
 end
 
 local currentColorBox = nil
+local hoveredColorBox = nil
 local globalRandomMount = nil
 local lastFocusPreset = nil
 local renamePresetWindow = nil
@@ -1262,8 +1263,29 @@ function create(player, outfitList, creatureMount, mountList, familiarList, wing
       colorBox.colorId = j * 19 + i
       
       colorBox.onHoverChange = function(widget, hovered)
-        if hovered and g_mouse.isPressed(MouseLeftButton) then
-          colorBoxGroup:selectWidget(widget)
+        if hovered then
+          if g_mouse.isPressed(MouseLeftButton) then
+            colorBoxGroup:selectWidget(widget)
+          elseif widget ~= currentColorBox then
+            if hoveredColorBox and hoveredColorBox ~= widget and hoveredColorBox ~= currentColorBox then
+              hoveredColorBox:setChecked(false)
+              hoveredColorBox:setBorderWidth(0)
+              hoveredColorBox:setBorderColor("alpha")
+            end
+            hoveredColorBox = widget
+            widget:setChecked(true)
+            widget:setBorderWidth(1)
+            widget:setBorderColor("white")
+          end
+        else
+          if widget ~= currentColorBox then
+            widget:setChecked(false)
+            widget:setBorderWidth(0)
+            widget:setBorderColor("alpha")
+          end
+          if hoveredColorBox == widget then
+            hoveredColorBox = nil
+          end
         end
       end
 
@@ -1356,6 +1378,7 @@ function destroy()
     previewFamiliar = nil
 
     currentColorBox = nil
+    hoveredColorBox = nil
     lastFocusPreset = nil
     editingPresetIndex = nil
 
@@ -2273,6 +2296,13 @@ function onColorModeChange(widget, selectedWidget)
 end
 
 function onColorCheckChange(widget, selectedWidget)
+  if hoveredColorBox and hoveredColorBox ~= selectedWidget and hoveredColorBox ~= currentColorBox then
+    hoveredColorBox:setChecked(false)
+    hoveredColorBox:setBorderWidth(0)
+    hoveredColorBox:setBorderColor("alpha")
+  end
+  hoveredColorBox = nil
+
   local colorId = selectedWidget.colorId
 
   if currentColorBox then

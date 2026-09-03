@@ -977,15 +977,21 @@ function onUpdateLevel(localPlayer, level, levelPercent, oldLevel, oldLevelPerce
                 autoAssign = true
             end
         end
-        if not autoAssign then
-            return
-        end
         local vocationId = localPlayer:getVocation()
-        local vocationSpells = spellsByVocation[vocationId]
+        local baseVoc = (vocationId > 4 and vocationId <= 8) and (vocationId - 4) or vocationId
+        local vocationSpells = spellsByVocation[vocationId] or spellsByVocation[baseVoc]
         if vocationSpells then
             for _, data in ipairs(vocationSpells) do
-                if level >= data.level and oldLevel < data.level then
-                    autoAssignSpell(data.spell)
+                if oldLevel and oldLevel > 0 and level >= data.level and oldLevel < data.level then
+                    if showSpellUnlockedBanner then
+                        showSpellUnlockedBanner(data.spell)
+                    elseif modules.game_notifications and modules.game_notifications.showSpellUnlockedBanner then
+                        modules.game_notifications.showSpellUnlockedBanner(data.spell)
+                    end
+
+                    if autoAssign then
+                        autoAssignSpell(data.spell)
+                    end
                 end
             end
         end

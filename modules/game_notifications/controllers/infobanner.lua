@@ -302,6 +302,54 @@ function showBestiaryBanner(raceId, progressText, raceOutfit)
     notificationsController:onClientEvent(eventCategory.CLIENT_EVENT_TYPE_BESTIARY, raceId or 0, progressText, raceOutfit)
 end
 
+function showSpellUnlockedBanner(spellWordsOrName)
+    if not spellWordsOrName then
+        return
+    end
+
+    local spellData = nil
+    if Spells and Spells.getSpellDataByParamWords then
+        spellData = Spells.getSpellDataByParamWords(tostring(spellWordsOrName):lower())
+    end
+    if not spellData and Spells and Spells.getSpellDataByName then
+        spellData = Spells.getSpellDataByName(spellWordsOrName)
+    end
+    if not spellData and SpellInfo then
+        for profile, data in pairs(SpellInfo) do
+            for k, s in pairs(data) do
+                if s.words and s.words:lower() == tostring(spellWordsOrName):lower() then
+                    spellData = s
+                    break
+                elseif s.name and s.name:lower() == tostring(spellWordsOrName):lower() then
+                    spellData = s
+                    break
+                end
+            end
+            if spellData then break end
+        end
+    end
+
+    local spellName = (spellData and spellData.name) or spellWordsOrName
+    local key = "spell_unlocked:" .. tostring(spellName):lower()
+    if shouldSkipRecentClientEvent(key) then
+        return
+    end
+
+    local title = "New Spell Unlocked"
+    local description = string.format('You have unlocked a new spell: "%s".', spellName)
+    local img = "/images/infobanner/icons/unlock"
+    local extraData = {
+        spellData = spellData,
+        spellName = spellName
+    }
+
+    notificationsController:show(title, description, img, DEFAULT_HOLD_MS, extraData)
+end
+notificationsController.showSpellUnlocked = showSpellUnlockedBanner
+if modules and modules.game_notifications then
+    modules.game_notifications.showSpellUnlockedBanner = showSpellUnlockedBanner
+end
+
 function notificationsController:onClientEvent(eventCat, ...)
     if not modules.client_options.getOption("showInfoBanner") then
         g_logger.debug("The server has sent infobaner, but the checkbox in client_options is disabled..")
@@ -457,7 +505,7 @@ function notificationsController:ensure()
         append = self.ui:recursiveGetChildById("append"),
     }
     self.widgets.fadeTexts = { self.widgets.title, self.widgets.desc }
-    self.widgets.fadeIcons = { self.widgets.icon, self.widgets.icon2, self.widgets.icon3 }
+    self.widgets.fadeIcons = { self.widgets.icon, self.widgets.icon2, self.widgets.icon3, self.widgets.append }
 end
 
 function notificationsController:updateBannerPosition()
@@ -638,7 +686,34 @@ function notificationsController:processNext()
         local appendW = self.widgets.append
         appendW:destroyChildren()
 
-        if data.extraData.itemId then
+        if data.extraData.spellData or data.extraData.spellName then
+            local spell = data.extraData.spellData
+            local iconSource = SpelllistSettings and SpelllistSettings['Default'] and SpelllistSettings['Default'].iconFile
+            local iconClip = nil
+            if spell and spell.clientId then
+                iconClip = Spells.getImageClip(spell.clientId, 'Default')
+            end
+
+            local spellWidget = g_ui.createWidget('UIWidget', appendW)
+            spellWidget:setSize({width = 34, height = 34})
+            spellWidget:setBorderWidth(1)
+            spellWidget:setBorderColor('#272727')
+            spellWidget:addAnchor(AnchorHorizontalCenter, 'parent', AnchorHorizontalCenter)
+            spellWidget:addAnchor(AnchorVerticalCenter, 'parent', AnchorVerticalCenter)
+            spellWidget:setPhantom(true)
+
+            local spellIcon = g_ui.createWidget('UIWidget', spellWidget)
+            spellIcon:setSize({width = 32, height = 32})
+            spellIcon:addAnchor(AnchorHorizontalCenter, 'parent', AnchorHorizontalCenter)
+            spellIcon:addAnchor(AnchorVerticalCenter, 'parent', AnchorVerticalCenter)
+            if iconSource then
+                spellIcon:setImageSource(iconSource)
+            end
+            if iconClip then
+                spellIcon:setImageClip(iconClip)
+            end
+            spellIcon:setPhantom(true)
+        elseif data.extraData.itemId then
             local itemId = data.extraData.itemId
             local itemWidget = g_ui.createWidget('UIItem', appendW)
             itemWidget:setSize({width = 64, height = 64})
