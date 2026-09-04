@@ -3917,7 +3917,7 @@ void ProtocolGame::parseCreaturesMark(const InputMessagePtr& msg)
         return;
 
     if (squareType == 2) {
-        creature->showStaticSquare(Color::from8bit(squareColor != 0 ? squareColor : 1));
+        creature->showStaticSquare(squareColor == 0 ? Color::black : Color::from8bit(squareColor));
     } else {
         creature->addTimedSquare(squareColor);
     }

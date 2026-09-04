@@ -1146,7 +1146,7 @@ void Creature::setShieldTexture(const std::string& filename, const bool blink)
 void Creature::addTimedSquare(const uint8_t color)
 {
     m_showTimedSquare = true;
-    m_timedSquareColor = Color::from8bit(color != 0 ? color : 1);
+    m_timedSquareColor = color == 0 ? Color::black : Color::from8bit(color);
 
     // schedule removal
     const auto self = static_self_cast<Creature>();
