@@ -57,7 +57,7 @@ jobs:
           vcpkg-${{ matrix.triplet }}-
 
     - name: Install vcpkg
-      uses: lukka/run-vcpkg@${{ env.LUKKA_RUN_VCPKG_SHA }}
+      uses: lukka/run-vcpkg@a400452f634fe49e9f18d388aeb1809dcc642136
       with:
         vcpkgGitCommitId: ${{ steps.vcpkg-step.outputs.vcpkgGitCommitId }}
 
