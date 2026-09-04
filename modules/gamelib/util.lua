@@ -105,35 +105,35 @@ function translateWheelVocation(id)
 	if type(id) == "string" then
 		id = tonumber(id)
 	end
-	
-	if id == 1 or id == 11 then
+
+	if id == 4 or id == 8 or id == 11 then
 		return 1 -- ek
-	elseif id == 2 or id == 12 then
+	elseif id == 3 or id == 7 or id == 12 then
 		return 2 -- rp
-	elseif id == 3 or id == 13 then
+	elseif id == 1 or id == 5 or id == 13 then
 		return 3 -- ms
-	elseif id == 4 or id == 14 then
+	elseif id == 2 or id == 6 or id == 14 then
 		return 4 -- ed
-  elseif id == 5 or id == 15 then
-    return 5 -- em
+	elseif id == 9 or id == 10 or id == 15 then
+		return 5 -- em
 	end
-  return 0
+	return 0
 end
 
 -- servers may have different id's, change if not working properly (only for protocols 910+)
 function getVocationSt(id)
-  if id == 1 or id == 11 then
-    return "K0"
-  elseif id == 2 or id == 12 then
-    return "P0"
-  elseif id == 3 or id == 13 then
-    return "S0"
-  elseif id == 4 or id == 14 then
-    return "D0"
-  elseif id == 5 or id == 15 then
-    return "M0"
-  end
-  return "N"
+	if id == 4 or id == 8 or id == 11 then
+		return "K0"
+	elseif id == 3 or id == 7 or id == 12 then
+		return "P0"
+	elseif id == 1 or id == 5 or id == 13 then
+		return "S0"
+	elseif id == 2 or id == 6 or id == 14 then
+		return "D0"
+	elseif id == 9 or id == 10 or id == 15 then
+		return "M0"
+	end
+	return "N"
 end
 
 function getVocationId(name)

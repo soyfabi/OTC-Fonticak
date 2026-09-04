@@ -61,16 +61,16 @@ HotkeyShortcuts = {
 }
 
 function translateVocation(id)
-    if id == VocationsClient.Knight or id == VocationsClient.EliteKnight or id == VocationsServer.Knight or id == VocationsServer.EliteKnight then
-        return VocationsServer.EliteKnight -- Elite Knight
-    elseif id == VocationsClient.Paladin or id == VocationsClient.RoyalPaladin or id == VocationsServer.Paladin or id == VocationsServer.RoyalPaladin then
-        return VocationsServer.RoyalPaladin -- Royal Paladin
-    elseif id == VocationsClient.Sorcerer or id == VocationsClient.MasterSorcerer or id == VocationsServer.Sorcerer or id == VocationsServer.MasterSorcerer then
-        return VocationsServer.MasterSorcerer -- Master Sorcerer
-    elseif id == VocationsClient.Druid or id == VocationsClient.ElderDruid or id == VocationsServer.Druid or id == VocationsServer.ElderDruid then
-        return VocationsServer.ElderDruid -- Elder Druid
-    elseif id == VocationsClient.Monk or id == VocationsClient.ExaltedMonk or id == VocationsServer.Monk or id == VocationsServer.ExaltedMonk then
-        return VocationsServer.ExaltedMonk -- Exalted Monk
+    if id == VocationsServer.Sorcerer or id == VocationsServer.MasterSorcerer or id == 13 then
+        return VocationsServer.MasterSorcerer -- Master Sorcerer (5)
+    elseif id == VocationsServer.Druid or id == VocationsServer.ElderDruid or id == 14 then
+        return VocationsServer.ElderDruid -- Elder Druid (6)
+    elseif id == VocationsServer.Paladin or id == VocationsServer.RoyalPaladin or id == 12 then
+        return VocationsServer.RoyalPaladin -- Royal Paladin (7)
+    elseif id == VocationsServer.Knight or id == VocationsServer.EliteKnight or id == 11 then
+        return VocationsServer.EliteKnight -- Elite Knight (8)
+    elseif id == VocationsServer.Monk or id == VocationsServer.ExaltedMonk or id == 15 then
+        return VocationsServer.ExaltedMonk -- Exalted Monk (10)
     end
     return 0
 end

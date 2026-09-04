@@ -179,20 +179,25 @@ function translateWheelVocation(vocationId)
     if not vocationId then
         return "None"
     end
-    
+
     local vocationNames = {
         [0] = "None",
-        [1] = "Knight",
-        [2] = "Paladin",
-        [3] = "Sorcerer",
-        [4] = "Druid",
-        [5] = "Monk",
+        [1] = "Sorcerer",
+        [2] = "Druid",
+        [3] = "Paladin",
+        [4] = "Knight",
+        [5] = "Master Sorcerer",
+        [6] = "Elder Druid",
+        [7] = "Royal Paladin",
+        [8] = "Elite Knight",
+        [9] = "Monk",
+        [10] = "Exalted Monk",
         [11] = "Elite Knight",
         [12] = "Royal Paladin",
         [13] = "Master Sorcerer",
         [14] = "Elder Druid",
         [15] = "Exalted Monk"
     }
-    
+
     return vocationNames[vocationId] or "Unknown"
 end

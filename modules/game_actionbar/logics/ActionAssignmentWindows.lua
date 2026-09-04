@@ -87,6 +87,8 @@ function assignSpell(button, multiSlotIndex)
     local spells = modules.gamelib.SpellInfo['Default']
     local defaultIconsFolder = SpelllistSettings['Default'].iconFile
 
+    local okFunc = nil
+
     local function sortSpellWidgets()
         local sortByLevel = sortByLevelWidget and sortByLevelWidget:isChecked()
         return Spells.sortSpellWidgets(spellList, sortByLevel)
@@ -135,6 +137,14 @@ function assignSpell(button, multiSlotIndex)
                 local offSet = (primaryGroup == 2 and 20) or (primaryGroup == 3 and 40) or 0
                 widget.imageGroup:setImageClip(offSet .. " 0 20 20")
                 widget.imageGroup:setVisible(true)
+            end
+
+            widget.onDoubleClick = function(self)
+                assignSpellRadio:selectWidget(self)
+                if okFunc then
+                    okFunc()
+                end
+                return true
             end
         end
 
@@ -220,8 +230,38 @@ function assignSpell(button, multiSlotIndex)
         end
     end
 
+    local function isEnterKey(keyCode)
+        return keyCode == KeyEnter or keyCode == KeyReturn or keyCode == 5 or keyCode == 13 or (KeyNumpadEnter and keyCode == KeyNumpadEnter) or (g_keyboard and g_keyboard.isEnterKey and g_keyboard.isEnterKey(keyCode))
+    end
+
     if searchText then
         searchText.onTextChange = applyFilters
+        searchText.onKeyPress = function(widget, keyCode, keyboardModifiers)
+            if isEnterKey(keyCode) then
+                if okFunc then
+                    okFunc()
+                end
+                return true
+            elseif keyCode == KeyEscape then
+                closeAssignSpellWindow()
+                return true
+            end
+            return false
+        end
+    end
+    if paramText then
+        paramText.onKeyPress = function(widget, keyCode, keyboardModifiers)
+            if isEnterKey(keyCode) then
+                if okFunc then
+                    okFunc()
+                end
+                return true
+            elseif keyCode == KeyEscape then
+                closeAssignSpellWindow()
+                return true
+            end
+            return false
+        end
     end
     if clearButton and searchText then
         clearButton.onClick = function()
@@ -238,7 +278,7 @@ function assignSpell(button, multiSlotIndex)
         sortByLevelWidget.onCheckChange = applyFilters
     end
 
-    local function okFunc()
+    okFunc = function()
         local selected = assignSpellRadio and assignSpellRadio:getSelectedWidget()
         if not selected then
             closeAssignSpellWindow()
@@ -405,6 +445,21 @@ function assignText(button, multiSlotIndex)
         end
 
         closeAssignTextWindow()
+    end
+
+    local function isEnterKey(keyCode)
+        return keyCode == KeyEnter or keyCode == KeyReturn or keyCode == 5 or keyCode == 13 or (KeyNumpadEnter and keyCode == KeyNumpadEnter) or (g_keyboard and g_keyboard.isEnterKey and g_keyboard.isEnterKey(keyCode))
+    end
+
+    textWidget.onKeyPress = function(widget, keyCode, keyboardModifiers)
+        if isEnterKey(keyCode) then
+            saveText()
+            return true
+        elseif keyCode == KeyEscape then
+            closeAssignTextWindow()
+            return true
+        end
+        return false
     end
 
     buttonOk.onClick = saveText
@@ -598,11 +653,23 @@ function assignItem(button, itemId, itemTier, dragEvent, multiSlotIndex)
         assignItemEvent(button, multiSlotIndex)
     end
 
+    local saveSelection = nil
+    local function isEnterKey(keyCode)
+        return keyCode == KeyEnter or keyCode == KeyReturn or keyCode == 5 or keyCode == 13 or (KeyNumpadEnter and keyCode == KeyNumpadEnter) or (g_keyboard and g_keyboard.isEnterKey and g_keyboard.isEnterKey(keyCode))
+    end
+
     content.item:setItemId(itemId)
     local item = content.item:getItem()
     if not item then
         closeAssignItemWindow()
         return
+    end
+
+    content.item.onDoubleClick = function()
+        if saveSelection then
+            saveSelection()
+        end
+        return true
     end
 
     if item:getClassification() == 0 then
@@ -618,6 +685,16 @@ function assignItem(button, itemId, itemTier, dragEvent, multiSlotIndex)
         smartWidget:setVisible(showSmart)
         if showSmart then
             smartWidget:setChecked(getObjectSmartMode(button, multiSlotIndex))
+        end
+        smartWidget.onKeyPress = function(widget, keyCode, keyboardModifiers)
+            if isEnterKey(keyCode) then
+                if saveSelection then saveSelection() end
+                return true
+            elseif keyCode == KeyEscape then
+                content.buttonClose.onClick()
+                return true
+            end
+            return false
         end
     end
 
@@ -642,6 +719,27 @@ function assignItem(button, itemId, itemTier, dragEvent, multiSlotIndex)
             local enabled = isObjectUseTypeEnabled(item, useType)
             child:setEnabled(enabled)
             child.onCheckChange = onUseTypeCheckChange
+            child.onDoubleClick = function(self)
+                if self:isEnabled() then
+                    assignItemRadio:selectWidget(self)
+                    if saveSelection then
+                        saveSelection()
+                    end
+                    return true
+                end
+            end
+            child.onKeyPress = function(widget, keyCode, keyboardModifiers)
+                if isEnterKey(keyCode) then
+                    if saveSelection then
+                        saveSelection()
+                    end
+                    return true
+                elseif keyCode == KeyEscape then
+                    content.buttonClose.onClick()
+                    return true
+                end
+                return false
+            end
 
             if enabled and not assignItemRadio:getSelectedWidget()
                 and canAutoSelectObjectUseType(item, useType)
@@ -675,7 +773,7 @@ function assignItem(button, itemId, itemTier, dragEvent, multiSlotIndex)
         closeAssignItemWindow()
     end
 
-    local function saveSelection()
+    saveSelection = function()
         local selectedWidget = assignItemRadio and assignItemRadio:getSelectedWidget()
         if not selectedWidget then
             return
@@ -724,6 +822,16 @@ function assignItem(button, itemId, itemTier, dragEvent, multiSlotIndex)
     end
     window.onEnter = saveSelection
     window.onEscape = content.buttonClose.onClick
+    window.onKeyPress = function(widget, keyCode, keyboardModifiers)
+        if isEnterKey(keyCode) then
+            saveSelection()
+            return true
+        elseif keyCode == KeyEscape then
+            content.buttonClose.onClick()
+            return true
+        end
+        return false
+    end
 
     if actionbar.locked then
         content.buttonClose.onClick()

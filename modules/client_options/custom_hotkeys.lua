@@ -588,6 +588,7 @@ function assignSpellDialog(row)
   spellWindow:focus()
   controller.ui:hide()
 
+  local okFunc = nil
   spellRadio = UIRadioGroup.create()
   local spells = modules.gamelib.SpellInfo['Default']
   local player = g_game.getLocalPlayer()
@@ -620,6 +621,14 @@ function assignSpellDialog(row)
       if player:getLevel() < spellData.level then
         widget.image.gray:setVisible(true)
       end
+    end
+
+    widget.onDoubleClick = function(self)
+      spellRadio:selectWidget(self)
+      if okFunc then
+        okFunc()
+      end
+      return true
     end
   end
 
@@ -675,7 +684,11 @@ function assignSpellDialog(row)
     spellRadio:selectWidget(spellWindow.contentPanel.spellList:getChildByIndex(1))
   end
 
-  local okFunc = function()
+  local function isEnterKey(keyCode)
+    return keyCode == KeyEnter or keyCode == KeyReturn or keyCode == 5 or keyCode == 13 or (KeyNumpadEnter and keyCode == KeyNumpadEnter) or (g_keyboard and g_keyboard.isEnterKey and g_keyboard.isEnterKey(keyCode))
+  end
+
+  okFunc = function()
     local selected = spellRadio and spellRadio:getSelectedWidget()
     if not selected then return end
 
@@ -706,8 +719,35 @@ function assignSpellDialog(row)
     controller.ui:show()
   end
 
+  if spellWindow.contentPanel.searchText then
+    spellWindow.contentPanel.searchText.onKeyPress = function(widget, keyCode, keyboardModifiers)
+      if isEnterKey(keyCode) then
+        okFunc()
+        return true
+      elseif keyCode == KeyEscape then
+        cancelFunc()
+        return true
+      end
+      return false
+    end
+  end
+
+  if spellWindow.contentPanel.paramText then
+    spellWindow.contentPanel.paramText.onKeyPress = function(widget, keyCode, keyboardModifiers)
+      if isEnterKey(keyCode) then
+        okFunc()
+        return true
+      elseif keyCode == KeyEscape then
+        cancelFunc()
+        return true
+      end
+      return false
+    end
+  end
+
   spellWindow.contentPanel.buttonOk.onClick = okFunc
   spellWindow.contentPanel.buttonClose.onClick = cancelFunc
+  spellWindow.onEnter = okFunc
   spellWindow.onEscape = cancelFunc
 end
 
@@ -823,6 +863,23 @@ function assignObjectDialog(row, itemId, itemTier)
     end
   end
 
+  local okFunc = nil
+  local function isEnterKey(keyCode)
+    return keyCode == KeyEnter or keyCode == KeyReturn or keyCode == 5 or keyCode == 13 or (KeyNumpadEnter and keyCode == KeyNumpadEnter) or (g_keyboard and g_keyboard.isEnterKey and g_keyboard.isEnterKey(keyCode))
+  end
+
+  local cancelFunc = function()
+    closeObjectDialog()
+    controller.ui:show()
+  end
+
+  objectWindow.contentPanel.item.onDoubleClick = function()
+    if okFunc then
+      okFunc()
+    end
+    return true
+  end
+
   local checks = {
     [1] = objectWindow.contentPanel.checks.UseOnYourself,
     [2] = objectWindow.contentPanel.checks.UseOnTarget,
@@ -835,6 +892,29 @@ function assignObjectDialog(row, itemId, itemTier)
   for i, child in pairs(checks) do
     objectRadio:addWidget(child)
     child:setEnabled(false)
+
+    child.onDoubleClick = function(self)
+      if self:isEnabled() then
+        objectRadio:selectWidget(self)
+        if okFunc then
+          okFunc()
+        end
+        return true
+      end
+    end
+
+    child.onKeyPress = function(widget, keyCode, keyboardModifiers)
+      if isEnterKey(keyCode) then
+        if okFunc then
+          okFunc()
+        end
+        return true
+      elseif keyCode == KeyEscape then
+        cancelFunc()
+        return true
+      end
+      return false
+    end
 
     if i <= 4 and item and item:isMultiUse() then
       child:setEnabled(true)
@@ -884,7 +964,7 @@ function assignObjectDialog(row, itemId, itemTier)
     end
   end
 
-  local okFunc = function()
+  okFunc = function()
     local selected = objectRadio and objectRadio:getSelectedWidget()
     if not selected then return end
 
@@ -919,11 +999,6 @@ function assignObjectDialog(row, itemId, itemTier)
     updateCustomHotkeys()
   end
 
-  local cancelFunc = function()
-    closeObjectDialog()
-    controller.ui:show()
-  end
-
   objectWindow.contentPanel.select.onClick = function()
     closeObjectDialog()
     assignObjectDialogEvent(row)
@@ -931,7 +1006,18 @@ function assignObjectDialog(row, itemId, itemTier)
 
   objectWindow.contentPanel.buttonOk.onClick = okFunc
   objectWindow.contentPanel.buttonClose.onClick = cancelFunc
+  objectWindow.onEnter = okFunc
   objectWindow.onEscape = cancelFunc
+  objectWindow.onKeyPress = function(widget, keyCode, keyboardModifiers)
+    if isEnterKey(keyCode) then
+      okFunc()
+      return true
+    elseif keyCode == KeyEscape then
+      cancelFunc()
+      return true
+    end
+    return false
+  end
 end
 
 -- Text assignment
@@ -990,14 +1076,24 @@ function assignTextDialog(row)
     updateCustomHotkeys()
   end
 
-  local cancelFunc = function()
-    textWindow:destroy()
-    textWindow = nil
-    controller.ui:show()
+  local function isEnterKey(keyCode)
+    return keyCode == KeyEnter or keyCode == KeyReturn or keyCode == 5 or keyCode == 13 or (KeyNumpadEnter and keyCode == KeyNumpadEnter) or (g_keyboard and g_keyboard.isEnterKey and g_keyboard.isEnterKey(keyCode))
+  end
+
+  textWindow.contentPanel.text.onKeyPress = function(widget, keyCode, keyboardModifiers)
+    if isEnterKey(keyCode) then
+      okFunc()
+      return true
+    elseif keyCode == KeyEscape then
+      cancelFunc()
+      return true
+    end
+    return false
   end
 
   textWindow.contentPanel.buttonOk.onClick = okFunc
   textWindow.contentPanel.buttonClose.onClick = cancelFunc
+  textWindow.onEnter = okFunc
   textWindow.onEscape = cancelFunc
 end
 

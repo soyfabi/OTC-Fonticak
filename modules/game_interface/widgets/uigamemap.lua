@@ -11,6 +11,60 @@ function UIGameMap.create()
     return gameMap
 end
 
+local baseGetTile = UIMap.getTile
+
+local function hasInteractiveFloorThing(tile)
+    if not tile then return false end
+    local useThing = tile:getTopUseThing()
+    if useThing and (useThing:isContainer() or useThing:isLyingCorpse() or useThing:isUsable() or useThing:isPickupable() or not useThing:isGround()) then
+        return true
+    end
+    return false
+end
+
+function UIGameMap:getTile(mousePos)
+    local tile = baseGetTile(self, mousePos)
+    local player = g_game.getLocalPlayer()
+    if not player then
+        return tile
+    end
+
+    local playerPos = player:getPosition()
+    if not playerPos then
+        return tile
+    end
+
+    if tile and tile:getPosition().z == playerPos.z then
+        return tile
+    end
+
+    local playerFloorPos = self:getPosition(mousePos)
+    if playerFloorPos then
+        if playerFloorPos.z ~= playerPos.z then
+            local dz = playerFloorPos.z - playerPos.z
+            playerFloorPos.x = playerFloorPos.x + dz
+            playerFloorPos.y = playerFloorPos.y + dz
+            playerFloorPos.z = playerPos.z
+        end
+
+        local playerFloorTile = g_map.getTile(playerFloorPos)
+        if playerFloorTile then
+            -- If the upper tile has a creature, player might be interacting with the creature upstairs
+            if tile and (tile:getTopCreature() or tile:getCollisionCreatureId() > 0) then
+                return tile
+            end
+
+            -- If the upper tile is not walkable (e.g. roof/ceiling overhang) or the player floor tile
+            -- has an interactive object/corpse/creature, prioritize the player's floor tile.
+            if not tile or not tile:isWalkable() or playerFloorTile:getTopCreature() or hasInteractiveFloorThing(playerFloorTile) then
+                return playerFloorTile
+            end
+        end
+    end
+
+    return tile
+end
+
 function UIGameMap:onDragEnter(mousePos)
     local tile = self:getTile(mousePos)
     if not tile then
@@ -153,6 +207,25 @@ function UIGameMap:onMouseRelease(mousePosition, mouseButton)
     local autoWalkTile = g_map.getTile(autoWalkPos)
     if autoWalkTile then
         attackCreature = autoWalkTile:getTopCreatureEx(positionOffset)
+        if not creatureThing then
+            creatureThing = autoWalkTile:getTopCreatureEx(positionOffset)
+        end
+    end
+
+    -- Safety check: an item on a different Z level than the player can never be used in TFS/OT
+    -- and will trigger "First go upstairs / downstairs". Fallback to the player's floor.
+    if useThing and autoWalkTile and localPlayerPos and useThing:getPosition().z ~= localPlayerPos.z then
+        local autoUseThing = autoWalkTile:getTopUseThing()
+        if autoUseThing then
+            useThing = autoUseThing
+        end
+    end
+
+    if lookThing and autoWalkTile and localPlayerPos and lookThing:getPosition().z ~= localPlayerPos.z then
+        local autoLookThing = autoWalkTile:getTopLookThingEx(positionOffset)
+        if autoLookThing and (not lookThing or not tile or not tile:isWalkable() or not autoLookThing:isGround()) then
+            lookThing = autoLookThing
+        end
     end
 
     local ret = modules.game_interface.processMouseAction(mousePosition, mouseButton, autoWalkPos, lookThing, useThing,

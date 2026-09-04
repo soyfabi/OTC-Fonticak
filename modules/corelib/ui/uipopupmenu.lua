@@ -102,9 +102,11 @@ function UIPopupMenu:addCheckBox(text, checked, callback)
     local function trigger()
         if triggered then return end
         triggered = true
+        local newChecked = not checkBox:isChecked()
+        checkBox:setChecked(newChecked)
         self:destroy()
         if callback then
-            callback(checkBox, checkBox:isChecked())
+            callback(checkBox, newChecked)
         end
     end
 
@@ -113,9 +115,6 @@ function UIPopupMenu:addCheckBox(text, checked, callback)
         if mouseButton == MouseLeftButton then
             trigger()
         end
-    end
-    checkBox.onCheckChange = function()
-        trigger()
     end
 
     local width = checkBox:getTextSize().width + checkBox:getMarginLeft() + checkBox:getMarginRight() + 30

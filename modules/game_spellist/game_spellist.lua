@@ -317,13 +317,13 @@ local function setupSearch()
     end
     searchText.onMousePress = function(widget, mousePos, button)
       if button == MouseLeftButton then
-        widget:recursiveFocus(ActiveFocusReason)
+        widget:focus()
         widget:setCursorVisible(true)
         widget:blinkCursor()
         widget:grabKeyboard()
         scheduleEvent(function()
           if widget and not widget:isDestroyed() then
-            widget:recursiveFocus(MouseFocusReason)
+            widget:focus()
             widget:setCursorVisible(true)
             widget:blinkCursor()
             updateSearchCaret()
@@ -354,7 +354,7 @@ local function setupSearch()
     clearSearch:setFocusable(false)
     clearSearch.onClick = function()
       searchText:clearText()
-      searchText:recursiveFocus(ActiveFocusReason)
+      searchText:focus()
       searchText:grabKeyboard()
     end
   end

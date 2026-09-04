@@ -198,25 +198,25 @@ end
 
 function Creature.isDruid(self)
     local vocation = self:getVocation()
-    return vocation == VocationsClient.Druid or vocation == VocationsClient.ElderDruid or vocation == VocationsServer.Druid or vocation == VocationsServer.ElderDruid
+    return vocation == VocationsServer.Druid or vocation == VocationsServer.ElderDruid or vocation == 14
 end
 
 function Creature.isSorcerer(self)
     local vocation = self:getVocation()
-    return vocation == VocationsClient.Sorcerer or vocation == VocationsClient.MasterSorcerer or vocation == VocationsServer.Sorcerer or vocation == VocationsServer.MasterSorcerer
+    return vocation == VocationsServer.Sorcerer or vocation == VocationsServer.MasterSorcerer or vocation == 13
 end
 
 function Creature.isPaladin(self)
     local vocation = self:getVocation()
-    return vocation == VocationsClient.Paladin or vocation == VocationsClient.RoyalPaladin or vocation == VocationsServer.Paladin or vocation == VocationsServer.RoyalPaladin
+    return vocation == VocationsServer.Paladin or vocation == VocationsServer.RoyalPaladin or vocation == 12
 end
 
 function Creature.isKnight(self)
     local vocation = self:getVocation()
-    return vocation == VocationsClient.Knight or vocation == VocationsClient.EliteKnight or vocation == VocationsServer.Knight or vocation == VocationsServer.EliteKnight
+    return vocation == VocationsServer.Knight or vocation == VocationsServer.EliteKnight or vocation == 11
 end
 
 function Creature.isMonk(self)
     local vocation = self:getVocation()
-    return vocation == VocationsClient.Monk or vocation == VocationsClient.ExaltedMonk or vocation == VocationsServer.Monk or vocation == VocationsServer.ExaltedMonk
+    return vocation == VocationsServer.Monk or vocation == VocationsServer.ExaltedMonk or vocation == 15
 end

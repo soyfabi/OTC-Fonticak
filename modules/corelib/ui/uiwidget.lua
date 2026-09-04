@@ -767,3 +767,15 @@ function UIWidget:__childFor(moduleName, expr, html, index)
         fnc = scan
     })
 end
+
+function UIWidget:recursiveFocus(reason)
+    if self:isDestroyed() then
+        return
+    end
+    local parent = self:getParent()
+    if parent and parent.focusChild then
+        parent:focusChild(self, reason or ActiveFocusReason)
+    end
+    self:focus()
+end
+
