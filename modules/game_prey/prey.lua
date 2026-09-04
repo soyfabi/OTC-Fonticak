@@ -1009,6 +1009,10 @@ function terminate()
 		preyTrackerButton:destroy()
 	end
 
+	if g_game.isOnline() and preyWindow and preyWindow:isVisible() then
+		g_game.preyAction(0, PREY_ACTION_CLOSE, 0)
+	end
+
 	if g_modalManager then
 		g_modalManager.hide(preyWindow)
 	end
@@ -2810,11 +2814,7 @@ function onPreyInactive(slot, timeUntilFreeReroll, lockType)
 end
 
 function storeRedirect(offerType)
-	if g_modalManager then
-		g_modalManager.hide(preyWindow)
-	end
-
-	preyWindow:hide()
+	hide(true)
 
 	if modules.game_store and modules.game_store.openUsefulThings then
 		modules.game_store.openUsefulThings(offerType)
