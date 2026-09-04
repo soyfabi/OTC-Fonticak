@@ -277,3 +277,7 @@ function g_keyboard.isShiftPressed()
         return bit.band(g_window.getKeyboardModifiers(), KeyboardShiftModifier) ~= 0
     end
 end
+
+function g_keyboard.isEnterKey(keyCode)
+    return keyCode == KeyEnter or keyCode == 5 or keyCode == 13 or (KeyNumpadEnter and keyCode == KeyNumpadEnter) or (KeyReturn and keyCode == KeyReturn)
+end

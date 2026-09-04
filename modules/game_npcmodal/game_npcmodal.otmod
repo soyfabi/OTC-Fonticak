@@ -1,0 +1,10 @@
+Module
+  name: game_npcmodal
+  description: NPC Modal Interface
+  author: xGG
+  website: https://github.com/GGandolfo/MehahGlobal
+  sandboxed: false
+  scripts: [ game_npcmodal ]
+  @onLoad: init()
+  @onUnload: terminate()
+

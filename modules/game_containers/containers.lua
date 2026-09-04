@@ -623,6 +623,8 @@ function sortContainerItems(container, sortMode)
         local itemWidget = container.itemsPanel:getChildById('item' .. slot)
         if itemWidget then
             itemWidget:setItem(nil)
+            ItemsDatabase.setRarityItem(itemWidget, nil)
+            ItemsDatabase.setTier(itemWidget, nil)
         end
     end
     
@@ -642,23 +644,7 @@ function sortContainerItems(container, sortMode)
                 ItemsDatabase.setTier(itemWidget, itemData.item)
                 itemWidget:setShowDuration(g_game.getFeature(GameThingClock) and modules.client_options.getOption('showExpiryInContainers'))
                 itemWidget:setShowCharges(g_game.getFeature(GameThingCounter) and modules.client_options.getOption('showExpiryInContainers'))
-
-                local itemName = "unnamed"
-                local success, result = pcall(function()
-                    if itemData.item.getName and type(itemData.item.getName) == "function" then
-                        return itemData.item:getName() or "unnamed"
-                    end
-                    -- Try getting name from the item type if direct getName fails
-                    local itemType = g_things.getThingType(itemData.item:getId(), ThingCategoryItem)
-                    if itemType and itemType.getName and type(itemType.getName) == "function" then
-                        return itemType:getName() or "unnamed"
-                    end
-                    return "unnamed"
-                end)
-                if success then itemName = result end
-            else
             end
-        else
         end
     end
 end
@@ -778,11 +764,13 @@ function refreshContainerItems(container)
         
         for slot = 0, container:getCapacity() - 1 do
             local itemWidget = container.itemsPanel:getChildById('item' .. slot)
-            itemWidget:setItem(container:getItem(slot))
-            ItemsDatabase.setRarityItem(itemWidget, container:getItem(slot))
-            ItemsDatabase.setTier(itemWidget, container:getItem(slot))
-            itemWidget:setShowDuration(g_game.getFeature(GameThingClock) and modules.client_options.getOption('showExpiryInContainers'))
-            itemWidget:setShowCharges(g_game.getFeature(GameThingCounter) and modules.client_options.getOption('showExpiryInContainers'))
+            if itemWidget then
+                itemWidget:setItem(container:getItem(slot))
+                ItemsDatabase.setRarityItem(itemWidget, container:getItem(slot))
+                ItemsDatabase.setTier(itemWidget, container:getItem(slot))
+                itemWidget:setShowDuration(g_game.getFeature(GameThingClock) and modules.client_options.getOption('showExpiryInContainers'))
+                itemWidget:setShowCharges(g_game.getFeature(GameThingCounter) and modules.client_options.getOption('showExpiryInContainers'))
+            end
         end
 
         if container:hasPages() then
@@ -1210,9 +1198,13 @@ function onContainerUpdateItem(container, slot, item, oldItem)
     end
     withPreservedContainerScroll(container, function()
         local itemWidget = container.itemsPanel:getChildById('item' .. slot)
-        itemWidget:setItem(item)
-        itemWidget:setShowDuration(g_game.getFeature(GameThingClock) and modules.client_options.getOption('showExpiryInContainers'))
-        itemWidget:setShowCharges(g_game.getFeature(GameThingCounter) and modules.client_options.getOption('showExpiryInContainers'))
+        if itemWidget then
+            itemWidget:setItem(item)
+            ItemsDatabase.setRarityItem(itemWidget, item)
+            ItemsDatabase.setTier(itemWidget, item)
+            itemWidget:setShowDuration(g_game.getFeature(GameThingClock) and modules.client_options.getOption('showExpiryInContainers'))
+            itemWidget:setShowCharges(g_game.getFeature(GameThingCounter) and modules.client_options.getOption('showExpiryInContainers'))
+        end
     end)
     
     -- Note: Removed automatic re-sorting to prevent interference with manual item movement

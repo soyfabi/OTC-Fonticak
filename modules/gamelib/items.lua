@@ -88,17 +88,31 @@ function ItemsDatabase.getClipAndImagePath(item)
 end
 
 function ItemsDatabase.setRarityItem(widget, item, style)
-    if not g_game.getFeature(GameColorizedLootValue) or not widget then
+    if not widget then
+        return
+    end
+
+    if not g_game.getFeature(GameColorizedLootValue) or not item then
+        widget:setImageClip(torect("0 0 0 0"))
+        widget:setImageSource('/images/ui/item')
+        if style then
+            widget:setStyle(style)
+        end
         return
     end
 
     local clip, imagePath = ItemsDatabase.getClipAndImagePath(item)
 
-    if not imagePath then
+    if not imagePath or not clip then
+        widget:setImageClip(torect("0 0 0 0"))
+        widget:setImageSource('/images/ui/item')
+        if style then
+            widget:setStyle(style)
+        end
         return
     end
 
-    widget:setImageClip(clip)
+    widget:setImageClip(torect(clip))
     widget:setImageSource(imagePath)
     if style then
         widget:setStyle(style)

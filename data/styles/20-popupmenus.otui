@@ -87,3 +87,14 @@ PopupMenuCheckBox < ThickCheckBox
 
   $disabled:
     color: #c0c0c0ff
+
+GamePopupMenuButton < PopupMenuButton
+
+GamePopupMenuShortcutLabel < PopupMenuShortcutLabel
+
+GamePopupMenuCheckBox < PopupMenuCheckBox
+
+GamePopupMenuSeparator < PopupMenuSeparator
+
+GamePopupMenu < PopupMenu
+

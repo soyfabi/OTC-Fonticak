@@ -97,11 +97,27 @@ function UIPopupMenu:addCheckBox(text, checked, callback)
     local checkBox = g_ui.createWidget(self:getStyleName() .. 'CheckBox', self)
     checkBox:setText(text)
     checkBox:setChecked(checked or false)
-    checkBox.onClick = function()
-        checkBox:setChecked(not checkBox:isChecked())
+
+    local triggered = false
+    local function trigger()
+        if triggered then return end
+        triggered = true
         self:destroy()
-        callback(checkBox, checkBox:isChecked())
+        if callback then
+            callback(checkBox, checkBox:isChecked())
+        end
     end
+
+    checkBox.onClick = trigger
+    checkBox.onMouseRelease = function(widget, mousePos, mouseButton)
+        if mouseButton == MouseLeftButton then
+            trigger()
+        end
+    end
+    checkBox.onCheckChange = function()
+        trigger()
+    end
+
     local width = checkBox:getTextSize().width + checkBox:getMarginLeft() + checkBox:getMarginRight() + 30
     self:setWidth(math.max(self:getWidth(), width))
     return checkBox

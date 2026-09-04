@@ -1,0 +1,892 @@
+&var-cip-font: verdana-11px-antialised
+&var-cip-font-new: Verdana Bold-11px
+&var-text-color-disabled: #dfdfdf88
+
+npcWindowBase < UIWindow
+  font: $var-cip-font
+  size: 200 200
+  opacity: 1
+  color: $var-text-color-disabled
+  text-offset: 0 6
+  text-align: top
+  image-source: /images/ui/window-high
+  image-border: 6
+  image-border-top: 17
+  padding-left: 16
+  anchors.left: parent.left
+  anchors.top: parent.top
+  margin-top: 20
+
+  $disabled:
+    color: $var-text-color-disabled
+
+SayButton < UIButton
+  id: sayButton
+  anchors.left: readOnlyPanel.left
+  anchors.top: readOnlyPanel.bottom
+  margin-top: 6
+  size: 35 35
+  image-source: /modules/game_npcmodal/assets/images/icons-npcdialog
+  image-clip: 0 0 35 35
+
+NpcTradeQtButton < QtButton
+  $on:
+    image-clip: 0 46 22 23
+    text-offset: 1 1
+  $on $disabled:
+    color: #dfdfdf88
+    opacity: 0.8
+
+GamePopupMenuButton < PopupMenuButton
+GamePopupMenuShortcutLabel < PopupMenuShortcutLabel
+GamePopupMenuCheckBox < PopupMenuCheckBox
+GamePopupMenuSeparator < PopupMenuSeparator
+GamePopupMenu < PopupMenu
+
+NpcModalWindow < npcWindowBase
+  id: npcModalWindow
+  size: 439 424
+  @onEscape: modules.game_npcmodal.closeNpcModal()
+
+  UIButton
+    id: exitButton
+    size: 12 12
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: 3
+    margin-right: 3
+    image-source: /modules/game_npcmodal/assets/images/button-12x12
+    tooltip: Close this window
+
+    @onClick: |
+      modules.game_npcmodal.closeNpcModal()
+
+    $pressed:
+      image-source: /modules/game_npcmodal/assets/images/press-button-12x12
+    
+  UIButton
+    id: menuButton
+    size: 12 12
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: 3
+    margin-right: 19
+    image-source: /modules/game_npcmodal/assets/images/menu
+    tooltip: Click here to configure the NPC trade.
+
+    @onClick: |
+      modules.game_npcmodal.showMenuFilters()
+
+    $pressed:
+      image-source: /modules/game_npcmodal/assets/images/menu-on
+    
+  Panel
+    id: readOnlyPanel
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    padding: 1
+    border-width-top: 1
+    border-width-left: 1
+    border-width-right: 1
+    border-width-bottom: 1
+    border-color-bottom: #808080
+    border-color-right: #808080
+    border-color-left: #131313
+    border-color-top: #131313
+    margin-bottom: 77
+    margin-top: 31
+    margin-right: 16
+
+    VerticalQtScrollBar
+      id: itemsPanelListScrollBar
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.right: parent.right
+      step: 37
+      
+    ScrollablePanel
+      id: itemsPanel
+      anchors.left: parent.left
+      anchors.right: prev.left
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      vertical-scrollbar: itemsPanelListScrollBar
+      margin-top: -1
+      margin-left: 2
+      padding: 2
+      layout:
+        type: verticalBox
+        align-bottom: true
+      inverted-scroll: true
+    
+  UIWidget
+    id: npcNameBanner
+    image-source: /modules/game_npcmodal/assets/images/name-banner
+    anchors.bottom: parent.top
+    anchors.left: parent.left
+    margin-left: -16
+    margin-bottom: -19
+  
+  Label
+    id: npcName
+    anchors.left: npcPedestal.right
+    anchors.bottom: npcPedestal.top
+    height: 60
+    margin-left: 10
+    margin-bottom: -18
+    font: $var-cip-font-new
+    color: #c0c0c0
+    text-auto-resize: true
+
+  UIWidget
+    id: npcPedestal
+    image-source: /modules/game_npcmodal/assets/images/npcdialog-pedestal
+    anchors.bottom: parent.top
+    anchors.left: parent.left
+    margin-left: -4
+    margin-bottom: -61
+
+  UIWidget
+    id: multipleNpc
+    image-source: /modules/game_npcmodal/assets/images/npcdialog-multiplenpcs
+    anchors.centerIn: npcPedestal
+    margin-left: -10
+    margin-top: -11
+
+  UICreature
+    id: npcCreatureBox
+    size: 64 64
+    fixed-creature-size: true
+    anchors.centerIn: npcPedestal
+    margin-left: -27
+    margin-top: -25
+
+  TextEdit
+    id: npcModalChatProxy
+    anchors.left: readOnlyPanel.left
+    anchors.right: toggleChat.left
+    anchors.top: readOnlyPanel.bottom
+    margin-top: 46
+    margin-right: 2
+    height: 16
+    shift-navigation: true
+    max-length: 255
+    color: #f4f4f4
+    font: $var-cip-font-new
+    text-align: left
+    padding-left: 5
+    padding-bottom: 0
+    visible: false
+    @onTextChange: |
+      local p = self:getParent():getChildById('placeholderLabel')
+      if p then p:setVisible(self:getText():len() == 0) end
+
+  UILabel
+    id: placeholderLabel
+    text: Type here to chat
+    color: #888888
+    font: verdana-11px-antialised
+    text-auto-resize: true
+    anchors.left: npcModalChatProxy.left
+    anchors.verticalCenter: npcModalChatProxy.verticalCenter
+    margin-left: 5
+    focusable: false
+    phantom: true
+    visible: true
+    
+  TopToggleButton
+    id: toggleChat
+    anchors.right: readOnlyPanel.right
+    anchors.bottom: parent.bottom
+    margin-bottom: 15
+    margin-right: 15
+    size: 66 18
+    font: cipsoftFont
+    !text: tr('Chat Off')
+    text-offset: 0 1
+    &isChecked: false
+    @onClick: |
+      if self.isChecked then
+        self.isChecked = false
+        self:setText(tr('Chat On'))
+      else
+        self.isChecked = true
+        self:setText(tr('Chat Off'))
+      end
+      modules.game_console.toggleChat()
+
+  UIWidget
+    id: miniborderRight
+    image-source: /assets/images/ui/miniborder-bottom-right
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    margin-right: 3
+    margin-bottom: 3
+    size: 14 14
+    focusable: false
+    visible: true
+    @onHoverChange: modules.game_npcmodal.onMiniborderRightHover(self, self:isHovered())
+
+  VerticalSeparator
+    id: sep1
+    anchors.top: readOnlyPanel.top
+    anchors.bottom: npcModalChatProxy.bottom
+    anchors.right: parent.right
+    margin-right: 206
+  
+  Label
+    id: label1
+    !text: tr('Currency:')
+    font: $var-cip-font
+    text-auto-resize: true
+    color: #c0c0c0
+    anchors.top: sep1.top
+    anchors.left: sep1.right
+    margin-left: 12
+    margin-top: -1
+
+  Label
+    id: currencyName
+    !text: tr('Gold Coin')
+    font: $var-cip-font
+    text-auto-resize: true
+    color: #c0c0c0
+    anchors.top: label1.bottom
+    anchors.left: sep1.right
+    margin-left: 12
+    margin-top: 7
+
+  Item
+    id: item
+    virtual: true
+    virtual-count: true
+    show-count: false
+    priceable: true
+    focusable: true
+    draggable: false
+    image-source: /images/ui/item
+    anchors.top: sep1.top
+    anchors.left: label1.right
+    margin-left: 34
+    size: 34 34
+    opacity: 1.0
+
+  NpcTradeQtButton
+    id: buyButton
+    size: 45 17
+    !text: tr('Buy')
+    tooltip: You are currently buying items from the NPC
+    color: #ffffff
+    anchors.top: item.top
+    anchors.left: item.right
+    margin-left: 2
+    @onClick: modules.game_npcmodal.onNpcTradeBuyClick()
+  
+  NpcTradeQtButton
+    id: sellButton
+    size: 45 17
+    !text: tr('Sell')
+    tooltip: Sell items to the NPC
+    color: #ffffff
+    anchors.top: buyButton.bottom
+    anchors.left: item.right
+    margin-top: 2
+    margin-left: 2
+    @onClick: modules.game_npcmodal.onNpcTradeSellClick()
+  
+  UIButton
+    id: sellAllButton
+    size: 77 16
+    !text: tr('Sell All')
+    text-offset: 7 1
+    tooltip: Sell all items to the NPC
+    font: $var-cip-font-new
+    color: #c0c0c0
+    anchors.top: sellButton.bottom
+    anchors.left: item.right
+    margin-top: 3
+    margin-left: -32
+    image-source: /modules/game_npcmodal/assets/images/button-sell-all
+    image-clip: 0 0 77 16
+    $pressed:
+      text-offset: 8 2
+      image-clip: 0 16 77 16
+
+    @onClick: modules.game_npcmodal.openSellAllWindow()
+
+    UIWidget
+      id: highlightSell
+      phantom: true
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: -1
+      margin-left: -1
+      image-source: /modules/game_npcmodal/assets/images/sell-all-highlight
+
+  Panel
+    id: itemsSelling
+    visible: true
+    anchors.top: sellAllButton.bottom
+    anchors.bottom: parent.bottom
+    anchors.left: sep1.right
+    width: 180
+    margin-top: 6
+    margin-bottom: 103
+    margin-left: 11
+    padding: 1
+    border-width-top: 1
+    border-width-left: 1
+    border-width-right: 1
+    border-width-bottom: 1
+    border-color-bottom: #808080
+    border-color-right: #808080
+    border-color-left: #131313
+    border-color-top: #131313
+    background-color: #404040
+
+    VerticalQtScrollBar
+      id: npcTradeItemsScrollBar
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.right: parent.right
+      step: 36
+      
+    ScrollablePanel
+      id: npcTradeItemsPanel
+      anchors.left: parent.left
+      anchors.right: prev.left
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      vertical-scrollbar: npcTradeItemsScrollBar
+      margin-top: -1
+      margin-left: 2
+      padding-top: 1
+      inverted-scroll: false
+
+      layout:
+        type: verticalBox
+
+  TextEdit
+    id: search
+    height: 22
+    width: 176
+    anchors.bottom: parent.bottom
+    anchors.left: sep1.right
+    margin-left: 13
+    margin-bottom: 76
+    placeholder: "Type to search"
+    placeholder-color:#707068
+    @onTextChange: modules.game_npcmodal.search(self:getText(), 1)
+
+  Button
+    id: clearSearch
+    width: 18
+    height: 18
+    anchors.right: search.right
+    anchors.verticalCenter: search.verticalCenter
+    margin-right: 2
+    icon: /images/ui/button-clear-20x20-up
+    $pressed:
+      icon: /images/ui/button2-clear-20x20-down
+
+    tooltip: Clear all text from the search field.
+    z-index: 1
+    @onClick: modules.game_npcmodal.clearTradeSearch(1)
+
+  HorizontalQtScrollBar
+    id: countScrollBar
+    anchors.top: search.bottom
+    anchors.left: sep1.right
+    margin-left: 13
+    margin-top: 3
+    focusable: false
+    default-scroll: true
+    width: 128
+    height: 13
+  
+  Label
+    id: label3
+    !text: tr('Amount:')
+    font: $var-cip-font
+    text-auto-resize: true
+    color: #c0c0c0
+    anchors.top: search.bottom
+    anchors.left: sep1.right
+    margin-left: 12
+    margin-top: 17
+
+  Label
+    id: label4
+    !text: tr('Price:')
+    font: $var-cip-font
+    text-auto-resize: true
+    color: #c0c0c0
+    anchors.top: label3.bottom
+    anchors.left: sep1.right
+    margin-left: 12
+    margin-top: 2
+
+  Label
+    id: label5
+    !text: tr('Gold:')
+    font: $var-cip-font
+    text-auto-resize: true
+    color: #c0c0c0
+    anchors.top: label4.bottom
+    anchors.left: sep1.right
+    margin-left: 12
+    margin-top: 1
+  
+  Label
+    id: labelPrice
+    !text: tr('0')
+    font: $var-cip-font
+    text-auto-resize: true
+    text-align: right
+    color: #c0c0c0
+    anchors.top: label3.bottom
+    anchors.right: label4.right
+    margin-right: -90
+    margin-top: 2
+
+  Label
+    id: playerBalance
+    !text: tr('0')
+    font: $var-cip-font
+    text-auto-resize: true
+    text-align: right
+    color: #c0c0c0
+    anchors.top: labelPrice.bottom
+    anchors.right: label4.right
+    margin-right: -90
+    margin-top: 1
+  
+  TextEdit
+    id: userInput
+    font: $var-cip-font
+    color: #c0c0c0
+    anchors.top: search.bottom
+    anchors.left: label3.right
+    margin-left: 3
+    margin-top: 17
+    width: 72
+    height: 15
+    only-number: true
+    text-align: right
+    padding-right: 4
+  
+  Item
+    id: item2
+    virtual: true
+    virtual-count: true
+    show-count: false
+    priceable: true
+    focusable: true
+    draggable: false
+    anchors.top: search.bottom
+    anchors.left: label3.right
+    margin-top: 3
+    margin-left: 89
+    size: 34 34
+    opacity: 1.0
+
+  NpcTradeQtButton
+    id: BuySellButton
+    size: 45 21
+    !text: tr('Buy')
+    tooltip: Please select an item you wand to sell
+    color: #ffffff
+    anchors.top: item2.bottom
+    anchors.left: labelPrice.right
+    margin-top: 6
+    margin-left: 6
+    @onClick: modules.game_npcmodal.onConfirmTrade()
+
+  // Last Parent: only drag by the title
+  UIWidget
+    id: windowMoveHeader
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    height: 17
+    focusable: false
+    margin-right: 31
+    draggable: true
+    opacity: 0.01
+
+NpcItemBox < Panel
+  height: 34
+  margin-top: 1
+  background-color: #00000000
+
+  Item
+    id: itemIcon
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    size: 34 34
+    virtual: true
+    virtual-count: true
+    show-count: false
+
+  Label
+    id: nameLabel
+    font: $var-cip-font-new
+    color: #c0c0c0
+    anchors.left: itemIcon.right
+    anchors.right: parent.right
+    anchors.top: parent.top
+    margin-left: 6
+    margin-top: 4
+    text-auto-resize: true
+
+  Label
+    id: infoLabel
+    font: $var-cip-font-new
+    color: #c0c0c0
+    anchors.left: itemIcon.right
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    margin-left: 6
+    margin-bottom: 4
+    text-auto-resize: true
+
+////////////////////////////////////////////
+///////////////// Sell All /////////////////
+////////////////////////////////////////////
+
+ItemBoxSell < UIItem
+  id: itemBox
+  color: #aaaaaa
+  text-align: center
+  margin: 1
+
+  Item
+    id: itemsell
+    phantom: true
+    virtual: true
+    always-show-count: true
+    text-offset: 0 20
+    text-align: right
+    anchors.top: parent.top
+    anchors.horizontalCenter: parent.horizontalCenter
+    margin-top: 1
+
+  $hover !checked:
+    border-color: #aaaaaa
+
+  $disabled:
+    image-color: #ffffff88
+    color: #aaaaaa88
+  
+  UIWidget
+    id: ignoredBorder
+    phantom: true
+    anchors.fill: parent
+    margin: 1
+    image-source: /modules/game_npcmodal/assets/images/red-border
+    visible: false
+
+SellAllModalWindow < npcWindowBase
+  id: sellAllModal
+  // text: Sell All Loot Pouch
+  font: $var-cip-font-new
+  text-offset: 0 2
+  size: 700 500
+  anchors.horizontalCenter: parent.horizontalCenter
+  anchors.verticalCenter: parent.verticalCenter
+  @onEscape: modules.game_npcmodal.closeSellAllWindow()
+
+  UIWidget
+    size: 145 56
+    anchors.top: parent.top
+    anchors.horizontalCenter: parent.horizontalCenter
+    margin-top: -33
+    margin-right: 7
+    image-source: /images/game/tutorial/backdrop_crest
+    phantom: true
+
+  UIButton
+    id: exitButton
+    size: 12 12
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: 3
+    margin-right: 3
+    image-source: /modules/game_npcmodal/assets/images/button-12x12
+    tooltip: Close this window
+
+    @onClick: |
+      modules.game_npcmodal.closeSellAllWindow()
+
+    $pressed:
+      image-source: /modules/game_npcmodal/assets/images/press-button-12x12
+
+  UIWindow
+    id: mainPanel1
+    width: 286
+    height: 387
+    text: Sellable
+    text-align: top
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    text-offset: 1 2
+    image-border: 6
+    image-border-top: 27
+    draggable: false
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 29
+    color: $var-text-color-disabled
+    font: verdana-11px-monochrome
+
+    Panel
+      id: playerItens
+      visible: true
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 20
+      margin-left: 5
+      margin-right: 5
+      margin-bottom: 5
+      padding: 1
+      padding-top: 2
+      padding-right: 1
+      padding-bottom: 2
+      border-width-top: 1
+      border-width-left: 1
+      border-width-right: 1
+      border-width-bottom: 1
+      border-color-bottom: #808080
+      border-color-right: #808080
+      border-color-left: #131313
+      border-color-top: #131313
+      background-color: #404040
+
+      VerticalQtScrollBar
+        id: npcTradeItemsScrollBar
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        step: 34
+        
+      ScrollablePanel
+        id: npcSellItemsPanel
+        anchors.left: parent.left
+        anchors.right: prev.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        vertical-scrollbar: npcTradeItemsScrollBar
+        margin-top: -1
+        margin-left: 2
+        padding-top: 1
+        inverted-scroll: false
+
+        layout:
+          type: grid
+          cell-size: 36 36
+          flow: true
+          cell-spacing: 1
+  
+  UIWidget
+    anchors.verticalCenter: parent.verticalCenter
+    anchors.horizontalCenter: parent.horizontalCenter
+    margin-left: -26
+    image-source: /images/game/forge/icon-arrow-rightlarge
+  UIWidget
+    anchors.verticalCenter: prev.verticalCenter
+    anchors.left: prev.right
+    margin-left: 6
+    image-source: /images/game/forge/icon-arrow-rightlarge
+  UIWidget
+    anchors.verticalCenter: prev.verticalCenter
+    anchors.left: prev.right
+    margin-left: 6
+    image-source: /images/game/forge/icon-arrow-rightlarge
+
+  UIWindow
+    id: mainPanel2
+    width: 286
+    height: 387
+    text: Ignore List
+    text-align: top
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    text-offset: 1 2
+    image-border: 6
+    image-border-top: 27
+    draggable: false
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: 29
+    margin-right: 16
+    color: $var-text-color-disabled
+    font: verdana-11px-monochrome
+
+    Panel
+      id: ignoreItems
+      visible: true
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 20
+      margin-left: 5
+      margin-right: 5
+      margin-bottom: 5
+      padding: 1
+      padding-top: 2
+      border-width-top: 1
+      border-width-left: 1
+      border-width-right: 1
+      border-width-bottom: 1
+      border-color-bottom: #808080
+      border-color-right: #808080
+      border-color-left: #131313
+      border-color-top: #131313
+      background-color: #404040
+
+      VerticalQtScrollBar
+        id: npcIgnoreItemsScrollBar
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        step: 34
+        
+      ScrollablePanel
+        id: npcIgnoreItemsPanel
+        anchors.left: parent.left
+        anchors.right: prev.left
+        anchors.top: parent.top
+        anchors.bottom: parent.bottom
+        vertical-scrollbar: npcIgnoreItemsScrollBar
+        margin-top: -1
+        margin-left: 2
+        padding-top: 1
+        inverted-scroll: false
+
+        layout:
+          type: grid
+          cell-size: 36 36
+          flow: true
+          cell-spacing: 1
+
+  TextEdit
+    id: search2
+    height: 22
+    width: 286
+    anchors.top: mainPanel1.bottom
+    anchors.left: parent.left
+    margin-top: 9
+    placeholder: "Type to search"
+    placeholder-color:#707068
+    @onTextChange: modules.game_npcmodal.search(self:getText(), 2)
+
+  Button
+    id: clearSearch
+    width: 18
+    height: 18
+    anchors.right: search2.right
+    anchors.verticalCenter: search2.verticalCenter
+    margin-right: 2
+    icon: /modules/game_quickloot/images/button2-clear-20x20-up
+    $pressed:
+      icon: /modules/game_quickloot/images/button2-clear-20x20-down
+
+    tooltip: Clear all text from the search field.
+    z-index: 1
+    @onClick: modules.game_npcmodal.clearTradeSearch(2)
+  
+  TextEdit
+    id: search3
+    height: 22
+    width: 286
+    anchors.top: mainPanel2.bottom
+    anchors.right: parent.right
+    margin-top: 9
+    margin-right: 16
+    placeholder: "Type to search"
+    placeholder-color:#707068
+    @onTextChange: modules.game_npcmodal.search(self:getText(), 3)
+
+  Button
+    id: clearSearch
+    width: 18
+    height: 18
+    anchors.right: search3.right
+    anchors.verticalCenter: search3.verticalCenter
+    margin-right: 2
+    icon: /modules/game_quickloot/images/button2-clear-20x20-up
+    $pressed:
+      icon: /modules/game_quickloot/images/button2-clear-20x20-down
+
+    tooltip: Clear all text from the search field.
+    z-index: 1
+    @onClick: modules.game_npcmodal.clearTradeSearch(3)
+
+  HorizontalSeparator
+    id: separator
+    anchors.top: mainPanel1.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 39
+    margin-right: 16
+  
+  Panel
+    id: goldBalancePanel
+    size: 130 20
+    anchors.top: separator.bottom
+    anchors.left: parent.left
+    margin-top: 9
+    image-source: /images/ui/item
+    image-border: 10
+
+    UIWidget
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      image-source: /images/icons/icon-goldcoin
+      margin-right: 3
+      margin-top: 1
+      
+    Label
+      id: value
+      text: 0
+      anchors.right: prev.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 10
+      margin-top: 2
+      text-auto-resize: true
+      font: verdana-11px-monochrome
+  
+  UIButton
+    id: sellAllButton
+    size: 77 20
+    !text: tr('Sell All')
+    text-offset: -1 0
+    tooltip: Sell items to the NPC
+    font: $var-cip-font-new
+    color: #c0c0c0
+    anchors.top: separator.bottom
+    anchors.right: parent.right
+    margin-top: 8
+    margin-right: 17
+    image-source: /modules/game_npcmodal/assets/images/button-sell
+    image-border: 3
+    image-clip: 0 0 77 16
+    $pressed:
+      text-offset: 0 1
+      image-clip: 0 16 77 16
+
+    @onClick: modules.game_npcmodal.sendSellAll()
+
+    UIWidget
+      id: highlightSell
+      size: 79 22
+      phantom: true
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: -1
+      margin-left: -1
+      image-border: 3
+      image-source: /modules/game_npcmodal/assets/images/sell-all-highlight

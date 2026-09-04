@@ -155,3 +155,20 @@ end
 function roundToTwoDecimalPlaces(num)
   return math.floor(num * 100 + 0.5) / 100
 end
+
+function short_text(text, chars_limit)
+  if not text then
+    return ""
+  end
+
+  chars_limit = chars_limit or 20
+
+  if string.len(text) <= chars_limit then
+    return text
+  end
+
+  return string.sub(text, 1, chars_limit - 3) .. "..."
+end
+
+_G.short_text = short_text
+

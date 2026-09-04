@@ -1345,6 +1345,160 @@ function onConsoleTextClicked(widget, text)
     end
 end
 
+function isNpcModalVisible()
+    local npcModal = modules.game_npcmodal and modules.game_npcmodal.mainNpcModal
+    return npcModal and not npcModal:isDestroyed() and npcModal:isVisible()
+end
+
+function clearNpcModalItemsPanel()
+    local npcModal = modules.game_npcmodal and modules.game_npcmodal.mainNpcModal
+    if not npcModal or npcModal:isDestroyed() then
+        return
+    end
+
+    local itemsPanel = npcModal:recursiveGetChildById("itemsPanel")
+    if not itemsPanel then
+        return
+    end
+
+    itemsPanel:destroyChildren()
+    itemsPanel.selection = nil
+    itemsPanel.selectionText = nil
+end
+
+local function ensureNpcChatTab()
+    if not consoleTabBar then
+        return nil
+    end
+
+    local npcTab = getTab("NPCs")
+    npcTab = npcTab or addTab("NPCs", false)
+    if npcTab then
+        npcTab.npcChat = true
+    end
+    return npcTab
+end
+
+function focusConsoleTextEditAfterNpcModalShow()
+    scheduleEvent(function()
+        local npcModal = modules.game_npcmodal and modules.game_npcmodal.mainNpcModal
+        local proxy = npcModal and npcModal:recursiveGetChildById("npcModalChatProxy")
+        if proxy and not proxy:isDestroyed() then
+            proxy:focus()
+        end
+    end, 20)
+end
+
+function onNpcModalOpened()
+    ensureNpcChatTab()
+    focusConsoleTextEditAfterNpcModalShow()
+end
+
+function sendNpcModalReply(message)
+    if not message or #message == 0 or not consoleTabBar then
+        return
+    end
+
+    if modules.game_npcmodal and modules.game_npcmodal.addNpcDialogLine and g_game.isOnline() then
+        modules.game_npcmodal.addNpcDialogLine(g_game.getCharacterName(), message, true)
+    end
+
+    local lowerMsg = message:lower()
+    if (lowerMsg == "bye" or lowerMsg == "adios" or lowerMsg == "farewell" or lowerMsg == "cya") and modules.game_npcmodal and modules.game_npcmodal.closeNpcModal then
+        scheduleEvent(function()
+            if modules.game_npcmodal and modules.game_npcmodal.closeNpcModal then
+                modules.game_npcmodal.closeNpcModal()
+            end
+        end, 400)
+    end
+
+    local npcTab = getTab("NPCs")
+    if not npcTab then
+        g_game.talkPrivate(MessageModes.NpcTo, "NPCs", message)
+        return
+    end
+
+    sendMessage(message, npcTab)
+end
+
+function attachConsoleTextEditToNpcModal(npcModalWindow)
+    if not npcModalWindow then
+        return
+    end
+    local proxy = npcModalWindow:recursiveGetChildById("npcModalChatProxy")
+    if not proxy then
+        return
+    end
+    proxy:show()
+    local ph = npcModalWindow:getChildById("placeholderLabel")
+    if ph then
+        ph:setVisible(proxy:getText():len() == 0)
+    end
+
+    local function handleSend()
+        local raw = proxy:getText() or ""
+        local msg = raw:match("^%s*(.-)%s*$")
+        if #msg > 0 then
+            sendNpcModalReply(msg)
+            proxy:clearText()
+            if ph then ph:setVisible(true) end
+        end
+    end
+
+    proxy.onKeyDown = function(widget, keyCode, keyboardModifiers)
+        if keyboardModifiers == KeyboardShiftModifier and keyCode == KeyUp then
+            navigateMessageHistory(1)
+            return true
+        end
+        if keyboardModifiers == KeyboardShiftModifier and keyCode == KeyDown then
+            navigateMessageHistory(-1)
+            return true
+        end
+        if (keyboardModifiers == KeyboardNoModifier or keyboardModifiers == 0 or not keyboardModifiers) and keyCode == KeyEscape and modules.game_npcmodal and modules.game_npcmodal.closeNpcModal then
+            modules.game_npcmodal.closeNpcModal()
+            return true
+        end
+        if keyboardModifiers == KeyboardCtrlModifier and (keyCode == KeyC or keyCode == 67) then
+            if not proxy:hasSelection() then
+                local npcModal = modules.game_npcmodal and modules.game_npcmodal.mainNpcModal
+                local itemsPanel = npcModal and npcModal:recursiveGetChildById("itemsPanel")
+                if itemsPanel and itemsPanel.selectionText and #itemsPanel.selectionText > 0 then
+                    g_window.setClipboardText(itemsPanel.selectionText)
+                    return true
+                end
+            end
+        end
+        if keyCode == KeyEnter or keyCode == 5 or keyCode == 13 or (g_keyboard and g_keyboard.isEnterKey and g_keyboard.isEnterKey(keyCode)) then
+            handleSend()
+            return true
+        end
+        return false
+    end
+
+    proxy.onKeyPress = function(widget, keyCode, keyboardModifiers)
+        if keyCode == KeyEnter or keyCode == 5 or keyCode == 13 or (g_keyboard and g_keyboard.isEnterKey and g_keyboard.isEnterKey(keyCode)) then
+            return true
+        end
+        return false
+    end
+end
+
+function detachConsoleTextEditFromNpcModal()
+    local npcModal = modules.game_npcmodal and modules.game_npcmodal.mainNpcModal
+    local proxy = npcModal and npcModal:recursiveGetChildById("npcModalChatProxy")
+    if proxy then
+        proxy.onKeyDown = nil
+        proxy.onKeyPress = nil
+        proxy:hide()
+        proxy:clearText()
+    end
+end
+
+local function addNpcModalMirrorLine(sourceLabel, tab)
+    -- Disabled: dialog lines in npc modal are managed exclusively by game_npcmodal:addNpcDialogLine
+    return
+end
+
 function onConsoleTextHovered(widget, text, hovered)
     if not modules.client_options then
         return
@@ -1557,6 +1711,10 @@ function addTabText(text, speaktype, tab, creatureName, options)
         end
 
         return true
+    end
+
+    if (tab.npcChat or (speaktype and speaktype.npcChat) or tab.name == "NPCs") and isNpcModalVisible and isNpcModalVisible() then
+        addNpcModalMirrorLine(label, tab)
     end
 
     if consoleBuffer:getChildCount() > MAX_LINES then
