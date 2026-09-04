@@ -2,12 +2,12 @@ local updateNpcTradePlayerBalanceLabel -- forward declaration (used before its d
 local onCloseNpcTrade
 
 mainNpcModal = nil
-BuyNpcTradeItems = {}
-SellNpcTradeItems = {}
-playerItems = {}
-npcOutfit = nil
-multiNpc = nil
-npcNameLabel = nil
+local BuyNpcTradeItems = {}
+local SellNpcTradeItems = {}
+local playerItems = {}
+local npcOutfit = nil
+local multiNpc = nil
+local npcNameLabel = nil
 
 local sayButtonsActive = {}
 local NPC_MODAL_MIN_W = 307
@@ -24,6 +24,7 @@ local npcModalTrade = false
 local LOOT_POUCH_ITEM_ID = 23721
 local GOLD_COIN_ITEM_ID = 3031
 local npcTradeCurrencyId, menuButton, sep1, label1, currencyName, item, buyButton, sellButton, itemsSelling, searchEdit, clearSearch, countScrollBar, label3, label4, label5, labelPrice, playerBalance, userInput, item2, BuySellButton
+local itemsPanel, readOnlyPanel, itemsPanelScrollBar, npcTradeItemsPanel, search2Edit, search3Edit
 local npcTradePlayerMoney = 0
 local npcTradeFilterText = ""
 local NPC_MODAL_SETTINGS_FILE = "/settings/npc_modal.json"
@@ -39,9 +40,11 @@ local npcTradeSelectedEntry, npcTradeLookThing
 local npcTradeCurrentUnitPrice = 0
 local npcTradeQuantity = 0
 local sellAllModal, sellAllButton
+local stopSellAllAutoRefresh = function() end
+local scheduleSellAllAutoRefresh = function() end
 
-lootPouchItems = {}
-sellAllIgnoredItems = {}
+local lootPouchItems = {}
+local sellAllIgnoredItems = {}
 
 local FilterText2 = ""
 local FilterText3 = ""
@@ -53,31 +56,6 @@ local defaultNpcButtons = {
 	{ text = "bye", id = 9 },
 	{ text = "trade", id = 0 }
 }
-
-local function getButtonIconId(button)
-	local text = button.text and button.text:lower() or ""
-	if text == "yes" then
-		return 7
-	elseif text == "no" then
-		return 8
-	elseif text == "bye" or text == "farewell" then
-		return 9
-	elseif text == "trade" or text == "offers" or text == "wares" then
-		return 0
-	elseif text == "sail" or text == "passage" or text == "travel" then
-		return 3
-	elseif text == "withdraw" then
-		return 6
-	elseif text == "deposit" or text == "deposit all" then
-		return 5
-	elseif text == "balance" then
-		return 4
-	end
-	if button.id and button.id >= 0 and button.id <= 9 then
-		return button.id
-	end
-	return 0
-end
 
 local function findCreatureByName(name)
 	local localPlayer = g_game.getLocalPlayer()
@@ -112,9 +90,374 @@ local function findNearestNpc()
 end
 
 local activeNpcCreature = nil
+local currentNpcIds = {}
+
+local function findNearbyNpcs(maxDist)
+	maxDist = maxDist or 3
+	local localPlayer = g_game.getLocalPlayer()
+	if not localPlayer then return {} end
+	local spectators = g_map.getSpectators(localPlayer:getPosition(), false) or {}
+	local npcs = {}
+	local playerPos = localPlayer:getPosition()
+	for _, spec in ipairs(spectators) do
+		if spec:isNpc() and spec ~= localPlayer then
+			local specPos = spec:getPosition()
+			if specPos.z == playerPos.z then
+				local dist = math.max(math.abs(playerPos.x - specPos.x), math.abs(playerPos.y - specPos.y))
+				if dist <= maxDist then
+					table.insert(npcs, { creature = spec, dist = dist })
+				end
+			end
+		end
+	end
+	table.sort(npcs, function(a, b) return a.dist < b.dist end)
+	local result = {}
+	for _, item in ipairs(npcs) do
+		table.insert(result, item.creature)
+	end
+	return result
+end
+
+local function addNpcToModal(creature)
+	if not creature or not mainNpcModal then return end
+	local creatureId = creature:getId()
+	if not currentNpcIds then currentNpcIds = {} end
+	for _, id in ipairs(currentNpcIds) do
+		if id == creatureId then
+			return
+		end
+	end
+	table.insert(currentNpcIds, creatureId)
+
+	local npcNames = ""
+	local npcCount = 0
+	for i = 1, #currentNpcIds do
+		local c = g_map.getCreatureById(currentNpcIds[i])
+		if c then
+			npcCount = npcCount + 1
+			if npcNames == "" then
+				npcNames = c:getName()
+			else
+				npcNames = npcNames .. " and " .. c:getName()
+			end
+		end
+	end
+
+	if npcCount > 1 then
+		if multiNpc then
+			multiNpc:show()
+		end
+		if npcOutfit then
+			npcOutfit:hide()
+		end
+	elseif npcCount == 1 then
+		if multiNpc then
+			multiNpc:hide()
+		end
+		if npcOutfit then
+			npcOutfit:setOutfit(creature:getOutfit())
+			npcOutfit:show()
+		end
+	end
+
+	if npcNameLabel then
+		npcNameLabel:setText(npcNames)
+		npcNameLabel:show()
+	end
+end
+
+local function npcIconClip(index, row)
+	row = row or 0
+	return string.format("%d %d %d %d", index * 35, row * 35, 35, 35)
+end
+
+local imageClips = {
+	[0] = {
+		normal = npcIconClip(0, 0),
+		pressed = npcIconClip(0, 1)
+	},
+	{
+		normal = npcIconClip(1, 0),
+		pressed = npcIconClip(1, 1)
+	},
+	{
+		normal = npcIconClip(2, 0),
+		pressed = npcIconClip(2, 1)
+	},
+	{
+		normal = npcIconClip(3, 0),
+		pressed = npcIconClip(3, 1)
+	},
+	{
+		normal = npcIconClip(4, 0),
+		pressed = npcIconClip(4, 1)
+	},
+	{
+		normal = npcIconClip(5, 0),
+		pressed = npcIconClip(5, 1)
+	},
+	{
+		normal = npcIconClip(6, 0),
+		pressed = npcIconClip(6, 1)
+	},
+	{
+		normal = npcIconClip(7, 0),
+		pressed = npcIconClip(7, 1)
+	},
+	{
+		normal = npcIconClip(8, 0),
+		pressed = npcIconClip(8, 1)
+	},
+	{
+		normal = npcIconClip(9, 0),
+		pressed = npcIconClip(9, 1)
+	}
+}
+
+local function getButtonIconId(button)
+	if not button then
+		return 0
+	end
+
+	if button.id and button.id >= 0 and button.id <= 9 then
+		return button.id
+	end
+
+	local text = button.text and button.text:lower() or ""
+	if text == "yes" then
+		return 7
+	elseif text == "no" then
+		return 8
+	elseif text == "bye" or text == "farewell" then
+		return 9
+	elseif text == "sail" or text == "passage" or text == "travel" then
+		return 3
+	elseif text == "deposit" or text == "deposit all" then
+		return 4
+	elseif text == "withdraw" then
+		return 5
+	elseif text == "balance" then
+		return 6
+	elseif text == "potion" or text == "potions" or text == "runes" or text == "magic" then
+		return 1
+	elseif text == "equipment" or text == "armors" or text == "weapons" then
+		return 2
+	elseif text == "trade" or text == "offers" or text == "wares" then
+		return 0
+	end
+
+	return 0
+end
+
+local function detectNpcButtons(npcName, text, creature)
+	local lowerName = tostring(npcName or ""):lower()
+	local lowerText = tostring(text or ""):lower()
+
+	if not creature and activeNpcCreature then
+		creature = activeNpcCreature
+	end
+	if not creature and lowerName ~= "" then
+		creature = findCreatureByName(npcName)
+	end
+	if creature then
+		local cName = creature:getName():lower()
+		if lowerName == "" then
+			lowerName = cName
+		end
+	end
+
+	-- 1. Travel / Sail / Passage
+	local isTravel = false
+	if lowerName:find("captain", 1, true) or lowerName:find("sailor", 1, true) or lowerName:find("boat", 1, true)
+	   or lowerName:find("ferry", 1, true) or lowerName:find("navigator", 1, true)
+	   or lowerName == "charon" or lowerName == "buddel" or lowerName == "pemaret"
+	   or lowerName == "dalbrect" or lowerName == "chemar" or lowerName == "fenech"
+	   or lowerName == "lorek" or lowerName == "nielson" or lowerName == "tibra"
+	   or lowerName == "charles" or lowerName == "brodrosch" or lowerName == "harbour master" then
+		isTravel = true
+	end
+
+	if lowerText:find("sail", 1, true) or lowerText:find("passage", 1, true)
+	   or lowerText:find("travel", 1, true) or lowerText:find("board", 1, true)
+	   or lowerText:find("destination", 1, true) or lowerText:find("trip", 1, true)
+	   or lowerText:find("ferry", 1, true) or lowerText:find("ship", 1, true)
+	   or lowerText:find("boat", 1, true) or lowerText:find("carpet", 1, true) then
+		isTravel = true
+	end
+
+	if isTravel then
+		return {
+			{ text = "yes", id = 7 },
+			{ text = "no", id = 8 },
+			{ text = "bye", id = 9 },
+			{ text = "sail", id = 3 }
+		}
+	end
+
+	-- 2. Bank / Banker
+	local isBank = false
+	if lowerName:find("bank", 1, true) or lowerName == "eva" or lowerName == "jaffar"
+	   or lowerName == "suzy" or lowerName == "zetholf" or lowerName == "serafin"
+	   or lowerName == "finarfin" or lowerName == "chephan" or lowerName == "aruda" then
+		isBank = true
+	end
+
+	if lowerText:find("bank", 1, true) or (lowerText:find("deposit", 1, true) and lowerText:find("withdraw", 1, true))
+	   or lowerText:find("balance", 1, true) or lowerText:find("account", 1, true) then
+		isBank = true
+	end
+
+	if isBank then
+		return {
+			{ text = "yes", id = 7 },
+			{ text = "no", id = 8 },
+			{ text = "bye", id = 9 },
+			{ text = "balance", id = 6 },
+			{ text = "deposit all", id = 4 },
+			{ text = "withdraw", id = 5 }
+		}
+	end
+
+	-- 3. Trade categories
+	local isPotion = false
+	local isEquipment = false
+
+	if lowerText:find("potion", 1, true) or lowerText:find("rune", 1, true)
+	   or lowerText:find("magic", 1, true) or lowerText:find("fluid", 1, true)
+	   or lowerText:find("wand", 1, true) or lowerText:find("rod", 1, true)
+	   or lowerName:find("magic", 1, true) or lowerName:find("alchemist", 1, true)
+	   or lowerName:find("sorcerer", 1, true) or lowerName:find("druid", 1, true) then
+		isPotion = true
+	end
+
+	if lowerText:find("armor", 1, true) or lowerText:find("armour", 1, true)
+	   or lowerText:find("weapon", 1, true) or lowerText:find("shield", 1, true)
+	   or lowerText:find("helmet", 1, true) or lowerText:find("sword", 1, true)
+	   or lowerText:find("axe", 1, true) or lowerText:find("club", 1, true)
+	   or lowerText:find("bow", 1, true) or lowerText:find("crossbow", 1, true)
+	   or lowerText:find("legs", 1, true) or lowerText:find("boots", 1, true)
+	   or lowerName:find("smith", 1, true) or lowerName:find("armorer", 1, true) then
+		isEquipment = true
+	end
+
+	if isPotion then
+		return {
+			{ text = "yes", id = 7 },
+			{ text = "no", id = 8 },
+			{ text = "bye", id = 9 },
+			{ text = "trade", id = 1 }
+		}
+	elseif isEquipment then
+		return {
+			{ text = "yes", id = 7 },
+			{ text = "no", id = 8 },
+			{ text = "bye", id = 9 },
+			{ text = "trade", id = 2 }
+		}
+	end
+
+	-- 4. Default / General merchant trade
+	return {
+		{ text = "yes", id = 7 },
+		{ text = "no", id = 8 },
+		{ text = "bye", id = 9 },
+		{ text = "trade", id = 0 }
+	}
+end
+
+local currentModalButtonsKey = ""
+
+local function getButtonsKey(buttons)
+	if not buttons then return "" end
+	local parts = {}
+	for _, b in ipairs(buttons) do
+		table.insert(parts, string.format("%s:%s", tostring(b.text), tostring(b.id)))
+	end
+	return table.concat(parts, "|")
+end
+
+local function updateNpcModalButtons(buttons)
+	if not mainNpcModal or mainNpcModal:isDestroyed() then
+		return
+	end
+
+	if not buttons or #buttons == 0 then
+		buttons = defaultNpcButtons
+	end
+
+	local key = getButtonsKey(buttons)
+	if key == currentModalButtonsKey and #sayButtonsActive == #buttons then
+		return
+	end
+	currentModalButtonsKey = key
+
+	for _, w in pairs(sayButtonsActive) do
+		if w and not w:isDestroyed() then
+			w:destroy()
+		end
+	end
+
+	sayButtonsActive = {}
+
+	for i = 1, #buttons do
+		local button = buttons[i]
+		local sayButton = g_ui.createWidget("SayButton", mainNpcModal)
+
+		sayButton:setTooltip(button.text)
+
+		local iconId = getButtonIconId(button)
+		local clip = imageClips[iconId] or imageClips[0]
+
+		if clip then
+			sayButton:setImageClip(clip.normal)
+		else
+			sayButton:setImageClip(imageClips[0].normal)
+		end
+
+		sayButton:setMarginLeft(40 * (i - 1))
+
+		function sayButton.onMousePress()
+			if g_tooltip then
+				g_tooltip.hide(true)
+			end
+			local curIconId = getButtonIconId(button)
+			local curClip = imageClips[curIconId] or imageClips[0]
+
+			if curClip and curClip.pressed then
+				sayButton:setImageClip(curClip.pressed)
+			end
+		end
+
+		function sayButton.onMouseRelease()
+			if g_tooltip then
+				g_tooltip.hide(true)
+			end
+			local curIconId = getButtonIconId(button)
+			local curClip = imageClips[curIconId] or imageClips[0]
+
+			if curClip and curClip.normal then
+				sayButton:setImageClip(curClip.normal)
+
+				if modules.game_console and modules.game_console.sendNpcModalReply then
+					modules.game_console.sendNpcModalReply(button.text)
+				end
+
+				if button.text and (button.text:lower() == "bye" or button.text:lower() == "farewell") then
+					closeNpcModal()
+				end
+			end
+		end
+
+		table.insert(sayButtonsActive, sayButton)
+	end
+end
+
+local function isAnyNpcModalVisible()
+	return (mainNpcModal and mainNpcModal:isVisible()) or (sellAllModal and sellAllModal:isVisible())
+end
 
 local function checkNpcDistance()
-	if not mainNpcModal or not mainNpcModal:isVisible() then
+	if not isAnyNpcModalVisible() then
 		return
 	end
 
@@ -132,13 +475,12 @@ local function checkNpcDistance()
 	if currentNpc then
 		local npcPos = currentNpc:getPosition()
 		if npcPos then
-			if playerPos.z ~= npcPos.z or math.max(math.abs(playerPos.x - npcPos.x), math.abs(playerPos.y - npcPos.y)) > 3 then
+			if playerPos.z ~= npcPos.z or math.max(math.abs(playerPos.x - npcPos.x), math.abs(playerPos.y - npcPos.y)) > 4 then
 				closeNpcModal()
 			end
 			return
 		end
 	end
-	closeNpcModal()
 end
 
 local currentNpcId = nil
@@ -170,6 +512,128 @@ local function formatNpcHighlightedText(text, color, highlightColor)
 	end
 
 	return table.concat(parts)
+end
+
+local measureLabel = nil
+
+local function getMeasureLabel(font)
+	if not measureLabel or measureLabel:isDestroyed() then
+		measureLabel = g_ui.createWidget("UILabel", g_ui.getRootWidget())
+		measureLabel:setVisible(false)
+	end
+	measureLabel:setFont(font or "verdana-11px-antialised")
+	return measureLabel
+end
+
+local function measureTextWidth(str, font)
+	local ml = getMeasureLabel(font)
+	local clean = str:gsub("%{([^}]*)%}", "%1")
+	ml:setText(clean)
+	return ml:getTextSize().width
+end
+
+local function tokenizeDialogText(str)
+	local tokens = {}
+	local i = 1
+	local len = #str
+
+	while i <= len do
+		local sStart, sEnd = str:find("^%s+", i)
+		if sStart then
+			i = sEnd + 1
+		end
+
+		if i <= len then
+			if str:sub(i, i) == "{" then
+				local closePos = str:find("}", i, true)
+				if closePos then
+					local endPos = closePos
+					while endPos + 1 <= len and not str:sub(endPos + 1, endPos + 1):match("%s") do
+						endPos = endPos + 1
+					end
+					table.insert(tokens, str:sub(i, endPos))
+					i = endPos + 1
+				else
+					local nextSpace = str:find("%s", i) or (len + 1)
+					table.insert(tokens, str:sub(i, nextSpace - 1))
+					i = nextSpace
+				end
+			else
+				local nextSpace = str:find("%s", i) or (len + 1)
+				table.insert(tokens, str:sub(i, nextSpace - 1))
+				i = nextSpace
+			end
+		end
+	end
+
+	return tokens
+end
+
+local function wrapDialogLineWithHangingIndent(prefix, text, maxWidth, indentSpaces, font)
+	indentSpaces = indentSpaces or "  "
+	maxWidth = maxWidth or 300
+
+	if text:find("\n", 1, true) then
+		local resultLines = {}
+		local segments = string.split(text, "\n")
+		for idx, segment in ipairs(segments) do
+			local p = (idx == 1) and prefix or indentSpaces
+			table.insert(resultLines, wrapDialogLineWithHangingIndent(p, segment, maxWidth, indentSpaces, font))
+		end
+		return table.concat(resultLines, "\n")
+	end
+
+	local tokens = tokenizeDialogText(text or "")
+	if #tokens == 0 then
+		return prefix
+	end
+
+	local lines = {}
+	local currentLine = prefix .. tokens[1]
+
+	for t = 2, #tokens do
+		local token = tokens[t]
+		local candidate = currentLine .. " " .. token
+		if measureTextWidth(candidate, font) <= maxWidth then
+			currentLine = candidate
+		else
+			table.insert(lines, currentLine)
+			currentLine = indentSpaces .. token
+		end
+	end
+	table.insert(lines, currentLine)
+
+	return table.concat(lines, "\n")
+end
+
+local function getNpcModalItemsPanelWidth()
+	if itemsPanel and not itemsPanel:isDestroyed() and itemsPanel:getWidth() > 80 then
+		return itemsPanel:getWidth() - 10
+	end
+
+	if readOnlyPanel and not readOnlyPanel:isDestroyed() and readOnlyPanel:getWidth() > 100 then
+		return readOnlyPanel:getWidth() - 26
+	end
+
+	if mainNpcModal and mainNpcModal:getWidth() > 150 then
+		local extra = (npcModalTrade and 220 or 16)
+		return mainNpcModal:getWidth() - extra - 38
+	end
+
+	return 320
+end
+
+local function rewrapNpcModalDialogLines()
+	if not itemsPanel or itemsPanel:isDestroyed() then return end
+	local maxWidth = getNpcModalItemsPanelWidth()
+	for _, child in ipairs(itemsPanel:getChildren()) do
+		if child._rawPrefix and child._rawText then
+			local fullText = wrapDialogLineWithHangingIndent(child._rawPrefix, child._rawText, maxWidth, "  ", child:getFont())
+			local coloredData = formatNpcHighlightedText(fullText, child._color, child._highlightColor)
+			child:setColoredText(coloredData)
+			child.coloredData = coloredData
+		end
+	end
 end
 
 local function clearItemsPanelSelection(panel)
@@ -350,6 +814,54 @@ local function setupNpcModalLabelSelection(label, itemsPanel)
 end
 
 local lastDialogLine = { fullCheck = "", time = 0 }
+local currentTalkingToNpc = ""
+
+function addNpcDialogHeader(npcName)
+	if not mainNpcModal then
+		return
+	end
+	if not npcName or npcName == "" then
+		return
+	end
+
+	if currentTalkingToNpc == npcName:lower() then
+		return
+	end
+	currentTalkingToNpc = npcName:lower()
+
+	if not itemsPanel then
+		return
+	end
+
+	local label = g_ui.createWidget("ConsoleLabel", itemsPanel)
+	label:setId("npcModalHeader" .. itemsPanel:getChildCount())
+	label:setFocusable(false)
+
+	local showTimestamps = true
+	if modules.client_options and modules.client_options.getOption then
+		showTimestamps = modules.client_options.getOption("showTimestampsInConsole")
+		if showTimestamps == nil then
+			showTimestamps = true
+		end
+	end
+
+	local timeStr = showTimestamps and (os.date("%H:%M:%S") .. " ") or ""
+	local headerText = string.format("%sTalking to %s", timeStr, npcName)
+
+	label:setText(headerText)
+	label:setColor("#FFFFFF")
+
+	setupNpcModalLabelSelection(label, itemsPanel)
+
+	local scrollBar = itemsPanelScrollBar
+	if scrollBar then
+		addEvent(function()
+			if scrollBar and not scrollBar:isDestroyed() then
+				scrollBar:setValue(scrollBar:getMaximum())
+			end
+		end)
+	end
+end
 
 function addNpcDialogLine(name, text, isPlayer)
 	if not mainNpcModal then
@@ -365,7 +877,10 @@ function addNpcDialogLine(name, text, isPlayer)
 	lastDialogLine.fullCheck = fullCheck
 	lastDialogLine.time = now
 
-	local itemsPanel = mainNpcModal:recursiveGetChildById("itemsPanel")
+	if not isPlayer and speaker and speaker ~= "" and currentTalkingToNpc ~= speaker:lower() then
+		addNpcDialogHeader(speaker)
+	end
+
 	if not itemsPanel then
 		return
 	end
@@ -375,7 +890,16 @@ function addNpcDialogLine(name, text, isPlayer)
 	label:setFocusable(false)
 
 	local color = isPlayer and "#9F9DFD" or "#5FF7F7"
-	local timeStr = os.date("%H:%M") .. " "
+
+	local showTimestamps = true
+	if modules.client_options and modules.client_options.getOption then
+		showTimestamps = modules.client_options.getOption("showTimestampsInConsole")
+		if showTimestamps == nil then
+			showTimestamps = true
+		end
+	end
+
+	local timeStr = showTimestamps and (os.date("%H:%M:%S") .. " ") or ""
 
 	local player = g_game.getLocalPlayer()
 	local level = (player and player:getLevel()) or 0
@@ -389,9 +913,16 @@ function addNpcDialogLine(name, text, isPlayer)
 			prefix = string.format("%s%s: ", timeStr, speaker)
 		end
 	else
-		prefix = string.format("%s%s says: ", timeStr, speaker)
+		prefix = string.format("%s%s: ", timeStr, speaker)
 	end
-	local fullText = prefix .. (text or "")
+
+	local maxWidth = getNpcModalItemsPanelWidth()
+	local fullText = wrapDialogLineWithHangingIndent(prefix, text or "", maxWidth, "  ", label:getFont())
+
+	label._rawPrefix = prefix
+	label._rawText = text or ""
+	label._color = color
+	label._highlightColor = "#1f9ffe"
 
 	local coloredData = formatNpcHighlightedText(fullText, color, "#1f9ffe")
 	label:setColoredText(coloredData)
@@ -420,28 +951,81 @@ function addNpcDialogLine(name, text, isPlayer)
 
 	setupNpcModalLabelSelection(label, itemsPanel)
 
-	local scrollBar = mainNpcModal:recursiveGetChildById("itemsPanelListScrollBar")
+	local scrollBar = itemsPanelScrollBar
 	if scrollBar then
 		addEvent(function()
-			scrollBar:setValue(scrollBar:getMaximum())
+			if scrollBar and not scrollBar:isDestroyed() then
+				scrollBar:setValue(scrollBar:getMaximum())
+			end
 		end)
 	end
+end
+
+local function isNpcFarewellText(text)
+	if not text then return false end
+	local lower = text:lower()
+
+	-- If it's a greeting, question, or trade offer, it is NOT a farewell
+	if lower:find("hello", 1, true) or lower:find("welcome", 1, true) or lower:find("greetings", 1, true)
+		or lower:find("to see you", 1, true) or lower:find("what i offer", 1, true) or lower:find("what do you want", 1, true)
+		or lower:find("how can i help", 1, true) or lower:find("here is what", 1, true) or lower:find("trade", 1, true) then
+		return false
+	end
+
+	if lower == "bye" or lower == "goodbye" or lower == "farewell" or lower == "cya" then
+		return true
+	end
+
+	if lower:find("goodbye", 1, true) or lower:find("farewell", 1, true) then
+		return true
+	end
+
+	if lower:find("see you later", 1, true) or lower:find("see you soon", 1, true) or lower:find("see you around", 1, true) then
+		return true
+	end
+
+	if lower:match("^bye[%p%s]*$") or lower:match("^bye,") or lower:match("^bye%.") or lower:match("^bye!") then
+		return true
+	end
+
+	return false
 end
 
 local function onGameTalk(name, level, mode, text, channelId, creaturePos)
 	local lowerText = text and text:lower() or ""
 	if mode == MessageModes.NpcFrom or mode == MessageModes.NpcFromStartBlock then
-		if not mainNpcModal or not mainNpcModal:isVisible() then
+		local creature = findCreatureByName(name) or activeNpcCreature or findNearestNpc()
+		local detectedButtons = detectNpcButtons(name, text, creature)
+
+		if not isAnyNpcModalVisible() then
 			local now = os.clock()
 			if (now - npcModalClosedAt) > 1.5 then
-				local creature = findCreatureByName(name) or findNearestNpc()
 				if creature then
-					sendNpcModal({ npcIds = { creature:getId() }, buttons = defaultNpcButtons })
+					local nearby = findNearbyNpcs(3)
+					local ids = {}
+					if #nearby > 1 then
+						table.insert(ids, creature:getId())
+						for _, npc in ipairs(nearby) do
+							if npc:getId() ~= creature:getId() then
+								table.insert(ids, npc:getId())
+							end
+						end
+					else
+						ids = { creature:getId() }
+					end
+					sendNpcModal({ npcIds = ids, buttons = detectedButtons })
 				end
+			end
+		else
+			if mainNpcModal and mainNpcModal:isVisible() then
+				if creature then
+					addNpcToModal(creature)
+				end
+				updateNpcModalButtons(detectedButtons)
 			end
 		end
 
-		if lowerText == "bye" or lowerText:find("bye", 1, true) or lowerText:find("farewell", 1, true) or lowerText:find("see you", 1, true) then
+		if isNpcFarewellText(text) then
 			addNpcDialogLine(name, text, false)
 			scheduleEvent(function() closeNpcModal() end, 400)
 			return
@@ -449,8 +1033,8 @@ local function onGameTalk(name, level, mode, text, channelId, creaturePos)
 
 		addNpcDialogLine(name, text, false)
 	elseif mode == MessageModes.NpcTo then
-		if lowerText == "bye" or lowerText == "adios" or lowerText == "cya" then
-			if mainNpcModal and mainNpcModal:isVisible() then
+		if lowerText == "bye" or lowerText == "adios" or lowerText == "cya" or lowerText == "farewell" then
+			if isAnyNpcModalVisible() then
 				addNpcDialogLine(g_game.getCharacterName(), text, true)
 				scheduleEvent(function() closeNpcModal() end, 400)
 				return
@@ -458,15 +1042,23 @@ local function onGameTalk(name, level, mode, text, channelId, creaturePos)
 		end
 
 		if lowerText == "hi" or lowerText == "hello" or lowerText == "hola" then
-			if not mainNpcModal or not mainNpcModal:isVisible() then
-				local creature = findNearestNpc()
-				if creature then
-					sendNpcModal({ npcIds = { creature:getId() }, buttons = defaultNpcButtons })
+			if not isAnyNpcModalVisible() then
+				local nearby = findNearbyNpcs(3)
+				if #nearby > 1 then
+					local ids = {}
+					for _, npc in ipairs(nearby) do
+						table.insert(ids, npc:getId())
+					end
+					local detectedButtons = detectNpcButtons(nearby[1]:getName(), "", nearby[1])
+					sendNpcModal({ npcIds = ids, buttons = detectedButtons })
+				elseif #nearby == 1 then
+					local detectedButtons = detectNpcButtons(nearby[1]:getName(), "", nearby[1])
+					sendNpcModal({ npcIds = { nearby[1]:getId() }, buttons = detectedButtons })
 				end
 			end
 		end
 
-		if mainNpcModal and mainNpcModal:isVisible() then
+		if isAnyNpcModalVisible() then
 			addNpcDialogLine(g_game.getCharacterName(), text, true)
 		end
 	end
@@ -493,7 +1085,7 @@ local function setNpcTradeItemIcon(icon, item)
 end
 
 local function updateNpcTradeItem2QuantityPreview(quantity)
-	local item2w = mainNpcModal and mainNpcModal:recursiveGetChildById("item2")
+	local item2w = item2
 
 	if not item2w or item2w:isDestroyed() or not npcTradeSelectedEntry then
 		return
@@ -714,7 +1306,30 @@ local function refreshSellAllButtonVisibility()
 		return
 	end
 
-	sellAllButton:setVisible(npcModalTrade and playerHasLootPouch())
+	local isSelling = sellButton and sellButton:isOn()
+	local shouldShow = (npcModalTrade == true and isSelling)
+	sellAllButton:setVisible(shouldShow)
+
+	if itemsSelling then
+		if shouldShow then
+			itemsSelling:setMarginTop(26)
+		else
+			itemsSelling:setMarginTop(6)
+		end
+	end
+end
+
+local function updateBuySellButtonTooltip()
+	if not BuySellButton or BuySellButton:isDestroyed() then
+		return
+	end
+
+	local isSelling = sellButton and sellButton:isOn()
+	if isSelling then
+		BuySellButton:setTooltip(tr("Please select an item you want to sell"))
+	else
+		BuySellButton:setTooltip(tr("Please select an item you want to buy"))
+	end
 end
 
 local function getEquippedItemCounts()
@@ -1181,11 +1796,15 @@ local function onNpcModalFreeCapacityChange(player, freeCapacity)
 end
 
 local function onNpcModalInventoryChange(player, slot, item, oldItem)
-	if not npcModalTrade then
+	if not npcModalTrade and not (sellAllModal and sellAllModal:isVisible()) then
 		return
 	end
 
-	if not mainNpcModal or mainNpcModal:isDestroyed() then
+	if sellAllModal and sellAllModal:isVisible() then
+		refreshSellAllModalLists()
+	end
+
+	if not mainNpcModal or mainNpcModal:isDestroyed() or not mainNpcModal:isVisible() then
 		return
 	end
 
@@ -1197,11 +1816,7 @@ end
 
 local npcModalContainerUpdateEvent = nil
 local function onNpcModalContainerChange()
-	if not npcModalTrade then
-		return
-	end
-
-	if not mainNpcModal or mainNpcModal:isDestroyed() or not mainNpcModal:isVisible() then
+	if not npcModalTrade and not (sellAllModal and sellAllModal:isVisible()) then
 		return
 	end
 
@@ -1211,7 +1826,15 @@ local function onNpcModalContainerChange()
 
 	npcModalContainerUpdateEvent = scheduleEvent(function()
 		npcModalContainerUpdateEvent = nil
-		if not npcModalTrade or not mainNpcModal or mainNpcModal:isDestroyed() or not mainNpcModal:isVisible() then
+		if not npcModalTrade and not (sellAllModal and sellAllModal:isVisible()) then
+			return
+		end
+
+		if sellAllModal and sellAllModal:isVisible() then
+			refreshSellAllModalLists()
+		end
+
+		if not mainNpcModal or mainNpcModal:isDestroyed() or not mainNpcModal:isVisible() then
 			return
 		end
 
@@ -1255,15 +1878,17 @@ local function npcModalOnSellAllGameStart()
 	refreshSellAllButtonVisibility()
 	loadSellAllIgnoreList()
 	bindNpcModalPlayerInventoryListener()
-	addEvent(bindNpcModalPlayerInventoryListener)
+	addEvent(function()
+		if mainNpcModal and not mainNpcModal:isDestroyed() then
+			bindNpcModalPlayerInventoryListener()
+		end
+	end)
 end
 
 local function updateNpcTradePriceLabel(price)
 	if not mainNpcModal or mainNpcModal:isDestroyed() then
 		return
 	end
-
-	local labelPrice = mainNpcModal:recursiveGetChildById("labelPrice")
 
 	if not labelPrice or labelPrice:isDestroyed() then
 		return
@@ -1346,23 +1971,31 @@ local function isNpcTradeQuantityAvailable()
 	return npcTradeSelectedEntry ~= nil and (npcTradeCurrentUnitPrice or 0) > 0
 end
 
+local isChangingQuantity = false
+
 local function setNpcTradeAmountScrollRange(scrollBar, minVal, maxVal)
 	if not scrollBar or scrollBar:isDestroyed() then
 		return
 	end
 
-	scrollBar:setRange(minVal, maxVal)
+	if scrollBar:getMinimum() ~= minVal or scrollBar:getMaximum() ~= maxVal then
+		scrollBar:setRange(minVal, maxVal)
+	end
 
 	local slider = scrollBar:getChildById("sliderButton")
 
 	if slider then
-		slider:setVisible(minVal < maxVal and maxVal > 1)
+		local shouldBeVisible = (minVal < maxVal and maxVal > 1)
+		if slider:isVisible() ~= shouldBeVisible then
+			slider:setVisible(shouldBeVisible)
+		end
 	end
 end
 
 local function clearNpcTradeQuantity()
 	npcTradeQuantity = 0
 
+	isChangingQuantity = true
 	if countScrollBar and not countScrollBar:isDestroyed() then
 		setNpcTradeAmountScrollRange(countScrollBar, 0, 0)
 		countScrollBar:setValue(0)
@@ -1371,6 +2004,7 @@ local function clearNpcTradeQuantity()
 	if userInput and not userInput:isDestroyed() then
 		userInput:setText("")
 	end
+	isChangingQuantity = false
 end
 
 local function applyNpcTradeQuantity(n)
@@ -1398,8 +2032,16 @@ local function applyNpcTradeQuantity(n)
 	n = math.max(minV, math.min(maxV, n))
 
 	setNpcTradeAmountScrollRange(countScrollBar, minV, maxV)
-	countScrollBar:setValue(n)
-	userInput:setText(tostring(n))
+
+	isChangingQuantity = true
+	if countScrollBar:getValue() ~= n then
+		countScrollBar:setValue(n)
+	end
+	if userInput:getText() ~= tostring(n) then
+		userInput:setText(tostring(n))
+	end
+	isChangingQuantity = false
+
 	updateNpcTradeItem2QuantityPreview(n)
 	updateNpcTradePriceLabel(npcTradeCurrentUnitPrice * n)
 
@@ -1429,9 +2071,7 @@ updateNpcTradePlayerBalanceLabel = function()
 		return
 	end
 
-	local balanceLabel = mainNpcModal:recursiveGetChildById("playerBalance")
-
-	if not balanceLabel or balanceLabel:isDestroyed() then
+	if not playerBalance or playerBalance:isDestroyed() then
 		return
 	end
 
@@ -1443,7 +2083,7 @@ updateNpcTradePlayerBalanceLabel = function()
 		end
 	end
 
-	balanceLabel:setText(tr("%s", formatNumberWithCommas(getNpcTradeBalance())))
+	playerBalance:setText(tr("%s", formatNumberWithCommas(getNpcTradeBalance())))
 
 	if isNpcTradeQuantityAvailable() then
 		revalidateNpcTradeQuantity()
@@ -1465,16 +2105,30 @@ local function setupNpcTradeQuantityBindings()
 	end
 
 	function countScrollBar:onValueChange(value, delta)
+		if isChangingQuantity then
+			return
+		end
+
 		if not isNpcTradeQuantityAvailable() then
 			return
 		end
 
-		userInput:setText(tostring(value))
+		isChangingQuantity = true
+		if userInput:getText() ~= tostring(value) then
+			userInput:setText(tostring(value))
+		end
+		isChangingQuantity = false
+
+		npcTradeQuantity = value
 		updateNpcTradeItem2QuantityPreview(value)
-		applyNpcTradeQuantity(value)
+		updateNpcTradePriceLabel(npcTradeCurrentUnitPrice * value)
 	end
 
 	function userInput:onTextChange()
+		if isChangingQuantity then
+			return
+		end
+
 		local raw = self:getText() or ""
 
 		if raw:len() == 0 then
@@ -1540,10 +2194,8 @@ local function clearNpcTradeItem2Preview()
 
 	npcTradeCurrentUnitPrice = 0
 
-	local item2w = mainNpcModal:recursiveGetChildById("item2")
-
-	if item2w and not item2w:isDestroyed() then
-		item2w:clearItem()
+	if item2 and not item2:isDestroyed() then
+		item2:clearItem()
 	end
 
 	updateNpcTradePriceLabel(nil)
@@ -1561,13 +2213,11 @@ local function applyNpcTradeItem2Preview(entry, price)
 		return
 	end
 
-	local item2w = mainNpcModal:recursiveGetChildById("item2")
-
-	if not item2w or item2w:isDestroyed() then
+	if not item2 or item2:isDestroyed() then
 		return
 	end
 
-	setNpcTradeItemIcon(item2w, entry.item)
+	setNpcTradeItemIcon(item2, entry.item)
 
 	npcTradeCurrentUnitPrice = price and price > 0 and price or 0
 
@@ -1629,6 +2279,16 @@ local function showTradeWindowChildrens()
 	label1:show()
 	currencyName:show()
 	item:show()
+
+	if item and (item:getItemId() == 0 or not item:getItem()) then
+		item:setItemId(GOLD_COIN_ITEM_ID)
+		item:setItemCount(100)
+		item:setTooltip("Gold Coin")
+	end
+	if currencyName and (currencyName:getText() == "" or not currencyName:getText()) then
+		currencyName:setText(tr("Gold Coin"))
+	end
+
 	buyButton:show()
 	sellButton:show()
 	itemsSelling:show()
@@ -1642,6 +2302,7 @@ local function showTradeWindowChildrens()
 	userInput:show()
 	item2:show()
 	BuySellButton:show()
+	updateBuySellButtonTooltip()
 	refreshSellAllButtonVisibility()
 end
 
@@ -1711,14 +2372,14 @@ function refreshNpcTradeItemList()
 	table.sort(rows, compareRows)
 
 	local countCache = {}
-	if not buying then
-		for _, row in ipairs(rows) do
-			local id = row.entry.item:getId()
-			if countCache[id] == nil then
-				countCache[id] = getSellablePlayerItemCount(id)
-			end
+	for _, row in ipairs(rows) do
+		local id = row.entry.item:getId()
+		if countCache[id] == nil then
+			countCache[id] = getSellablePlayerItemCount(id)
 		end
+	end
 
+	if not buying then
 		table.sort(rows, function(a, b)
 			local idA, idB = a.entry.item:getId(), b.entry.item:getId()
 			local hasA = (countCache[idA] or 0) > 0
@@ -1764,18 +2425,24 @@ function refreshNpcTradeItemList()
 			selectedBox = box
 		end
 
-		local icon = box:getChildById("itemIcon")
+		local entryId = entry.item:getId()
+		local ownedCount = countCache[entryId] or getSellablePlayerItemCount(entryId) or 0
+		local sellableCount = not buying and ownedCount or 0
+		local disabled = false
 
+		local icon = box:getChildById("itemIcon")
 		if icon then
 			setNpcTradeItemIcon(icon, entry.item)
+			if icon.setShowCount then
+				icon:setShowCount(true)
+			end
+			if icon.setDisplayCount then
+				icon:setDisplayCount(ownedCount)
+			end
 		end
 
 		local nameLbl = box:getChildById("nameLabel")
 		local infoLbl = box:getChildById("infoLabel")
-		local entryId = entry.item:getId()
-		local sellableCount = not buying and (countCache[entryId] or getSellablePlayerItemCount(entryId)) or 0
-		local ownedCount = countPlayerActualItem(entryId)
-		local disabled = false
 
 		if not buying then
 			disabled = sellableCount <= 0
@@ -1784,11 +2451,7 @@ function refreshNpcTradeItemList()
 		end
 
 		if nameLbl then
-			local displayName = entry.name or ""
-			if ownedCount > 1 then
-				displayName = displayName .. " (" .. ownedCount .. ")"
-			end
-			nameLbl:setText(shortenNpcTradeText(displayName, 26))
+			nameLbl:setText(shortenNpcTradeText(entry.name or "", 26))
 
 			if disabled then
 				nameLbl:setColor("#707070")
@@ -1810,6 +2473,16 @@ function refreshNpcTradeItemList()
 		end
 
 		local function onRowMousePress(widget, mousePos, mouseButton)
+			local keyboardModifiers = g_keyboard.getModifiers()
+			if keyboardModifiers == KeyboardShiftModifier then
+				if g_game.inspectNpcTrade then
+					g_game.inspectNpcTrade(entry.item)
+				else
+					g_game.look(entry.item)
+				end
+				return true
+			end
+
 			if mouseButton ~= MouseLeftButton then
 				if mouseButton == MouseRightButton then
 					npcTradeLookThing = entry.item
@@ -1861,6 +2534,9 @@ function refreshNpcTradeItemList()
 
 	setNpcTradeRowHighlight(panel, selectedBox)
 	addEvent(function()
+		if not mainNpcModal or mainNpcModal:isDestroyed() then
+			return
+		end
 		if not itemsSelling or itemsSelling:isDestroyed() then
 			return
 		end
@@ -1882,7 +2558,7 @@ function search(text, type)
 		local w
 
 		if type == 1 then
-			w = mainNpcModal:recursiveGetChildById("search")
+			w = searchEdit
 		elseif type == 2 then
 			w = sellAllModal:recursiveGetChildById("search2")
 		elseif type == 3 then
@@ -1912,10 +2588,8 @@ end
 function clearTradeSearch(type)
 	if type == 1 then
 		if mainNpcModal then
-			local w = mainNpcModal:recursiveGetChildById("search")
-
-			if w then
-				w:clearText()
+			if searchEdit then
+				searchEdit:clearText()
 			end
 		end
 
@@ -1953,6 +2627,8 @@ function onNpcTradeBuyClick()
 	buyButton:setOn(true)
 	sellButton:setOn(false)
 	BuySellButton:setText(tr("Buy"))
+	updateBuySellButtonTooltip()
+	refreshSellAllButtonVisibility()
 	refreshNpcTradeItemList()
 end
 
@@ -1960,6 +2636,8 @@ function onNpcTradeSellClick()
 	sellButton:setOn(true)
 	buyButton:setOn(false)
 	BuySellButton:setText(tr("Sell"))
+	updateBuySellButtonTooltip()
+	refreshSellAllButtonVisibility()
 	refreshNpcTradeItemList()
 end
 
@@ -1994,12 +2672,25 @@ function onConfirmTrade()
 			end
 		end
 
-		g_game.buyItem(item, amount, ignoreCapacity, buyInShoppingBags)
+		local maxAmountPerPacket = g_game.getFeature(GameDoubleShopSellAmount) and 10000 or 100
+		local remBuy = amount
+		while remBuy > 0 do
+			local chunk = math.min(remBuy, maxAmountPerPacket)
+			g_game.buyItem(item, chunk, ignoreCapacity, buyInShoppingBags)
+			remBuy = remBuy - chunk
+		end
+
+		local itemId = item:getId()
+		if playerItems then
+			playerItems[itemId] = (playerItems[itemId] or 0) + amount
+		end
 
 		if npcTradePlayerMoney and isNpcTradeGoldCurrency() then
 			npcTradePlayerMoney = math.max(0, npcTradePlayerMoney - totalPrice)
 		end
 		updateNpcTradePlayerBalanceLabel()
+		refreshNpcTradeItemList()
+		revalidateNpcTradeQuantity()
 	else
 		local itemId = item:getId()
 		local itemCount = getSellablePlayerItemCount(itemId)
@@ -2008,7 +2699,13 @@ function onConfirmTrade()
 			return
 		end
 
-		g_game.sellItem(item, amount, not sellEquipped)
+		local maxAmountPerPacket = g_game.getFeature(GameDoubleShopSellAmount) and 10000 or 100
+		local remSell = amount
+		while remSell > 0 do
+			local chunk = math.min(remSell, maxAmountPerPacket)
+			g_game.sellItem(item, chunk, not sellEquipped)
+			remSell = remSell - chunk
+		end
 
 		if playerItems and playerItems[itemId] then
 			playerItems[itemId] = math.max(0, playerItems[itemId] - amount)
@@ -2100,6 +2797,11 @@ local function setupNpcModalResizeGrip()
 	function grip.onMouseRelease(widget, mousePos, mouseButton)
 		if npcModalResizeState then
 			npcModalResizeState = nil
+			addEvent(function()
+				if mainNpcModal and not mainNpcModal:isDestroyed() then
+					rewrapNpcModalDialogLines()
+				end
+			end)
 		end
 
 		if not widget:isHovered() and widget._npcModalMiniborderHover then
@@ -2186,54 +2888,6 @@ local function setupNpcModalWindowHeaderDrag()
 	end
 end
 
-local function npcIconClip(index, row)
-	row = row or 0
-
-	return string.format("%d %d %d %d", index * 35, row * 35, 35, 35)
-end
-
-local imageClips = {
-	[0] = {
-		normal = npcIconClip(0, 0),
-		pressed = npcIconClip(0, 1)
-	},
-	{
-		normal = npcIconClip(1, 0),
-		pressed = npcIconClip(1, 1)
-	},
-	{
-		normal = npcIconClip(2, 0),
-		pressed = npcIconClip(2, 1)
-	},
-	{
-		normal = npcIconClip(3, 0),
-		pressed = npcIconClip(3, 1)
-	},
-	{
-		normal = npcIconClip(4, 0),
-		pressed = npcIconClip(4, 1)
-	},
-	{
-		normal = npcIconClip(5, 0),
-		pressed = npcIconClip(5, 1)
-	},
-	{
-		normal = npcIconClip(6, 0),
-		pressed = npcIconClip(6, 1)
-	},
-	{
-		normal = npcIconClip(7, 0),
-		pressed = npcIconClip(7, 1)
-	},
-	{
-		normal = npcIconClip(8, 0),
-		pressed = npcIconClip(8, 1)
-	},
-	{
-		normal = npcIconClip(9, 0),
-		pressed = npcIconClip(9, 1)
-	}
-}
 
 function setWindowOpacity(opacity)
 	if mainNpcModal then
@@ -2259,6 +2913,7 @@ function init()
 		onFreeCapacityChange = onNpcModalFreeCapacityChange
 	})
 	connect(Container, {
+		onOpen = onNpcModalContainerChange,
 		onAddItem = onNpcModalContainerChange,
 		onUpdateItem = onNpcModalContainerChange,
 		onRemoveItem = onNpcModalContainerChange
@@ -2278,11 +2933,7 @@ function init()
 	npcNameLabel:hide()
 
 	function mainNpcModal.onFocusChange(widget, focused)
-		if focused then
-			setWindowOpacity(1)
-		else
-			setWindowOpacity(0.9)
-		end
+		setWindowOpacity(1)
 	end
 
 	setupNpcModalResizeGrip()
@@ -2305,14 +2956,42 @@ function init()
 	playerBalance = mainNpcModal:recursiveGetChildById("playerBalance")
 	userInput = mainNpcModal:recursiveGetChildById("userInput")
 	item2 = mainNpcModal:recursiveGetChildById("item2")
+	if item2 then
+		item2.onMousePress = function(widget, mousePos, mouseButton)
+			if not npcTradeSelectedEntry or not npcTradeSelectedEntry.item then
+				return false
+			end
+			local keyboardModifiers = g_keyboard.getModifiers()
+			if keyboardModifiers == KeyboardShiftModifier then
+				if g_game.inspectNpcTrade then
+					g_game.inspectNpcTrade(npcTradeSelectedEntry.item)
+				else
+					g_game.look(npcTradeSelectedEntry.item)
+				end
+				return true
+			end
+			if mouseButton == MouseRightButton then
+				npcTradeLookThing = npcTradeSelectedEntry.item
+				showMenuFilters(true)
+				return true
+			end
+			return false
+		end
+	end
 	BuySellButton = mainNpcModal:recursiveGetChildById("BuySellButton")
 	sellAllButton = mainNpcModal:recursiveGetChildById("sellAllButton")
+	itemsPanel = mainNpcModal:recursiveGetChildById("itemsPanel")
+	readOnlyPanel = mainNpcModal:recursiveGetChildById("readOnlyPanel")
+	itemsPanelScrollBar = mainNpcModal:recursiveGetChildById("itemsPanelListScrollBar")
+	npcTradeItemsPanel = mainNpcModal:recursiveGetChildById("npcTradeItemsPanel")
 
 	hideTradeWindowChildrens()
 	setupNpcTradeQuantityBindings()
 	loadNpcModalSettings()
 
 	sellAllModal = g_ui.createWidget("SellAllModalWindow", rootWidget)
+	search2Edit = sellAllModal:recursiveGetChildById("search2")
+	search3Edit = sellAllModal:recursiveGetChildById("search3")
 
 	sellAllModal:hide()
 	wireEscapeToClose(mainNpcModal, closeNpcModal)
@@ -2322,6 +3001,7 @@ end
 function terminate()
 	saveNpcModalSettings()
 	saveSellAllIgnoreList()
+	stopSellAllAutoRefresh()
 	disconnect(g_game, {
 		onGameStart = npcModalOnSellAllGameStart,
 		onGameEnd = closeNpcModal,
@@ -2338,6 +3018,7 @@ function terminate()
 		onFreeCapacityChange = onNpcModalFreeCapacityChange
 	})
 	disconnect(Container, {
+		onOpen = onNpcModalContainerChange,
 		onAddItem = onNpcModalContainerChange,
 		onUpdateItem = onNpcModalContainerChange,
 		onRemoveItem = onNpcModalContainerChange
@@ -2348,10 +3029,23 @@ function terminate()
 		modules.game_console.detachConsoleTextEditFromNpcModal()
 	end
 
-	mainNpcModal:destroy()
+	if sellAllModal then
+		sellAllModal:destroy()
+		sellAllModal = nil
+	end
+	if mainNpcModal then
+		mainNpcModal:destroy()
+		mainNpcModal = nil
+	end
 end
 
 onCloseNpcTrade = function()
+	stopSellAllAutoRefresh()
+
+	if sellAllModal and sellAllModal:isVisible() then
+		sellAllModal:hide()
+	end
+
 	if not mainNpcModal then
 		return
 	end
@@ -2366,9 +3060,8 @@ onCloseNpcTrade = function()
 		label5:setText(tr("Gold:"))
 	end
 
-	local tradeList = mainNpcModal:recursiveGetChildById("npcTradeItemsPanel")
-	if tradeList then
-		tradeList:destroyChildren()
+	if npcTradeItemsPanel then
+		npcTradeItemsPanel:destroyChildren()
 	end
 
 	if npcModalTrade then
@@ -2376,17 +3069,35 @@ onCloseNpcTrade = function()
 		mainNpcModal:bindRectToParent()
 	end
 
-	local readOnlyPanel = mainNpcModal:recursiveGetChildById("readOnlyPanel")
 	if readOnlyPanel then
 		readOnlyPanel:setMarginRight(16)
 	end
 
 	unbindNpcModalPlayerInventoryListener()
 	npcModalTrade = false
+	addEvent(function()
+		if mainNpcModal and not mainNpcModal:isDestroyed() then
+			rewrapNpcModalDialogLines()
+		end
+	end)
 end
 
 function closeNpcModal()
-	if not mainNpcModal or not mainNpcModal:isVisible() then
+	if g_tooltip then
+		g_tooltip.hide(true)
+		g_tooltip.hideSpecial(true)
+	end
+
+	stopSellAllAutoRefresh()
+
+	local sellAllOpen = sellAllModal and sellAllModal:isVisible()
+	local mainOpen = mainNpcModal and mainNpcModal:isVisible()
+
+	if sellAllModal then
+		sellAllModal:hide()
+	end
+
+	if not mainNpcModal or (not mainOpen and not sellAllOpen and not npcModalTrade) then
 		return
 	end
 
@@ -2394,6 +3105,12 @@ function closeNpcModal()
 
 	activeNpcCreature = nil
 	currentNpcId = nil
+	currentNpcIds = {}
+	currentModalButtonsKey = ""
+	currentTalkingToNpc = ""
+	if modules.game_console and modules.game_console.resetTalkingToNpc then
+		modules.game_console.resetTalkingToNpc()
+	end
 	if npcModalContainerUpdateEvent then
 		removeEvent(npcModalContainerUpdateEvent)
 		npcModalContainerUpdateEvent = nil
@@ -2407,14 +3124,19 @@ function closeNpcModal()
 
 	npcModalClosedAt = os.clock()
 
+	for _, w in pairs(sayButtonsActive) do
+		if w and not w:isDestroyed() then
+			w:destroy()
+		end
+	end
+	sayButtonsActive = {}
+
 	mainNpcModal:hide()
 
-	local itemsPanel = mainNpcModal:recursiveGetChildById("itemsPanel")
 	if itemsPanel then
 		itemsPanel:destroyChildren()
 	end
 
-	local readOnlyPanel = mainNpcModal:recursiveGetChildById("readOnlyPanel")
 	if readOnlyPanel then
 		readOnlyPanel:setMarginRight(16)
 	end
@@ -2437,15 +3159,29 @@ end
 function sendNpcModal(data)
 	if not data then data = {} end
 	if not data.npcIds or #data.npcIds == 0 then
-		local nearest = findNearestNpc()
-		if nearest then
-			data.npcIds = { nearest:getId() }
-		else
+		local nearby = findNearbyNpcs(3)
+		if #nearby > 0 then
 			data.npcIds = {}
+			for _, npc in ipairs(nearby) do
+				table.insert(data.npcIds, npc:getId())
+			end
+		else
+			local nearest = findNearestNpc()
+			if nearest then
+				data.npcIds = { nearest:getId() }
+			else
+				data.npcIds = {}
+			end
 		end
 	end
 	if not data.buttons or #data.buttons == 0 then
-		data.buttons = defaultNpcButtons
+		local firstCreature = (data.npcIds and data.npcIds[1]) and g_map.getCreatureById(data.npcIds[1]) or nil
+		data.buttons = detectNpcButtons(firstCreature and firstCreature:getName() or "", "", firstCreature)
+	end
+
+	currentNpcIds = {}
+	for i = 1, #data.npcIds do
+		table.insert(currentNpcIds, data.npcIds[i])
 	end
 
 	local npcNames = ""
@@ -2508,90 +3244,40 @@ function sendNpcModal(data)
 	local targetId = (data.npcIds and data.npcIds[1]) or 0
 	if currentNpcId ~= targetId then
 		currentNpcId = targetId
-		local itemsPanel = mainNpcModal:recursiveGetChildById("itemsPanel")
 		if itemsPanel then
 			itemsPanel:destroyChildren()
 		end
 	end
 
-	for _, w in pairs(sayButtonsActive) do
-		if w and not w:isDestroyed() then
-			w:destroy()
-		end
+	if npcNames and npcNames ~= "" and currentTalkingToNpc ~= npcNames:lower() then
+		addNpcDialogHeader(npcNames)
 	end
 
-	sayButtonsActive = {}
-
-	local readOnlyAnchor = mainNpcModal:recursiveGetChildById("readOnlyPanel")
-	local mainLeft = readOnlyAnchor and readOnlyAnchor:getX() or 0
-
-	for i = 1, #data.buttons do
-		local button = data.buttons[i]
-		local sayButton = g_ui.createWidget("SayButton", mainNpcModal)
-
-		sayButton:setTooltip(button.text)
-
-		local iconId = getButtonIconId(button)
-		local clip = imageClips[iconId] or imageClips[0]
-
-		if clip then
-			sayButton:setImageClip(clip.normal)
-		else
-			sayButton:setImageClip(imageClips[0].normal)
-		end
-
-		sayButton:setMarginLeft(40 * (i - 1))
-
-		function sayButton.onMousePress()
-			local curIconId = getButtonIconId(button)
-			local curClip = imageClips[curIconId] or imageClips[0]
-
-			if curClip and curClip.pressed then
-				sayButton:setImageClip(curClip.pressed)
-			end
-		end
-
-		function sayButton.onMouseRelease()
-			local curIconId = getButtonIconId(button)
-			local curClip = imageClips[curIconId] or imageClips[0]
-
-			if curClip and curClip.normal then
-				sayButton:setImageClip(curClip.normal)
-
-				if modules.game_console and modules.game_console.sendNpcModalReply then
-					modules.game_console.sendNpcModalReply(button.text)
-				end
-
-				if button.text and (button.text:lower() == "bye" or button.text:lower() == "farewell") then
-					closeNpcModal()
-				end
-			end
-		end
-
-		table.insert(sayButtonsActive, sayButton)
-	end
+	updateNpcModalButtons(data.buttons)
 
 	if mainNpcModal then
 		if modules.game_console and modules.game_console.attachConsoleTextEditToNpcModal then
 			modules.game_console.attachConsoleTextEditToNpcModal(mainNpcModal)
 		end
 
-		mainNpcModal:show()
+		if not (sellAllModal and sellAllModal:isVisible()) then
+			mainNpcModal:show()
+			mainNpcModal:focus()
+		end
 
 		if modules.game_console and modules.game_console.onNpcModalOpened then
 			modules.game_console.onNpcModalOpened()
 		end
-
-		mainNpcModal:focus()
 	end
 
-	if npcModalTrade then
-		onCloseNpcTrade()
-	else
-		hideTradeWindowChildrens()
-		local readOnlyPanel = mainNpcModal and mainNpcModal:recursiveGetChildById("readOnlyPanel")
-		if readOnlyPanel then
-			readOnlyPanel:setMarginRight(16)
+	if not (sellAllModal and sellAllModal:isVisible()) then
+		if npcModalTrade then
+			onCloseNpcTrade()
+		else
+			hideTradeWindowChildrens()
+			if readOnlyPanel then
+				readOnlyPanel:setMarginRight(16)
+			end
 		end
 	end
 end
@@ -2600,20 +3286,29 @@ function sendNpcTrade(items, currencyId)
 	npcTradeCurrencyId = currencyId
 
 	local curId = (currencyId and currencyId > 0) and currencyId or GOLD_COIN_ITEM_ID
-	local itemWidget = mainNpcModal and mainNpcModal:recursiveGetChildById("item")
-	if itemWidget then
-		itemWidget:setItemId(curId)
-		itemWidget:setItemCount(100)
+	local curName = "Gold Coin"
+	if curId and curId ~= GOLD_COIN_ITEM_ID then
+		local itemObj = Item.create(curId)
+		if itemObj and itemObj.getName and itemObj:getName() and itemObj:getName() ~= "" then
+			curName = capitalizeWords(itemObj:getName())
+		else
+			local itemType = g_things.getThingType(curId, ThingCategoryItem)
+			if itemType and itemType.getName and itemType:getName() and itemType:getName() ~= "" then
+				curName = capitalizeWords(itemType:getName())
+			else
+				curName = "Item " .. curId
+			end
+		end
 	end
 
-	local currencyLabel = mainNpcModal and mainNpcModal:recursiveGetChildById("currencyName")
-	if currencyLabel then
-		local itemType = g_things.getThingType(curId, ThingCategoryItem)
-		if itemType then
-			currencyLabel:setText(capitalizeWords(itemType:getName()))
-		else
-			currencyLabel:setText(tr("Gold Coin"))
-		end
+	if item and not item:isDestroyed() then
+		item:setItemId(curId)
+		item:setItemCount(100)
+		item:setTooltip(curName)
+	end
+
+	if currencyName and not currencyName:isDestroyed() then
+		currencyName:setText(tr(curName))
 	end
 
 	BuyNpcTradeItems = {}
@@ -2649,34 +3344,45 @@ function sendNpcTrade(items, currencyId)
 
 	npcTradeFilterText = ""
 
-	if mainNpcModal then
-		local sw = mainNpcModal:recursiveGetChildById("search")
-
-		if sw then
-			sw:clearText()
-		end
+	if searchEdit then
+		searchEdit:clearText()
 	end
 
 	if buyButton and sellButton then
 		buyButton:setOn(true)
 		sellButton:setOn(false)
+		updateBuySellButtonTooltip()
 	end
 
-	if mainNpcModal and not mainNpcModal:isVisible() then
+	local sellAllOpen = sellAllModal and sellAllModal:isVisible()
+
+	local tradeButtons = detectNpcButtons(activeNpcCreature and activeNpcCreature:getName() or "", "trade", activeNpcCreature)
+
+	if mainNpcModal and not mainNpcModal:isVisible() and not sellAllOpen then
 		local creature = findNearestNpc()
 		if creature then
-			sendNpcModal({ npcIds = { creature:getId() }, buttons = defaultNpcButtons })
+			sendNpcModal({ npcIds = { creature:getId() }, buttons = tradeButtons })
 		else
 			mainNpcModal:show()
 			mainNpcModal:raise()
 			mainNpcModal:focus()
+			updateNpcModalButtons(tradeButtons)
 		end
+	elseif mainNpcModal and mainNpcModal:isVisible() then
+		updateNpcModalButtons(tradeButtons)
 	end
 
 	refreshNpcTradeItemList()
-	showTradeWindow()
+	if not sellAllOpen then
+		showTradeWindow()
+	else
+		refreshSellAllModalLists()
+	end
 	refreshNpcTradeCurrencyState()
 	addEvent(function()
+		if not mainNpcModal or mainNpcModal:isDestroyed() then
+			return
+		end
 		if npcModalTrade and npcTradeCurrencyId ~= nil then
 			refreshNpcTradeCurrencyState()
 		end
@@ -2702,8 +3408,6 @@ function showTradeWindow()
 
 	bindNpcModalPlayerInventoryListener()
 
-	local readOnlyPanel = mainNpcModal:recursiveGetChildById("readOnlyPanel")
-
 	if readOnlyPanel then
 		readOnlyPanel:setMarginRight(220)
 	end
@@ -2713,6 +3417,11 @@ function showTradeWindow()
 	mainNpcModal:setWidth(newW)
 	mainNpcModal:bindRectToParent()
 	showTradeWindowChildrens()
+	addEvent(function()
+		if mainNpcModal and not mainNpcModal:isDestroyed() then
+			rewrapNpcModalDialogLines()
+		end
+	end)
 end
 
 function onPlayerGoods(money, items, lootPouch)
@@ -2802,17 +3511,28 @@ function showMenuFilters(showLook)
 	if showLook then
 		menu:addOption(tr("Look"), function()
 			if npcTradeLookThing then
-				g_game.look(npcTradeLookThing)
+				if g_game.inspectNpcTrade then
+					g_game.inspectNpcTrade(npcTradeLookThing)
+				else
+					g_game.look(npcTradeLookThing)
+				end
 			end
 		end)
 		menu:addOption(tr("Inspect"), function()
+			if not npcTradeLookThing then
+				return
+			end
+
 			local count = npcTradeLookThing:getCount()
 
 			if not count or count < 1 then
 				count = 1
 			end
 
-			g_game.inspectionObject(InspectObjectTypes.NpcTrade, npcTradeLookThing:getId(), count)
+			local inspectType = (InspectObjectTypes and (InspectObjectTypes.INSPECT_NPCTRADE or InspectObjectTypes.NpcTrade)) or 1
+			if g_game.inspectionObject then
+				g_game.inspectionObject(inspectType, npcTradeLookThing:getId(), count)
+			end
 		end)
 	end
 
@@ -2872,10 +3592,41 @@ local function createSellAllItemBox(panel, itemId, amount, panelKind)
 	end
 
 	icon:setItemId(itemId)
-	icon:setItemCount(amount)
+	if panelKind == "sell" then
+		if icon.setShowCount then
+			icon:setShowCount(true)
+		end
+		if icon.setDisplayCount then
+			icon:setDisplayCount(amount)
+		else
+			icon:setItemCount(amount)
+		end
+	else
+		if icon.setShowCount then
+			icon:setShowCount(false)
+		end
+		if icon.clearDisplayCount then
+			icon:clearDisplayCount()
+		end
+	end
+
+	local thing = g_things.getThingType(itemId, ThingCategoryItem)
+	if thing then
+		box:setTooltip(thing:getName())
+	end
+
+	local border = box:recursiveGetChildById("ignoredBorder")
+	local cross = box:recursiveGetChildById("ignoredCross")
 
 	if panelKind == "sell" then
-		local function onDc()
+		if border then
+			border:hide()
+		end
+		if cross then
+			cross:hide()
+		end
+
+		local function onItemClick()
 			if not box.sellAllItemId then
 				return false
 			end
@@ -2884,25 +3635,29 @@ local function createSellAllItemBox(panel, itemId, amount, panelKind)
 
 			saveSellAllIgnoreList()
 			addEvent(function()
-				refreshSellAllModalLists()
+				if sellAllModal and not sellAllModal:isDestroyed() then
+					refreshSellAllModalLists()
+				end
 			end)
 
 			return true
 		end
 
-		box.onDoubleClick = onDc
-		icon.onDoubleClick = onDc
+		box.onClick = onItemClick
+		box.onDoubleClick = onItemClick
+		icon.onClick = onItemClick
+		icon.onDoubleClick = onItemClick
 	elseif panelKind == "ignore" then
-		local border = box:recursiveGetChildById("ignoredBorder")
-
 		if border then
 			border:show()
 			border:raise()
 		end
+		if cross then
+			cross:show()
+			cross:raise()
+		end
 
-		icon:setShowCount(false)
-
-		local function onDc()
+		local function onItemClick()
 			if not box.sellAllItemId then
 				return false
 			end
@@ -2911,19 +3666,46 @@ local function createSellAllItemBox(panel, itemId, amount, panelKind)
 
 			saveSellAllIgnoreList()
 			addEvent(function()
-				refreshSellAllModalLists()
+				if sellAllModal and not sellAllModal:isDestroyed() then
+					refreshSellAllModalLists()
+				end
 			end)
 
 			return true
 		end
 
-		box.onDoubleClick = onDc
-		icon.onDoubleClick = onDc
+		box.onClick = onItemClick
+		box.onDoubleClick = onItemClick
+		icon.onClick = onItemClick
+		icon.onDoubleClick = onItemClick
 	end
 end
 
-function refreshSellAllModalLists()
-	if not sellAllModal then
+local lastSellAllSignature = ""
+local sellAllAutoRefreshTimer = nil
+
+stopSellAllAutoRefresh = function()
+	if sellAllAutoRefreshTimer then
+		removeEvent(sellAllAutoRefreshTimer)
+		sellAllAutoRefreshTimer = nil
+	end
+end
+
+scheduleSellAllAutoRefresh = function()
+	stopSellAllAutoRefresh()
+	if sellAllModal and sellAllModal:isVisible() then
+		sellAllAutoRefreshTimer = scheduleEvent(function()
+			if sellAllModal and sellAllModal:isVisible() then
+				refreshSellAllModalLists()
+				scheduleSellAllAutoRefresh()
+			end
+		end, 500)
+	end
+end
+
+function refreshSellAllModalLists(force)
+	if not sellAllModal or not sellAllModal:isVisible() then
+		lastSellAllSignature = ""
 		return
 	end
 
@@ -2934,122 +3716,234 @@ function refreshSellAllModalLists()
 		return
 	end
 
-	sellItemsPanel:destroyChildren()
-	ignorePanel:destroyChildren()
-
 	local tempSellAllItems = {}
+	local sortedSellItems = {}
+	local totalGoldToReceive = 0
+	local sigParts = {}
 
-	for itemId, amount in pairs(lootPouchItems) do
-		if sellAllIgnoredItems[itemId] == nil or sellAllIgnoredItems[itemId] == false then
-			tempSellAllItems[itemId] = lootPouchItems[itemId]
+	for _, entry in ipairs(SellNpcTradeItems or {}) do
+		local itemId = entry.item:getId()
+		local count = getSellablePlayerItemCount(itemId)
+		if count > 0 and not sellAllIgnoredItems[itemId] then
+			if not tempSellAllItems[itemId] then
+				tempSellAllItems[itemId] = {
+					id = itemId,
+					count = count,
+					price = entry.sellPrice or 0,
+					name = entry.name or (entry.item and entry.item.getName and entry.item:getName()) or ""
+				}
+				table.insert(sortedSellItems, tempSellAllItems[itemId])
+				totalGoldToReceive = totalGoldToReceive + ((entry.sellPrice or 0) * count)
+				table.insert(sigParts, itemId .. ":" .. count)
+			end
 		end
 	end
 
-	table.sort(tempSellAllItems)
+	table.sort(sortedSellItems, function(a, b)
+		return a.name:lower() < b.name:lower()
+	end)
 
-	for itemId, total in pairs(tempSellAllItems) do
-		local thing = g_things.getThingType(itemId, ThingCategoryItem)
-		local itemName = thing:getName()
-
-		itemName = tostring(itemName):lower()
-
-		local filter2 = tostring(FilterText2 or ""):lower()
-
-		if filter2 == "" or itemName:find(filter2, 1, true) then
-			createSellAllItemBox(sellItemsPanel, itemId, total, "sell")
-		end
-	end
-
+	local sortedIgnored = {}
 	for itemId, active in pairs(sellAllIgnoredItems) do
 		if active == true then
 			local thing = g_things.getThingType(itemId, ThingCategoryItem)
-			local itemName = thing:getName()
+			local name = thing and thing:getName() or ("Item " .. itemId)
+			table.insert(sortedIgnored, { id = itemId, name = name })
+			table.insert(sigParts, "ign:" .. itemId)
+		end
+	end
 
-			itemName = tostring(itemName):lower()
+	table.sort(sortedIgnored, function(a, b)
+		return a.name:lower() < b.name:lower()
+	end)
 
-			local filter3 = tostring(FilterText3 or ""):lower()
+	local currentSig = table.concat(sigParts, "|") .. "|f2:" .. tostring(FilterText2 or "") .. "|f3:" .. tostring(FilterText3 or "")
 
-			if filter3 == "" or itemName:find(filter3, 1, true) then
-				createSellAllItemBox(ignorePanel, itemId, 0, "ignore")
+	if not force and currentSig == lastSellAllSignature then
+		local goldBalancePanel = sellAllModal:getChildById("goldBalancePanel")
+		if goldBalancePanel then
+			local goldBalanceValue = goldBalancePanel:getChildById("value")
+			if goldBalanceValue then
+				goldBalanceValue:setText(formatNumberWithCommas(totalGoldToReceive))
 			end
+		end
+		return
+	end
+
+	lastSellAllSignature = currentSig
+
+	sellItemsPanel:destroyChildren()
+	ignorePanel:destroyChildren()
+
+	for _, itemData in ipairs(sortedSellItems) do
+		local itemName = itemData.name:lower()
+		local filter2 = tostring(FilterText2 or ""):lower()
+
+		if filter2 == "" or itemName:find(filter2, 1, true) then
+			createSellAllItemBox(sellItemsPanel, itemData.id, itemData.count, "sell")
+		end
+	end
+
+	for _, ign in ipairs(sortedIgnored) do
+		local itemName = ign.name:lower()
+		local filter3 = tostring(FilterText3 or ""):lower()
+
+		if filter3 == "" or itemName:find(filter3, 1, true) then
+			createSellAllItemBox(ignorePanel, ign.id, 0, "ignore")
+		end
+	end
+
+	local goldBalancePanel = sellAllModal:getChildById("goldBalancePanel")
+	if goldBalancePanel then
+		local goldBalanceValue = goldBalancePanel:getChildById("value")
+		if goldBalanceValue then
+			goldBalanceValue:setText(formatNumberWithCommas(totalGoldToReceive))
 		end
 	end
 end
 
 function closeSellAllWindow()
+	stopSellAllAutoRefresh()
+
 	if sellAllModal then
 		sellAllModal:hide()
 	end
 
+	if not mainNpcModal then
+		return
+	end
+
 	mainNpcModal:show()
-	npcOutfit:show()
-	npcNameLabel:show()
-	showTradeWindowChildrens()
+	mainNpcModal:raise()
+	mainNpcModal:focus()
+
+	if multiNpc then
+		multiNpc:hide()
+	end
+	if npcOutfit then
+		npcOutfit:show()
+	end
+	if npcNameLabel then
+		npcNameLabel:show()
+	end
+
+	if npcModalTrade then
+		showTradeWindowChildrens()
+		refreshNpcTradeItemList()
+		updateNpcTradePlayerBalanceLabel()
+		revalidateNpcTradeQuantity()
+	end
+
 	setWindowOpacity(1)
 end
 
 function openSellAllWindow()
-	mainNpcModal:hide()
-	npcOutfit:hide()
-	multiNpc:hide()
-	npcNameLabel:hide()
-	hideTradeWindowChildrens()
+	if mainNpcModal then
+		mainNpcModal:hide()
+	end
+
 	loadSellAllIgnoreList()
-	refreshSellAllModalLists()
-	sellAllModal:show()
-	sellAllModal:raise()
-	sellAllModal:focus()
-
-	local goldBalancePanel = sellAllModal:getChildById("goldBalancePanel")
-	local goldBalanceValue = goldBalancePanel:getChildById("value")
-
-	goldBalanceValue:setText(formatNumberWithCommas(getPlayerMoney()))
+	FilterText2 = ""
+	FilterText3 = ""
+	if sellAllModal then
+		local s2 = sellAllModal:recursiveGetChildById("search2")
+		if s2 then s2:clearText() end
+		local s3 = sellAllModal:recursiveGetChildById("search3")
+		if s3 then s3:clearText() end
+	end
+	if sellAllModal then
+		sellAllModal:show()
+		sellAllModal:raise()
+		sellAllModal:focus()
+	end
+	refreshSellAllModalLists(true)
+	scheduleSellAllAutoRefresh()
 end
 
 function sendSellAll()
-	local protocolGame = g_game.getProtocolGame()
-
-	if not protocolGame then
+	if not SellNpcTradeItems or #SellNpcTradeItems == 0 then
+		closeSellAllWindow()
 		return
 	end
 
-	local tempSellAllItems = {}
-
-	for itemId, _ in pairs(lootPouchItems) do
-		if sellAllIgnoredItems[itemId] == nil or sellAllIgnoredItems[itemId] == false then
-			tempSellAllItems[itemId] = lootPouchItems[itemId]
+	local itemsToSell = {}
+	for _, entry in ipairs(SellNpcTradeItems) do
+		local itemId = entry.item:getId()
+		if not sellAllIgnoredItems[itemId] then
+			local count = getSellablePlayerItemCount(itemId)
+			if count > 0 then
+				table.insert(itemsToSell, {
+					item = entry.item,
+					id = itemId,
+					count = count,
+					price = entry.sellPrice or 0
+				})
+			end
 		end
 	end
 
-	local count = 0
-
-	for itemId, _ in pairs(tempSellAllItems) do
-		count = count + 1
-	end
-
-	if count == 0 then
+	if #itemsToSell == 0 then
+		closeSellAllWindow()
 		return
 	end
 
-	local msg = OutputMessage.create()
+	local maxAmountPerPacket = g_game.getFeature(GameDoubleShopSellAmount) and 10000 or 100
+	local totalEarned = 0
 
-	msg:addByte(ClientOpcodes.ClientOtcOpCodes)
-	msg:addByte(OtcOpCode.PARSE_SELL_ALL)
-	msg:addU16(count)
+	for _, sellData in ipairs(itemsToSell) do
+		local rem = sellData.count
+		while rem > 0 do
+			local chunk = math.min(rem, maxAmountPerPacket)
+			g_game.sellItem(sellData.item, chunk, not sellEquipped)
+			rem = rem - chunk
+		end
 
-	for itemId, amount in pairs(tempSellAllItems) do
-		msg:addU16(itemId)
-		msg:addU32(amount)
+		if playerItems and playerItems[sellData.id] then
+			playerItems[sellData.id] = math.max(0, playerItems[sellData.id] - sellData.count)
+		end
+		totalEarned = totalEarned + (sellData.price * sellData.count)
 	end
 
-	protocolGame:send(msg)
-	addEvent(function()
-		closeSellAllWindow()
-	end, 100)
+	if npcTradePlayerMoney and isNpcTradeGoldCurrency() then
+		npcTradePlayerMoney = npcTradePlayerMoney + totalEarned
+	end
+
+	closeSellAllWindow()
+	updateNpcTradePlayerBalanceLabel()
+	refreshNpcTradeItemList()
+	revalidateNpcTradeQuantity()
+end
+
+function sellAll(delayed, exceptions)
+	if type(delayed) == "table" then
+		exceptions = delayed
+		delayed = false
+	end
+	exceptions = exceptions or {}
+
+	for _, entry in ipairs(SellNpcTradeItems or {}) do
+		local itemId = entry.item:getId()
+		if not table.find(exceptions, itemId) and not sellAllIgnoredItems[itemId] then
+			local count = getSellablePlayerItemCount(itemId)
+			if count > 0 then
+				local maxAmount = math.min(count, 100)
+				g_game.sellItem(entry.item, maxAmount, not sellEquipped)
+				if playerItems and playerItems[itemId] then
+					playerItems[itemId] = math.max(0, playerItems[itemId] - maxAmount)
+				end
+			end
+		end
+	end
+
+	updateNpcTradePlayerBalanceLabel()
+	refreshNpcTradeItemList()
+	revalidateNpcTradeQuantity()
 end
 
 -- Compatibility wrappers for vBot and legacy modules
 modules.game_npctrade = modules.game_npcmodal
+modules.game_npcmodal.sellAll = sellAll
+modules.game_npctrade.sellAll = sellAll
 
 function isTrading(...)
 	return npcModalTrade == true

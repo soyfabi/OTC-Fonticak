@@ -77,6 +77,10 @@ local function displayWidgetTooltip(widget)
         return
     end
 
+    if widget:isDestroyed() or not widget:isVisible() then
+        return
+    end
+
     if not widget:isHovered() and not widget:containsPoint(g_window.getMousePosition()) then
         return
     end
@@ -117,6 +121,36 @@ local function onWidgetDestroy(widget)
             g_tooltip.hide()
         end
         if widget.specialtooltip then
+            g_tooltip.hideSpecial()
+        end
+        currentHoveredWidget = nil
+    end
+end
+
+local function onWidgetVisibilityChange(widget, visible)
+    if not visible then
+        if pendingHoveredWidget and (pendingHoveredWidget == widget or pendingHoveredWidget:isDestroyed() or not pendingHoveredWidget:isVisible()) then
+            cancelPendingTooltip()
+        end
+        if currentHoveredWidget and (currentHoveredWidget == widget or currentHoveredWidget:isDestroyed() or not currentHoveredWidget:isVisible()) then
+            if currentHoveredWidget.tooltip or currentHoveredWidget.parseColoreDisplay then
+                g_tooltip.hide()
+            end
+            if currentHoveredWidget.specialtooltip then
+                g_tooltip.hideSpecial()
+            end
+            currentHoveredWidget = nil
+        end
+    end
+end
+
+local function onWidgetMousePress(widget, mousePos, button)
+    cancelPendingTooltip()
+    if currentHoveredWidget then
+        if currentHoveredWidget.tooltip or currentHoveredWidget.parseColoreDisplay then
+            g_tooltip.hide()
+        end
+        if currentHoveredWidget.specialtooltip then
             g_tooltip.hideSpecial()
         end
         currentHoveredWidget = nil
@@ -183,7 +217,9 @@ function g_tooltip.init()
     connect(UIWidget, {
         onStyleApply = onWidgetStyleApply,
         onHoverChange = onWidgetHoverChange,
-        onDestroy = onWidgetDestroy
+        onDestroy = onWidgetDestroy,
+        onVisibilityChange = onWidgetVisibilityChange,
+        onMousePress = onWidgetMousePress
     })
 
     addEvent(function()
@@ -215,14 +251,22 @@ function g_tooltip.terminate()
     disconnect(UIWidget, {
         onStyleApply = onWidgetStyleApply,
         onHoverChange = onWidgetHoverChange,
-        onDestroy = onWidgetDestroy
+        onDestroy = onWidgetDestroy,
+        onVisibilityChange = onWidgetVisibilityChange,
+        onMousePress = onWidgetMousePress
     })
 
     cancelPendingTooltip()
 
     currentHoveredWidget = nil
-    toolTipLabel:destroy()
-    toolTipLabel = nil
+    if toolTipLabel then
+        toolTipLabel:destroy()
+        toolTipLabel = nil
+    end
+    if SpecialToolTipLabel then
+        SpecialToolTipLabel:destroy()
+        SpecialToolTipLabel = nil
+    end
 
     g_tooltip = nil
 end
@@ -340,16 +384,47 @@ function g_tooltip.displaySpecial(special)
     })
 end
 
-function g_tooltip.hide()
-    g_effects.fadeOut(toolTipLabel, 100)
+function g_tooltip.hide(instant)
+    cancelPendingTooltip()
+    currentHoveredWidget = nil
+    if toolTipLabel then
+        if instant then
+            g_effects.cancelFade(toolTipLabel)
+            toolTipLabel:setOpacity(0)
+            toolTipLabel:hide()
+        else
+            g_effects.fadeOut(toolTipLabel, 100)
+            scheduleEvent(function()
+                if toolTipLabel and (not currentHoveredWidget or not currentHoveredWidget.tooltip) then
+                    toolTipLabel:hide()
+                end
+            end, 120)
+        end
+    end
 
     disconnect(rootWidget, {
         onMouseMove = moveToolTip
     })
 end
 
-function g_tooltip.hideSpecial()
-    g_effects.fadeOut(SpecialToolTipLabel, 100)
+function g_tooltip.hideSpecial(instant)
+    cancelPendingTooltip()
+    currentHoveredWidget = nil
+    if SpecialToolTipLabel then
+        if instant then
+            g_effects.cancelFade(SpecialToolTipLabel)
+            SpecialToolTipLabel:setOpacity(0)
+            SpecialToolTipLabel:hide()
+        else
+            g_effects.fadeOut(SpecialToolTipLabel, 100)
+            scheduleEvent(function()
+                if SpecialToolTipLabel and (not currentHoveredWidget or not currentHoveredWidget.specialtooltip) then
+                    SpecialToolTipLabel:hide()
+                end
+            end, 120)
+        end
+    end
+
     disconnect(rootWidget, {
         onMouseMove = moveSpecialToolTip
     })

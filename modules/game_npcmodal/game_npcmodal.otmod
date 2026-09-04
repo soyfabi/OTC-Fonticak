@@ -1,8 +1,8 @@
 Module
   name: game_npcmodal
   description: NPC Modal Interface
-  author: xGG
-  website: https://github.com/GGandolfo/MehahGlobal
+  author: bomby
+  website: https://github.com/soyfabi/OTC-Fonticak
   sandboxed: false
   scripts: [ game_npcmodal ]
   @onLoad: init()

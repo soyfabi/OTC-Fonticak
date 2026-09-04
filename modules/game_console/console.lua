@@ -1022,6 +1022,12 @@ function addPrivateChannel(receiver)
     return addTab(receiver, true)
 end
 
+local lastConsoleTalkingToNpc = ""
+
+function resetTalkingToNpc()
+    lastConsoleTalkingToNpc = ""
+end
+
 function addPrivateText(text, speaktype, name, isPrivateCommand, creatureName)
     local focus = false
     if speaktype.npcChat then
@@ -1050,6 +1056,27 @@ function addPrivateText(text, speaktype, name, isPrivateCommand, creatureName)
     end
 
     if privateTab then
+        if speaktype.npcChat and creatureName and creatureName ~= g_game.getCharacterName() and creatureName ~= 'Account Manager' then
+            if lastConsoleTalkingToNpc ~= creatureName:lower() then
+                lastConsoleTalkingToNpc = creatureName:lower()
+                local timeStr = ''
+                if modules.client_options.getOption('showTimestampsInConsole') then
+                    timeStr = os.date('%H:%M:%S') .. ' '
+                end
+                local headerText = timeStr .. 'Talking to ' .. creatureName
+                local panel = consoleTabBar:getTabPanel(privateTab)
+                if panel then
+                    local consoleBuffer = panel:getChildById('consoleBuffer')
+                    if consoleBuffer then
+                        local headerLabel = g_ui.createWidget('ConsoleLabel', consoleBuffer)
+                        headerLabel:setId('consoleLabel' .. consoleBuffer:getChildCount())
+                        headerLabel:setText(headerText)
+                        headerLabel:setColor('#ffffff')
+                    end
+                end
+            end
+        end
+
         addTabText(text, speaktype, privateTab, creatureName)
     end
 end
