@@ -1,4 +1,4 @@
-﻿-- chunkname: @/game_rewardwall/game_rewardwall.lua
+-- chunkname: @/game_rewardwall/game_rewardwall.lua
 
 rewardWallController = Controller:new()
 
@@ -18,8 +18,48 @@ local ClientPackets = {
 	OpenRewardHistory = 217
 }
 local ButtonRewardWall, windowsPickWindow, generalBox
+local rewardWallCanClaim = false
+local backgroundRewardTimerEvent = nil
+local currentDayStreakDay = 0
+
+local function updateButtonHighlight(enable)
+	rewardWallCanClaim = (enable == true)
+
+	if not ButtonRewardWall or ButtonRewardWall:isDestroyed() then
+		return
+	end
+
+	local highlight = ButtonRewardWall:getChildById("highlight")
+	if not highlight then
+		highlight = g_ui.createWidget("UIWidget", ButtonRewardWall)
+		highlight:setId("highlight")
+		highlight:setSize("22 22")
+		highlight:setPhantom(true)
+		highlight:setVisible(false)
+		highlight:setImageSource("/images/topbuttons/highlight")
+		highlight:addAnchor(AnchorHorizontalCenter, "parent", AnchorHorizontalCenter)
+		highlight:addAnchor(AnchorVerticalCenter, "parent", AnchorVerticalCenter)
+	end
+
+	local bright = ButtonRewardWall:getChildById("brightButton")
+	if not bright then
+		bright = g_ui.createWidget("UIWidget", ButtonRewardWall)
+		bright:setId("brightButton")
+		bright:setSize("20 20")
+		bright:setPhantom(true)
+		bright:setVisible(false)
+		bright:setImageSource("/images/ui/bright-x20")
+		bright:addAnchor(AnchorTop, "parent", AnchorTop)
+		bright:addAnchor(AnchorLeft, "parent", AnchorLeft)
+	end
+
+	highlight:setVisible(rewardWallCanClaim)
+	bright:setVisible(rewardWallCanClaim)
+end
 local bonuses = {}
 local actualUsed = {}
+local REWARD_CONTAINER_ACTIVE = "/game_rewardwall/images/container-bonus-active"
+local REWARD_CONTAINER_INACTIVE = "/game_rewardwall/images/container-bonus-inactive"
 local bonusShrine = 0
 local DAILY_REWARD_CYCLE = 86400
 local dailyRewardSlotTimerEvent, dailyRewardSlotTimerData, restingAreaTimerEvent, restingAreaTimerData
@@ -99,7 +139,14 @@ local function getClaimUsedToken()
 end
 
 local function claimInstantDailyReward()
-	g_game.requestGetRewardDaily(getClaimUsedToken(), actualUsed)
+	local itemsToSend = {}
+	for itemId, count in pairs(actualUsed) do
+		if count and count > 0 then
+			itemsToSend[itemId] = count
+		end
+	end
+
+	g_game.requestGetRewardDaily(getClaimUsedToken(), itemsToSend)
 
 	generalBox, windowsPickWindow = destroyWindows({
 		generalBox,
@@ -133,6 +180,7 @@ local function updateRestingAreaBonusIcons(dayStreakLevel)
 
 		local requiredStreak = i + 1
 		local locked = dayStreakLevel < requiredStreak
+		widget:setImageSource(locked and REWARD_CONTAINER_INACTIVE or REWARD_CONTAINER_ACTIVE)
 		local dither = widget.ditherpattern or widget:getChildById("ditherpattern")
 
 		if dither then
@@ -158,6 +206,9 @@ local function updateRestingAreaBonusIcons(dayStreakLevel)
 end
 
 local function convert_timestamp(timestamp)
+	if not timestamp or timestamp <= 0 then
+		return "-"
+	end
 	return os.date("%Y-%m-%d, %H:%M:%S", timestamp)
 end
 
@@ -301,6 +352,18 @@ local function updateDailyRewardSlotTimerUI()
 		return
 	end
 
+	local elapsed = os.time() - dailyRewardSlotTimerData.startTime
+	local remaining = resolveRemainingSeconds(dailyRewardSlotTimerData.nextRewardTime, elapsed)
+	if remaining <= 0 then
+		stopDailyRewardSlotTimer()
+		updateButtonHighlight(true)
+		if rewardWallController.ui and rewardWallController.ui:isVisible() then
+			local dayStreakDay = math.max(0, math.min(6, currentDayStreakDay))
+			updateDailyRewards(dayStreakDay, 0, 0, 2, 0)
+		end
+		return
+	end
+
 	if not updateTimerOverlayUI(dailyRewardSlotTimerData) then
 		stopDailyRewardSlotTimer()
 	end
@@ -378,8 +441,6 @@ local function visibleHistory(bool)
 	end
 end
 
-local REWARD_CONTAINER_ACTIVE = "/game_rewardwall/images/container-bonus-active"
-local REWARD_CONTAINER_INACTIVE = "/game_rewardwall/images/container-bonus-inactive"
 local REWARD_GOLD_CLIPS = {
 	CHECK_BOTTOM = "0 40 66 20",
 	LOCKED = "0 0 66 20",
@@ -476,6 +537,9 @@ local function wireRewardButtonClick(button)
 		restoreRewardButtonVisual(widget)
 
 		if widget.rewardVisualMode ~= REWARD_BUTTON_MODE.COLLECTABLE then
+			if widget.rewardVisualMode == REWARD_BUTTON_MODE.WAITING or widget.rewardVisualMode == REWARD_BUTTON_MODE.COLLECTED then
+				managerMessageBoxWindow(CONST_WINDOWS_BOX.ALREADY)
+			end
 			return true
 		end
 
@@ -485,6 +549,15 @@ local function wireRewardButtonClick(button)
 
 		if not widget:containsPoint(mousePos) then
 			return true
+		end
+
+		if bonusShrine ~= OPEN_WINDOWS.SHRINE then
+			local player = g_game.getLocalPlayer()
+			local tokens = player and player:getResourceBalance(ResourceTypes.DAILYREWARD_STREAK) or 0
+			if tokens <= 0 then
+				managerMessageBoxWindow(CONST_WINDOWS_BOX.NO_IRA)
+				return true
+			end
 		end
 
 		onClickPickReward(widget)
@@ -499,6 +572,14 @@ local function beginClaim()
 	end
 
 	claimPending = true
+
+	if claimCloseResetEvent then
+		removeEvent(claimCloseResetEvent)
+	end
+	claimCloseResetEvent = scheduleEvent(function()
+		claimCloseResetEvent = nil
+		claimPending = false
+	end, 4000)
 
 	return true
 end
@@ -530,15 +611,19 @@ local function updateRewardGoldCollectableOverlay(overlay)
 		return
 	end
 
-	local balance = 0
-	local player = g_game.getLocalPlayer()
+	local isShrine = (bonusShrine == OPEN_WINDOWS.SHRINE)
 
-	if player then
-		balance = player:getResourceBalance(ResourceTypes.DAILYREWARD_STREAK) or 0
+	if overlay.costStrike then
+		overlay.costStrike:setVisible(isShrine)
 	end
 
 	if overlay.balance then
-		overlay.balance:setText(tostring(balance))
+		overlay.balance:setText(isShrine and "0" or "1")
+	end
+
+	local icon = overlay.icon or overlay:getChildById("icon")
+	if icon then
+		icon:setMarginRight(isShrine and 16 or 23)
 	end
 end
 
@@ -619,7 +704,7 @@ local function updateDailyRewards(dayStreakDay, wasDailyRewardTaken, nextRewardT
 		wasDailyRewardTaken = 0
 	end
 
-	local canClaim = canGetReward == 2
+	local canClaim = (canGetReward == 2) or (canGetReward == nil and wasDailyRewardTaken == 0)
 	local currentIndex = dayStreakDay + 1
 	local dailyRewardsPanel = rewardWallController.ui.dailyRewardsPanel
 
@@ -646,6 +731,25 @@ local function updateDailyRewards(dayStreakDay, wasDailyRewardTaken, nextRewardT
 		local goldSlot = rewardWidget:getChildById("rewardGold" .. i)
 
 		wireRewardButtonClick(rewardButton)
+
+		if goldSlot and not goldSlot.clickWired then
+			goldSlot.clickWired = true
+			goldSlot.onClick = function()
+				if rewardButton.rewardVisualMode == REWARD_BUTTON_MODE.COLLECTABLE then
+					if bonusShrine ~= OPEN_WINDOWS.SHRINE then
+						local player = g_game.getLocalPlayer()
+						local tokens = player and player:getResourceBalance(ResourceTypes.DAILYREWARD_STREAK) or 0
+						if tokens <= 0 then
+							managerMessageBoxWindow(CONST_WINDOWS_BOX.NO_IRA)
+							return
+						end
+					end
+					onClickPickReward(rewardButton)
+				elseif rewardButton.rewardVisualMode == REWARD_BUTTON_MODE.WAITING or rewardButton.rewardVisualMode == REWARD_BUTTON_MODE.COLLECTED then
+					managerMessageBoxWindow(CONST_WINDOWS_BOX.ALREADY)
+				end
+			end
+		end
 
 		if i < currentIndex then
 			setupRewardGoldOverlay(goldSlot, "RewardGoldCollected")
@@ -682,21 +786,16 @@ local function updateDailyRewards(dayStreakDay, wasDailyRewardTaken, nextRewardT
 end
 
 local function getDayStreakIcon(dayStreakLevel)
-	local IconConsecutiveDays = {
-		[24] = "icon-rewardstreak-default",
-		[49] = "icon-rewardstreak-bronze",
-		[99] = "icon-rewardstreak-silver",
-		[100] = "icon-rewardstreak-gold"
-	}
+	dayStreakLevel = tonumber(dayStreakLevel) or 0
 
-	if dayStreakLevel <= 24 then
-		return IconConsecutiveDays[24]
-	elseif dayStreakLevel <= 49 then
-		return IconConsecutiveDays[49]
-	elseif dayStreakLevel <= 99 then
-		return IconConsecutiveDays[99]
+	if dayStreakLevel <= 2 then
+		return "icon-rewardstreak-default"
+	elseif dayStreakLevel <= 4 then
+		return "icon-rewardstreak-bronze"
+	elseif dayStreakLevel <= 6 then
+		return "icon-rewardstreak-silver"
 	else
-		return IconConsecutiveDays[100]
+		return "icon-rewardstreak-gold"
 	end
 end
 
@@ -759,18 +858,50 @@ local function checkRewards(data)
 	end
 end
 
+local function updateStreakWarning(wasDailyRewardTaken, canGetReward, collectionState)
+	local warningWidget = rewardWallController.ui and rewardWallController.ui.restingAreaPanel and rewardWallController.ui.restingAreaPanel.streakWarning
+	if not warningWidget then
+		return
+	end
+
+	if collectionState ~= nil then
+		if collectionState == DailyRewardStatus.DAILY_REWARD_COLLECTED then
+			warningWidget:setText("You already claimed your daily reward.")
+			warningWidget:setColor("#c0c0c0")
+			warningWidget:setVisible(true)
+		elseif collectionState == DailyRewardStatus.DAILY_REWARD_NOTCOLLECTED then
+			warningWidget:parseColoredText("Claim your daily reward before server save.\nIf you don't claim your reward now, your [color=#d33c3c]streak will be reset[/color].", "#c0c0c0")
+			warningWidget:setVisible(true)
+		else
+			warningWidget:setText("")
+			warningWidget:setVisible(false)
+		end
+		return
+	end
+
+	if wasDailyRewardTaken ~= nil and wasDailyRewardTaken ~= 0 then
+		warningWidget:setText("You already claimed your daily reward.")
+		warningWidget:setColor("#c0c0c0")
+		warningWidget:setVisible(true)
+	elseif canGetReward == 1 then
+		warningWidget:setText("You did not claim your daily reward in time.\nToo bad, you do not have enough Daily Reward Jokers.")
+		warningWidget:setColor("#c0c0c0")
+		warningWidget:setVisible(true)
+	else
+		warningWidget:parseColoredText("Claim your daily reward before server save.\nIf you don't claim your reward now, your [color=#d33c3c]streak will be reset[/color].", "#c0c0c0")
+		warningWidget:setVisible(true)
+	end
+end
+
 local function onDailyRewardCollectionState(state)
+	local canClaim = (state == DailyRewardStatus.DAILY_REWARD_NOTCOLLECTED)
+	updateButtonHighlight(canClaim)
+
 	if not rewardWallController.ui:isVisible() then
 		return
 	end
 
-	local text = {
-		[DailyRewardStatus.DAILY_REWARD_COLLECTED] = "you did not claim your daily reward in time. too bad, you do not have enough Daily Reward Jokers.",
-		[DailyRewardStatus.DAILY_REWARD_NOTCOLLECTED] = "You did not claim your daily reward in time. If you don't claim your reward now, your [color=#D33C3C]streak will be reset.[/color]",
-		[DailyRewardStatus.DAILY_REWARD_NOTAVAILABLE] = "idk"
-	}
-
-	rewardWallController.ui.restingAreaPanel.streakWarning:parseColoredText(text[state], "#c0c0c0")
+	updateStreakWarning(nil, nil, state)
 end
 
 local function onRestingAreaState(zone, state, message)
@@ -873,6 +1004,25 @@ local function onOpenRewardWall(bonusShrines, nextRewardTime, dayStreakDay, wasD
 	pendingRewardButton = nil
 	bonusShrine = bonusShrines
 
+	currentDayStreakDay = dayStreakDay or 0
+	local canClaim = (canGetReward == 2) or (canGetReward == nil and wasDailyRewardTaken == 0)
+	updateButtonHighlight(canClaim)
+
+	if backgroundRewardTimerEvent then
+		removeEvent(backgroundRewardTimerEvent)
+		backgroundRewardTimerEvent = nil
+	end
+
+	if not canClaim and nextRewardTime and nextRewardTime > os.time() then
+		local delay = (nextRewardTime - os.time()) * 1000
+		if delay > 0 and delay < 86400000 then
+			backgroundRewardTimerEvent = scheduleEvent(function()
+				backgroundRewardTimerEvent = nil
+				updateButtonHighlight(true)
+			end, delay)
+		end
+	end
+
 	updateDailyRewards(dayStreakDay, wasDailyRewardTaken, nextRewardTime, canGetReward, timeLeft)
 	premiumStatusWindwos(g_game.getLocalPlayer():isPremium())
 	rewardWallController.ui:show()
@@ -882,6 +1032,8 @@ local function onOpenRewardWall(bonusShrines, nextRewardTime, dayStreakDay, wasD
 	connectOnServerError()
 	rewardWallController.ui.restingAreaPanel.restingAreaInfo.rewardStreakIcon:setText(dayStreakLevel)
 	updateRestingAreaBonusIcons(dayStreakLevel)
+
+	updateStreakWarning(wasDailyRewardTaken, canGetReward)
 
 	if tokens and tokens > 999999 then
 		tokens = 0
@@ -916,6 +1068,17 @@ local function onRewardHistory(rewardHistory)
 	headerRow.Balance:setText("Streak")
 	headerRow.Description:setText("Event")
 
+	local count = (rewardHistory and type(rewardHistory) == "table") and #rewardHistory or 0
+
+	if count == 0 then
+		local emptyRow = g_ui.createWidget("UILabel", transferHistory)
+		emptyRow:setText("No daily reward history recorded yet.")
+		emptyRow:setTextAlign(AlignHCenter)
+		emptyRow:setMarginTop(18)
+		emptyRow:setColor("#888888")
+		return
+	end
+
 	for i, data in ipairs(rewardHistory) do
 		local row = g_ui.createWidget("historyData2", transferHistory)
 
@@ -935,8 +1098,12 @@ function show()
 		return
 	end
 
-	if not rewardWallController.ui:isVisible() then
-		g_game.sendOpenRewardWall()
+	g_game.sendOpenRewardWall()
+	local protocolGame = g_game.getProtocolGame()
+	if protocolGame then
+		local msg = OutputMessage.create()
+		msg:addU8(0xB4)
+		protocolGame:send(msg)
 	end
 
 	rewardWallController.ui:show()
@@ -954,6 +1121,13 @@ function hide(bool)
 
 	stopDailyRewardSlotTimer()
 	stopRestingAreaTimer()
+
+	local warningWidget = rewardWallController.ui.restingAreaPanel and rewardWallController.ui.restingAreaPanel.streakWarning
+	if warningWidget then
+		warningWidget:setText("")
+		warningWidget:setVisible(false)
+	end
+
 	if g_modalManager then
 		g_modalManager.hide(rewardWallController.ui)
 	end
@@ -981,60 +1155,236 @@ function toggle()
 end
 
 local INFO_PANEL_COLOR = "#c0c0c0"
+local clearInfoEvent = nil
+
+local function cancelClearInfoPanel()
+	if clearInfoEvent then
+		removeEvent(clearInfoEvent)
+		clearInfoEvent = nil
+	end
+end
+
+local function updateInfoScrollBar()
+	local ui = rewardWallController.ui
+	if not ui or not ui.infoPanel then
+		return
+	end
+
+	local scrollArea = ui.infoPanel.scrollArea
+	local scrollBar = ui.infoPanel.infoScrollBar
+	if scrollArea and scrollBar then
+		local scrollHeight = math.max(scrollArea:getChildrenRect().height - scrollArea:getPaddingRect().height, 0)
+		scrollBar:setVisible(scrollHeight > 0)
+		scrollBar:setOn(scrollHeight > 0)
+		if scrollHeight == 0 then
+			scrollBar:setValue(0)
+		end
+	end
+end
+
+local function isWidgetOrChild(target, parent)
+	if not target or not parent then
+		return false
+	end
+	local current = target
+	while current do
+		if current == parent then
+			return true
+		end
+		current = current:getParent()
+	end
+	return false
+end
+
+local function isMouseOverInfoOrTriggers()
+	local ui = rewardWallController.ui
+	if not ui or not ui:isVisible() then
+		return false
+	end
+
+	local mousePos = g_window.getMousePosition()
+
+	-- Check infoPanel area directly
+	if ui.infoPanel and ui.infoPanel:containsPoint(mousePos) then
+		return true
+	end
+
+	local hoveredWidget = g_ui.getRootWidget():recursiveGetChildByPos(mousePos)
+	if not hoveredWidget then
+		return false
+	end
+
+	-- Check infoPanel and its descendants
+	if ui.infoPanel and isWidgetOrChild(hoveredWidget, ui.infoPanel) then
+		return true
+	end
+
+	-- Check resting area info icons
+	local restingInfo = ui.restingAreaPanel and ui.restingAreaPanel.restingAreaInfo
+	if restingInfo then
+		if isWidgetOrChild(hoveredWidget, restingInfo.rewardStreakIcon) or
+		   isWidgetOrChild(hoveredWidget, restingInfo.timeLeft) or
+		   isWidgetOrChild(hoveredWidget, restingInfo.restingAreaGold) then
+			return true
+		end
+	end
+
+	-- Check bonus icons
+	local bonusIcons = ui.restingAreaPanel and ui.restingAreaPanel.bonusIcons
+	if bonusIcons then
+		for i = 1, 6 do
+			local icon = bonusIcons:getChildById("bonusIcon" .. i)
+			if icon and isWidgetOrChild(hoveredWidget, icon) then
+				return true
+			end
+		end
+	end
+
+	-- Check daily reward buttons
+	local dailyRewards = ui.dailyRewardsPanel
+	if dailyRewards then
+		for i = 1, 7 do
+			local rewardPanel = dailyRewards:getChildById("reward" .. i)
+			if rewardPanel then
+				local btn = rewardPanel:getChildById("rewardButton" .. i)
+				local slot = rewardPanel:getChildById("rewardGold" .. i)
+				if (btn and isWidgetOrChild(hoveredWidget, btn)) or
+				   (slot and isWidgetOrChild(hoveredWidget, slot)) then
+					return true
+				end
+			end
+		end
+	end
+
+	return false
+end
 
 local function clearInfoPanel()
+	cancelClearInfoPanel()
+
 	if not rewardWallController.ui or not rewardWallController.ui.infoPanel then
 		return
 	end
 
 	local infoPanel = rewardWallController.ui.infoPanel
 
-	infoPanel.statusText:setText("")
-	infoPanel.statusText:setVisible(true)
-	infoPanel.free:setText("")
-	infoPanel.free:setVisible(false)
-	infoPanel.premium:setText("")
-	infoPanel.premium:setVisible(false)
+	if infoPanel.statusText then
+		infoPanel.statusText:setText("")
+		infoPanel.statusText:setVisible(true)
+	end
+	if infoPanel.free then
+		infoPanel.free:setText("")
+		infoPanel.free:setVisible(false)
+	end
+	if infoPanel.premium then
+		infoPanel.premium:setText("")
+		infoPanel.premium:setVisible(false)
+	end
+
+	if infoPanel.scrollArea and infoPanel.scrollArea.verticalScrollBar then
+		infoPanel.scrollArea.verticalScrollBar:setValue(0)
+	end
+
+	updateInfoScrollBar()
+end
+
+local function scheduleClearInfoPanel()
+	cancelClearInfoPanel()
+
+	clearInfoEvent = scheduleEvent(function()
+		clearInfoEvent = nil
+		if isMouseOverInfoOrTriggers() then
+			return
+		end
+
+		clearInfoPanel()
+	end, 200)
+end
+
+local function forwardMouseWheelToInfoPanel(widget, mousePos, mouseWheel)
+	local ui = rewardWallController.ui
+	if ui and ui.infoPanel and ui.infoPanel.scrollArea then
+		return ui.infoPanel.scrollArea:onMouseWheel(mousePos, mouseWheel)
+	end
+	return false
 end
 
 local function showInfoPanelDescription(text, colored)
+	cancelClearInfoPanel()
+
 	if not rewardWallController.ui or not rewardWallController.ui.infoPanel then
 		return
 	end
 
 	local infoPanel = rewardWallController.ui.infoPanel
 
-	infoPanel.free:setVisible(false)
-	infoPanel.premium:setVisible(false)
-	infoPanel.statusText:setVisible(true)
-	infoPanel.statusText:raise()
-
-	text = text or ""
-
-	if colored then
-		infoPanel.statusText:parseColoredText(text, INFO_PANEL_COLOR)
-	else
-		infoPanel.statusText:setText(text)
-		infoPanel.statusText:setColor(INFO_PANEL_COLOR)
+	if infoPanel.scrollArea and infoPanel.scrollArea.verticalScrollBar then
+		infoPanel.scrollArea.verticalScrollBar:setValue(0)
 	end
+
+	if infoPanel.free then
+		infoPanel.free:setVisible(false)
+	end
+	if infoPanel.premium then
+		infoPanel.premium:setVisible(false)
+	end
+	if infoPanel.statusText then
+		infoPanel.statusText:setVisible(true)
+		infoPanel.statusText:raise()
+
+		text = text or ""
+
+		if colored then
+			infoPanel.statusText:parseColoredText(text, INFO_PANEL_COLOR)
+		else
+			infoPanel.statusText:setText(text)
+			infoPanel.statusText:setColor(INFO_PANEL_COLOR)
+		end
+	end
+
+	addEvent(function()
+		if infoPanel.scrollArea then
+			infoPanel.scrollArea:updateScrollBars()
+		end
+		updateInfoScrollBar()
+	end)
 end
 
 local function showInfoPanelRewardSplit(freeText, premiumText)
+	cancelClearInfoPanel()
+
 	if not rewardWallController.ui or not rewardWallController.ui.infoPanel then
 		return
 	end
 
 	local infoPanel = rewardWallController.ui.infoPanel
 
-	infoPanel.statusText:setText("")
-	infoPanel.statusText:setVisible(false)
-	infoPanel.statusText:lower()
-	infoPanel.free:setVisible(true)
-	infoPanel.premium:setVisible(true)
-	infoPanel.free:raise()
-	infoPanel.premium:raise()
-	infoPanel.free:setText(freeText or "")
-	infoPanel.premium:setText(premiumText or "")
+	if infoPanel.scrollArea and infoPanel.scrollArea.verticalScrollBar then
+		infoPanel.scrollArea.verticalScrollBar:setValue(0)
+	end
+
+	if infoPanel.statusText then
+		infoPanel.statusText:setText("")
+		infoPanel.statusText:setVisible(false)
+		infoPanel.statusText:lower()
+	end
+	if infoPanel.free then
+		infoPanel.free:setVisible(true)
+		infoPanel.free:raise()
+		infoPanel.free:setText(freeText or "")
+	end
+	if infoPanel.premium then
+		infoPanel.premium:setVisible(true)
+		infoPanel.premium:raise()
+		infoPanel.premium:setText(premiumText or "")
+	end
+
+	addEvent(function()
+		if infoPanel.scrollArea then
+			infoPanel.scrollArea:updateScrollBars()
+		end
+		updateInfoScrollBar()
+	end)
 end
 
 local function wireHover(widget, handler)
@@ -1062,39 +1412,121 @@ local function setupRewardWallHovers()
 	wireHover(restingInfo.rewardStreakIcon, function(e)
 		rewardWallController:onhoverStatusPlayer(e)
 	end)
+	restingInfo.rewardStreakIcon.onMouseWheel = forwardMouseWheelToInfoPanel
+
 	wireHover(restingInfo.timeLeft, function(e)
 		rewardWallController:onhoverStatusPlayer(e)
 	end)
+	restingInfo.timeLeft.onMouseWheel = forwardMouseWheelToInfoPanel
+
 	wireHover(restingInfo.restingAreaGold, function(e)
 		rewardWallController:onhoverStatusPlayer(e)
 	end)
+	restingInfo.restingAreaGold.onMouseWheel = forwardMouseWheelToInfoPanel
 
 	for i = 1, 6 do
-		wireHover(ui.restingAreaPanel.bonusIcons:getChildById("bonusIcon" .. i), function(e)
-			rewardWallController:onhoverBonus(e)
-		end)
+		local icon = ui.restingAreaPanel.bonusIcons:getChildById("bonusIcon" .. i)
+		if icon then
+			wireHover(icon, function(e)
+				rewardWallController:onhoverBonus(e)
+			end)
+			icon.onMouseWheel = forwardMouseWheelToInfoPanel
+		end
 	end
 
 	for i = 1, 7 do
 		local rewardPanel = ui.dailyRewardsPanel:getChildById("reward" .. i)
 
 		if rewardPanel then
-			wireRewardButtonClick(rewardPanel:getChildById("rewardButton" .. i))
-			wireHover(rewardPanel:getChildById("rewardButton" .. i), function(e)
-				rewardWallController:onhoverRewardType(e)
-			end)
-			wireHover(rewardPanel:getChildById("rewardGold" .. i), function(e)
-				rewardWallController:onhoverStatusReward(e)
-			end)
+			local btn = rewardPanel:getChildById("rewardButton" .. i)
+			if btn then
+				wireRewardButtonClick(btn)
+				wireHover(btn, function(e)
+					rewardWallController:onhoverRewardType(e)
+				end)
+				btn.onMouseWheel = forwardMouseWheelToInfoPanel
+			end
+
+			local gold = rewardPanel:getChildById("rewardGold" .. i)
+			if gold then
+				wireHover(gold, function(e)
+					rewardWallController:onhoverStatusReward(e)
+				end)
+				gold.onMouseWheel = forwardMouseWheelToInfoPanel
+			end
 		end
 	end
 end
 
 local function setupRewardWallUi()
-	rewardWallController.ui.footerPanel.footerGold1.text:setTextAlign(AlignRightCenter)
+	local infoPanel = rewardWallController.ui.infoPanel
+	if infoPanel and infoPanel.scrollArea then
+		infoPanel.statusText = infoPanel.scrollArea.statusText
+		infoPanel.free = infoPanel.scrollArea.free
+		infoPanel.premium = infoPanel.scrollArea.premium
+
+		infoPanel.scrollArea.onScrollHeightChange = function(self)
+			updateInfoScrollBar()
+		end
+
+		infoPanel.onMouseWheel = forwardMouseWheelToInfoPanel
+		infoPanel.scrollArea.onMouseWheel = function(widget, mousePos, mouseWheel)
+			local scrollbar = widget.verticalScrollBar
+			if not scrollbar then
+				return false
+			end
+			local minimum = scrollbar:getMinimum()
+			local maximum = scrollbar:getMaximum()
+			if maximum <= minimum then
+				return false
+			end
+
+			if mouseWheel == MouseWheelUp then
+				if scrollbar:getValue() <= minimum then
+					return false
+				end
+				scrollbar:decrement()
+			else
+				if scrollbar:getValue() >= maximum then
+					return false
+				end
+				scrollbar:increment()
+			end
+			return true
+		end
+
+		infoPanel.onHoverChange = function(widget, hovered)
+			if hovered then
+				cancelClearInfoPanel()
+			else
+				scheduleClearInfoPanel()
+			end
+		end
+
+		infoPanel.scrollArea.onHoverChange = function(widget, hovered)
+			if hovered then
+				cancelClearInfoPanel()
+			else
+				scheduleClearInfoPanel()
+			end
+		end
+	end
+
 	clearInfoPanel()
 	setupRewardWallHovers()
 	initRewardGoldSlots()
+
+	local bonusIcons = rewardWallController.ui.restingAreaPanel.bonusIcons
+	if bonusIcons then
+		local iconSource = "game_rewardwall/images/icon-restingareabonuseslevels"
+		for i = 1, 6 do
+			local widget = bonusIcons:getChildById("bonusIcon" .. i)
+			if widget then
+				widget:setIcon(iconSource)
+				widget:setIconClip({x = (i - 1) * 64, y = 0, width = 64, height = 64})
+			end
+		end
+	end
 end
 
 function onHoverBonusChange(widget, hovered)
@@ -1131,6 +1563,20 @@ function onClickPickReward(widget)
 	})
 end
 
+local function onResourcesBalanceChange(value, oldBalance, resourceType)
+	if resourceType and resourceType ~= ResourceTypes.DAILYREWARD_STREAK then
+		return
+	end
+	if not rewardWallController.ui or not rewardWallController.ui.footerPanel or not rewardWallController.ui.footerPanel.footerGold2 then
+		return
+	end
+	local player = g_game.getLocalPlayer()
+	local balance = player and player:getResourceBalance(ResourceTypes.DAILYREWARD_STREAK) or (value or 0)
+	if rewardWallController.ui.footerPanel.footerGold2.text then
+		rewardWallController.ui.footerPanel.footerGold2.text:setText(balance)
+	end
+end
+
 function rewardWallController:onInit()
 	g_ui.importStyle("styles/style.otui")
 	rewardWallController:loadUI("game_rewardwall")
@@ -1142,18 +1588,27 @@ function rewardWallController:onInit()
 	end
 
 	rewardWallController.ui:hide()
+	rewardWallController.ui.onVisibilityChange = function(widget, visible)
+		if not visible then
+			cancelClearInfoPanel()
+			clearInfoPanel()
+		end
+	end
 	rewardWallController:registerEvents(g_game, {
 		onOpenRewardWall = onOpenRewardWall,
 		onCloseRewardWall = onCloseRewardWall,
 		onDailyReward = onDailyReward,
 		onRewardHistory = onRewardHistory,
 		onRestingAreaState = onRestingAreaState,
-		onDailyRewardCollectionState = onDailyRewardCollectionState
+		onDailyRewardCollectionState = onDailyRewardCollectionState,
+		onResourcesBalanceChange = onResourcesBalanceChange
 	})
 	setupRewardWallUi()
+	rewardWallController.updateButtonHighlight = updateButtonHighlight
 end
 
 function rewardWallController:onTerminate()
+	cancelClearInfoPanel()
 	stopDailyRewardSlotTimer()
 	stopRestingAreaTimer()
 
@@ -1168,11 +1623,18 @@ function rewardWallController:onGameStart()
 	if not ButtonRewardWall then
 		ButtonRewardWall = modules.game_mainpanel.addToggleButton("rewardWall", tr("Open Reward Wall"), "/images/options/rewardwall", toggle, false, 21)
 	end
+	updateButtonHighlight(rewardWallCanClaim)
 end
 
 function rewardWallController:onGameEnd()
 	stopDailyRewardSlotTimer()
 	stopRestingAreaTimer()
+
+	if backgroundRewardTimerEvent then
+		removeEvent(backgroundRewardTimerEvent)
+		backgroundRewardTimerEvent = nil
+	end
+	updateButtonHighlight(false)
 
 	if claimCloseResetEvent then
 		removeEvent(claimCloseResetEvent)
@@ -1200,8 +1662,17 @@ function rewardWallController:onGameEnd()
 end
 
 function rewardWallController:onClickshowHistory()
-	visibleHistory(not rewardWallController.ui.historyPanel:isVisible())
-	g_game.requestOpenRewardHistory()
+	local isShowing = not rewardWallController.ui.historyPanel:isVisible()
+	visibleHistory(isShowing)
+	if isShowing then
+		g_game.requestOpenRewardHistory()
+		local protocolGame = g_game.getProtocolGame()
+		if protocolGame then
+			local msg = OutputMessage.create()
+			msg:addU8(0xB5)
+			protocolGame:send(msg)
+		end
+	end
 	rewardWallController.ui.footerPanel.historyButton:setText(rewardWallController.ui.historyPanel:isVisible() and "Back" or "History")
 end
 
@@ -1210,7 +1681,15 @@ function rewardWallController:onClickToggle()
 end
 
 function rewardWallController:onClickSendStoreRewardWall()
-	modules.game_store.openPremiumBoost()
+	if modules.game_store then
+		if modules.game_store.openPremiumBoost then
+			modules.game_store.openPremiumBoost()
+		elseif modules.game_store.show then
+			modules.game_store.show()
+		elseif modules.game_store.toggle then
+			modules.game_store.toggle()
+		end
+	end
 end
 
 function rewardWallController:onClickDisplayWindowsPickRewardWindow(event)
@@ -1279,10 +1758,12 @@ end
 
 function rewardWallController:onhoverBonus(event)
 	if not event.value then
-		clearInfoPanel()
+		scheduleClearInfoPanel()
 
 		return
 	end
+
+	cancelClearInfoPanel()
 
 	local id = event.target:getId()
 	local index = tonumber(id:match("%d+"))
@@ -1302,10 +1783,12 @@ end
 
 function rewardWallController:onhoverStatusPlayer(event)
 	if not event.value then
-		clearInfoPanel()
+		scheduleClearInfoPanel()
 
 		return
 	end
+
+	cancelClearInfoPanel()
 
 	local playerStatus = {
 		rewardStreakIcon = "This explains the reward streak system. You need to claim your daily reward between regular server saves to maintain your streak. At a streak of 2+, your character gets resting area bonuses. Free accounts can reach a maximum bonus at streak level 3, while premium players can reach higher levels. Characters on the same account share the streak.",
@@ -1321,10 +1804,12 @@ end
 
 function rewardWallController:onhoverRewardType(event)
 	if not event.value then
-		clearInfoPanel()
+		scheduleClearInfoPanel()
 
 		return
 	end
+
+	cancelClearInfoPanel()
 
 	local itemsToSelect = event.target.itemsToSelect or {
 		1,
@@ -1378,10 +1863,12 @@ function rewardWallController:onhoverStatusReward(event)
 	}
 
 	if not event.value then
-		clearInfoPanel()
+		scheduleClearInfoPanel()
 
 		return
 	end
+
+	cancelClearInfoPanel()
 
 	local status = event.target.status
 
@@ -1389,11 +1876,19 @@ function rewardWallController:onhoverStatusReward(event)
 end
 
 function onClickBtnOk()
-	g_logger.info(string.format("[rewardwall] OK: selected=%d claimPending=%s bonusShrine=%s", table.size(actualUsed), tostring(claimPending), tostring(bonusShrine)))
+	local totalSelected = 0
+	local itemsToSend = {}
+	for itemId, count in pairs(actualUsed) do
+		if count and count > 0 then
+			totalSelected = totalSelected + count
+			itemsToSend[itemId] = count
+		end
+	end
 
-	if table.empty(actualUsed) or claimPending then
+	g_logger.info(string.format("[rewardwall] OK: totalSelected=%d itemsCount=%d claimPending=%s bonusShrine=%s", totalSelected, table.size(itemsToSend), tostring(claimPending), tostring(bonusShrine)))
+
+	if totalSelected == 0 or claimPending then
 		g_logger.info("[rewardwall] OK aborted: nothing selected or a previous claim is in progress")
-
 		return
 	end
 
@@ -1405,6 +1900,11 @@ function onClickBtnOk()
 end
 
 function destroyPickReward(bool)
+	claimPending = false
+	if claimCloseResetEvent then
+		removeEvent(claimCloseResetEvent)
+		claimCloseResetEvent = nil
+	end
 	windowsPickWindow = destroyWindows(windowsPickWindow)
 
 	if bool then
@@ -1422,14 +1922,20 @@ local function formatRewardItemWeight(weightUnits)
 end
 
 local function getPickRewardMaxAllowed(row, itemId)
-	local thisPanelUsed = actualUsed[itemId] or 0
-	local alreadyUsed = 0
-
-	for _, count in pairs(actualUsed) do
-		alreadyUsed = alreadyUsed + (count or 0)
+	if not row or not row.itemsToSelect then
+		return 0
 	end
 
-	return math.max(0, row.itemsToSelect - (alreadyUsed - thisPanelUsed))
+	local thisPanelUsed = actualUsed[itemId] or 0
+	local otherPanelsUsed = 0
+
+	for id, count in pairs(actualUsed) do
+		if id ~= itemId then
+			otherPanelsUsed = otherPanelsUsed + (count or 0)
+		end
+	end
+
+	return math.max(0, row.itemsToSelect - otherPanelsUsed)
 end
 
 local function resolvePickRewardRow(widget)
@@ -1498,9 +2004,10 @@ local function refreshPickRewardSummary(referenceRow)
 		alreadyUsed = alreadyUsed + (count or 0)
 	end
 
-	local color = alreadyUsed == 0 and "#D33C3C" or "#00FF00"
+	local isComplete = (alreadyUsed == referenceRow.itemsToSelect)
+	local color = isComplete and "#00FF00" or "#D33C3C"
 
-	windowsPickWindow:getChildById("btnOk"):setEnabled(alreadyUsed > 0)
+	windowsPickWindow:getChildById("btnOk"):setEnabled(isComplete)
 
 	local text = string.format("You have selected [color=%s]%d[/color] of %d reward items", color, alreadyUsed, referenceRow.itemsToSelect)
 

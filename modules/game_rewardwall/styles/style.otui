@@ -8,7 +8,7 @@ historyData2 < UIWidget
     anchors.bottom: parent.bottom
     width: 148
     text-align: left
-    font: Verdana Bold-11px
+    font: Verdana Bold-11px-new
     color: #c0c0c0
     phantom: false
     margin-top: -3
@@ -25,7 +25,7 @@ historyData2 < UIWidget
     anchors.left: prev.right
     anchors.bottom: parent.bottom
     width: 50
-    font: Verdana Bold-11px
+    font: Verdana Bold-11px-new
     color: #c0c0c0
     text-align: right
     text-offset: -3 -2
@@ -40,7 +40,7 @@ historyData2 < UIWidget
     anchors.top: parent.top
     anchors.left: prev.right
     anchors.bottom: parent.bottom
-    font: Verdana Bold-11px
+    font: Verdana Bold-11px-new
     color: #c0c0c0
     id: Description
     width: 259
@@ -118,7 +118,7 @@ ItemReward < UIWidget
     width: 160
     margin-top: 1
     margin-left: 5
-    font: Verdana Bold-11px
+    font: Verdana Bold-11px-new
     color: #c0c0c0
 
   UIWidget
@@ -160,7 +160,7 @@ ItemReward < UIWidget
       Label
         id: numberValue
         anchors.fill: parent
-        font: Verdana Bold-11px
+        font: Verdana Bold-11px-new
         color: #c0c0c0
         text-align: center
         text: 0
@@ -183,7 +183,7 @@ ItemReward < UIWidget
     id: weight
     anchors.verticalCenter: parent.verticalCenter
     anchors.right: parent.right
-    font: Verdana Bold-11px
+    font: Verdana Bold-11px-new
     color: #c0c0c0
     margin-top: 1
     margin-right: 6
@@ -248,7 +248,7 @@ imgBonuses < UIWidget
     margin-right: -5
     margin-bottom: -3
     text-align: center
-    font: Verdana Bold-11px
+    font: Verdana Bold-11px-new
     color: #ffffff
     phantom: true
     visible: false
@@ -336,7 +336,7 @@ RestingAreaTimeLeft < UIWidget
     id: text
     anchors.fill: parent
     text-align: center
-    font: Verdana Bold-11px
+    font: Verdana Bold-11px-new
     color: #FFFFFF
     phantom: true
 
@@ -363,7 +363,7 @@ RestingAreaJoker < UIWidget
 
   UIWidget
     id: text
-    font: Verdana Bold-11px
+    font: Verdana Bold-11px-new
     anchors.top: parent.top
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
@@ -409,7 +409,7 @@ RewardGoldContent < UIWidget
     id: text
     anchors.fill: parent
     text-align: center
-    font: Verdana Bold-11px
+    font: Verdana Bold-11px-new
     color: #FFFFFF
     phantom: true
 
@@ -442,7 +442,7 @@ RewardGoldCollectable < UIWidget
   Label
     id: balance
     text: 0
-    font: Verdana Bold-11px
+    font: Verdana Bold-11px-new
     color: #c0c0c0
     anchors.verticalCenter: parent.verticalCenter
     anchors.right: icon.left
@@ -455,7 +455,7 @@ RewardGoldCollectable < UIWidget
     id: icon
     anchors.verticalCenter: parent.verticalCenter
     anchors.right: parent.right
-    margin-right: 17
+    margin-right: 23
     margin-top: 1
     size: 11 11
     image-source: /game_rewardwall/images/instant-reward-access-icon
@@ -497,7 +497,7 @@ TESDTSTST < Panel
     margin-top: 10
 
 TextListWithScroll < Panel
-  font: Verdana Bold-11px
+  font: Verdana Bold-11px-new
   color: #c0c0c0
   width: 192
   text-offset: 24 5

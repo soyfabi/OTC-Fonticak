@@ -49,12 +49,13 @@ TreeItem < UIWidget
     margin-top: -5
     margin-left: 2
     image-source: /images/store/categorie-up
-    image-clip: 0 0 170 24
+    image-clip: 0 0 166 22
+    image-border: 4
     $hover:
-      image-clip: 0 0 170 24
+      image-clip: 0 0 166 22
     $pressed:
       image-source: /images/store/categorie-down
-      image-clip: 0 0 170 24
+      image-clip: 0 0 166 22
     UIWidget
       id: icon
       size: 13 13

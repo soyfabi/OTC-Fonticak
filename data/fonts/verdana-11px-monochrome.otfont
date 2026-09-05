@@ -1,0 +1,7 @@
+Font
+  name: verdana-11px-monochrome
+  texture: verdana-11px-monochrome_cp1252
+  height: 16
+  glyph-size: 16 16
+  space-width: 3
+  spacing: 1 0

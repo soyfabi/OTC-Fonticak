@@ -15,7 +15,7 @@ MainWindowHigh
     margin-bottom: 32
     !text: tr('History')
     text-offset: 0 2
-    font: Verdana Bold-11px
+    font: Verdana Bold-11px-new
     color: #909090
     visible: false
 
@@ -43,7 +43,7 @@ MainWindowHigh
     anchors.left: parent.left
     !text: tr('Resting Area Bonuses')
     text-offset: -1 2
-    font: Verdana Bold-11px
+    font: Verdana Bold-11px-new
     color: #909090
     margin-top: -7
     focusable: false
@@ -67,7 +67,7 @@ MainWindowHigh
         image-fixed-ratio: true
         text-align: center
         text-offset: -1 -2
-        font: Verdana Bold-11px
+        font: Verdana Bold-11px-new
         color: #c0c0c0
         @onHoverChange: modules.game_rewardwall.onHoverStatusPlayerChange(self, value)
 
@@ -136,23 +136,21 @@ MainWindowHigh
       id: streakWarning
       text-align: center
       text-wrap: true
-      border-color: #00000077
       height: 38
-      width: 370
-      anchors.top: parent.top
-      anchors.left: parent.left
-      margin-top: 60
-      margin-left: 110
-      font: Verdana Bold-11px
+      width: 420
+      anchors.top: bonusIcons.bottom
+      anchors.horizontalCenter: bonusIcons.horizontalCenter
+      margin-top: 3
+      font: Verdana Bold-11px-new
       phantom: true
       color: #c0c0c0
-      text: Great! You benefit from the best possible rewards and bonuses due to your premium status.
+      visible: false
 
   MiniPanel
     id: dailyRewardsPanel
     !text: tr('Daily Rewards')
     text-offset: -1 2
-    font: Verdana Bold-11px
+    font: Verdana Bold-11px-new
     color: #909090
     anchors.top: prev.bottom
     anchors.left: parent.left
@@ -409,7 +407,7 @@ MainWindowHigh
       border-color: #00000077
       height: 38
       width: 350
-      font: Verdana Bold-11px
+      font: Verdana Bold-11px-new
       color: #c0c0c0
       anchors.left: parent.left
       anchors.top: parent.top
@@ -432,44 +430,65 @@ MainWindowHigh
     size: 506 105
     focusable: false
 
-    Label
-      id: free
-      text-align: topLeft
-      text-wrap: true
-      font: Verdana Bold-11px
-      color: #808080
-      anchors.left: parent.left
+    VerticalQtScrollBar
+      id: infoScrollBar
       anchors.top: parent.top
       anchors.bottom: parent.bottom
-      margin: 10
-      width: 235
-      visible: false
-
-    Label
-      id: premium
-      text-align: topLeft
-      text-wrap: true
-      font: Verdana Bold-11px
-      color: #909090
-      anchors.left: free.right
-      anchors.top: parent.top
       anchors.right: parent.right
-      anchors.bottom: parent.bottom
-      margin-top: 10
-      margin-bottom: 10
-      margin-right: 10
-      margin-left: 8
+      margin-right: -4
+      margin-top: -4
+      margin-bottom: -4
+      step: 14
+      pixels-scroll: true
       visible: false
 
-    Label
-      id: statusText
+    ScrollablePanel
+      id: scrollArea
+      vertical-scrollbar: infoScrollBar
       anchors.fill: parent
-      margin: 5 5 5 5
-      text-align: topLeft
-      text-wrap: true
-      font: Verdana Bold-11px
-      color: #c0c0c0
+      margin-right: 8
+      phantom: false
       focusable: false
+
+      Label
+        id: free
+        text-align: topLeft
+        text-wrap: true
+        text-vertical-auto-resize: true
+        font: Verdana Bold-11px-new
+        color: #808080
+        anchors.left: parent.left
+        anchors.top: parent.top
+        width: 230
+        visible: false
+        phantom: true
+
+      Label
+        id: premium
+        text-align: topLeft
+        text-wrap: true
+        text-vertical-auto-resize: true
+        font: Verdana Bold-11px-new
+        color: #909090
+        anchors.left: free.right
+        anchors.top: parent.top
+        anchors.right: parent.right
+        margin-left: 10
+        visible: false
+        phantom: true
+
+      Label
+        id: statusText
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        text-align: topLeft
+        text-wrap: true
+        text-vertical-auto-resize: true
+        font: Verdana Bold-11px-new
+        color: #c0c0c0
+        focusable: false
+        phantom: true
 
   Panel
     id: footerPanel
@@ -488,7 +507,7 @@ MainWindowHigh
 
     UIWidget
       id: footerGold1
-      size: 26 20
+      size: 32 20
       margin-top: 6
       anchors.left: parent.left
       anchors.top: footerSeparator.bottom
@@ -498,23 +517,28 @@ MainWindowHigh
 
       RewardResourceIcon
         id: gold
+        anchors.top: parent.top
+        anchors.right: parent.right
+        margin-top: 4
+        margin-right: 3
+        image-size: 11 11
         image-source: /game_rewardwall/images/icon-daily-reward-joker
 
       UIWidget
         id: text
-        font: Verdana Bold-11px
+        font: Verdana Bold-11px-new
         font-color: #c0c0c0
-        anchors.top: parent.top
-        anchors.left: parent.left
-        margin-top: 1
-        margin-left: 3
         anchors.verticalCenter: parent.verticalCenter
+        anchors.left: parent.left
+        anchors.right: gold.left
+        margin-left: 2
+        margin-right: 1
         text-align: center
         phantom: true
 
     UIWidget
       id: footerGold2
-      size: 52 20
+      size: 58 20
       anchors.left: footerGold1.right
       anchors.top: footerSeparator.bottom
       margin-left: 6
@@ -525,17 +549,22 @@ MainWindowHigh
 
       RewardResourceIcon
         id: gold
+        anchors.top: parent.top
+        anchors.right: parent.right
+        margin-top: 4
+        margin-right: 4
+        image-size: 11 11
         image-source: /game_rewardwall/images/instant-reward-access-icon
 
       UIWidget
         id: text
-        font: Verdana Bold-11px
+        font: Verdana Bold-11px-new
         font-color: #c0c0c0
-        anchors.top: parent.top
-        anchors.left: parent.left
-        margin-top: 1
-        margin-left: 29
         anchors.verticalCenter: parent.verticalCenter
+        anchors.left: parent.left
+        anchors.right: gold.left
+        margin-left: 2
+        margin-right: 1
         text-align: center
         phantom: true
 

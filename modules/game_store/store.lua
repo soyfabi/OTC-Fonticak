@@ -343,6 +343,10 @@ function toggle()
   end
 end
 
+function openPremiumBoost()
+  show()
+end
+
 local function updateCoinBalanceWidgets(refreshOffers)
   if not StoreWindow or not StoreWindow.coinsStatus then
     return

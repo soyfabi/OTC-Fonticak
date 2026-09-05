@@ -1,0 +1,7 @@
+Font
+  name: Verdana-8px-outline
+  texture: verdana-8px-outline
+  height: 12
+  glyph-size: 12 12
+  spacing: -3 -3
+  space-width: 7 
