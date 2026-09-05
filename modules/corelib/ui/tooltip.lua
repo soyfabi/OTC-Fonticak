@@ -117,13 +117,13 @@ local function onWidgetDestroy(widget)
         cancelPendingTooltip()
     end
     if widget == currentHoveredWidget then
+        currentHoveredWidget = nil
         if widget.tooltip or widget.parseColoreDisplay then
             g_tooltip.hide()
         end
         if widget.specialtooltip then
             g_tooltip.hideSpecial()
         end
-        currentHoveredWidget = nil
     end
 end
 
@@ -133,13 +133,14 @@ local function onWidgetVisibilityChange(widget, visible)
             cancelPendingTooltip()
         end
         if currentHoveredWidget and (currentHoveredWidget == widget or currentHoveredWidget:isDestroyed() or not currentHoveredWidget:isVisible()) then
-            if currentHoveredWidget.tooltip or currentHoveredWidget.parseColoreDisplay then
+            local hovered = currentHoveredWidget
+            currentHoveredWidget = nil
+            if hovered.tooltip or hovered.parseColoreDisplay then
                 g_tooltip.hide()
             end
-            if currentHoveredWidget.specialtooltip then
+            if hovered.specialtooltip then
                 g_tooltip.hideSpecial()
             end
-            currentHoveredWidget = nil
         end
     end
 end
@@ -147,13 +148,14 @@ end
 local function onWidgetMousePress(widget, mousePos, button)
     cancelPendingTooltip()
     if currentHoveredWidget then
-        if currentHoveredWidget.tooltip or currentHoveredWidget.parseColoreDisplay then
+        local hovered = currentHoveredWidget
+        currentHoveredWidget = nil
+        if hovered.tooltip or hovered.parseColoreDisplay then
             g_tooltip.hide()
         end
-        if currentHoveredWidget.specialtooltip then
+        if hovered.specialtooltip then
             g_tooltip.hideSpecial()
         end
-        currentHoveredWidget = nil
     end
 end
 
@@ -167,13 +169,13 @@ local function onWidgetHoverChange(widget, hovered)
             cancelPendingTooltip()
         end
         if widget == currentHoveredWidget then
+            currentHoveredWidget = nil
             if widget.tooltip or widget.parseColoreDisplay then
                 g_tooltip.hide()
             end
             if widget.specialtooltip then
                 g_tooltip.hideSpecial()
             end
-            currentHoveredWidget = nil
         end
     end
 end
