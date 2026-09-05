@@ -4396,7 +4396,11 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
     }
 
     if (item->isStackable() || item->isFluidContainer() || item->isSplash() || item->isChargeable() || item->isQuiver()) {
-        item->setCountOrSubType(g_game.getFeature(Otc::GameCountU16) ? msg->getU16() : msg->getU8());
+        if (item->isQuiver() && g_game.getFeature(Otc::GameAstraQuiverCountU16)) {
+            item->setCountOrSubType(msg->getU16());
+        } else {
+            item->setCountOrSubType(g_game.getFeature(Otc::GameCountU16) ? msg->getU16() : msg->getU8());
+        }
     }
 
     if (g_game.getFeature(Otc::GameItemTierByte)) {

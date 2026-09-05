@@ -565,6 +565,7 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<Thing>("setScaleFactor", &Thing::setScaleFactor);
     g_lua.bindClassMemberFunction<Thing>("canAnimate", &Thing::canAnimate);
     g_lua.bindClassMemberFunction<Thing>("isAmmo", &Thing::isAmmo);
+    g_lua.bindClassMemberFunction<Thing>("isQuiver", &Thing::isQuiver);
     g_lua.bindClassMemberFunction<Thing>("hasExpireStop", &Thing::isAmmo);
     g_lua.bindClassMemberFunction<Thing>("hasWearout", &Thing::isAmmo);
 
@@ -737,6 +738,7 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<ThingType>("isOnTop", &ThingType::isOnTop);
     g_lua.bindClassMemberFunction<ThingType>("isContainer", &ThingType::isContainer);
     g_lua.bindClassMemberFunction<ThingType>("isStackable", &ThingType::isStackable);
+    g_lua.bindClassMemberFunction<ThingType>("isQuiver", &ThingType::isQuiver);
     g_lua.bindClassMemberFunction<ThingType>("isForceUse", &ThingType::isForceUse);
     g_lua.bindClassMemberFunction<ThingType>("isMultiUse", &ThingType::isMultiUse);
     g_lua.bindClassMemberFunction<ThingType>("isWritable", &ThingType::isWritable);
@@ -815,6 +817,7 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<Item>("getCharges", &Item::getCharges);
 
     g_lua.bindClassMemberFunction<Item>("isStackable", &Item::isStackable);
+    g_lua.bindClassMemberFunction<Item>("isQuiver", &Item::isQuiver);
     g_lua.bindClassMemberFunction<Item>("isMarketable", &Item::isMarketable);
     g_lua.bindClassMemberFunction<Item>("isFluidContainer", &Item::isFluidContainer);
     g_lua.bindClassMemberFunction<Item>("getMarketData", &Item::getMarketData);

@@ -533,7 +533,7 @@ namespace Otc
         GameThingQuickLoot = 83,
         GameThingQuiver = 84,
         GameThingPodium = 85,
-        GameThingUpgradeClassification = 86,
+        // 86 reserved (TFS CreatureWalkthrough) - GameThingUpgradeClassification is 130
         GameThingCounter = 87,
         GameThingClock = 88,
         GameThingPodiumItemType = 89,
@@ -578,12 +578,15 @@ namespace Otc
         GameCharacterSkillStats = 127,
         GameCreaturePaperdoll = 128,
         GameMultiSpr = 129,
-        GameVocationMonk = 130,
+        // Aligned with TFS & Astra
+        GameThingUpgradeClassification = 130,
         GameItemTierByte = 131,
         GameProficiency = 132,
         GameEffectSource = 133,
         // Align with Fantoner/Astra negotiated feature id
         GamePlayerFamiliars = 138,
+        GameAstraQuiverCountU16 = 141,
+        GameVocationMonk = 150,
         LastGameFeature
     };
 

@@ -66,10 +66,10 @@ void UIItem::drawSelf(const DrawPoolType drawPane)
 
         const bool hasDisplayOverride = m_displayCount >= 0;
         const int displayCount = hasDisplayOverride ? m_displayCount
-                               : (m_item->isStackable() ? m_item->getCount() : 0);
+                               : ((m_item->isStackable() || m_item->isQuiver()) ? m_item->getCountOrSubType() : 0);
         // Override (including 0) is used by Action Bar to show missing stacks.
         const bool shouldDrawCount = hasDisplayOverride ? m_alwaysShowCount
-                               : (displayCount > 1);
+                               : (m_item->isQuiver() ? displayCount > 0 : displayCount > 1);
         if (countFont && shouldDrawCount) {
             static constexpr Color STACK_COLOR(191, 191, 191);
             std::string countText;

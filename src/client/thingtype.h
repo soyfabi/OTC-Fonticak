@@ -165,7 +165,23 @@ public:
     bool isDecoKit() { return (m_flags & ThingFlagAttrDecoKit); }
     bool isLoading() const { return m_loading.load(std::memory_order_acquire); }
     bool isAmmo() { return (m_flags & ThingFlagAttrAmmo); }
-    bool isQuiver() { return m_market.category == ITEM_CATEGORY_QUIVER; }
+    bool isQuiver() const {
+        if (m_market.category == ITEM_CATEGORY_QUIVER)
+            return true;
+        switch (m_id) {
+            case 35524: // jungle quiver
+            case 35562: // quiver
+            case 35848: // blue quiver
+            case 35849: // red quiver
+            case 36666: // eldritch quiver
+            case 39150: // alicorn quiver
+            case 39160: // naga quiver
+            case 45644: // candy-coated quiver
+                return true;
+            default:
+                return false;
+        }
+    }
     bool isDualWield() { return (m_flags & ThingFlagAttrDualWield); }
     bool hasSkillWheelGem() { return (m_flags & ThingFlagAttrSkillWheelGem); }
     SkillWheelGem getSkillWheelGem() { return m_skillWheelGem; }
