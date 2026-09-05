@@ -430,7 +430,7 @@ RewardGoldCollectable < UIWidget
   Label
     id: costStrike
     text: 1
-    font: Verdana-11px-lowspace-strikeout
+    font: Verdana-Strikethrough-11px
     color: #707070
     anchors.verticalCenter: parent.verticalCenter
     anchors.right: balance.left
