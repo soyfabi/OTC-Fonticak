@@ -80,7 +80,7 @@ void UIItem::drawSelf(const DrawPoolType drawPane)
             } else {
                 countText = fmt::format("{}K", displayCount / 1000);
             }
-            countFont->drawText(countText, Rect(m_rect.topLeft(), m_rect.bottomRight() - Point(5, 1)), STACK_COLOR, Fw::AlignBottomRight);
+            countFont->drawText(countText, Rect(m_rect.topLeft(), m_rect.bottomRight() - Point(2, 1)), STACK_COLOR, Fw::AlignBottomRight);
         }
 
         if (countFont && m_showDuration) {
