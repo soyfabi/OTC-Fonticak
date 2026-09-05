@@ -50,33 +50,13 @@ local function isHotkeyUsed(key, secondary)
     return isHotkeyUsedInternal(key, chatMode, secondary)
 end
 
-local function manageKeyPress(window, keyCode, keyboardModifiers, keyText)
-    local keyCombo = determineKeyComboDesc(keyCode, keyboardModifiers, keyText)
-    local resetCombo = {"Shift", "Ctrl", "Alt"}
-    if table.contains(resetCombo, keyCombo) then
-        window.display:setText('')
-        window.display.combo = ''
-        window.warning:setVisible(false)
-        window.buttonOk:setEnabled(true)
-        return true
-    end
+local assignHotkeyWindow = nil
 
-    local shortCut = (keyCombo == "HalfQuote" and "'" or keyCombo)
-    window.display:setText(shortCut)
-    window.display.combo = keyCombo
-    window.warning:setVisible(false)
-    window.buttonOk:setEnabled(true)
-    if isHotkeyUsed(keyCombo) then
-        window.warning:setVisible(true)
-        window.warning:setText("This hotkey is already in use and will be overwritten.")
+function closeAssignHotkeyWindow()
+    if assignHotkeyWindow and not assignHotkeyWindow:isDestroyed() then
+        assignHotkeyWindow:destroy()
     end
-
-    if table.contains(blockedKeys, keyCombo) then
-        window.warning:setVisible(true)
-        window.warning:setText("This hotkey is already in use and cannot be overwritten.")
-        window.buttonOk:setEnabled(false)
-    end
-    return true
+    assignHotkeyWindow = nil
 end
 
 -- check game_hotkeys
@@ -136,36 +116,37 @@ function removeHotkeyFromActionBar(keyCombo)
     end
     return false
 end
--- /*=============================================
--- =            Windows hotkeys html             =
--- =============================================*/
 function assignHotkey(button)
-    if ActionBarController.ui then
-        ActionBarController:unloadHtml()
-    end
     local actionbar = button:getParent():getParent()
     if actionbar.locked then
         alert('Action bar is locked')
         return
     end
-    ActionBarController:loadHtml('html/hotkeys.html')
-    local ui = ActionBarController.ui
 
-    ActionBarController:scheduleEvent(function()
-        ui:centerIn('parent')
-    end, 1, "lazyHtml")
+    closeAssignHotkeyWindow()
+    if closeAllAssignWindows then
+        closeAllAssignWindows('hotkey')
+    end
 
-    ui:show()
-    ui:raise()
-    ui:focus()
+    local ok, assignWindow = pcall(function()
+        return g_ui.loadUI('/modules/game_actionbar/assign_hotkey', g_ui.getRootWidget())
+    end)
+    if not ok or not assignWindow then
+        perror('Failed to open Assign Hotkey window: ' .. tostring(assignWindow))
+        return
+    end
 
-    local assignWindow = ui
+    assignHotkeyWindow = assignWindow
     assignWindow.hotkeyBlock = modules.game_hotkeys.createHotkeyBlock("actionbar_assign_hotkey")
     assignWindow.onDestroy = function()
+        if assignHotkeyWindow ~= assignWindow then
+            return
+        end
         if assignWindow.hotkeyBlock then
             assignWindow.hotkeyBlock:release()
             assignWindow.hotkeyBlock = nil
         end
+        assignHotkeyWindow = nil
     end
 
     local barN = button:getParent():getParent().n
@@ -179,54 +160,70 @@ function assignHotkey(button)
     end
 
     barDesc = barDesc .. " Action Bar: Action Button " .. button:getId()
-    ui:setTitle('Edit Hotkey for "' .. barDesc .. '"')
+    assignWindow:setText('Edit Hotkey for "' .. barDesc .. '"')
 
-    local chatMode = ActionBarController:findWidget("#chatMode")
-    local display = ActionBarController:findWidget("#display")
-    local desc = ActionBarController:findWidget("#desc")
-    local warning = ActionBarController:findWidget("#warning")
-    local buttonOk = ActionBarController:findWidget("#buttonOk")
-    local buttonClear = ActionBarController:findWidget("#buttonClear")
-    local buttonClose = ActionBarController:findWidget("#buttonClose")
+    local content = assignWindow:getChildById('contentPanel') or assignWindow.contentPanel
+    local chatMode = content and (content:getChildById('chatMode') or content.chatMode)
+    local display = assignWindow:recursiveGetChildById('comboPreview')
+    local desc = content and (content:getChildById('desc') or content.desc)
+    local warning = content and (content:getChildById('warning') or content.warning)
+    local buttonOk = content and (content:getChildById('buttonOk') or content.buttonOk)
+    local buttonClear = content and (content:getChildById('buttonClear') or content.buttonClear)
+    local buttonClose = content and (content:getChildById('buttonClose') or content.buttonClose)
+    if not chatMode or not display or not desc or not warning or not buttonOk or not buttonClear or not buttonClose then
+        perror('Assign Hotkey widgets missing')
+        closeAssignHotkeyWindow()
+        return
+    end
 
     desc:setText('Click "Ok" to assign the hotkey. Click "Clear" to remove the hotkey from "' .. barDesc .. '".')
 
-    local currentHotkey = (button.cache and button.cache.hotkey) or ""
-    if currentHotkey ~= "" then
-        display:setText(currentHotkey)
-    else
-        display:setText("")
+    -- comboPreview is an OTUI Label, so setText renders the captured key
+    -- directly. While a combo is shown it is highlighted in light yellow.
+    local pendingCombo = ""
+    local function setDisplayText(text)
+        text = text or ""
+        display:setText(text)
+        if text == "" then
+            display:setColor("#909090")
+        else
+            display:setColor("#ffff66")
+        end
+        display:resizeToText()
     end
-    display.combo = currentHotkey
+
+    local currentHotkey = (button.cache and button.cache.hotkey) or ""
+    pendingCombo = currentHotkey
+    setDisplayText(currentHotkey)
 
     local chatOn = modules.game_console.isChatEnabled()
-    if chatOn then
-        chatMode:setText('Mode: "Chat On"')
-    else
-        chatMode:setText('Mode: "Chat Off"')
-    end
+    chatMode:setText(chatOn and 'Mode: "Chat On"' or 'Mode: "Chat Off"')
 
-    ui:grabKeyboard()
-    ui.onKeyDown = function(window, keyCode, keyboardModifiers, keyText)
-        local keyCombo = determineKeyComboDesc(keyCode, keyboardModifiers, keyText)
-        local resetCombo = {"Shift", "Ctrl", "Alt"}
-        if table.contains(resetCombo, keyCombo) then
-            display:setText('')
-            display.combo = ''
+    assignWindow:show()
+    assignWindow:raise()
+    assignWindow:focus()
+    assignWindow:centerIn('parent')
+    assignWindow:grabKeyboard()
+
+    local resetCombo = { Shift = true, Ctrl = true, Alt = true }
+
+    -- Previews a captured combo in the assign dialog: updates the display,
+    -- runs the conflict checks and toggles Ok accordingly. Both the keyboard
+    -- and the mouse capture go through here.
+    local function previewCombo(keyCombo, displayText)
+        if resetCombo[keyCombo] then
+            pendingCombo = ''
+            setDisplayText('')
             warning:setVisible(false)
             buttonOk:setEnabled(true)
             return true
         end
 
-        local shortCut = (keyCombo == "HalfQuote" and "'" or keyCombo)
-        local fixbugHtmlSystem = ActionBarController.ui.display:getFirstChild()
-        if fixbugHtmlSystem then
-            fixbugHtmlSystem:setText(shortCut) -- Temp
-        end
-        display:setText(shortCut)
-        display.combo = keyCombo
+        pendingCombo = keyCombo
+        setDisplayText(displayText or keyCombo)
         warning:setVisible(false)
         buttonOk:setEnabled(true)
+
         if isHotkeyUsed(keyCombo) then
             warning:setVisible(true)
             warning:setText("This hotkey is already in use in Action Bar and will be overwritten.")
@@ -253,9 +250,26 @@ function assignHotkey(button)
         return true
     end
 
+    assignWindow.onKeyDown = function(window, keyCode, keyboardModifiers, keyText)
+        local keyCombo = determineKeyComboDesc(keyCode, keyboardModifiers, keyText)
+        if keyCombo then
+            local shortCut = (keyCombo == "HalfQuote" and "'" or keyCombo)
+            previewCombo(keyCombo, shortCut)
+        end
+        return true
+    end
+
+    assignWindow.onMousePress = function(window, mousePos, rawButton)
+        local keyCombo = Keybind.getMouseKeyCombo(rawButton)
+        if not keyCombo then
+            return false
+        end
+        return previewCombo(keyCombo)
+    end
+
     local okFunc = function()
         local lastHotkey = (button.cache and button.cache.hotkey) or ""
-        local hotkey = display.combo or ""
+        local hotkey = pendingCombo or ""
 
         if hotkey == "" then
             if lastHotkey ~= "" then
@@ -265,7 +279,7 @@ function assignHotkey(button)
                 updateButton(button)
             end
 
-            ActionBarController:unloadHtml()
+            closeAssignHotkeyWindow()
             return true
         end
 
@@ -293,7 +307,7 @@ function assignHotkey(button)
         end
         updateButton(button)
 
-        ActionBarController:unloadHtml()
+        closeAssignHotkeyWindow()
     end
 
     local clearFunc = function()
@@ -305,25 +319,30 @@ function assignHotkey(button)
 
         invalidateHotkeyButtonCache()
         updateButton(button)
-        display:setText('')
-        display.combo = ''
-        ActionBarController:unloadHtml()
+        pendingCombo = ''
+        setDisplayText('')
+        closeAssignHotkeyWindow()
     end
 
     local closeFunc = function()
-        ActionBarController:unloadHtml()
+        closeAssignHotkeyWindow()
     end
 
     buttonOk.onClick = okFunc
     buttonClear.onClick = clearFunc
     buttonClose.onClick = closeFunc
 
-    ui.onEnter = okFunc
-    ui.onEscape = closeFunc
+    assignWindow.onEnter = okFunc
+    assignWindow.onEscape = closeFunc
 end
 
 function unbindHotkey(hotkey)
     if not gameRootPanel or not hotkey or hotkey == '' then
+        return
+    end
+
+    if Keybind and Keybind.isMouseKey and Keybind.isMouseKey(hotkey) then
+        Keybind.unbindMouseButtonKey(hotkey, gameRootPanel)
         return
     end
 

@@ -534,6 +534,10 @@ function ActionBarController:onGameEnd()
     isLoaded = false
     closeAllAssignWindows()
     cleanupMultiActionState()
+    -- Release the "pick object" mouse grab if the player logs out mid-assignment.
+    if mouseGrabberWidget and onDropActionButton and g_ui.isMouseGrabbed() then
+        onDropActionButton(mouseGrabberWidget)
+    end
     spellGroupCooldownCache = {}
     for _, actionbar in pairs(activeActionBars) do
         unbindActionBarEvent(actionbar)
@@ -748,9 +752,26 @@ function onSpellsChange(player, list)
     end
 end
 
+-- Keeps the hotkey item list bounded: refreshes an existing entry when the
+-- server re-sends info for the same item instead of appending a duplicate.
+local function upsertHotkeyItem(data)
+    local item = data and data[1]
+    if item and item.getId then
+        local itemId = item:getId()
+        for index, existing in ipairs(hotkeyItemList) do
+            local existingItem = existing and existing[1]
+            if existingItem and existingItem.getId and existingItem:getId() == itemId then
+                hotkeyItemList[index] = data
+                return
+            end
+        end
+    end
+    table.insert(hotkeyItemList, data)
+end
+
 function onHotkeyItems(itemList)
     for _, data in pairs(itemList) do
-        table.insert(hotkeyItemList, data)
+        upsertHotkeyItem(data)
     end
     for _, actionbar in pairs(activeActionBars) do
         for _, button in pairs(actionbar.tabBar:getChildren()) do

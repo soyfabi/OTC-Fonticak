@@ -1,0 +1,109 @@
+NewMainWindow
+  id: assignHotkeyWindow
+  size: 400 215
+  font: verdana-11px-antialised
+  color: #ffffff
+
+  Panel
+    id: contentPanel
+    anchors.fill: parent
+    margin: 12 12 12 12
+
+    Label
+      id: chatMode
+      !text: tr('Mode: "Chat Off"')
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      text-align: center
+      font: Verdana Bold-11px
+      color: #c0c0c0
+      text-auto-resize: true
+
+    Panel
+      id: comboPanel
+      anchors.top: chatMode.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 8
+      height: 33
+      image-source: /images/ui/1pixel-down-frame
+      image-border: 1
+
+      Label
+        id: comboPreview
+        text: ''
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        font: Verdana Bold-11px
+        color: #909090
+        text-auto-resize: true
+        text-align: center
+
+    Label
+      id: desc
+      !text: tr('Click "Ok" to assign the hotkey. Click "Clear" to remove the hotkey.')
+      anchors.top: comboPanel.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 8
+      height: 30
+      text-wrap: true
+      text-auto-resize: false
+      font: Verdana Bold-11px
+      color: #c0c0c0
+
+    Label
+      id: warning
+      text: "This hotkey is already in use and will be overwritten."
+      anchors.top: desc.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 5
+      height: 16
+      text-auto-resize: false
+      font: Verdana Bold-11px
+      color: #f75f5f
+      visible: false
+
+    HorizontalSeparator
+      id: separator
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: next.top
+      margin-bottom: 10
+
+    Button
+      id: buttonClose
+      text: Cancel
+      size: 58 20
+      font: verdana-11px-monochrome
+      color: #ffffff
+      padding: 0
+      text-offset: 0 3
+      anchors.bottom: parent.bottom
+      anchors.right: parent.right
+
+    Button
+      id: buttonClear
+      text: Clear Hotkey
+      size: 86 20
+      font: verdana-11px-monochrome
+      color: #ffffff
+      padding: 0
+      text-offset: 0 3
+      anchors.bottom: parent.bottom
+      anchors.right: buttonClose.left
+      margin-right: 6
+
+    Button
+      id: buttonOk
+      text: Ok
+      size: 43 20
+      font: verdana-11px-monochrome
+      color: #ffffff
+      padding: 0
+      text-offset: 0 3
+      anchors.bottom: parent.bottom
+      anchors.right: buttonClear.left
+      margin-right: 6

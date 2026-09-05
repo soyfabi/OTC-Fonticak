@@ -582,8 +582,11 @@ function closeAllAssignWindows(except)
     if except ~= 'item' then
         closeAssignItemWindow()
     end
-    if ActionBarController.ui then
-        ActionBarController:unloadHtml()
+    if closeAssignPassiveWindow and except ~= 'passive' then
+        closeAssignPassiveWindow()
+    end
+    if closeAssignHotkeyWindow and except ~= 'hotkey' then
+        closeAssignHotkeyWindow()
     end
 end
 
@@ -838,8 +841,21 @@ function assignItem(button, itemId, itemTier, dragEvent, multiSlotIndex)
     end
 end
 -- /*=============================================
--- =            Passive html Windows          =
+-- =            Passive Windows                  =
 -- =============================================*/
+local assignPassiveWindow = nil
+local assignPassiveRadio = nil
+
+function closeAssignPassiveWindow()
+    if assignPassiveRadio then
+        assignPassiveRadio:destroy()
+        assignPassiveRadio = nil
+    end
+    if assignPassiveWindow and not assignPassiveWindow:isDestroyed() then
+        assignPassiveWindow:destroy()
+    end
+    assignPassiveWindow = nil
+end
 
 function assignPassive(button)
     local actionbar = button:getParent():getParent()
@@ -847,58 +863,97 @@ function assignPassive(button)
         alert('Action bar is locked')
         return
     end
-    local radio = UIRadioGroup.create()
-    if ActionBarController.ui then
-        ActionBarController:unloadHtml()
+
+    closeAssignPassiveWindow()
+    closeAllAssignWindows('passive')
+
+    local ok, window = pcall(function()
+        return g_ui.loadUI('/modules/game_actionbar/assign_passive', g_ui.getRootWidget())
+    end)
+    if not ok or not window then
+        perror('Failed to open Assign Passive window: ' .. tostring(window))
+        return
     end
-    ActionBarController:loadHtml('html/passive.html')
-    local ui = ActionBarController.ui
-    ui:show()
-    ui:raise()
-    ui:setTitle("Assign Passive to Action Button " .. button:getId())
-    local passiveList = ActionBarController:findWidget("#passiveList")
-    local previewWidget = ActionBarController:findWidget("#preview")
-    local image = ActionBarController:findWidget("#image")
+
+    assignPassiveWindow = window
+    local currentPassiveWindow = window
+    assignPassiveRadio = UIRadioGroup.create()
+    window.onDestroy = function()
+        if assignPassiveWindow ~= currentPassiveWindow then
+            return
+        end
+        if assignPassiveRadio then
+            assignPassiveRadio:destroy()
+            assignPassiveRadio = nil
+        end
+        assignPassiveWindow = nil
+    end
+
+    local content = window:getChildById('contentPanel') or window.contentPanel
+    if not content then
+        perror('Assign Passive contentPanel missing')
+        closeAssignPassiveWindow()
+        return
+    end
+
+    local passiveList = content:getChildById('passiveList') or content.passiveList
+    local previewWidget = window:recursiveGetChildById('preview') or content:getChildById('preview')
+    local image = window:recursiveGetChildById('image') or content:getChildById('image')
+    local buttonOk = content:getChildById('buttonOk') or content.buttonOk
+    local buttonClose = content:getChildById('buttonClose') or content.buttonClose
+    if not passiveList or not previewWidget or not image or not buttonOk or not buttonClose then
+        perror('Assign Passive widgets missing')
+        closeAssignPassiveWindow()
+        return
+    end
+
+    local isEdit = button.cache and button.cache.isPassive
+    window:setText((isEdit and 'Edit Passive' or 'Assign Passive') .. ' to Action Button ' .. button:getId())
+    window:show()
+    window:raise()
+    window:focus()
+    window:centerIn('parent')
+
     for id, passiveData in pairs(PassiveAbilities) do
         local widget = g_ui.createWidget('PassivePreview', passiveList)
-        radio:addWidget(widget)
+        assignPassiveRadio:addWidget(widget)
         widget:setId(id)
         widget:setText(passiveData.name)
         widget.image:setImageSource(passiveData.icon)
         widget.source = passiveData.icon
     end
-    radio.onSelectionChange = function(_, selected)
+
+    assignPassiveRadio.onSelectionChange = function(_, selected)
         if selected then
             previewWidget:setText(selected:getText())
             image:setImageSource(selected.source)
         end
     end
+
     local passiveChildren = passiveList:getChildren()
     if #passiveChildren > 0 then
-        radio:selectWidget(passiveChildren[1])
+        assignPassiveRadio:selectWidget(passiveChildren[1])
     end
-    local function okFunc(destroy)
-        local selected = radio:getSelectedWidget()
+
+    local function okFunc()
+        local selected = assignPassiveRadio:getSelectedWidget()
         if not selected then
             return
         end
         local barID, buttonID = string.match(button:getId(), "(.*)%.(.*)")
         ApiJson.createOrUpdatePassive(tonumber(barID), tonumber(buttonID), tonumber(selected:getId()))
         updateButton(button)
-        if destroy then
-            ActionBarController:unloadHtml()
-        end
+        closeAssignPassiveWindow()
     end
+
     local function cancelFunc()
-        ActionBarController:unloadHtml()
+        closeAssignPassiveWindow()
     end
-    ActionBarController:findWidget("#buttonOk").onClick = function()
-        okFunc(true)
-    end
-    ActionBarController:findWidget("#buttonClose").onClick = cancelFunc
-    ui.onEnter = function()
-        okFunc(true)
-    end
+
+    buttonOk.onClick = okFunc
+    buttonClose.onClick = cancelFunc
+    window.onEnter = okFunc
+    window.onEscape = cancelFunc
 end
 
 function assignSpecialAction(button, mousePos)
@@ -992,8 +1047,3 @@ function onAssignItem(self, mousePosition, mouseButton, button, multiSlotIndex)
     end
     assignItem(button, itemId, itemTier, false, multiSlotIndex)
 end
-
--- /*=============================================
--- =            Windows hotkeys html             =
--- =============================================*/
--- in modules\game_actionbar\html\hotkeys.html

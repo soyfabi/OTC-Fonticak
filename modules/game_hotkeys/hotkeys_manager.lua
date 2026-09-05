@@ -322,10 +322,6 @@ function loadDefautComboKeys()
     end
 end
 
-function setDefaultComboKeys(combo)
-    defaultComboKeys = combo
-end
-
 function onActionChange(comboBox, option)
     local action = comboBox:getCurrentOption().data
     if currentHotkeyLabel then
@@ -421,6 +417,13 @@ function addHotkey()
     local comboLabel = assignWindow:getChildById('comboPreview')
     comboLabel.keyCombo = ''
     assignWindow.onKeyDown = hotkeyCapture
+    assignWindow.onMousePress = function(window, mousePos, button)
+        local keyCombo = Keybind.getMouseKeyCombo(button)
+        if not keyCombo then
+            return false
+        end
+        return previewHotkeyCapture(window, keyCombo)
+    end
 end
 
 function addKeyCombo(keyCombo, keySettings, focus)
@@ -873,14 +876,24 @@ function onSelectHotkeyLabel(hotkeyLabel)
     updateHotkeyForm(true)
 end
 
-function hotkeyCapture(assignWindow, keyCode, keyboardModifiers)
-    local keyCombo = determineKeyComboDesc(keyCode, keyboardModifiers)
+-- Shows a captured combo in the "add hotkey" window and enables the Add
+-- button. Used by both the keyboard and the mouse (MB4/MB5) capture.
+function previewHotkeyCapture(assignWindow, keyCombo)
     local comboPreview = assignWindow:getChildById('comboPreview')
     comboPreview:setText(tr('Current hotkey to add: %s', keyCombo))
     comboPreview.keyCombo = keyCombo
+    if keyCombo == nil or keyCombo == "" then
+        comboPreview:setColor("#c0c0c0")
+    else
+        comboPreview:setColor("#ffff66")
+    end
     comboPreview:resizeToText()
     assignWindow:getChildById('addButton'):enable()
     return true
+end
+
+function hotkeyCapture(assignWindow, keyCode, keyboardModifiers)
+    return previewHotkeyCapture(assignWindow, determineKeyComboDesc(keyCode, keyboardModifiers))
 end
 
 function hotkeyCaptureOk(assignWindow, keyCombo)
@@ -935,35 +948,6 @@ function areHotkeysDisabled()
         return true
     end
     return false
-end
-
-function clearAllHotkeyBlocks()
-    hotkeyBlockingSources = {}
-end
-function getHotkeyBlockingInfo()
-    local count = 0
-    local sources = {}
-    for sourceId in pairs(hotkeyBlockingSources) do
-        count = count + 1
-        table.insert(sources, sourceId)
-    end
-    table.sort(sources)
-    return count, sources
-end
-
-function printHotkeyBlockingInfo()
-    local count, sources = getHotkeyBlockingInfo()
-    print("=== Hotkey Blocking Info ===")
-    print("Total blocks: " .. count)
-    if count > 0 then
-        print("Active sources:")
-        for i, source in ipairs(sources) do
-            print("  " .. i .. ". " .. source)
-        end
-    else
-        print("No active blocks")
-    end
-    print("===========================")
 end
 
 -- Even if hotkeys are enabled, only the hotkeys containing Ctrl or Alt or F1-F12 will be enabled when

@@ -54,8 +54,6 @@ HotkeyShortcuts = {
     ["Num+*"] = "N*",
     ["Num+-"] = "N-",
     ["Num+,"] = "N,",
-    ["Mouse4"] = "MB4",
-    ["Mouse5"] = "MB5",
     ["MouseUp"] = "MUp",
     ["MouseDown"] = "MDown"
 }

@@ -48,6 +48,23 @@ MouseNoButton                = 0
 MouseLeftButton              = 1
 MouseRightButton             = 2
 MouseMidButton               = 3
+-- Extended mouse buttons exposed to the hotkey system: the engine reports the
+-- middle/wheel click as button 3 and the side buttons as 4/5, but those values
+-- collide with keyboard key codes (KeyBackspace = 3, etc.). They are therefore
+-- remapped to dedicated key codes (outside the keyboard range) so they can be
+-- used and stored as regular hotkeys ("MB3"/"MB4"/"MB5").
+Mouse3Button                 = 258
+Mouse4Button                 = 256
+Mouse5Button                 = 257
+
+-- Maps a raw mouse button from the engine to the canonical button code used
+-- by the hotkey system (left/right pass through unchanged).
+function translateMouseButton(button)
+  if button == 3 then return Mouse3Button
+  elseif button == 4 then return Mouse4Button
+  elseif button == 5 then return Mouse5Button
+  else return button end
+end
 
 MouseNoWheel                 = 0
 MouseWheelUp                 = 1
@@ -314,7 +331,10 @@ KeyCodeDescs                 = {
     [KeyNumpad6] = 'Numpad6',
     [KeyNumpad7] = 'Numpad7',
     [KeyNumpad8] = 'Numpad8',
-    [KeyNumpad9] = 'Numpad9'
+    [KeyNumpad9] = 'Numpad9',
+    [Mouse3Button] = 'MB3',
+    [Mouse4Button] = 'MB4',
+    [Mouse5Button] = 'MB5'
 }
 
 NetworkMessageTypes          = {

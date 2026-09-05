@@ -59,6 +59,7 @@ ActionButton < UIButton
     text-wrap: false
     phantom: true
     font: verdana-8px-rounded
+    color: #ffff66
 
   Label
     id: parameterText

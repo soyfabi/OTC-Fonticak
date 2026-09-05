@@ -935,6 +935,101 @@ function Keybind.hotkeyCallback(hotkeyId, chatMode)
   end
 end
 
+-- ====================================================================
+-- Mouse button hotkeys (MB3 / MB4 / MB5)
+--
+-- The engine reports the middle/wheel click as raw mouse button 3 and the
+-- side buttons as 4/5; const.lua remaps them to Mouse3Button/Mouse4Button/
+-- Mouse5Button key codes so they can live in the same combo space as keyboard
+-- keys. This section exposes them as "MB3"/"MB4"/"MB5" combos and routes
+-- their presses to the bound callbacks.
+-- ====================================================================
+
+local MOUSE_KEY_CODES = {
+  MB3 = Mouse3Button,
+  MB4 = Mouse4Button,
+  MB5 = Mouse5Button
+}
+
+-- Returns true when keyCombo is a mouse-button combo ("MB3"/"MB4"/"MB5").
+function Keybind.isMouseKey(keyCombo)
+  return keyCombo ~= nil and MOUSE_KEY_CODES[keyCombo] ~= nil
+end
+
+-- Maps a raw mouse button (3/4/5) to its combo ("MB3"/"MB4"/"MB5"), or nil
+-- when it is not a bindable mouse hotkey.
+function Keybind.getMouseKeyCombo(rawButton)
+  local button = translateMouseButton(rawButton)
+  for combo, code in pairs(MOUSE_KEY_CODES) do
+    if button == code then
+      return combo
+    end
+  end
+  return nil
+end
+
+local function mouseKeyPressHandler(self, mousePos, rawButton)
+  local combo = Keybind.getMouseKeyCombo(rawButton)
+  if combo then
+    local callback = self.mouseKeyBindings and self.mouseKeyBindings[combo]
+    if callback then
+      return callback(self, translateMouseButton(rawButton))
+    end
+  end
+  return false
+end
+
+-- Registers a callback for a mouse-button combo on a widget. Other mouse
+-- presses (and unbound MB4/MB5) fall through to the remaining handlers.
+function Keybind.bindMouseButtonKey(keyCombo, callback, widget)
+  if not widget or not Keybind.isMouseKey(keyCombo) then
+    return
+  end
+  if not widget.mouseKeyBindings then
+    widget.mouseKeyBindings = {}
+    connect(widget, { onMousePress = mouseKeyPressHandler })
+  end
+  widget.mouseKeyBindings[keyCombo] = callback
+end
+
+-- Removes a mouse-button binding; the widget hook is dropped once the last
+-- binding is gone.
+function Keybind.unbindMouseButtonKey(keyCombo, widget)
+  if not widget or not widget.mouseKeyBindings then
+    return
+  end
+  widget.mouseKeyBindings[keyCombo] = nil
+  if not next(widget.mouseKeyBindings) then
+    disconnect(widget, { onMousePress = mouseKeyPressHandler })
+    widget.mouseKeyBindings = nil
+  end
+end
+
+-- Actions that fire on key-down instead of key-press.
+local function isKeyDownAction(action)
+  return action == HOTKEY_ACTION.EQUIP or action == HOTKEY_ACTION.USE or action == HOTKEY_ACTION.TEXT or action == HOTKEY_ACTION.TEXT_AUTO
+end
+
+local function bindHotkeyKey(keyCombo, action, callback, widget)
+  if Keybind.isMouseKey(keyCombo) then
+    Keybind.bindMouseButtonKey(keyCombo, callback, widget)
+  elseif isKeyDownAction(action) then
+    g_keyboard.bindKeyDown(keyCombo, callback, widget)
+  else
+    g_keyboard.bindKeyPress(keyCombo, callback, widget)
+  end
+end
+
+local function unbindHotkeyKey(keyCombo, action, callback, widget)
+  if Keybind.isMouseKey(keyCombo) then
+    Keybind.unbindMouseButtonKey(keyCombo, widget)
+  elseif isKeyDownAction(action) then
+    g_keyboard.unbindKeyDown(keyCombo, callback, widget)
+  else
+    g_keyboard.unbindKeyPress(keyCombo, callback, widget)
+  end
+end
+
 function Keybind.bindHotkey(hotkeyId, chatMode)
   if not chatMode or chatMode ~= Keybind.chatMode then
     return
@@ -956,24 +1051,11 @@ function Keybind.bindHotkey(hotkeyId, chatMode)
 
   hotkey.callback = function() Keybind.hotkeyCallback(hotkeyId, chatMode) end
 
-  if keys.primary then
-    keys.primary = tostring(keys.primary)
-    if keys.primary:len() > 0 then
-      if action == HOTKEY_ACTION.EQUIP or action == HOTKEY_ACTION.USE or action == HOTKEY_ACTION.TEXT or action == HOTKEY_ACTION.TEXT_AUTO then
-        g_keyboard.bindKeyDown(keys.primary, hotkey.callback, gameRootPanel)
-      else
-        g_keyboard.bindKeyPress(keys.primary, hotkey.callback, gameRootPanel)
-      end
-    end
-  end
-
-  if keys.secondary then
-    keys.secondary = tostring(keys.secondary)
-    if keys.secondary:len() > 0 then
-      if action == HOTKEY_ACTION.EQUIP or action == HOTKEY_ACTION.USE or action == HOTKEY_ACTION.TEXT or action == HOTKEY_ACTION.TEXT_AUTO then
-        g_keyboard.bindKeyDown(keys.secondary, hotkey.callback, gameRootPanel)
-      else
-        g_keyboard.bindKeyPress(keys.secondary, hotkey.callback, gameRootPanel)
+  for _, key in ipairs({ keys.primary, keys.secondary }) do
+    if key then
+      key = tostring(key)
+      if key:len() > 0 then
+        bindHotkeyKey(key, action, hotkey.callback, gameRootPanel)
       end
     end
   end
@@ -998,24 +1080,11 @@ function Keybind.unbindHotkey(hotkeyId, chatMode)
   local gameRootPanel = modules.game_interface.getRootPanel()
   local action = hotkey.action
 
-  if keys.primary then
-    keys.primary = tostring(keys.primary)
-    if keys.primary:len() > 0 then
-      if action == HOTKEY_ACTION.EQUIP or action == HOTKEY_ACTION.USE or action == HOTKEY_ACTION.TEXT or action == HOTKEY_ACTION.TEXT_AUTO then
-        g_keyboard.unbindKeyDown(keys.primary, hotkey.callback, gameRootPanel)
-      else
-        g_keyboard.unbindKeyPress(keys.primary, hotkey.callback, gameRootPanel)
-      end
-    end
-  end
-
-  if keys.secondary then
-    keys.secondary = tostring(keys.secondary)
-    if keys.secondary:len() > 0 then
-      if action == HOTKEY_ACTION.EQUIP or action == HOTKEY_ACTION.USE or action == HOTKEY_ACTION.TEXT or action == HOTKEY_ACTION.TEXT_AUTO then
-        g_keyboard.unbindKeyDown(keys.secondary, hotkey.callback, gameRootPanel)
-      else
-        g_keyboard.unbindKeyPress(keys.secondary, hotkey.callback, gameRootPanel)
+  for _, key in ipairs({ keys.primary, keys.secondary }) do
+    if key then
+      key = tostring(key)
+      if key:len() > 0 then
+        unbindHotkeyKey(key, action, hotkey.callback, gameRootPanel)
       end
     end
   end

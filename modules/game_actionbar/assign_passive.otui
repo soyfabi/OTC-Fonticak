@@ -1,0 +1,93 @@
+NewMainWindow
+  id: assignPassiveWindow
+  size: 275 261
+  font: verdana-11px-antialised
+  color: #ffffff
+
+  Panel
+    id: contentPanel
+    anchors.fill: parent
+    margin: 12 12 12 12
+
+    Panel
+      id: previewRow
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      height: 34
+
+      UIWidget
+        id: image
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        phantom: true
+        size: 32 32
+
+      Label
+        id: preview
+        anchors.left: prev.right
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-left: 5
+        font: Verdana Bold-11px
+        color: #c0c0c0
+        text-align: left
+
+    HorizontalSeparator
+      anchors.top: previewRow.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 9
+
+    TextList
+      id: passiveList
+      anchors.top: prev.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 11
+      height: 118
+      padding: 1
+      focusable: false
+      vertical-scrollbar: listScrollBar
+      image-source: /images/ui/panel_flat_border
+      image-border: 1
+      background-color: #636363
+
+    VerticalScrollBar
+      id: listScrollBar
+      anchors.top: passiveList.top
+      anchors.right: passiveList.right
+      margin: 1 1 1 0
+      anchors.bottom: passiveList.bottom
+      step: 14
+      pixels-scroll: true
+
+    HorizontalSeparator
+      id: separator
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: next.top
+      margin-bottom: 10
+
+    Button
+      id: buttonClose
+      text: Cancel
+      size: 58 20
+      font: verdana-11px-monochrome
+      color: #ffffff
+      padding: 0
+      text-offset: 0 3
+      anchors.bottom: parent.bottom
+      anchors.right: parent.right
+
+    Button
+      id: buttonOk
+      text: Ok
+      size: 43 20
+      font: verdana-11px-monochrome
+      color: #ffffff
+      padding: 0
+      text-offset: 0 3
+      anchors.bottom: parent.bottom
+      anchors.right: buttonClose.left
+      margin-right: 6

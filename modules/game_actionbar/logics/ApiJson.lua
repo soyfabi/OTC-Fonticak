@@ -148,33 +148,6 @@ local function readJsonFile(file)
     return result
 end
 
-local function getDefaultProfileFromFile(name)
-    local default = readJsonFile(DEFAULT_OPTIONS_FILE)
-    if not default then
-        return nil
-    end
-
-    local hotkeyOptions = default.hotkeyOptions
-    if not hotkeyOptions or not hotkeyOptions.hotkeySets then
-        return nil
-    end
-
-    return hotkeyOptions.hotkeySets[name]
-end
-
-local function sanitizeHotkeyAssignments()
-    local options = ensureState()
-    local array = options.array
-    if not array then
-        return
-    end
-
-    local hotkeyOptions = array.hotkeyOptions
-    if not hotkeyOptions or not hotkeyOptions.hotkeySets then
-        return
-    end
-end
-
 local function rebuildStateFromArray()
     local options = ensureState()
     options.actionBarMappingsIndex = nil
@@ -286,7 +259,6 @@ local function rebuildStateFromArray()
     array.chatOptions = options.chatOptions
     options.isChatOnEnabled = options.chatOptions.chatModeOn and true or false
 
-    sanitizeHotkeyAssignments()
     return true
 end
 
@@ -769,7 +741,6 @@ function ApiJson.removeMultiAction(barId, buttonId, slotIndex)
 end
 
 function ApiJson.removeHotkey(buttonId)
-    buttonId = tonumber(buttonId)
     if not buttonId then
         return
     end
@@ -780,6 +751,9 @@ function ApiJson.removeHotkey(buttonId)
         return
     end
 
+    -- Keep the dotted id as text ("1.20"): tonumber("1.20") == 1.2 and would
+    -- never match entries stored as "TriggerActionButton_1.20".
+    buttonId = tostring(buttonId)
     for index, data in ipairs(entries) do
         if data["actionsetting"] and data["actionsetting"]["action"] and data["actionsetting"]["action"] ==
             "TriggerActionButton_" .. buttonId then

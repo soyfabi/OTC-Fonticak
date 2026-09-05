@@ -197,7 +197,7 @@ UIWidget
     Table
       id: keybinds
       anchors.fill: parent
-      margin: 1
+      margin: 1 15 1 1
       table-data: keybindsData
       row-style: KeybindsTableRow
       column-style: KeybindsTableColumn
@@ -221,7 +221,7 @@ UIWidget
 
         KeybindsTableHeaderColumn
           !text: tr("Secondary Key")
-          width: 100
+          width: 127
     
       HorizontalSeparator
 

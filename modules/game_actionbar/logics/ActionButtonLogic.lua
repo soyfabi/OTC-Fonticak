@@ -144,6 +144,14 @@ local function bindHotkey(button, hotkey)
     end
 
     local combo = hotkey
+
+    if Keybind and Keybind.isMouseKey and Keybind.isMouseKey(combo) then
+        Keybind.bindMouseButtonKey(combo, function()
+            onExecuteAction(button, false)
+        end, gameRootPanel)
+        return
+    end
+
     g_keyboard.bindKeyPress(combo, function()
         if not modules.game_hotkeys.canPerformKeyCombo(combo) then
             return
@@ -203,6 +211,13 @@ end
 --- Sets up hotkey for a button
 local function setupHotkeyButton(button)
     if not ApiJson.hasCurrentHotkeySet() then
+        if button.cache and button.cache.hotkey then
+            unbindHotkey(button.cache.hotkey)
+            button.cache.hotkey = nil
+            if button.hotkeyLabel then
+                button.hotkeyLabel:setText('')
+            end
+        end
         return
     end
 
@@ -221,6 +236,12 @@ local function setupHotkeyButton(button)
         button.cache.hotkey = keySequence
         unbindHotkey(keySequence)
         bindHotkey(button, keySequence)
+    elseif button.cache and button.cache.hotkey then
+        -- No hotkey is configured for this button anymore: drop the stale
+        -- binding/cache so the button label really clears (e.g. Clear in the
+        -- Edit Hotkey dialog on a button without an action).
+        unbindHotkey(button.cache.hotkey)
+        button.cache.hotkey = nil
     end
 end
 
@@ -912,6 +933,14 @@ function configureButtonMouseRelease(button)
             menu:addOption(button.cache.hotkey and tr('Edit Hotkey') or tr('Assign Hotkey'), function()
                 assignHotkey(button)
             end)
+            if button.cache.hotkey then
+                menu:addOption(tr('Clear Hotkey'), function()
+                    ApiJson.removeHotkey(button:getId())
+                    unbindHotkey(button.cache.hotkey)
+                    clearHotkeyCache()
+                    updateButton(button)
+                end)
+            end
 
             local buttonHasMulti = hasMultiActions(button.cache.multiActions)
             local hasMultiIcon = button.multiIcon and button.multiIcon:isVisible()
@@ -1137,11 +1166,12 @@ function updateButton(button)
         button.item:setItemId(useAction, true)
         button.item:setOn(true)
         local cached = cachedItemWidget[useAction]
-        if cached then
-            table.insert(cached, button)
-        else
+        if not cached then
             cachedItemWidget[useAction] = {}
-            table.insert(cachedItemWidget[useAction], button)
+            cached = cachedItemWidget[useAction]
+        end
+        if not table.contains(cached, button) then
+            table.insert(cached, button)
         end
         local spellData = Spells.getRuneSpellByItem(useAction)
         if spellData then

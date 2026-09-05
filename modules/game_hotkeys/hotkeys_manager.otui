@@ -242,6 +242,7 @@ HotkeyAssignWindow < MainWindow
   Button
     id: addButton
     !text: tr('Add')
+    font: verdana-11px-monochrome
     width: 64
     anchors.right: next.left
     anchors.bottom: parent.bottom
@@ -251,6 +252,7 @@ HotkeyAssignWindow < MainWindow
   Button
     id: cancelButton
     !text: tr('Cancel')
+    font: verdana-11px-monochrome
     width: 64
     anchors.right: parent.right
     anchors.bottom: parent.bottom

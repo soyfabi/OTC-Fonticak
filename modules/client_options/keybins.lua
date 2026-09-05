@@ -149,29 +149,52 @@ function cancelPresetWindow()
     show()
 end
 
-function editKeybindKeyDown(widget, keyCode, keyboardModifiers)
-    keyEditWindow.keyCombo:setText(determineKeyComboDesc(keyCode,
-        keyEditWindow.alone:isVisible() and KeyboardNoModifier or keyboardModifiers))
-
-    local category = nil
-    local action = nil
-
-    if keyEditWindow.keybind then
-        category = keyEditWindow.keybind.category
-        action = keyEditWindow.keybind.action
+-- Shows the combo in the key edit window and highlights it in light yellow
+-- while a key is assigned (gray when empty).
+function setKeyComboText(keyCombo)
+    keyEditWindow.keyCombo:setText(keyCombo)
+    if keyCombo == nil or keyCombo == "" then
+        keyEditWindow.keyCombo:setColor("#c0c0c0")
+    else
+        keyEditWindow.keyCombo:setColor("#ffff66")
     end
+end
 
-    local keyCombo = keyEditWindow.keyCombo:getText()
+-- Applies a captured combo (keyboard or mouse) to the keybind edit window
+-- and runs the conflict checks.
+function editKeybindSetCombo(keyCombo)
+    setKeyComboText(keyCombo)
+
+    local keybind = keyEditWindow.keybind
+    local category = keybind and keybind.category
+    local action = keybind and keybind.action
+
     local keyUsed = Keybind.isKeyComboUsed(keyCombo, category, action, getChatMode())
-
     keyEditWindow.buttons.ok:setEnabled(not keyUsed)
     keyEditWindow.used:setVisible(keyUsed)
+end
+
+function editKeybindKeyDown(widget, keyCode, keyboardModifiers)
+    editKeybindSetCombo(determineKeyComboDesc(keyCode,
+        keyEditWindow.alone:isVisible() and KeyboardNoModifier or keyboardModifiers))
+end
+
+function editKeybindMouse(widget, mousePos, button)
+    local keyCombo = Keybind.getMouseKeyCombo(button)
+    if not keyCombo then
+        return false
+    end
+    editKeybindSetCombo(keyCombo)
+    return true
 end
 
 function editKeybind(keybind)
     keyEditWindow.buttons.cancel.onClick = function()
         disconnect(keyEditWindow, {
             onKeyDown = editKeybindKeyDown
+        })
+        disconnect(keyEditWindow, {
+            onMousePress = editKeybindMouse
         })
         keyEditWindow:hide()
         keyEditWindow:ungrabKeyboard()
@@ -185,6 +208,9 @@ function editKeybind(keybind)
 
     connect(keyEditWindow, {
         onKeyDown = editKeybindKeyDown
+    })
+    connect(keyEditWindow, {
+        onMousePress = editKeybindMouse
     })
 
     keyEditWindow:show()
@@ -207,7 +233,7 @@ function editKeybindPrimary(button)
     }
 
     keyEditWindow:setText(tr('Edit Primary Key for \'%s\'', string.format('%s: %s', keybind.category, keybind.action)))
-    keyEditWindow.keyCombo:setText(Keybind.getKeybindKeys(row.category, row.action, getChatMode(), preset).primary)
+    setKeyComboText(Keybind.getKeybindKeys(row.category, row.action, getChatMode(), preset).primary)
 
     editKeybind(keybind)
 
@@ -275,7 +301,7 @@ function editKeybindSecondary(button)
     }
 
     keyEditWindow:setText(tr('Edit Secondary Key for \'%s\'', string.format('%s: %s', keybind.category, keybind.action)))
-    keyEditWindow.keyCombo:setText(Keybind.getKeybindKeys(row.category, row.action, getChatMode(), preset).secondary)
+    setKeyComboText(Keybind.getKeybindKeys(row.category, row.action, getChatMode(), preset).secondary)
 
     editKeybind(keybind)
 

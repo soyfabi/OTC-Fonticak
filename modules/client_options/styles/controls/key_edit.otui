@@ -54,14 +54,17 @@ MainWindow
     
     SmallButton
       id: ok
-      width: 40
+      font: verdana-11px-monochrome
+      width: 43
       !text: tr("Ok")
     
     SmallButton
       id: clear
-      width: 45
+      font: verdana-11px-monochrome
+      width: 52
       !text: tr("Clear")
     SmallButton
       id: cancel
-      width: 45
+      font: verdana-11px-monochrome
+      width: 58
       !text: tr("Cancel")

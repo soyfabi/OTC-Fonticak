@@ -153,6 +153,18 @@ local function updateKeyEditConflictState(keyCombo, currentHotkeyId)
   keyEditWindow.buttons.ok:setEnabled(not reserved)
 end
 
+-- Shows the captured/current combo in the key edit window and highlights it
+-- in light yellow while a key is assigned (gray when empty).
+local function setKeyComboText(text)
+  text = text or ""
+  keyEditWindow.keyCombo:setText(text)
+  if text == "" then
+    keyEditWindow.keyCombo:setColor("#c0c0c0")
+  else
+    keyEditWindow.keyCombo:setColor("#ffff66")
+  end
+end
+
 local function editCustomHotkeyKey(row, secondary)
   local column = secondary and 5 or 3
   local otherColumn = secondary and 3 or 5
@@ -160,28 +172,43 @@ local function editCustomHotkeyKey(row, secondary)
   keyEditWindow.info:setText(tr("Click 'Ok' to assign the keybind. Click 'Clear' to remove it."))
   keyEditWindow.alone:setVisible(false)
   keyEditWindow.used:setVisible(false)
-  keyEditWindow.keyCombo:setText(row:getChildByIndex(column):getText())
+  setKeyComboText(row:getChildByIndex(column):getText())
   keyEditWindow.buttons.ok:setEnabled(true)
 
-  local rowCaptureCallback = function(assignWindow, keyCode, keyboardModifiers, keyText)
-    local keyCombo = determineKeyComboDesc(keyCode, keyboardModifiers, keyText)
+  -- Applies a captured combo (keyboard or mouse) to the edit window and runs
+  -- the conflict checks.
+  local function applyCapturedCombo(keyCombo)
     if keyCombo == "Shift" or keyCombo == "Ctrl" or keyCombo == "Alt" then
       keyCombo = ""
     end
 
-    keyEditWindow.keyCombo:setText(keyCombo)
-    updateKeyEditConflictState(keyCombo, row.hotkeyId)
+    setKeyComboText(keyCombo or "")
+    updateKeyEditConflictState(keyCombo or "", row.hotkeyId)
     return true
   end
 
+  local function rowCaptureKey(assignWindow, keyCode, keyboardModifiers, keyText)
+    return applyCapturedCombo(determineKeyComboDesc(keyCode, keyboardModifiers, keyText))
+  end
+
+  local function rowCaptureMouse(assignWindow, mousePos, button)
+    local keyCombo = Keybind.getMouseKeyCombo(button)
+    if not keyCombo then
+      return false
+    end
+    return applyCapturedCombo(keyCombo)
+  end
+
   local closeWindow = function()
-    disconnect(keyEditWindow, { onKeyDown = rowCaptureCallback })
+    disconnect(keyEditWindow, { onKeyDown = rowCaptureKey })
+    disconnect(keyEditWindow, { onMousePress = rowCaptureMouse })
     keyEditWindow:hide()
     keyEditWindow:ungrabKeyboard()
     show()
   end
 
-  connect(keyEditWindow, { onKeyDown = rowCaptureCallback })
+  connect(keyEditWindow, { onKeyDown = rowCaptureKey })
+  connect(keyEditWindow, { onMousePress = rowCaptureMouse })
 
   keyEditWindow.buttons.ok.onClick = function()
     local keyCombo = keyEditWindow.keyCombo:getText()
@@ -221,32 +248,6 @@ local function editCustomHotkeyKey(row, secondary)
   keyEditWindow:focus()
   keyEditWindow:grabKeyboard()
   hide()
-end
-
-local function spellMatchesPlayerVocation(spellData, player)
-  if not player or not spellData or not spellData.vocations then
-    return true
-  end
-
-  local vocations = spellData.vocations
-  if type(vocations) ~= 'table' then
-    return true
-  end
-
-  local vocationId = player:getVocation()
-  local vocationText = tostring(vocationId):lower()
-  if translateVocation then
-    vocationText = tostring(translateVocation(vocationId)):lower()
-  end
-
-  for _, vocation in pairs(vocations) do
-    local value = tostring(vocation):lower()
-    if value == vocationText or value == tostring(vocationId) or value == 'all' or value == 'none' then
-      return true
-    end
-  end
-
-  return false
 end
 
 local function getThingClassification(item)
@@ -1049,6 +1050,12 @@ function assignTextDialog(row)
   updateButtons()
   textWindow.contentPanel.text:focus()
   textWindow.contentPanel.text:setCursorPos(textWindow.contentPanel.text:getText():len())
+
+  local cancelFunc = function()
+    textWindow:destroy()
+    textWindow = nil
+    controller.ui:show()
+  end
 
   local okFunc = function()
     local text = textWindow.contentPanel.text:getText()
