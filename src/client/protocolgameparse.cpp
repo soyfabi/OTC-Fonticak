@@ -498,7 +498,7 @@ void ProtocolGame::parseMessage(const InputMessagePtr& msg)
                     parseRuleViolationCancel(msg);
                     break;
                 case Proto::GameServerRuleViolationLock:
-                    if (g_game.getClientVersion() >= 1310) {
+                    if ((g_game.getClientVersion() >= 1310) || (msg->getUnreadSize() > 0 && msg->peekU8() <= 1)) {
                         parseHighscores(msg);
                     } else {
                         parseRuleViolationLock(msg);
@@ -6671,13 +6671,15 @@ void ProtocolGame::parseHighscores(const InputMessagePtr& msg)
     const uint8_t sizeVocation = msg->getU8();
     std::vector<std::tuple<uint32_t, std::string>> vocations;
 
-    msg->getU32(); // skip 0xFFFFFFFF
-    msg->getString(); // skip "All vocations"
+    if (sizeVocation > 0) {
+        msg->getU32(); // skip 0xFFFFFFFF
+        msg->getString(); // skip "All vocations"
 
-    for (auto i = 0; i < sizeVocation - 1; ++i) {
-        const uint32_t vocationID = msg->getU32();
-        const auto& vocationName = msg->getString();
-        vocations.emplace_back(vocationID, vocationName);
+        for (uint8_t i = 1; i < sizeVocation; ++i) {
+            const uint32_t vocationID = msg->getU32();
+            const auto& vocationName = msg->getString();
+            vocations.emplace_back(vocationID, vocationName);
+        }
     }
 
     msg->getU32(); // skip params.vocation

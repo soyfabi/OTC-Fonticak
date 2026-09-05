@@ -1697,7 +1697,9 @@ void ProtocolGame::sendHighscoreInfo(const uint8_t action, const uint8_t categor
     msg->addString(world);
     msg->addU8(worldType);
     msg->addU8(battlEye);
-    msg->addU16(page);
+    if (action == 0) {
+        msg->addU16(page);
+    }
     msg->addU8(totalPages);
     send(msg);
 }

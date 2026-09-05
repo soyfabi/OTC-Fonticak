@@ -1,269 +1,605 @@
-local highscoreButton = nil
-local worldTypeRadioGroup = nil
-local currentPage = 0
-local countPages = 0
+-- chunkname: @/game_highscore/game_highscore.lua
 
-local vocationArray = {}
-local Category = {}
+local highscoresWindow, highscoreButton, gameworldbox, vocationbox, categorybox, highscoreList
+local isFilled = false
+local cachedBattlEye = 0
+local currentPage = 1
+local currentTotalPages = 1
+local ALL_WORLDS_LABEL = "All Game Worlds"
+local ALL_VOCATIONS_ID = 4294967295
+local ENTRIES_PER_PAGE = 20
+local preferredWorldOnOpen, requestHighscore
+local highscoreRequestPending = false
+local HIGHSCORE_DEBUG = false
+local highscoreRequestSeq = 0
+local lastHighscoreRequest
 
-local tempFixworldType = {
-    {0, "Open Pvp"},
-    {1, "Optional Pvp"},
-    {2, "Hardcore Pvp"},
-    {3, "Retro Open Pvp"},
-    {4, "Retro Hardcore Pvp"}
-}
+local function highscoreDebugLog(msg)
+	if not HIGHSCORE_DEBUG then
+		return
+	end
 
-local serverSide = {
-    action = 0,
-    category = 0,
-    vocation = 0xFFFFFFFF,
-    world = "",
-    worldType = 1,
-    battlEye = 1,
-    page = 1,
-    totalInPages = 20
-}
-
-local function getMinutesDifference(t1, t2)
-    local diffInSeconds = os.difftime(t2, t1)
-    local diffInMinutes = diffInSeconds / 60
-    local diffInHours = diffInMinutes / 60
-
-    if diffInHours >= 1 then
-        return string.format("Last Update: %.0f Hrs Ago", diffInHours)
-    elseif diffInMinutes >= 1 then
-        return string.format("Last Update: %.0f minutes Ago", diffInMinutes)
-    else
-        return string.format("Last Update: %.0f Second Ago", math.abs(diffInSeconds))
-    end
+	g_logger.info("[Highscore] " .. msg)
+	print("[Highscore] " .. msg)
 end
 
-local function getCategory(arg)
-    if type(arg) == "string" then
-        for i, cat in ipairs(Category) do
-            if cat[2] == arg then
-                return cat[1]
-            end
-        end
-    end
-    return 0
+local function summarizeHighscoreEntries(highscores)
+	if #highscores == 0 then
+		return "(empty)"
+	end
+
+	local parts = {}
+
+	for i, character in ipairs(highscores) do
+		parts[#parts + 1] = string.format("%d:%s rank=%s", i, character[2] or "?", tostring(character[1]))
+	end
+
+	return table.concat(parts, " | ")
 end
 
-local function getVocation(arg)
-    if type(arg) == "number" then
-        return vocationNamesByClientId[arg] or "All Vocations"
-    elseif type(arg) == "string" then
-        -- First, search in vocationArray which comes from server
-        for _, voc in ipairs(vocationArray) do
-            if voc[2] == arg then
-                return voc[1]
-            end
-        end
-        -- If not found in vocationArray, search in vocationNamesByClientId
-        for id, name in pairs(vocationNamesByClientId) do
-            if name == arg then
-                return id
-            end
-        end
-    end
-    return "All Vocations"
+local WORLD_TYPE = {
+	retroHardcorePvp = 4,
+	retroOpenPvp = 3,
+	hardcorePvp = 2,
+	optionalPvp = 1,
+	openPvp = 0
+}
+
+local function isPlayerEntry(character)
+	return character[7] == 1 or character[7] == true
+end
+
+local function isLocalPlayerEntry(character)
+	local player = g_game.getLocalPlayer()
+
+	if not player then
+		return isPlayerEntry(character)
+	end
+
+	return character[2]:lower() == player:getName():lower() or isPlayerEntry(character)
+end
+
+local function getVocationName(vocationId)
+	vocationId = tonumber(vocationId) or 0
+	if vocationNamesByClientId and vocationNamesByClientId[vocationId] then
+		return vocationNamesByClientId[vocationId]
+	end
+	if vocationId == 0 then
+		return "None"
+	end
+	return "None"
+end
+
+if not g_game.getVocationName then
+	g_game.getVocationName = getVocationName
+end
+
+local function getPlayerWorldName()
+	if not g_game.isOnline() then
+		return nil
+	end
+
+	local world = g_game.getWorldName()
+
+	if world and world ~= "" then
+		return world
+	end
+
+	return nil
+end
+
+local function ensureWorldOption(worldName)
+	if worldName and worldName ~= "" and not gameworldbox:isOption(worldName) then
+		gameworldbox:addOption(worldName, worldName)
+	end
+end
+
+local function selectWorldInCombo(worldName)
+	if worldName and worldName ~= "" and gameworldbox:isOption(worldName) then
+		gameworldbox:setCurrentOption(worldName, true)
+
+		return true
+	end
+
+	if gameworldbox:isOption(ALL_WORLDS_LABEL) then
+		gameworldbox:setCurrentOption(ALL_WORLDS_LABEL, true)
+	end
+
+	return false
 end
 
 highscoreController = Controller:new()
-highscoreController:setUI('game_highscore')
+
+highscoreController:setUI("game_highscore")
 
 function highscoreController:onInit()
-    highscoreController.ui:hide()
-    highscoreController:registerEvents(g_game, {
-        onProcessHighscores = onProcessHighscores
-    })
+	highscoresWindow = highscoreController.ui
+
+	highscoresWindow:hide()
+	highscoreController:registerEvents(g_game, {
+		onProcessHighscores = onProcessHighscores
+	})
+	initInterface()
 end
 
 function highscoreController:onTerminate()
-    if highscoreButton then
-        highscoreButton:destroy()
-        highscoreButton = nil
-    end
+	resetFilters()
 
-    if worldTypeRadioGroup then
-        worldTypeRadioGroup:destroy()
-        worldTypeRadioGroup = nil
-    end
+	highscoresWindow = nil
+	gameworldbox = nil
+	vocationbox = nil
+	categorybox = nil
+	highscoreList = nil
 end
 
-function onProcessHighscores(serverName, world, worldType, battlEye, vocations, categories, page, totalInPages,
-    highscores, entriesTs)
-    vocationArray = table.copy(vocations)
-    Category = table.copy(categories)
-    currentPage = page
-    countPages = totalInPages
-    local ui = highscoreController.ui
-    local uiFilters = ui.filters
-
-    if not uiFilters.PanelWorld.isFilled then
-        worldTypeRadioGroup = UIRadioGroup.create()
-        for _, temp in ipairs(tempFixworldType) do
-            local label = g_ui.createWidget("WorldType", uiFilters.PanelWorld)
-            label.text:setText(temp[2])
-            worldTypeRadioGroup:addWidget(label.enabled)
-        end
-        uiFilters.PanelWorld.isFilled = true
-    end
-
-    local filterData = {
-        {box = uiFilters.vocationBox, data = vocations, label = "All Vocations"},
-        {box = uiFilters.categoryBox, data = categories, label = nil},
-    }
-
-    for _, filter in ipairs(filterData) do
-        if not filter.box.isFilled then
-            if filter.label then
-                filter.box:addOption(filter.label)
-            end
-            for _, item in ipairs(filter.data) do
-                filter.box:addOption(item[2])
-            end
-            filter.box.isFilled = true
-        end
-    end
-
-    if not uiFilters.BattlEyeBox.isFilled then
-        uiFilters.BattlEyeBox:addOption(battlEye)
-        uiFilters.BattlEyeBox.isFilled = true
-    end
-
-    if not uiFilters.gameWorldBox.isFilled then
-        uiFilters.gameWorldBox:addOption(world ~= "" and world or serverName)
-        uiFilters.gameWorldBox.isFilled = true
-    end
-
-    local isFirstPage = currentPage == 1
-    local isLastPage = currentPage == countPages
-
-    ui.next:setEnabled(not isLastPage)
-    ui.nextLast:setEnabled(not isLastPage)
-    ui.prev:setEnabled(not isFirstPage)
-    ui.prevLast:setEnabled(not isFirstPage)
-    ui.ownRankButton:setEnabled(true)
-    ui.page:setText(page .. " / " .. totalInPages)
-
-    local diferenciaEnMinutos = getMinutesDifference(entriesTs, os.time())
-    ui.last_update:setText(diferenciaEnMinutos)
-
-    createHighscores(highscores)
+local function initFilterPlaceholders()
+	gameworldbox:clearOptions()
+	gameworldbox:addOption(ALL_WORLDS_LABEL, "")
+	ensureWorldOption(getPlayerWorldName())
+	selectWorldInCombo(preferredWorldOnOpen or getPlayerWorldName())
+	vocationbox:clearOptions()
+	vocationbox:addOption(tr("(all)"), ALL_VOCATIONS_ID)
+	categorybox:clearOptions()
+	categorybox:addOption(tr("Experience Points"), 0)
 end
 
-function highscoreController:onGameStart()
-    if g_game.getClientVersion() < 1310 then
-        return
-    end
+function resetFilters()
+	isFilled = false
+	cachedBattlEye = 0
+	currentPage = 1
+	currentTotalPages = 1
 
-    highscoreButton = modules.client_topmenu.addRightGameToggleButton('highscore', tr('Highscores'),
-        '/images/options/highscores', toggle, false)
-    highscoreButton:setOn(false)
-end
-
-function highscoreController:onGameEnd()
-    if highscoreController.ui:isVisible() then
-        highscoreController.ui:hide()
-    end
+	if gameworldbox then
+		initFilterPlaceholders()
+	end
 end
 
 function hide()
-    if not highscoreController.ui then
-        return
-    end
-    highscoreController.ui:hide()
+	preferredWorldOnOpen = nil
+	highscoreRequestPending = false
+
+	if g_modalManager then
+		g_modalManager.hide(highscoresWindow)
+	end
+	highscoresWindow:hide()
+	if highscoreButton then
+		highscoreButton:setOn(false)
+	end
 end
 
 function show()
-    if not highscoreController.ui or not highscoreButton then
-        return
-    end
+	preferredWorldOnOpen = getPlayerWorldName()
 
-    highscoreController.ui:show()
-    highscoreController.ui:raise()
-    highscoreController.ui:focus()
-    requestInfo()
+	highscoresWindow:show()
+	highscoresWindow:raise()
+	highscoresWindow:focus()
+	if g_modalManager then
+		g_modalManager.show(highscoresWindow)
+	end
+	if highscoreButton then
+		highscoreButton:setOn(true)
+	end
+	ensureWorldOption(preferredWorldOnOpen)
+	selectWorldInCombo(preferredWorldOnOpen)
+	requestHighscore(0, 1, "show-window")
+end
+
+local function getHours(seconds)
+	return math.floor(seconds / 60 / 60)
+end
+
+local function getMinutes(seconds)
+	return math.floor(seconds / 60)
+end
+
+local function getSeconds(seconds)
+	return seconds % 60
+end
+
+local function getTimeinWords(secs)
+	local hours, minutes, seconds = getHours(secs), getMinutes(secs), getSeconds(secs)
+
+	if minutes > 59 then
+		minutes = minutes - hours * 60
+	end
+
+	local timeStr = ""
+
+	if hours > 0 then
+		timeStr = timeStr .. hours .. " hours "
+	end
+
+	if minutes > 0 then
+		timeStr = timeStr .. minutes .. " minutes"
+	elseif seconds > 0 then
+		timeStr = seconds .. " seconds"
+	end
+
+	return timeStr
+end
+
+local WORLD_TYPE_CHECKS
+
+local function getWorldTypeCheckboxes()
+	if WORLD_TYPE_CHECKS then
+		return WORLD_TYPE_CHECKS
+	end
+
+	local filters = highscoresWindow.filters
+
+	WORLD_TYPE_CHECKS = {
+		{
+			check = filters.openPvpCheck,
+			id = WORLD_TYPE.openPvp
+		},
+		{
+			check = filters.optionalPvpCheck,
+			id = WORLD_TYPE.optionalPvp
+		},
+		{
+			check = filters.hardcorePvpCheck,
+			id = WORLD_TYPE.hardcorePvp
+		},
+		{
+			check = filters.retroOpenPvpCheck,
+			id = WORLD_TYPE.retroOpenPvp
+		},
+		{
+			check = filters.retroHardcorePvpCheck,
+			id = WORLD_TYPE.retroHardcorePvp
+		}
+	}
+
+	return WORLD_TYPE_CHECKS
+end
+
+local function getSelectedWorldType()
+	for _, entry in ipairs(getWorldTypeCheckboxes()) do
+		if entry.check:isChecked() then
+			return entry.id
+		end
+	end
+
+	return 0
+end
+
+local function bindWorldTypeCheckbox(checkbox, worldTypeId)
+	function checkbox.onCheckChange(widget, checked)
+		if not checked then
+			return
+		end
+
+		for _, entry in ipairs(getWorldTypeCheckboxes()) do
+			if entry.check ~= widget then
+				entry.check:setChecked(false)
+			end
+		end
+	end
+end
+
+local function getSelectedWorld()
+	local option = gameworldbox:getCurrentOption()
+
+	if not option or option.text == ALL_WORLDS_LABEL then
+		return ""
+	end
+
+	return option.text
+end
+
+local function getSelectedCategoryId()
+	local option = categorybox:getCurrentOption()
+
+	if option and option.data ~= nil then
+		return option.data
+	end
+
+	return 0
+end
+
+local function getSelectedVocationId()
+	local option = vocationbox:getCurrentOption()
+
+	if option and option.data ~= nil then
+		return option.data
+	end
+
+	return ALL_VOCATIONS_ID
+end
+
+local function getFilterSnapshot()
+	local worldOpt = gameworldbox and gameworldbox:getCurrentOption()
+	local vocOpt = vocationbox and vocationbox:getCurrentOption()
+	local catOpt = categorybox and categorybox:getCurrentOption()
+
+	return string.format("UI world=\"%s\" cat=%s voc=%s wType=0x%X", worldOpt and worldOpt.text or "?", catOpt and tostring(catOpt.data) or "?", vocOpt and string.format("0x%X", vocOpt.data or 0) or "?", getSelectedWorldType())
+end
+
+function requestHighscore(action, page, tag)
+	if highscoreRequestPending then
+		highscoreDebugLog(string.format("REQ ignored (server async): %s page=%d", tag or "?", page))
+
+		return
+	end
+
+	highscoreRequestPending = true
+	highscoreRequestSeq = highscoreRequestSeq + 1
+
+	local seq = highscoreRequestSeq
+	local category = getSelectedCategoryId()
+	local vocation = getSelectedVocationId()
+	local world = getSelectedWorld()
+	local worldType = getSelectedWorldType()
+
+	lastHighscoreRequest = {
+		seq = seq,
+		tag = tag or "?",
+		action = action,
+		page = page,
+		category = category,
+		vocation = vocation,
+		world = world,
+		worldType = worldType,
+		battlEye = cachedBattlEye
+	}
+
+	highscoreDebugLog(string.format("REQ #%d tag=%s action=%d page=%d world=\"%s\" cat=%d voc=0x%X wType=0x%X battlEye=%d | %s", seq, tag or "?", action, page, world, category, vocation, worldType, cachedBattlEye, getFilterSnapshot()))
+	g_game.requestHighscore(action, category, vocation, world, worldType, cachedBattlEye, page, ENTRIES_PER_PAGE)
+
+	scheduleEvent(function()
+		if highscoreRequestPending and highscoreRequestSeq == seq then
+			highscoreRequestPending = false
+			highscoreDebugLog(string.format("REQ #%d timeout waiting for server response", seq))
+		end
+	end, 3000)
+end
+
+local function fillHighscoreList(highscores)
+	highscoreList:destroyChildren()
+
+	local playerWidget
+
+	for index = 1, ENTRIES_PER_PAGE do
+		local widget = g_ui.createWidget("ListHighscore", highscoreList)
+
+		widget:setBackgroundColor(index % 2 == 0 and "#414141" or "#484848")
+
+		local character = highscores[index]
+
+		if character then
+			widget.rank:setText(character[1])
+			widget.name:setText(character[2])
+			widget.vocation:setText(getVocationName(character[4]))
+			widget.gameworld:setText(short_text(character[5], 8))
+			widget.level:setText(character[6])
+			widget.points:setText(comma_value(character[8]))
+
+			if isLocalPlayerEntry(character) then
+				widget.rank:setColor("#60f860")
+				widget.name:setColor("#60f860")
+				widget.vocation:setColor("#60f860")
+				widget.gameworld:setColor("#60f860")
+				widget.level:setColor("#60f860")
+				widget.points:setColor("#60f860")
+
+				playerWidget = widget
+			end
+		end
+	end
+
+	if highscoreList.updateLayout then
+		highscoreList:updateLayout()
+	end
+
+	if playerWidget then
+		highscoreList:ensureChildVisible(playerWidget)
+	end
+end
+
+local function setupFilterOptions(worlds, vocations, categories)
+	gameworldbox:clearOptions()
+	gameworldbox:addOption(ALL_WORLDS_LABEL, "")
+
+	-- our C++ sends the world name as a single string (serverName), not a list
+	if type(worlds) == "string" then
+		if worlds ~= "" then
+			ensureWorldOption(worlds)
+		end
+	else
+		for _, worldName in ipairs(worlds or {}) do
+			ensureWorldOption(worldName)
+		end
+	end
+
+	ensureWorldOption(getPlayerWorldName())
+	vocationbox:clearOptions()
+	vocationbox:addOption(tr("(all)"), ALL_VOCATIONS_ID)
+
+	for _, voc in ipairs(vocations) do
+		vocationbox:addOption(voc[2], voc[1])
+	end
+
+	categorybox:clearOptions()
+
+	for _, cat in ipairs(categories) do
+		categorybox:addOption(cat[2], cat[1])
+	end
+end
+
+local function updatePaginationButtons(page, totalPages)
+	local isFirstPage = page <= 1
+	local isLastPage = totalPages <= 1 or totalPages <= page
+
+	highscoresWindow.first:setEnabled(not isFirstPage)
+	highscoresWindow.prevButton:setEnabled(not isFirstPage)
+	highscoresWindow.nextButton:setEnabled(not isLastPage)
+	highscoresWindow.last:setEnabled(not isLastPage)
+end
+
+local function syncFilterSelections(selectedVocation, selectedCategory)
+	local vocBefore = vocationbox:getCurrentOption()
+	local catBefore = categorybox:getCurrentOption()
+	local worldBefore = gameworldbox:getCurrentOption()
+
+	if preferredWorldOnOpen then
+		selectWorldInCombo(preferredWorldOnOpen)
+
+		preferredWorldOnOpen = nil
+	end
+
+	vocationbox:setCurrentOptionByData(selectedVocation, true)
+	categorybox:setCurrentOptionByData(selectedCategory, true)
+
+	local vocAfter = vocationbox:getCurrentOption()
+	local catAfter = categorybox:getCurrentOption()
+	local worldAfter = gameworldbox:getCurrentOption()
+
+	if HIGHSCORE_DEBUG then
+		local changed = (vocBefore and vocBefore.data) ~= (vocAfter and vocAfter.data) or (catBefore and catBefore.data) ~= (catAfter and catAfter.data) or (worldBefore and worldBefore.text) ~= (worldAfter and worldAfter.text)
+
+		if changed then
+			highscoreDebugLog(string.format("syncFilterSelections CHANGED combos: voc 0x%X->0x%X cat %s->%s world \"%s\"->\"%s\" (server requested voc=0x%X cat=%d)", vocBefore and vocBefore.data or 0, vocAfter and vocAfter.data or 0, tostring(catBefore and catBefore.data), tostring(catAfter and catAfter.data), worldBefore and worldBefore.text or "?", worldAfter and worldAfter.text or "?", selectedVocation, selectedCategory))
+		end
+	end
+end
+
+function initInterface()
+	highscoreList = highscoresWindow.highscoreList
+	gameworldbox = highscoresWindow.filters.gameworldbox
+	vocationbox = highscoresWindow.filters.vocationbox
+	categorybox = highscoresWindow.filters.categorybox
+
+	initFilterPlaceholders()
+	bindWorldTypeCheckbox(highscoresWindow.filters.openPvpCheck, WORLD_TYPE.openPvp)
+	bindWorldTypeCheckbox(highscoresWindow.filters.optionalPvpCheck, WORLD_TYPE.optionalPvp)
+	bindWorldTypeCheckbox(highscoresWindow.filters.hardcorePvpCheck, WORLD_TYPE.hardcorePvp)
+	bindWorldTypeCheckbox(highscoresWindow.filters.retroOpenPvpCheck, WORLD_TYPE.retroOpenPvp)
+	bindWorldTypeCheckbox(highscoresWindow.filters.retroHardcorePvpCheck, WORLD_TYPE.retroHardcorePvp)
+
+	function highscoresWindow.showOwnRank.onClick()
+		highscoreDebugLog("CLICK showOwnRank")
+		requestHighscore(1, 1, "show-own-rank")
+	end
+
+	function highscoresWindow.first.onClick()
+		if currentPage > 1 then
+			requestHighscore(0, 1, "nav-first")
+		end
+	end
+
+	function highscoresWindow.prevButton.onClick()
+		if currentPage > 1 then
+			requestHighscore(0, currentPage - 1, "nav-prev")
+		end
+	end
+
+	function highscoresWindow.nextButton.onClick()
+		if currentPage < currentTotalPages then
+			requestHighscore(0, currentPage + 1, "nav-next")
+		end
+	end
+
+	function highscoresWindow.last.onClick()
+		if currentPage < currentTotalPages then
+			requestHighscore(0, currentTotalPages, "nav-last")
+		end
+	end
+
+	function highscoresWindow.filters.submit.onClick()
+		requestHighscore(0, 1, "submit-filters")
+	end
+
+	updatePaginationButtons(1, 1)
+end
+
+local function applyHighscoreResponse(page, totalPages, highscores, entriesTs)
+	page = math.max(1, tonumber(page) or 1)
+	totalPages = math.max(1, tonumber(totalPages) or 1)
+	currentPage = page
+	currentTotalPages = totalPages
+
+	fillHighscoreList(highscores)
+	highscoresWindow.page:setText(string.format("%d / %d", page, totalPages))
+	highscoresWindow.lastUpdate:setText("Last Update: " .. getTimeinWords(os.time() - entriesTs) .. " ago")
+	highscoresWindow.lastUpdate:setColor("#909090")
+	updatePaginationButtons(page, totalPages)
+end
+
+-- our C++ (Game::processHighscore) does not send selectedVocation/selectedCategory:
+-- (serverName, world, worldType, battlEye, vocations, categories, page, totalPages, highscores, entriesTs)
+function onProcessHighscores(worlds, selectedWorld, worldType, battlEye, vocations, categories, page, totalPages, highscores, entriesTs)
+	local req = lastHighscoreRequest
+	local selectedVocation = req and req.vocation or 0xFFFFFFFF
+	local selectedCategory = req and req.category or 0
+
+	highscores = highscores or {}
+	vocations = vocations or {}
+	categories = categories or {}
+	worlds = worlds or {}
+	page = page or 1
+	totalPages = totalPages or 1
+
+	highscoreRequestPending = false
+
+	local hasPlayer = false
+
+	for _, character in ipairs(highscores) do
+		if isLocalPlayerEntry(character) then
+			hasPlayer = true
+
+			break
+		end
+	end
+
+	highscoreDebugLog(string.format("RSP after REQ #%s tag=%s | page=%d/%d entries=%d/%d srvWorld=\"%s\" srvWType=%d srvVoc=0x%X srvCat=%d | playerInList=%s | %s", req and tostring(req.seq) or "?", req and req.tag or "?", page, totalPages, #highscores, ENTRIES_PER_PAGE, selectedWorld or "", worldType, selectedVocation, selectedCategory, tostring(hasPlayer), getFilterSnapshot()))
+	highscoreDebugLog("RSP entries: " .. summarizeHighscoreEntries(highscores))
+
+	if req and req.action == 0 and req.page and page ~= req.page then
+		highscoreDebugLog(string.format("WARNING divergent page: REQ #%d requested page=%d but server responded page=%d ? check the packet parse on the server", req.seq, req.page, page))
+	end
+
+	if req and req.action == 0 and #highscores > 0 and #highscores < ENTRIES_PER_PAGE then
+		highscoreDebugLog(string.format("server sent %d/%d entries ? fix entriesPerPage in the server parse (use %d)", #highscores, ENTRIES_PER_PAGE, ENTRIES_PER_PAGE))
+	end
+
+	cachedBattlEye = battlEye
+
+	if not isFilled then
+		highscoreDebugLog("RSP setupFilterOptions (first fill)")
+		setupFilterOptions(worlds, vocations, categories)
+
+		isFilled = true
+	end
+
+	syncFilterSelections(selectedVocation, selectedCategory)
+	applyHighscoreResponse(page, totalPages, highscores, entriesTs)
+end
+
+function highscoreController:onGameStart()
+	highscoreButton = modules.game_mainpanel.addToggleButton("highscoresButton", tr("Open Highscores Dialog"), "/images/options/button_highscores", toggle, false, 1001)
+
+	g_keyboard.bindKeyDown("Ctrl+H", toggle)
+end
+
+function highscoreController:onGameEnd()
+	if highscoreButton then
+		highscoreButton:destroy()
+
+		highscoreButton = nil
+	end
+
+	if highscoresWindow and highscoresWindow:isVisible() then
+		hide()
+	end
+
+	resetFilters()
+	g_keyboard.unbindKeyDown("Ctrl+H")
 end
 
 function toggle()
-    if not highscoreController.ui then
-        return
-    end
-
-    if highscoreController.ui:isVisible() then
-        return hide()
-    end
-
-    show()
-end
-
-function createHighscores(list)
-    local data = highscoreController.ui.data
-    data:getLayout():disableUpdates()
-    data:destroyChildren()
-
-    local playerName = g_game.getLocalPlayer():getName()
-
-    for index, entry in ipairs(list) do
-        local row = g_ui.createWidget("HighScoreData", data)
-        row:setBackgroundColor(index % 2 == 0 and "#ffffff12" or "#00000012")
-        row.rank:setText(entry[1] .. ".")
-        row.name:setText(entry[2])
-        row.voc:setText(entry[4] == 0 and "None" or getVocation(entry[4]))
-        row.world:setText(entry[5])
-        row.level:setText(entry[6])
-        row.points:setText(comma_value(entry[8]))
-        if playerName:lower() == entry[2]:lower() then
-            for _, widget in pairs({"rank", "name", "voc", "world", "level", "points"}) do
-                row[widget]:setColor("#60f860")
-            end
-        end
-    end
-
-    data:getLayout():enableUpdates()
-    data:getLayout():update()
-end
-
-local function changePage(newPage)
-    disableButtons()
-    highscoreRequest(newPage, 0)
-end
-
-function nextPage() changePage(currentPage + 1) end
-function nextEndPage() changePage(countPages) end
-function prevPage() changePage(currentPage - 1) end
-function prevEndPage() changePage(1) end
-
-function disableButtons()
-    for _, btn in ipairs({"next", "nextLast", "prev", "prevLast", "ownRankButton"}) do
-        highscoreController.ui[btn]:setEnabled(false)
-    end
-end
-
-function submit()
-    disableButtons()
-    highscoreRequest(1, 0)
-end
-
-function showOwnRank()
-    disableButtons()
-    highscoreRequest(1, 1)
-end
-
-function highscoreRequest(currentPage, typex)
-    local id = getVocation(highscoreController.ui.filters.vocationBox:getCurrentOption().text)
-    id = (id == "All Vocations" and 0xFFFFFFFF or id)
-
-    local categoryId = getCategory(highscoreController.ui.filters.categoryBox:getCurrentOption().text)
-
-    g_game.requestHighscore(typex, categoryId, id, serverSide.world, serverSide.worldType, serverSide.battlEye,
-        currentPage, serverSide.totalInPages)
-end
-
-function requestInfo()
-    g_game.requestHighscore(serverSide.action, serverSide.category, serverSide.vocation, serverSide.world,
-        serverSide.worldType, serverSide.battlEye, serverSide.page, serverSide.totalInPages)
+	if highscoresWindow:isVisible() then
+		hide()
+	else
+		show()
+	end
 end

@@ -2,7 +2,7 @@ Module
   name: game_highscore
   description: game_highscore
   author: game_highscore
-  website: https://github.com/mehah/otclient
+  website: https://github.com/Jattartajjar/CrystalOTC
   sandboxed: true
   scripts: [ game_highscore ]
   @onLoad: highscoreController:init()

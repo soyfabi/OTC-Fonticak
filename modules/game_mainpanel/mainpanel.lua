@@ -9,6 +9,8 @@ local controlButton1400 = nil
 local optionPanel = nil
 local buttonConfigs = {}
 local buttonOrder = {}
+local configLoaded = false
+
 local COLORS = {
     BASE_1 = "#484848",
     BASE_2 = "#414141"
@@ -183,6 +185,29 @@ local function createGoldFrame(panel, targetId, borderId)
     border:raise()
 end
 
+local function sortOptionsButtons()
+    if not optionsController or not optionsController.ui then
+        return
+    end
+    local panel = optionsController.ui.onPanel.options
+    if not panel then
+        return
+    end
+    local children = panel:getChildren()
+    for i, child in ipairs(children) do
+        child._stableOrder = child._stableOrder or i
+    end
+    table.sort(children, function(a, b)
+        local aIdx = a.index or 1000
+        local bIdx = b.index or 1000
+        if aIdx ~= bIdx then
+            return aIdx < bIdx
+        end
+        return (a._stableOrder or 0) < (b._stableOrder or 0)
+    end)
+    panel:reorderChildren(children)
+end
+
 local function createButton(id, description, image, callback, special, front, index)
     local panel
     if special then
@@ -218,9 +243,13 @@ local function createButton(id, description, image, callback, special, front, in
         button.index = index or 1000
     end
 
+    if not special and not configLoaded then
+        sortOptionsButtons()
+    end
     refreshOptionsSizes()
     return button
 end
+
 
 optionsController = Controller:new()
 optionsController:setUI('mainoptionspanel', modules.game_interface.getMainRightPanel())
@@ -263,15 +292,7 @@ function optionsController:onGameStart()
     for i, child in ipairs(children) do
         child._stableOrder = i
     end
-    table.sort(children, function(a, b)
-        local aIdx = a.index or 1000
-        local bIdx = b.index or 1000
-        if aIdx ~= bIdx then
-            return aIdx < bIdx
-        end
-        return a._stableOrder < b._stableOrder
-    end)
-    getOptionsPanel:reorderChildren(children)
+    sortOptionsButtons()
     optionsController:scheduleEvent(function()
         if optionPanel then
             local config = loadButtonConfig()
@@ -291,6 +312,7 @@ function optionsController:onGameStart()
                 reloadMainPanelSizes()
             end
         end
+        configLoaded = true
     end, 50, "onGameStart")
     if g_game.getClientVersion() >= 1400 and not controlButton1400 then
         controlButton1400 = modules.game_mainpanel.addToggleButton('controButtons', tr('Manage control buttons'),
@@ -300,6 +322,7 @@ function optionsController:onGameStart()
 end
 
 function optionsController:onGameEnd()
+    configLoaded = false
 end
 
 function changeOptionsSize()
