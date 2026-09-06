@@ -421,6 +421,7 @@ end
 
 local function applyRowIcon(widget, condition)
     if condition.path then
+        widget.icon:setImageClip(torect("0 0 0 0"))
         widget.icon:setImageSource(condition.path)
     else
         widget.icon:setImageSource('/images/game/states/player-state-flags')
@@ -546,10 +547,7 @@ function StatusIconBar.isConditionActive(player, condition, states)
     end
 
     if condition.id == 'condition_hungry' then
-        local regenTime = safeCall(player, 'getRegenerationTime')
-        if regenTime ~= nil and regenTime == 0 then
-            return true
-        end
+        return isPlayerHungryConditionActive(player)
     end
 
     if condition.id == 'condition_restingarea' then
@@ -591,6 +589,7 @@ local function applyIconWidgetStyle(container, condition)
     icon:setImageSize(tosize(iconSize.icon .. ' ' .. iconSize.icon))
 
     if condition.path then
+        icon:setImageClip(torect("0 0 0 0"))
         icon:setImageSource(condition.path)
     else
         icon:setImageSource('/images/game/states/player-state-flags')
@@ -856,10 +855,6 @@ function StatusIconBar.onEmblemChange()
     StatusIconBar.refreshIcons()
 end
 
-function StatusIconBar.onRegenerationChange()
-    StatusIconBar.refreshIcons()
-end
-
 function StatusIconBar.onGameStart()
     StatusIconBar.refreshIcons()
     StatusIconBar.updatePosition()
@@ -887,8 +882,7 @@ function StatusIconBar.init()
     connect(LocalPlayer, {
         onStatesChange = StatusIconBar.onStatesChange,
         onSkullChange = StatusIconBar.onSkullChange,
-        onEmblemChange = StatusIconBar.onEmblemChange,
-        onRegenerationChange = StatusIconBar.onRegenerationChange
+        onEmblemChange = StatusIconBar.onEmblemChange
     })
 
     connect(g_game, {

@@ -406,6 +406,10 @@ function StatsBar.reloadCurrentStatsBarQuickInfo_state(localPlayer, now, old)
         return
     end
     Player.iterateChangedStates(now, old, function(bitChanged)
+        if g_game.getFeature(GamePlayerRegenerationTime) and bitChanged == PlayerStates.Hungry then
+            StatsBar.refreshHungryIcon()
+            return
+        end
         toggleIcon(bitChanged)
     end)
 end
@@ -805,14 +809,6 @@ function StatsBar.destroyAllIcons()
     end
 end
 
-function StatsBar.destroyAllBars()
-    -- This iterates between the tables: statsBars
-    -- And destroy all bars based on these tables.
-    for _, bar in pairs(statsBars) do
-        bar:destroy()
-    end
-end
-
 function StatsBar.terminate()
     StatsBar.saveSettings()
 
@@ -822,34 +818,51 @@ function StatsBar.terminate()
         onGameEnd = StatsBar.OnGameEnd
     })
 
-    StatsBar.destroyAllBars()
+    StatsBar.hideAll()
 end
 
-function StatsBar.onHungryChange(regenerationTime, alert)
-    local contents = getStatsBarsIconContent()
+local function applyHungryIconStyle(icon, info, transparent)
+    if g_resources.fileExists("/images/game/states/hungry.png") then
+        icon:setImageSource("/images/game/states/hungry")
+    elseif info.path then
+        icon:setImageSource(info.path)
+    else
+        icon:setImageSource("/images/game/states/player-state-flags")
+        icon:setImageClip(((info.clip - 1) * 9) .. ' 0 9 9')
+    end
+
+    icon:setTooltip(info.tooltipBar or info.tooltip or tr("You are hungry"))
+    icon:setImageSize(tosize("9 9"))
+
+    if transparent then
+        icon:setMarginTop(5)
+        icon:setMarginLeft(2)
+        icon:setMarginRight(-2)
+    else
+        icon:setMarginRight(-1)
+    end
+end
+
+function StatsBar.refreshHungryIcon()
     local info = Icons[PlayerStates.Hungry]
-    if regenerationTime <= alert then
-        for _, contentData in ipairs(contents) do
-            local icon = contentData.content:getChildById(info.id)
+    if not info then
+        return
+    end
+
+    local showHungry = isPlayerHungryConditionActive()
+    local contents = getStatsBarsIconContent()
+
+    for _, contentData in ipairs(contents) do
+        local icon = contentData.content:getChildById(info.id)
+
+        if showHungry then
             if not icon then
                 icon = g_ui.createWidget('ConditionWidget', contentData.content)
                 icon:setId(info.id)
-                icon:setImageSource("/images/game/states/player-state-flags")
-                icon:setImageClip(((info.clip - 1) * 9) .. ' 0 9 9')
-                icon:setTooltip(info.tooltip)
-                icon:setImageSize(tosize("9 9"))
-                if contentData.loadIconTransparent then
-                    icon:setMarginTop(5)
-                end
+                applyHungryIconStyle(icon, info, contentData.loadIconTransparent)
             end
-        end
-    else
-        for _, contentData in ipairs(contents) do
-            local icon = contentData.content:getChildById(info.id)
-            if icon then
-                icon:destroy()
-                icon = nil
-            end
+        elseif icon then
+            icon:destroy()
         end
     end
 end

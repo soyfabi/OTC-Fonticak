@@ -481,11 +481,11 @@ ConditionIcons = {
         name = "hungry",
         path = 'images/conditions/player-state-flags-client-02.png',
         id = 'condition_hungry',
-        visibleHud = false,
+        visibleHud = true,
         visibleBar = true,
         tooltipBar = tr('You are hungry'),
         tooltip = tr(
-            "Characters who are hungry do not regenerate mana or health. To\nfill up your character's stomach, look for something edible, such as\nan apple, bread, or ham. There are plenty of things in RubinOT that\nyour character can eat. Check out stores, search bushes, bake your\nown bread or cake, or defeat creatures to find some delicacies."
+            "Characters who are hungry do not regenerate mana or health. To\nfill up your character's stomach, look for something edible, such as\nan apple, bread, or ham. There are plenty of things in the game that\nyour character can eat. Check out stores, search bushes, bake your\nown bread or cake, or defeat creatures to find some delicacies."
         )
     },
     -- Hidden entries for specific states not in top 35
@@ -740,4 +740,160 @@ end
 
 function LoadedPlayer:setVocation(vocationId)
   self.playerVocation = vocationId
+end
+
+function isPlayerHungryConditionActive(player)
+	player = player or g_game.getLocalPlayer()
+
+	if not player then
+		return false
+	end
+
+	local states = player:getStates() or 0
+
+	if not g_game.getFeature(GamePlayerRegenerationTime) then
+		return PlayerStates and PlayerStates.Hungry and Player.isStateActive(states, PlayerStates.Hungry)
+	end
+
+	local remaining = getFoodRegenerationRemaining()
+	if remaining ~= nil then
+		return remaining <= 0
+	end
+
+	return false
+end
+
+function LocalPlayer:isHungry()
+	return isPlayerHungryConditionActive(self)
+end
+
+function buildFoodRegenerationTooltip(regenerationTime)
+	if not regenerationTime or regenerationTime <= 0 then
+		return tr("You are hungry.\nEat something to regenerate hit points and mana faster over time.")
+	end
+
+	local minutes = math.floor(regenerationTime / 60)
+	local seconds = regenerationTime % 60
+
+	return tr("You are regenerating hit points and mana faster for %d minutes and %d seconds", minutes, seconds)
+end
+
+function formatFoodRegenerationTime(regenerationTime)
+	if not regenerationTime or regenerationTime <= 0 then
+		return "00:00"
+	end
+
+	local hours = math.floor(regenerationTime / 3600)
+	local minutes = math.floor(regenerationTime % 3600 / 60)
+
+	return string.format("%02d:%02d", hours, minutes)
+end
+
+local foodRegenerationRemaining = 0
+local foodRegenerationSyncedAt = 0
+local foodRegenerationSynced = false
+local foodRegenerationReceivedFromServer = false
+local foodRegenerationTickEvent
+local FOOD_REGENERATION_TICK_MS = 1000
+
+local function refreshFoodRegenerationUi(regenerationTime)
+	if modules.game_skills and modules.game_skills.updateFoodRegenerationDisplay then
+		modules.game_skills.updateFoodRegenerationDisplay(regenerationTime)
+	end
+
+	if Cyclopedia and Cyclopedia.updateFoodRegenerationDisplay then
+		Cyclopedia.updateFoodRegenerationDisplay(regenerationTime)
+	end
+
+	refreshHungryConditionIcons()
+end
+
+local function tickFoodRegeneration()
+	refreshFoodRegenerationUi(getFoodRegenerationRemaining())
+end
+
+function getFoodRegenerationRemaining()
+	if not foodRegenerationSynced then
+		return nil
+	end
+
+	if foodRegenerationRemaining <= 0 then
+		return 0
+	end
+
+	local elapsed = g_clock.seconds() - foodRegenerationSyncedAt
+
+	return math.max(0, foodRegenerationRemaining - elapsed)
+end
+
+function syncFoodRegenerationTime(regenerationTime)
+	foodRegenerationSynced = true
+
+	if regenerationTime == nil or regenerationTime < 0 then
+		foodRegenerationRemaining = 0
+	else
+		foodRegenerationRemaining = regenerationTime
+	end
+
+	foodRegenerationSyncedAt = g_clock.seconds()
+end
+
+function refreshHungryConditionIcons()
+	if modules.game_interface and modules.game_interface.StatsBar and modules.game_interface.StatsBar.refreshHungryIcon then
+		modules.game_interface.StatsBar.refreshHungryIcon()
+	end
+
+	if modules.game_healthcircle and modules.game_healthcircle.StatusIconBar and modules.game_healthcircle.StatusIconBar.refreshIcons then
+		modules.game_healthcircle.StatusIconBar.refreshIcons()
+	end
+end
+
+function startFoodRegenerationTicker()
+	if foodRegenerationTickEvent then
+		return
+	end
+
+	if not g_game.isOnline() then
+		return
+	end
+
+	foodRegenerationTickEvent = cycleEvent(tickFoodRegeneration, FOOD_REGENERATION_TICK_MS)
+end
+
+function stopFoodRegenerationTicker()
+	if foodRegenerationTickEvent then
+		foodRegenerationTickEvent:cancel()
+
+		foodRegenerationTickEvent = nil
+	end
+
+	foodRegenerationRemaining = 0
+	foodRegenerationSyncedAt = 0
+	foodRegenerationSynced = false
+	foodRegenerationReceivedFromServer = false
+	refreshHungryConditionIcons()
+end
+
+function onFoodRegenerationChange(regenerationTime)
+	if not g_game.getFeature(GamePlayerRegenerationTime) or regenerationTime == nil or regenerationTime < 0 then
+		return
+	end
+
+	foodRegenerationReceivedFromServer = true
+	syncFoodRegenerationTime(regenerationTime)
+	refreshFoodRegenerationUi(getFoodRegenerationRemaining())
+	startFoodRegenerationTicker()
+end
+
+function bootstrapFoodRegenerationFromPlayer()
+	if foodRegenerationReceivedFromServer then
+		return
+	end
+
+	local player = g_game.getLocalPlayer()
+	if not player then
+		return
+	end
+
+	onFoodRegenerationChange(player:getRegenerationTime())
 end

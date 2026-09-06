@@ -344,7 +344,39 @@ function toggle()
 end
 
 function openPremiumBoost()
+  openCategory("Boosts")
+end
+
+function openCategory(categoryName, subCategoryName)
+  if not categoryName or categoryName == "" then
+    show()
+    return
+  end
+
+  if Categories and Categories.setPendingCategory then
+    Categories:setPendingCategory(categoryName, subCategoryName)
+  end
+
   show()
+
+  if Categories and Categories.selectCategoryByName then
+    if Categories:selectCategoryByName(categoryName, subCategoryName) then
+      if Categories.clearPendingCategory then
+        Categories:clearPendingCategory()
+      end
+      return
+    end
+  end
+
+  scheduleEvent(function()
+    if Categories and Categories.pendingCategory and Categories.selectCategoryByName then
+      if Categories:selectCategoryByName(Categories.pendingCategory.category, Categories.pendingCategory.subCategory) then
+        if Categories.clearPendingCategory then
+          Categories:clearPendingCategory()
+        end
+      end
+    end
+  end, 200)
 end
 
 local function updateCoinBalanceWidgets(refreshOffers)
