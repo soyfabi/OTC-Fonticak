@@ -2622,7 +2622,8 @@ void ProtocolGame::parsePlayerStats(const InputMessagePtr& msg) const
     const uint8_t levelPercent = msg->getU8();
 
     if (g_game.getFeature(Otc::GameExperienceBonus)) {
-        if (g_game.getClientVersion() <= 1096) {
+        const bool useModernExperienceBonus = g_game.getClientVersion() >= 1097 || g_game.getClientVersion() == 860;
+        if (!useModernExperienceBonus) {
             const double experienceBonus = msg->getDouble();
             m_localPlayer->setExperienceRate(Otc::EXP_BASE, experienceBonus * 100);
         } else {
@@ -2661,9 +2662,12 @@ void ProtocolGame::parsePlayerStats(const InputMessagePtr& msg) const
     const uint16_t regeneration = g_game.getFeature(Otc::GamePlayerRegenerationTime) ? msg->getU16() : 0;
     const uint16_t training = g_game.getFeature(Otc::GameOfflineTrainingTime) ? msg->getU16() : 0;
 
-    if (g_game.getClientVersion() >= 1097) {
-        m_localPlayer->setStoreExpBoostTime(msg->getU16()); // xp boost time (seconds)
-        msg->getU8(); // enables exp boost in the store
+    if (g_game.getClientVersion() >= 1097 || (g_game.getClientVersion() == 860 && g_game.getFeature(Otc::GameExperienceBonus))) {
+        const uint16_t remainingStoreXpBoostSeconds = msg->getU16(); // xp boost time (seconds)
+        const uint8_t canBuyMoreStoreXpBoosts = msg->getU8(); // enables exp boost in the store
+        m_localPlayer->setStoreExpBoostTime(remainingStoreXpBoostSeconds);
+        m_localPlayer->setCanBuyExpBoost(canBuyMoreStoreXpBoosts != 0);
+        m_localPlayer->callLuaField("onExpBoostChange", remainingStoreXpBoostSeconds, canBuyMoreStoreXpBoosts != 0);
     }
 
     if (g_game.getClientVersion() >= 1281) {

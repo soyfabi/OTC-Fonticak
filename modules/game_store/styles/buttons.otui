@@ -56,6 +56,9 @@ TreeItem < UIWidget
     $pressed:
       image-source: /images/store/categorie-down
       image-clip: 0 0 166 22
+    $on:
+      image-source: /images/store/categorie-down
+      image-clip: 0 0 166 22
     UIWidget
       id: icon
       size: 13 13

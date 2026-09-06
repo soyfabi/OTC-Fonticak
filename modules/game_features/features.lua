@@ -83,6 +83,7 @@ controller:registerEvents(g_game, {
             g_game.enableFeature(GameSpellList)
             g_game.enableFeature(GameThingUpgradeClassification)
             g_game.enableFeature(GameItemTierByte)
+            g_game.enableFeature(GamePlayerRegenerationTime)
             -- Custom 8.60 servers (e.g. Astra) extend the outfit packet with familiars.
             g_game.enableFeature(GamePlayerFamiliars)
         end

@@ -125,32 +125,6 @@ function UIItem:onDestroy()
 end
 
 function UIItem:onHoverChange(hovered)
-    UIWidget.onHoverChange(self, hovered)
-
-    if self:isVirtual() or not self:isDraggable() then
-        UIDragIcon:hide()
-        return
-    end
-
-    local draggingWidget = g_ui.getDraggingWidget()
-    if draggingWidget and self ~= draggingWidget then
-        local gotMap = draggingWidget:getClassName() == 'UIGameMap'
-        local gotItem = draggingWidget:getClassName() == 'UIItem' and not draggingWidget:isVirtual()
-        if hovered and (gotItem or gotMap) then
-            self:setBorderWidthTop(1)
-            self:setBorderWidthRight(1)
-            self:setBorderWidthBottom(1)
-            self:setBorderWidthLeft(1)
-            draggingWidget.hoveredWho = self
-        else
-            self:setBorderWidthTop(0)
-            self:setBorderWidthRight(0)
-            self:setBorderWidthBottom(0)
-            self:setBorderWidthLeft(0)
-            draggingWidget.hoveredWho = nil
-        end
-    end
-
     if g_game.getFeature(GameItemTooltipV8) then
         local tooltip = ""
         local function splitTextIntoLines(text, maxLineLength)
@@ -176,9 +150,38 @@ function UIItem:onHoverChange(hovered)
 
         if self:getItem() and self:getItem():getTooltip():len() > 0 then
             tooltip = splitTextIntoLines(self:getItem():getTooltip(), 80)
-            if tooltip then
-                self:setTooltip(tooltip)
-            end
+        end
+
+        if tooltip and tooltip:len() > 0 then
+            self:setTooltip(tooltip)
+        else
+            self:removeTooltip()
+        end
+    end
+
+    UIWidget.onHoverChange(self, hovered)
+
+    if self:isVirtual() or not self:isDraggable() then
+        UIDragIcon:hide()
+        return
+    end
+
+    local draggingWidget = g_ui.getDraggingWidget()
+    if draggingWidget and self ~= draggingWidget then
+        local gotMap = draggingWidget:getClassName() == 'UIGameMap'
+        local gotItem = draggingWidget:getClassName() == 'UIItem' and not draggingWidget:isVirtual()
+        if hovered and (gotItem or gotMap) then
+            self:setBorderWidthTop(1)
+            self:setBorderWidthRight(1)
+            self:setBorderWidthBottom(1)
+            self:setBorderWidthLeft(1)
+            draggingWidget.hoveredWho = self
+        else
+            self:setBorderWidthTop(0)
+            self:setBorderWidthRight(0)
+            self:setBorderWidthBottom(0)
+            self:setBorderWidthLeft(0)
+            draggingWidget.hoveredWho = nil
         end
     end
 end
@@ -249,5 +252,9 @@ function UIItem:onItemChange()
     if self:getItem() and self:getItem():getTooltip():len() > 0 then
         tooltip = self:getItem():getTooltip()
     end
-    self:setTooltip(tooltip)
+    if tooltip:len() > 0 then
+        self:setTooltip(tooltip)
+    else
+        self:removeTooltip()
+    end
 end

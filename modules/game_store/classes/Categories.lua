@@ -247,6 +247,12 @@ function Categories:configure(categories)
 
 		Categories.renderEvent = nil
 		Categories.signature = signature
+
+		if Categories.pendingCategory then
+			local pending = Categories.pendingCategory
+			Categories.pendingCategory = nil
+			Categories:selectCategoryByName(pending.category, pending.subCategory)
+		end
 	end
 
 	renderNextBatch()
@@ -521,8 +527,134 @@ function Categories:onSelectCategory(widget, name)
 		end
 		g_game.doThing(true)
 	end
+
+	if Categories.selectTreeItem and Categories.selectTreeItem ~= widget then
+		if Categories.selectTreeItem.setOn then
+			Categories.selectTreeItem:setOn(false)
+		end
+		if Categories.selectTreeItem.text then
+			Categories.selectTreeItem.text:setColor("$var-text-cip-color")
+		end
+	end
+	if widget.setOn then
+		widget:setOn(true)
+	end
+	if widget.text then
+		widget.text:setColor("$var-text-cip-color-highlight")
+	end
+
 	Categories.selectTreeItem = widget
 	Categories.name = name
+end
+
+function Categories:findCategory(categoryName)
+	if not categoryName then
+		return nil, nil, nil
+	end
+
+	local target = tostring(categoryName):lower()
+
+	-- 1. Exact match on main category
+	for id, cat in pairs(Categories.categoryTable or {}) do
+		if cat.name and cat.name:lower() == target then
+			return id, cat, nil
+		end
+	end
+
+	-- 2. Exact match on subcategory
+	for id, cat in pairs(Categories.categoryTable or {}) do
+		if cat.childs then
+			for _, child in ipairs(cat.childs) do
+				if child.name and child.name:lower() == target then
+					return id, cat, child.name
+				end
+			end
+		end
+	end
+
+	-- 3. Substring match on main category
+	for id, cat in pairs(Categories.categoryTable or {}) do
+		local catName = cat.name and cat.name:lower() or ""
+		if catName ~= "" and (catName:find(target, 1, true) or target:find(catName, 1, true)) then
+			return id, cat, nil
+		end
+	end
+
+	-- 4. Substring match on subcategory
+	for id, cat in pairs(Categories.categoryTable or {}) do
+		if cat.childs then
+			for _, child in ipairs(cat.childs) do
+				local childName = child.name and child.name:lower() or ""
+				if childName ~= "" and (childName:find(target, 1, true) or target:find(childName, 1, true)) then
+					return id, cat, child.name
+				end
+			end
+		end
+	end
+
+	return nil, nil, nil
+end
+
+function Categories:selectCategoryByName(categoryName, subCategoryName)
+	if not categoryName or categoryName == "" then
+		return false
+	end
+
+	if not Categories.categoryTable or #Categories.categoryTable == 0 then
+		Categories:setPendingCategory(categoryName, subCategoryName)
+		return false
+	end
+
+	local id, cat, matchedChild = Categories:findCategory(subCategoryName or categoryName)
+	if not cat and subCategoryName then
+		id, cat, matchedChild = Categories:findCategory(categoryName)
+	end
+
+	if not cat or not id then
+		return false
+	end
+
+	local treeItem = Categories.widgets[id]
+	if not treeItem or treeItem:isDestroyed() or not treeItem.mainButton then
+		Categories:setPendingCategory(categoryName, subCategoryName)
+		return false
+	end
+
+	if cat.childs and #cat.childs > 0 then
+		local targetChild = subCategoryName or matchedChild
+		Categories:collapseAll(false)
+		Categories:expandTreeItem(treeItem, cat, targetChild)
+		local panel = treeItem:getChildById('panel')
+		if panel then
+			for _, childBtn in pairs(panel:getChildren()) do
+				if childBtn and not childBtn:isDestroyed() then
+					local textWidget = childBtn:getChildById('text')
+					local btnText = textWidget and textWidget:getText() or ""
+					if not targetChild or btnText:lower() == tostring(targetChild):lower() then
+						if childBtn.onClick then
+							childBtn.onClick()
+						end
+						return true
+					end
+				end
+			end
+		end
+	else
+		Categories:onSelectCategory(treeItem.mainButton)
+	end
+
+	return true
+end
+
+function Categories:setPendingCategory(category, subCategory)
+	Categories.pendingCategory = {
+		category = category,
+		subCategory = subCategory
+	}
+end
+
+function Categories:clearPendingCategory()
+	Categories.pendingCategory = nil
 end
 
 function Categories:setupSearch(disabled)
@@ -545,4 +677,5 @@ function Categories:reset()
 	Categories.selectButton = nil
 	Categories.selectTreeItem = nil
 	Categories.name = ''
+	Categories.pendingCategory = nil
 end
