@@ -172,6 +172,30 @@ local function cancelPendingTooltip()
     pendingHoveredWidget = nil
 end
 
+local function getWidgetTooltipContent(widget)
+    if not widget then
+        return nil
+    end
+
+    local tooltipWidget = widget:getChildById('toolTipWidget')
+    local source = tooltipWidget or widget
+
+    if source.tooltip and source.tooltip:len() > 0 then
+        return source.tooltip, 'display'
+    end
+    if source.specialtooltip then
+        return source.specialtooltip, 'special'
+    end
+    if source.parseColoreDisplay and source.parseColoreDisplay:len() > 0 then
+        return source.parseColoreDisplay, 'colored'
+    end
+    return nil
+end
+
+local function widgetHasTooltipContent(widget)
+    return getWidgetTooltipContent(widget) ~= nil
+end
+
 local function cancelPendingHide()
     if pendingHideEvent then
         removeEvent(pendingHideEvent)
@@ -181,31 +205,44 @@ end
 
 local function displayWidgetTooltip(widget)
     if not widget or g_mouse.isPressed() then
-        return
+        return false
     end
 
     if widget:isDestroyed() or not widget:isVisible() then
-        return
+        return false
     end
 
     if not widget:isHovered() and not widget:containsPoint(g_window.getMousePosition()) then
-        return
+        return false
+    end
+
+    local content, contentType = getWidgetTooltipContent(widget)
+    if not content then
+        return false
     end
 
     cancelPendingHide()
     currentHoveredWidget = widget
 
-    if widget.tooltip then
-        g_tooltip.display(widget.tooltip)
-    elseif widget.specialtooltip then
-        g_tooltip.displaySpecial(widget.specialtooltip)
-    elseif widget.parseColoreDisplay then
-        g_tooltip.parseColoreDisplay(widget.parseColoreDisplay)
+    if contentType == 'display' then
+        g_tooltip.display(content)
+    elseif contentType == 'special' then
+        g_tooltip.displaySpecial(content)
+    elseif contentType == 'colored' then
+        g_tooltip.parseColoreDisplay(content)
     end
+    return true
 end
 
 local function scheduleTooltip(widget)
     if not widget or g_mouse.isPressed() then
+        return
+    end
+
+    if not widgetHasTooltipContent(widget) then
+        if widget == pendingHoveredWidget then
+            cancelPendingTooltip()
+        end
         return
     end
 
@@ -218,11 +255,15 @@ local function scheduleTooltip(widget)
     local delay = isTooltipActive() and 0 or getWidgetTooltipDelay(widget)
 
     if delay <= 0 then
-        displayWidgetTooltip(widget)
+        if not displayWidgetTooltip(widget) then
+            scheduleHide()
+        end
         pendingHoveredWidget = nil
     else
         pendingTooltipEvent = scheduleEvent(function()
-            displayWidgetTooltip(widget)
+            if not displayWidgetTooltip(widget) then
+                scheduleHide()
+            end
             pendingTooltipEvent = nil
             pendingHoveredWidget = nil
         end, delay)
@@ -290,7 +331,7 @@ end
 
 local function onWidgetHoverChange(widget, hovered)
     if hovered then
-        if (widget.tooltip or widget.specialtooltip or widget.parseColoreDisplay) and not g_mouse.isPressed() then
+        if widgetHasTooltipContent(widget) and not g_mouse.isPressed() then
             scheduleTooltip(widget)
         end
     else
@@ -459,6 +500,7 @@ function g_tooltip.display(text)
     if isCurrentlyVisible then
         -- Changing tooltip: smooth fade-out first, then switch text and fade-in
         local fadeOutTime = 70
+        g_effects.cancelFade(toolTipLabel)
         g_effects.fadeOut(toolTipLabel, fadeOutTime)
         startTrackingMouseMove()
 
