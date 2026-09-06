@@ -1,11 +1,10 @@
 FloatingInputWindow 
   id: addGroupWindow
-  size: 359 115
+  size: 360 188
   padding: 3
   visible: false
   anchors.centerIn: parent
-  margin-left: 100
-  margin-top: 20
+  margin-top: -13
   @onEnter: modules.game_viplist.addGroup()
   @onEscape: modules.game_viplist.destroyAddGroupWindow()
 
@@ -13,8 +12,9 @@ FloatingInputWindow
     id: headerLabel
     !text: tr('Add VIP Group')
     text-align: center
-    font: verdana-11px-antialised
+    font: Verdana Bold-11px-new
     color: #909090
+    text-offset: 0 1
     anchors.top: parent.top
     anchors.left: parent.left
     anchors.right: parent.right
@@ -24,26 +24,69 @@ FloatingInputWindow
   Label
     id: descriptionText
     !text: tr('Please enter a group name:')
+    font: Verdana Bold-11px-new
+    color: #c0c0c0
     text-wrap: true
     text-auto-resize:true
     anchors.top: headerLabel.bottom
     anchors.left: parent.left
     anchors.right: parent.right
-    margin: 10
-    margin-left: 13
+    margin-left: 12
+    margin-top: 12
 
   TextEdit
     id: name
+    focusable: true
     size: 150 16
     anchors.top: descriptionText.bottom
     anchors.right: parent.right
     anchors.left: parent.left
-    margin: 7
+    margin-top: 6
     margin-right: 13
     margin-left: 13
     text-align: left
     text-offset: 0 -2
-    max-length: 40
+    max-length: 15
+
+  Label
+    id: nameWarnLabel
+    anchors.top: name.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 4
+    margin-left: 13
+    margin-right: 13
+    height: 14
+    font: Verdana Bold-11px-new
+    text-align: left
+
+  Label
+    id: colorLabel
+    !text: tr('Color:')
+    font: Verdana Bold-11px-new
+    color: #c0c0c0
+    text-auto-resize: true
+    anchors.top: nameWarnLabel.bottom
+    anchors.left: parent.left
+    margin-top: 6
+    margin-left: 13
+
+  Panel
+    id: colorPanel
+    size: 205 21
+    anchors.top: colorLabel.bottom
+    anchors.left: parent.left
+    margin-top: 5
+    margin-left: 13
+    image-source: /images/ui/2pixel-up-frame-borderimage
+    image-border: 2
+    padding-top: 3
+    padding-bottom: 3
+    padding-left: 5
+    padding-right: 5
+    layout:
+      type: horizontalBox
+      spacing: 5
 
   Label
     height: 38
@@ -55,31 +98,28 @@ FloatingInputWindow
     id: separatorBox 
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.top: name.bottom
-    margin-top: 13
+    anchors.top: colorPanel.bottom
+    margin-top: 12
     margin-right: 13
     margin-left: 13
 
-  StoreButton
+  Button
     id: closeButton
     anchors.right: parent.right
     anchors.bottom: parent.bottom
-    margin-right: 12
-    margin-bottom: 7
-    margin-top: 10
+    margin-right: 13
+    margin-bottom: 13
     !text: tr('Cancel')
     font: cipsoftFont
     size: 43 20
     color: #ffffff
     @onClick: modules.game_viplist.destroyAddGroupWindow()
 
-  StoreButton
+  Button
     id: buttonOk
     anchors.right: closeButton.left
-    anchors.bottom: parent.bottom
-    margin-right: 10
-    margin-bottom: 7
-    margin-top: 10
+    anchors.bottom: closeButton.bottom
+    margin-right: 11
     !text: tr('Ok')
     font: cipsoftFont
     size: 43 20

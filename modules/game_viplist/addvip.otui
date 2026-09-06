@@ -1,11 +1,10 @@
 FloatingInputWindow 
   id: addVipWindow
-  size: 359 115
+  size: 360 121
   padding: 3
   visible: false
   anchors.centerIn: parent
-  margin-left: 100
-  margin-top: 20
+  margin-top: -13
   @onEnter: modules.game_viplist.addVip()
   @onEscape: modules.game_viplist.destroyAddWindow()
 
@@ -13,8 +12,9 @@ FloatingInputWindow
     id: headerLabel
     !text: tr('Add to VIP list')
     text-align: center
-    font: verdana-11px-antialised
+    font: Verdana Bold-11px-new
     color: #909090
+    text-offset: 0 1
     anchors.top: parent.top
     anchors.left: parent.left
     anchors.right: parent.right
@@ -24,21 +24,24 @@ FloatingInputWindow
   Label
     id: descriptionText
     !text: tr('Please enter a character name') .. ':'
+    font: Verdana Bold-11px-new
+    color: #c0c0c0
     text-wrap: true
     text-auto-resize:true
     anchors.top: headerLabel.bottom
     anchors.left: parent.left
     anchors.right: parent.right
-    margin: 10
-    margin-left: 13
+    margin-left: 12
+    margin-top: 12
 
   TextEdit
     id: name
+    focusable: true
     size: 150 16
     anchors.top: descriptionText.bottom
     anchors.right: parent.right
     anchors.left: parent.left
-    margin: 7
+    margin-top: 6
     margin-right: 13
     margin-left: 13
     text-align: left
@@ -51,34 +54,31 @@ FloatingInputWindow
     anchors.right: parent.right
 
   HorizontalSeparator
-    id: separatorBox 
+    id: separatorBox
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: name.bottom
-    margin-top: 13
+    margin-top: 11
     margin-right: 13
     margin-left: 13
 
-  StoreButton
+  Button
     id: closeButton
     anchors.right: parent.right
     anchors.bottom: parent.bottom
-    margin-right: 12
-    margin-bottom: 7
-    margin-top: 10
+    margin-right: 13
+    margin-bottom: 13
     !text: tr('Cancel')
     font: cipsoftFont
     size: 43 20
     color: #ffffff
     @onClick: modules.game_viplist.destroyAddWindow()
 
-  StoreButton
+  Button
     id: buttonOk
     anchors.right: closeButton.left
-    anchors.bottom: parent.bottom
-    margin-right: 10
-    margin-bottom: 7
-    margin-top: 10
+    anchors.bottom: closeButton.bottom
+    margin-right: 11
     !text: tr('Ok')
     font: cipsoftFont
     size: 43 20

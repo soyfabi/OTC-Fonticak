@@ -531,7 +531,7 @@ function UIMiniWindow:setupOnStart()
             parentId == "gameLeftExtraPanel" or
             parentId == "gameRightExtraPanel" then
             if parent:isVisible() then
-                parent:setWidth(190)
+                parent:setWidth(178)
                 -- The horizontal top bar is sized from this column, so it must
                 -- be recomputed or it keeps the wider default and juts out.
                 if modules.game_interface and modules.game_interface.scheduleSidebarLayoutUpdate then

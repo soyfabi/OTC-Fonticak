@@ -29,6 +29,8 @@ Button < UIButton
     opacity: 0.8
     change-cursor-image: false
 
+StoreButton < Button
+
 TabButton < UIButton
   size: 22 23
   image-source: /images/ui/tabbutton_rounded

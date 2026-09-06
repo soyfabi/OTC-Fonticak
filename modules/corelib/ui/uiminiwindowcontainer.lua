@@ -3,7 +3,7 @@ UIMiniWindowContainer = extends(UIWidget, 'UIMiniWindowContainer')
 
 local SIDEBAR_FREE_SPACE_IMAGE = '/images/ui/2pixel_up_frame_borderimage'
 local SIDEBAR_FREE_SPACE_BORDER = 2
-local BOT_WINDOW_COLUMN_WIDTH = 190
+local BOT_WINDOW_COLUMN_WIDTH = 178
 
 -- The bot window forces its column narrower than the default. The horizontal top
 -- bar is sized from the columns below it, so it has to be recomputed afterwards

@@ -57,7 +57,7 @@ MainWindow
     margin-right: 13
     margin-left: 13
 
-  StoreButton
+  Button
     id: closeButton
     anchors.right: parent.right
     anchors.bottom: parent.bottom
@@ -70,7 +70,7 @@ MainWindow
     size: 43 20
     color: #ffffff
 
-  StoreButton
+  Button
     id: buttonOk
     anchors.right: closeButton.left
     anchors.bottom: parent.bottom

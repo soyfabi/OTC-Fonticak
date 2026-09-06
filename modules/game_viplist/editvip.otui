@@ -1,105 +1,74 @@
 VipGroupBox < CheckBox
   !text: tr('Empty')
-  color: #f4ecec
-  text-offset: 15 -1
-  $hover !disabled:
-    color: #9a9999
-  
-IconButton < CheckBox
-  size: 20 20
-  image-source: /images/game/viplist/vipcheckbox
-  image-size: 20 20
+  font: Verdana Bold-11px-new
+  color: #c0c0c0
+  change-cursor-image: false
+  text-offset: 16 0
+
+IconButton < CheckBoxButton
+  size: 16 16
+  image-source: /images/ui/button-grey-up
   image-border: 3
-  margin: 2
-  icon-source: /images/game/viplist/icons
-  icon-size: 12 12
-  icon-rect: 0 0 12 12
+  margin-top: 2
+  margin-bottom: 2
+  margin-right: 2
+  margin-left: 2
+  icon: /images/game/creatures/vip-icons
   icon-clip: 0 0 12 12
-  icon-offset: 4 6
+
+  $checked:
+    image-source: /images/ui/button-grey-down
 
   $first:
     margin-left: 0
 
-  $!checked:
-    image-clip: 26 0 26 26
+  $!first:
+    margin-left: 3
 
-  $hover !checked:
-    image-clip: 78 0 26 26
-
-  $checked:
-    image-clip: 0 0 26 26
-
-  $hover checked:
-    image-clip: 52 0 26 26
-
-MainWindow
-  size: 272 170
+MainWindowHigh
+  size: 285 376
   !text: tr('Edit VIP')
+  font: Verdana Bold-11px-new
+  color: #909090
+  text-offset: 0 2
 
   Label
     id: nameLabel
     text: Name
+    font: Verdana Bold-11px-new
+    color: #c0c0c0
     anchors.top: parent.top
     anchors.left: parent.left
-    color: green
     width: 180
+    margin-left: -1
+    margin-top: -7
+
   HorizontalSeparator
+    id: separator1
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.bottom: prev.bottom
-    margin-bottom: -5
-  Label
-    !text: tr('Description') .. ':'
-    anchors.top: prev.bottom
-    anchors.left: parent.left
-    text-offset: 0 3
-    height: 20
+    anchors.top: nameLabel.bottom
     margin-top: 5
-    @onSetup: |
-      if g_game.getFeature(GameVipGroups) then
-        self:hide()
-        self:setHeight(0)
-      end
-  TextEdit
-    id: descriptionText
-    anchors.top: prev.top
-    anchors.left: prev.right
-    anchors.right: parent.right
-    margin: 0 5
-    @onSetup: |
-      if g_game.getFeature(GameVipGroups) then
-        self:hide()
-        self:setHeight(0)
-      end
+
   Label
-    !text: tr('Notify-Login') .. ':'
-    anchors.top: prev.bottom
+    id: selectTypeLabel
+    text: Select a type:
+    font: Verdana Bold-11px-new
+    color: #c0c0c0
+    anchors.top: separator1.bottom
     anchors.left: parent.left
-    text-offset: 0 3
-    height: 20
-    margin-top: 5
-    @onSetup: |
-      if g_game.getFeature(GameVipGroups) then
-        self:hide()
-        self:setHeight(0)
-      end
-  CheckBox
-    id: checkBoxNotify
-    anchors.top: prev.top
-    anchors.left: prev.right
-    margin: 2 6
-    @onSetup: |
-      if g_game.getFeature(GameVipGroups) then
-        self:hide()
-        self:setHeight(0)
-      end
+    width: 180
+    margin-left: -1
+    margin-top: 9
 
   UIWidget
+    id: iconsPanel
     layout: horizontalBox
-    anchors.top: prev.bottom
+    anchors.top: selectTypeLabel.bottom
     anchors.left: parent.left
     anchors.right: parent.right
-    height: 24
+    margin-top: 4
+    height: 20
 
     IconButton
       id: icon0
@@ -145,108 +114,123 @@ MainWindow
       icon-clip: 120 0 12 12
   
   Label
+    id: descriptionLabel
     text: Enter a short description:
-    anchors.top: prev.bottom
+    font: Verdana Bold-11px-new
+    color: #c0c0c0
+    anchors.top: iconsPanel.bottom
     anchors.left: parent.left
     margin-left: -1
-    margin-top: 10
+    margin-top: 9
     text-auto-resize: true
-    @onSetup: |
-      if not g_game.getFeature(GameVipGroups) then
-        self:hide()
-      end
 
   TextEdit
     id: descriptionText
-    anchors.top: prev.bottom
-    anchors.left: prev.left
+    anchors.top: descriptionLabel.bottom
+    anchors.left: parent.left
     anchors.right: parent.right
-    height: 50
+    height: 58
     margin-top: 5
-    margin-left: 1
     multiline: true
     text-wrap: true
-    @onSetup: |
-      if not g_game.getFeature(GameVipGroups) then
-        self:hide()
-      end
-  SmallReversedQtPanel
-    size: 244 22
-    anchors.top: prev.bottom
-    anchors.left: prev.left
+    padding-right: 14
+    max-length: 40
+    vertical-scrollbar: descriptionTextScrollBar
+
+  VerticalQtScrollBar
+    id: descriptionTextScrollBar
+    anchors.top: descriptionText.top
+    anchors.bottom: descriptionText.bottom
+    anchors.right: descriptionText.right
+    margin-top: 1
+    margin-bottom: 1
+    margin-right: 1
+    step: 16
+
+  Label
+    id: descriptionWarnLabel
+    anchors.top: descriptionText.bottom
+    anchors.left: parent.left
     anchors.right: parent.right
-    margin-top: 11
-    @onSetup: |
-      if not g_game.getFeature(GameVipGroups) then
-        self:hide()
-      end
+    margin-top: 4
+    height: 14
+    font: Verdana Bold-11px-new
+    text-align: left
+
+  UIWidget
+    id: notifyBox
+    size: 253 22
+    image-source: /images/ui/1pixel-down-frame
+    image-border: 5
+    anchors.top: descriptionWarnLabel.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 4
+
     OptionCheckBox
       id: checkBoxNotify
       !text: tr('Notify on login')
       anchors.left: parent.left
-      anchors.right: parent.right
-      anchors.verticalCenter: parent.verticalCenter
-      text-auto-resize: true
-
+      anchors.top: parent.top
+      text-offset: 16 1
+      margin-left: 4
+      margin-top: 3
+      color: #c0c0c0
+      font: Verdana Bold-11px-new
 
   HorizontalSeparator
+    id: separator2
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 11
-    @onSetup: |
-      if not g_game.getFeature(GameVipGroups) then
-        self:hide()
-      end
+    anchors.top: notifyBox.bottom
+    margin-top: 8
+
   Label
+    id: groupsLabel
     !text: tr('Member of the following groups:')
+    font: Verdana Bold-11px-new
+    color: #c0c0c0
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 10
+    anchors.top: separator2.bottom
+    margin-top: 6
     margin-left: -1
     text-auto-resize: true
-    @onSetup: |
-      if not g_game.getFeature(GameVipGroups) then
-        self:hide()
-      end
+
   Panel
     id: groups
-    width: 253
-
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.top: prev.bottom
-    anchors.bottom: next.top
+    anchors.top: groupsLabel.bottom
+    anchors.bottom: separator3.top
     margin-top: 6
-    margin-bottom: 11
-    @onSetup: |
-      if not g_game.getFeature(GameVipGroups) then
-        self:hide()
-      end
+    margin-bottom: 12
     layout:
       type: grid
       cell-spacing: 3
-      cell-size: 241 12
+      cell-size: 241 15
       num-columns: 1
 
   HorizontalSeparator
+    id: separator3
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.bottom: next.top
-    margin-bottom: 5
+    anchors.bottom: buttonOK.top
+    margin-bottom: 12
 
   Button
     id: buttonOK
     !text: tr('Ok')
-    width: 64
-    anchors.right: next.left
+    size: 43 20
+    text-offset: 0 0
+    anchors.right: buttonCancel.left
     anchors.bottom: parent.bottom
-    margin-right: 10
+    margin-right: 11
 
   Button
     id: buttonCancel
     !text: tr('Cancel')
-    width: 64
+    size: 43 20
+    text-offset: 0 0
     anchors.right: parent.right
     anchors.bottom: parent.bottom

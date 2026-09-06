@@ -5,6 +5,13 @@ g_tooltip = {}
 local toolTipLabel
 local SpecialToolTipLabel
 local currentHoveredWidget
+local isTrackingMouse = false
+local isTrackingSpecialMouse = false
+local pendingHoveredWidget = nil
+local pendingTooltipEvent = nil
+local pendingHideEvent = nil
+local pendingHideScheduleEvent = nil
+local pendingSpecialHideScheduleEvent = nil
 
 -- private functions
 local function moveToolTip(first)
@@ -31,8 +38,16 @@ local function moveToolTip(first)
         pos.y = pos.y + 10
     end
 
+    if pos.x < 4 then
+        pos.x = 4
+    end
+    if pos.y < 4 then
+        pos.y = 4
+    end
+
     toolTipLabel:setPosition(pos)
 end
+
 local function moveSpecialToolTip(first)
     if not first and (not SpecialToolTipLabel:isVisible() or SpecialToolTipLabel:getOpacity() < 0.1) then
         return
@@ -57,12 +72,76 @@ local function moveSpecialToolTip(first)
         pos.y = pos.y + 10
     end
 
+    if pos.x < 4 then
+        pos.x = 4
+    end
+    if pos.y < 4 then
+        pos.y = 4
+    end
+
     SpecialToolTipLabel:setPosition(pos)
 end
 
-local tooltipDelay = 500
-local pendingHoveredWidget = nil
-local pendingTooltipEvent = nil
+local function startTrackingMouseMove()
+    if not isTrackingMouse then
+        isTrackingMouse = true
+        connect(rootWidget, {
+            onMouseMove = moveToolTip
+        })
+    end
+end
+
+local function stopTrackingMouseMove()
+    if isTrackingMouse then
+        isTrackingMouse = false
+        disconnect(rootWidget, {
+            onMouseMove = moveToolTip
+        })
+    end
+end
+
+local function startTrackingSpecialMouseMove()
+    if not isTrackingSpecialMouse then
+        isTrackingSpecialMouse = true
+        connect(rootWidget, {
+            onMouseMove = moveSpecialToolTip
+        })
+    end
+end
+
+local function stopTrackingSpecialMouseMove()
+    if isTrackingSpecialMouse then
+        isTrackingSpecialMouse = false
+        disconnect(rootWidget, {
+            onMouseMove = moveSpecialToolTip
+        })
+    end
+end
+
+local defaultTooltipDelay = 500
+
+local function getWidgetTooltipDelay(widget)
+    if not widget then
+        return defaultTooltipDelay
+    end
+    if widget.tooltipDelay then
+        return tonumber(widget.tooltipDelay) or defaultTooltipDelay
+    end
+    return defaultTooltipDelay
+end
+
+local function isTooltipActive()
+    if pendingHideEvent ~= nil then
+        return true
+    end
+    if toolTipLabel and toolTipLabel:isVisible() and toolTipLabel:getOpacity() > 0.1 then
+        return true
+    end
+    if SpecialToolTipLabel and SpecialToolTipLabel:isVisible() and SpecialToolTipLabel:getOpacity() > 0.1 then
+        return true
+    end
+    return false
+end
 
 local function cancelPendingTooltip()
     if pendingTooltipEvent then
@@ -70,6 +149,13 @@ local function cancelPendingTooltip()
         pendingTooltipEvent = nil
     end
     pendingHoveredWidget = nil
+end
+
+local function cancelPendingHide()
+    if pendingHideEvent then
+        removeEvent(pendingHideEvent)
+        pendingHideEvent = nil
+    end
 end
 
 local function displayWidgetTooltip(widget)
@@ -85,15 +171,15 @@ local function displayWidgetTooltip(widget)
         return
     end
 
+    cancelPendingHide()
+    currentHoveredWidget = widget
+
     if widget.tooltip then
         g_tooltip.display(widget.tooltip)
-        currentHoveredWidget = widget
     elseif widget.specialtooltip then
         g_tooltip.displaySpecial(widget.specialtooltip)
-        currentHoveredWidget = widget
     elseif widget.parseColoreDisplay then
         g_tooltip.parseColoreDisplay(widget.parseColoreDisplay)
-        currentHoveredWidget = widget
     end
 end
 
@@ -102,14 +188,50 @@ local function scheduleTooltip(widget)
         return
     end
 
+    cancelPendingHide()
     cancelPendingTooltip()
 
     pendingHoveredWidget = widget
-    pendingTooltipEvent = scheduleEvent(function()
+
+    -- Fluid transition: if a tooltip is already active or in grace window, switch instantly
+    local delay = isTooltipActive() and 0 or getWidgetTooltipDelay(widget)
+
+    if delay <= 0 then
         displayWidgetTooltip(widget)
-        pendingTooltipEvent = nil
         pendingHoveredWidget = nil
-    end, tooltipDelay)
+    else
+        pendingTooltipEvent = scheduleEvent(function()
+            displayWidgetTooltip(widget)
+            pendingTooltipEvent = nil
+            pendingHoveredWidget = nil
+        end, delay)
+    end
+end
+
+local function scheduleHide(instant)
+    cancelPendingHide()
+    if instant then
+        g_tooltip.hide(true)
+        g_tooltip.hideSpecial(true)
+        return
+    end
+
+    -- 80ms grace window prevents flickering when crossing margins/borders between adjacent items
+    pendingHideEvent = scheduleEvent(function()
+        pendingHideEvent = nil
+        if not currentHoveredWidget or not currentHoveredWidget:isHovered() then
+            if currentHoveredWidget and (currentHoveredWidget.tooltip or currentHoveredWidget.parseColoreDisplay) then
+                g_tooltip.hide()
+            elseif not currentHoveredWidget then
+                g_tooltip.hide()
+            end
+            if currentHoveredWidget and currentHoveredWidget.specialtooltip then
+                g_tooltip.hideSpecial()
+            elseif not currentHoveredWidget then
+                g_tooltip.hideSpecial()
+            end
+        end
+    end, 80)
 end
 
 local function onWidgetDestroy(widget)
@@ -117,13 +239,9 @@ local function onWidgetDestroy(widget)
         cancelPendingTooltip()
     end
     if widget == currentHoveredWidget then
-        currentHoveredWidget = nil
-        if widget.tooltip or widget.parseColoreDisplay then
-            g_tooltip.hide()
-        end
-        if widget.specialtooltip then
-            g_tooltip.hideSpecial()
-        end
+        cancelPendingHide()
+        g_tooltip.hide(true)
+        g_tooltip.hideSpecial(true)
     end
 end
 
@@ -133,29 +251,19 @@ local function onWidgetVisibilityChange(widget, visible)
             cancelPendingTooltip()
         end
         if currentHoveredWidget and (currentHoveredWidget == widget or currentHoveredWidget:isDestroyed() or not currentHoveredWidget:isVisible()) then
-            local hovered = currentHoveredWidget
-            currentHoveredWidget = nil
-            if hovered.tooltip or hovered.parseColoreDisplay then
-                g_tooltip.hide()
-            end
-            if hovered.specialtooltip then
-                g_tooltip.hideSpecial()
-            end
+            cancelPendingHide()
+            g_tooltip.hide(true)
+            g_tooltip.hideSpecial(true)
         end
     end
 end
 
 local function onWidgetMousePress(widget, mousePos, button)
     cancelPendingTooltip()
+    cancelPendingHide()
     if currentHoveredWidget then
-        local hovered = currentHoveredWidget
-        currentHoveredWidget = nil
-        if hovered.tooltip or hovered.parseColoreDisplay then
-            g_tooltip.hide()
-        end
-        if hovered.specialtooltip then
-            g_tooltip.hideSpecial()
-        end
+        g_tooltip.hide(true)
+        g_tooltip.hideSpecial(true)
     end
 end
 
@@ -169,13 +277,7 @@ local function onWidgetHoverChange(widget, hovered)
             cancelPendingTooltip()
         end
         if widget == currentHoveredWidget then
-            currentHoveredWidget = nil
-            if widget.tooltip or widget.parseColoreDisplay then
-                g_tooltip.hide()
-            end
-            if widget.specialtooltip then
-                g_tooltip.hideSpecial()
-            end
+            scheduleHide()
         end
     end
 end
@@ -186,6 +288,9 @@ local function onWidgetStyleApply(widget, styleName, styleNode)
     end
     if styleNode.specialtooltip then
         widget.specialtooltip = {{header = '', info = styleNode.specialtooltip}}
+    end
+    if styleNode['tooltip-delay'] then
+        widget.tooltipDelay = tonumber(styleNode['tooltip-delay'])
     end
 
     local tooltipWidget = widget:getChildById('toolTipWidget')
@@ -227,12 +332,13 @@ function g_tooltip.init()
     addEvent(function()
         toolTipLabel = g_ui.createWidget('UILabel', rootWidget)
         toolTipLabel:setId('toolTip')
-        toolTipLabel:setBackgroundColor('#c0c0c0ff')
+        toolTipLabel:setFont('Verdana Bold-11px')
+        toolTipLabel:setBackgroundColor('#c0c0c0')
         toolTipLabel:setTextAlign(AlignLeft)
-        toolTipLabel:setColor('#3f3f3fff')
-        toolTipLabel:setBorderColor("#4c4c4cff")
+        toolTipLabel:setColor('#3f3f3f')
+        toolTipLabel:setBorderColor('#000000')
         toolTipLabel:setBorderWidth(1)
-        toolTipLabel:setTextOffset(topoint('5 3'))
+        toolTipLabel:setTextOffset(topoint('4 2'))
         toolTipLabel:hide()
         toolTipLabel:setPhantom(true)
     end)
@@ -259,6 +365,18 @@ function g_tooltip.terminate()
     })
 
     cancelPendingTooltip()
+    cancelPendingHide()
+    stopTrackingMouseMove()
+    stopTrackingSpecialMouseMove()
+
+    if pendingHideScheduleEvent then
+        removeEvent(pendingHideScheduleEvent)
+        pendingHideScheduleEvent = nil
+    end
+    if pendingSpecialHideScheduleEvent then
+        removeEvent(pendingSpecialHideScheduleEvent)
+        pendingSpecialHideScheduleEvent = nil
+    end
 
     currentHoveredWidget = nil
     if toolTipLabel then
@@ -277,32 +395,55 @@ function g_tooltip.display(text)
     if not text then
         return
     end
-    
+
+    if type(text) == "table" then
+        g_tooltip.displaySpecial(text)
+        return
+    end
+
     -- Convert to string if not already
     if type(text) ~= "string" then
         text = tostring(text)
     end
-    
+
     if text:len() == 0 then
         return
     end
-    
+
     if not toolTipLabel then
         return
     end
 
+    cancelPendingHide()
+    if pendingHideScheduleEvent then
+        removeEvent(pendingHideScheduleEvent)
+        pendingHideScheduleEvent = nil
+    end
+
+    local wasVisible = toolTipLabel:isVisible() and toolTipLabel:getOpacity() > 0.1
+
+    g_effects.cancelFade(toolTipLabel)
+
+    toolTipLabel:setFont('Verdana Bold-11px')
+    toolTipLabel:setColor('#3f3f3f')
+    toolTipLabel:setBackgroundColor('#c0c0c0')
+    toolTipLabel:setBorderColor('#000000')
+    toolTipLabel:setBorderWidth(1)
     toolTipLabel:setText(text)
     toolTipLabel:resizeToText()
-    toolTipLabel:resize(toolTipLabel:getWidth() + 4, toolTipLabel:getHeight() + 4)
+    toolTipLabel:resize(toolTipLabel:getWidth() + 8, toolTipLabel:getHeight() + 4)
     toolTipLabel:show()
     toolTipLabel:raise()
     toolTipLabel:enable()
-    g_effects.fadeIn(toolTipLabel, 100)
-    moveToolTip(true)
 
-    connect(rootWidget, {
-        onMouseMove = moveToolTip
-    })
+    if wasVisible then
+        toolTipLabel:setOpacity(1.0)
+    else
+        g_effects.fadeIn(toolTipLabel, 60)
+    end
+
+    moveToolTip(true)
+    startTrackingMouseMove()
 end
 
 function g_tooltip.parseColoreDisplay(text)
@@ -313,24 +454,47 @@ function g_tooltip.parseColoreDisplay(text)
         return
     end
 
+    cancelPendingHide()
+    if pendingHideScheduleEvent then
+        removeEvent(pendingHideScheduleEvent)
+        pendingHideScheduleEvent = nil
+    end
+
+    local wasVisible = toolTipLabel:isVisible() and toolTipLabel:getOpacity() > 0.1
+
+    g_effects.cancelFade(toolTipLabel)
+
     toolTipLabel:parseColoredText(text)
     toolTipLabel:resizeToText()
     toolTipLabel:resize(toolTipLabel:getWidth() + 4, toolTipLabel:getHeight() + 4)
     toolTipLabel:show()
     toolTipLabel:raise()
     toolTipLabel:enable()
-    g_effects.fadeIn(toolTipLabel, 100)
-    moveToolTip(true)
 
-    connect(rootWidget, {
-        onMouseMove = moveToolTip
-    })
+    if wasVisible then
+        toolTipLabel:setOpacity(1.0)
+    else
+        g_effects.fadeIn(toolTipLabel, 60)
+    end
+
+    moveToolTip(true)
+    startTrackingMouseMove()
 end
 
 function g_tooltip.displaySpecial(special)
     if not SpecialToolTipLabel then
         return
     end
+
+    cancelPendingHide()
+    if pendingSpecialHideScheduleEvent then
+        removeEvent(pendingSpecialHideScheduleEvent)
+        pendingSpecialHideScheduleEvent = nil
+    end
+
+    local wasVisible = SpecialToolTipLabel:isVisible() and SpecialToolTipLabel:getOpacity() > 0.1
+
+    g_effects.cancelFade(SpecialToolTipLabel)
 
     local width = 4
     local height = 4
@@ -378,58 +542,75 @@ function g_tooltip.displaySpecial(special)
     SpecialToolTipLabel:show()
     SpecialToolTipLabel:raise()
     SpecialToolTipLabel:enable()
-    g_effects.fadeIn(SpecialToolTipLabel, 100)
-    moveSpecialToolTip(true)
 
-    connect(rootWidget, {
-        onMouseMove = moveSpecialToolTip
-    })
+    if wasVisible then
+        SpecialToolTipLabel:setOpacity(1.0)
+    else
+        g_effects.fadeIn(SpecialToolTipLabel, 60)
+    end
+
+    moveSpecialToolTip(true)
+    startTrackingSpecialMouseMove()
 end
 
 function g_tooltip.hide(instant)
     cancelPendingTooltip()
+    cancelPendingHide()
+    if pendingHideScheduleEvent then
+        removeEvent(pendingHideScheduleEvent)
+        pendingHideScheduleEvent = nil
+    end
+
     currentHoveredWidget = nil
     if toolTipLabel then
         if instant then
             g_effects.cancelFade(toolTipLabel)
             toolTipLabel:setOpacity(0)
             toolTipLabel:hide()
+            stopTrackingMouseMove()
         else
-            g_effects.fadeOut(toolTipLabel, 100)
-            scheduleEvent(function()
-                if toolTipLabel and (not currentHoveredWidget or not currentHoveredWidget.tooltip) then
+            g_effects.fadeOut(toolTipLabel, 80)
+            pendingHideScheduleEvent = scheduleEvent(function()
+                pendingHideScheduleEvent = nil
+                if toolTipLabel and not currentHoveredWidget then
                     toolTipLabel:hide()
+                    stopTrackingMouseMove()
                 end
-            end, 120)
+            end, 90)
         end
+    else
+        stopTrackingMouseMove()
     end
-
-    disconnect(rootWidget, {
-        onMouseMove = moveToolTip
-    })
 end
 
 function g_tooltip.hideSpecial(instant)
     cancelPendingTooltip()
+    cancelPendingHide()
+    if pendingSpecialHideScheduleEvent then
+        removeEvent(pendingSpecialHideScheduleEvent)
+        pendingSpecialHideScheduleEvent = nil
+    end
+
     currentHoveredWidget = nil
     if SpecialToolTipLabel then
         if instant then
             g_effects.cancelFade(SpecialToolTipLabel)
             SpecialToolTipLabel:setOpacity(0)
             SpecialToolTipLabel:hide()
+            stopTrackingSpecialMouseMove()
         else
-            g_effects.fadeOut(SpecialToolTipLabel, 100)
-            scheduleEvent(function()
-                if SpecialToolTipLabel and (not currentHoveredWidget or not currentHoveredWidget.specialtooltip) then
+            g_effects.fadeOut(SpecialToolTipLabel, 80)
+            pendingSpecialHideScheduleEvent = scheduleEvent(function()
+                pendingSpecialHideScheduleEvent = nil
+                if SpecialToolTipLabel and not currentHoveredWidget then
                     SpecialToolTipLabel:hide()
+                    stopTrackingSpecialMouseMove()
                 end
-            end, 120)
+            end, 90)
         end
+    else
+        stopTrackingSpecialMouseMove()
     end
-
-    disconnect(rootWidget, {
-        onMouseMove = moveSpecialToolTip
-    })
 end
 
 -- @docclass UIWidget @{
@@ -472,6 +653,14 @@ end
 
 function UIWidget:getSpecialTooltip()
     return self.specialtooltip
+end
+
+function UIWidget:setTooltipDelay(delay)
+    self.tooltipDelay = tonumber(delay)
+end
+
+function UIWidget:getTooltipDelay()
+    return self.tooltipDelay
 end
 
 -- @}

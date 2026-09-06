@@ -170,3 +170,5 @@ CheckBoxButton < UICheckBox
     color: #dfdfdf88
     opacity: 0.8
     change-cursor-image: false
+
+OptionCheckBox < QtCheckBox
