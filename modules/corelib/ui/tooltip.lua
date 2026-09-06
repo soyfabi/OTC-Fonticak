@@ -12,10 +12,13 @@ local pendingTooltipEvent = nil
 local pendingHideEvent = nil
 local pendingHideScheduleEvent = nil
 local pendingSpecialHideScheduleEvent = nil
+local pendingTransitionEvent = nil
+local pendingTransitionText = nil
+local pendingSpecialTransitionEvent = nil
 
 -- private functions
 local function moveToolTip(first)
-    if not first and (not toolTipLabel:isVisible() or toolTipLabel:getOpacity() < 0.1) then
+    if not first and (not toolTipLabel:isVisible() or toolTipLabel:getOpacity() < 0.01) then
         return
     end
 
@@ -49,7 +52,7 @@ local function moveToolTip(first)
 end
 
 local function moveSpecialToolTip(first)
-    if not first and (not SpecialToolTipLabel:isVisible() or SpecialToolTipLabel:getOpacity() < 0.1) then
+    if not first and (not SpecialToolTipLabel:isVisible() or SpecialToolTipLabel:getOpacity() < 0.01) then
         return
     end
 
@@ -130,14 +133,32 @@ local function getWidgetTooltipDelay(widget)
     return defaultTooltipDelay
 end
 
+local function cancelPendingTransition()
+    if pendingTransitionEvent then
+        removeEvent(pendingTransitionEvent)
+        pendingTransitionEvent = nil
+    end
+    pendingTransitionText = nil
+end
+
+local function cancelPendingSpecialTransition()
+    if pendingSpecialTransitionEvent then
+        removeEvent(pendingSpecialTransitionEvent)
+        pendingSpecialTransitionEvent = nil
+    end
+end
+
 local function isTooltipActive()
+    if pendingTransitionEvent ~= nil or pendingSpecialTransitionEvent ~= nil then
+        return true
+    end
     if pendingHideEvent ~= nil then
         return true
     end
-    if toolTipLabel and toolTipLabel:isVisible() and toolTipLabel:getOpacity() > 0.1 then
+    if toolTipLabel and toolTipLabel:isVisible() and toolTipLabel:getOpacity() > 0.05 then
         return true
     end
-    if SpecialToolTipLabel and SpecialToolTipLabel:isVisible() and SpecialToolTipLabel:getOpacity() > 0.1 then
+    if SpecialToolTipLabel and SpecialToolTipLabel:isVisible() and SpecialToolTipLabel:getOpacity() > 0.05 then
         return true
     end
     return false
@@ -211,6 +232,8 @@ end
 local function scheduleHide(instant)
     cancelPendingHide()
     if instant then
+        cancelPendingTransition()
+        cancelPendingSpecialTransition()
         g_tooltip.hide(true)
         g_tooltip.hideSpecial(true)
         return
@@ -220,16 +243,8 @@ local function scheduleHide(instant)
     pendingHideEvent = scheduleEvent(function()
         pendingHideEvent = nil
         if not currentHoveredWidget or not currentHoveredWidget:isHovered() then
-            if currentHoveredWidget and (currentHoveredWidget.tooltip or currentHoveredWidget.parseColoreDisplay) then
-                g_tooltip.hide()
-            elseif not currentHoveredWidget then
-                g_tooltip.hide()
-            end
-            if currentHoveredWidget and currentHoveredWidget.specialtooltip then
-                g_tooltip.hideSpecial()
-            elseif not currentHoveredWidget then
-                g_tooltip.hideSpecial()
-            end
+            g_tooltip.hide()
+            g_tooltip.hideSpecial()
         end
     end, 80)
 end
@@ -240,6 +255,8 @@ local function onWidgetDestroy(widget)
     end
     if widget == currentHoveredWidget then
         cancelPendingHide()
+        cancelPendingTransition()
+        cancelPendingSpecialTransition()
         g_tooltip.hide(true)
         g_tooltip.hideSpecial(true)
     end
@@ -252,6 +269,8 @@ local function onWidgetVisibilityChange(widget, visible)
         end
         if currentHoveredWidget and (currentHoveredWidget == widget or currentHoveredWidget:isDestroyed() or not currentHoveredWidget:isVisible()) then
             cancelPendingHide()
+            cancelPendingTransition()
+            cancelPendingSpecialTransition()
             g_tooltip.hide(true)
             g_tooltip.hideSpecial(true)
         end
@@ -261,6 +280,8 @@ end
 local function onWidgetMousePress(widget, mousePos, button)
     cancelPendingTooltip()
     cancelPendingHide()
+    cancelPendingTransition()
+    cancelPendingSpecialTransition()
     if currentHoveredWidget then
         g_tooltip.hide(true)
         g_tooltip.hideSpecial(true)
@@ -366,6 +387,8 @@ function g_tooltip.terminate()
 
     cancelPendingTooltip()
     cancelPendingHide()
+    cancelPendingTransition()
+    cancelPendingSpecialTransition()
     stopTrackingMouseMove()
     stopTrackingSpecialMouseMove()
 
@@ -415,35 +438,71 @@ function g_tooltip.display(text)
     end
 
     cancelPendingHide()
+    cancelPendingTransition()
     if pendingHideScheduleEvent then
         removeEvent(pendingHideScheduleEvent)
         pendingHideScheduleEvent = nil
     end
 
-    local wasVisible = toolTipLabel:isVisible() and toolTipLabel:getOpacity() > 0.1
+    local isCurrentlyVisible = toolTipLabel:isVisible() and toolTipLabel:getOpacity() > 0.05
+    local isSameText = isCurrentlyVisible and (toolTipLabel:getText() == text)
 
-    g_effects.cancelFade(toolTipLabel)
-
-    toolTipLabel:setFont('Verdana Bold-11px')
-    toolTipLabel:setColor('#3f3f3f')
-    toolTipLabel:setBackgroundColor('#c0c0c0')
-    toolTipLabel:setBorderColor('#000000')
-    toolTipLabel:setBorderWidth(1)
-    toolTipLabel:setText(text)
-    toolTipLabel:resizeToText()
-    toolTipLabel:resize(toolTipLabel:getWidth() + 8, toolTipLabel:getHeight() + 4)
-    toolTipLabel:show()
-    toolTipLabel:raise()
-    toolTipLabel:enable()
-
-    if wasVisible then
+    if isSameText then
+        g_effects.cancelFade(toolTipLabel)
         toolTipLabel:setOpacity(1.0)
-    else
-        g_effects.fadeIn(toolTipLabel, 60)
+        toolTipLabel:show()
+        moveToolTip(true)
+        startTrackingMouseMove()
+        return
     end
 
-    moveToolTip(true)
-    startTrackingMouseMove()
+    if isCurrentlyVisible then
+        -- Changing tooltip: smooth fade-out first, then switch text and fade-in
+        local fadeOutTime = 70
+        g_effects.fadeOut(toolTipLabel, fadeOutTime)
+        startTrackingMouseMove()
+
+        pendingTransitionText = text
+        pendingTransitionEvent = scheduleEvent(function()
+            pendingTransitionEvent = nil
+            if pendingTransitionText ~= text then
+                return
+            end
+            pendingTransitionText = nil
+
+            toolTipLabel:setFont('Verdana Bold-11px')
+            toolTipLabel:setColor('#3f3f3f')
+            toolTipLabel:setBackgroundColor('#c0c0c0')
+            toolTipLabel:setBorderColor('#000000')
+            toolTipLabel:setBorderWidth(1)
+            toolTipLabel:setText(text)
+            toolTipLabel:resizeToText()
+            toolTipLabel:resize(toolTipLabel:getWidth() + 8, toolTipLabel:getHeight() + 4)
+            toolTipLabel:show()
+            toolTipLabel:raise()
+            toolTipLabel:enable()
+            toolTipLabel:setOpacity(0)
+            moveToolTip(true)
+            g_effects.fadeIn(toolTipLabel, 70)
+        end, fadeOutTime)
+    else
+        g_effects.cancelFade(toolTipLabel)
+        toolTipLabel:setFont('Verdana Bold-11px')
+        toolTipLabel:setColor('#3f3f3f')
+        toolTipLabel:setBackgroundColor('#c0c0c0')
+        toolTipLabel:setBorderColor('#000000')
+        toolTipLabel:setBorderWidth(1)
+        toolTipLabel:setText(text)
+        toolTipLabel:resizeToText()
+        toolTipLabel:resize(toolTipLabel:getWidth() + 8, toolTipLabel:getHeight() + 4)
+        toolTipLabel:show()
+        toolTipLabel:raise()
+        toolTipLabel:enable()
+        toolTipLabel:setOpacity(0)
+        moveToolTip(true)
+        g_effects.fadeIn(toolTipLabel, 70)
+        startTrackingMouseMove()
+    end
 end
 
 function g_tooltip.parseColoreDisplay(text)
@@ -455,30 +514,44 @@ function g_tooltip.parseColoreDisplay(text)
     end
 
     cancelPendingHide()
+    cancelPendingTransition()
     if pendingHideScheduleEvent then
         removeEvent(pendingHideScheduleEvent)
         pendingHideScheduleEvent = nil
     end
 
-    local wasVisible = toolTipLabel:isVisible() and toolTipLabel:getOpacity() > 0.1
+    local isCurrentlyVisible = toolTipLabel:isVisible() and toolTipLabel:getOpacity() > 0.05
 
-    g_effects.cancelFade(toolTipLabel)
+    if isCurrentlyVisible then
+        local fadeOutTime = 70
+        g_effects.fadeOut(toolTipLabel, fadeOutTime)
+        startTrackingMouseMove()
 
-    toolTipLabel:parseColoredText(text)
-    toolTipLabel:resizeToText()
-    toolTipLabel:resize(toolTipLabel:getWidth() + 4, toolTipLabel:getHeight() + 4)
-    toolTipLabel:show()
-    toolTipLabel:raise()
-    toolTipLabel:enable()
-
-    if wasVisible then
-        toolTipLabel:setOpacity(1.0)
+        pendingTransitionEvent = scheduleEvent(function()
+            pendingTransitionEvent = nil
+            toolTipLabel:parseColoredText(text)
+            toolTipLabel:resizeToText()
+            toolTipLabel:resize(toolTipLabel:getWidth() + 4, toolTipLabel:getHeight() + 4)
+            toolTipLabel:show()
+            toolTipLabel:raise()
+            toolTipLabel:enable()
+            toolTipLabel:setOpacity(0)
+            moveToolTip(true)
+            g_effects.fadeIn(toolTipLabel, 70)
+        end, fadeOutTime)
     else
-        g_effects.fadeIn(toolTipLabel, 60)
+        g_effects.cancelFade(toolTipLabel)
+        toolTipLabel:parseColoredText(text)
+        toolTipLabel:resizeToText()
+        toolTipLabel:resize(toolTipLabel:getWidth() + 4, toolTipLabel:getHeight() + 4)
+        toolTipLabel:show()
+        toolTipLabel:raise()
+        toolTipLabel:enable()
+        toolTipLabel:setOpacity(0)
+        moveToolTip(true)
+        g_effects.fadeIn(toolTipLabel, 70)
+        startTrackingMouseMove()
     end
-
-    moveToolTip(true)
-    startTrackingMouseMove()
 end
 
 function g_tooltip.displaySpecial(special)
@@ -487,74 +560,85 @@ function g_tooltip.displaySpecial(special)
     end
 
     cancelPendingHide()
+    cancelPendingSpecialTransition()
     if pendingSpecialHideScheduleEvent then
         removeEvent(pendingSpecialHideScheduleEvent)
         pendingSpecialHideScheduleEvent = nil
     end
 
-    local wasVisible = SpecialToolTipLabel:isVisible() and SpecialToolTipLabel:getOpacity() > 0.1
-
-    g_effects.cancelFade(SpecialToolTipLabel)
-
-    local width = 4
-    local height = 4
-    SpecialToolTipLabel:destroyChildren()
-    for index, data in ipairs(special) do
-        local headerW = 0
-        local headerH = 0
-        if string.len(data.header) > 0 then
-            local header = g_ui.createWidget('UILabel', SpecialToolTipLabel)
-            if index == 1 then
-                header:addAnchor(AnchorTop, 'parent', AnchorTop)
-            else
-                header:addAnchor(AnchorTop, 'prev', AnchorBottom)
+    local function applySpecialContent()
+        local width = 4
+        local height = 4
+        SpecialToolTipLabel:destroyChildren()
+        for index, data in ipairs(special) do
+            local headerW = 0
+            local headerH = 0
+            if string.len(data.header) > 0 then
+                local header = g_ui.createWidget('UILabel', SpecialToolTipLabel)
+                if index == 1 then
+                    header:addAnchor(AnchorTop, 'parent', AnchorTop)
+                else
+                    header:addAnchor(AnchorTop, 'prev', AnchorBottom)
+                end
+                header:addAnchor(AnchorLeft, 'parent', AnchorLeft)
+                header:setText(data.header)
+                header:setTextAlign(AlignLeft)
+                header:setColor("#4c4c4cff")
+                header:setFont('verdana-11px-monochrome-underline')
+                header:setTextOffset(topoint('5 0'))
+                header:resizeToText()
+                header:resize(header:getWidth(), header:getHeight())
+                headerW = header:getWidth()
+                headerH = header:getHeight()
             end
-            header:addAnchor(AnchorLeft, 'parent', AnchorLeft)
-            header:setText(data.header)
-            header:setTextAlign(AlignLeft)
-            header:setColor("#4c4c4cff")
-            header:setFont('verdana-11px-monochrome-underline')
-            header:setTextOffset(topoint('5 0'))
-            header:resizeToText()
-            header:resize(header:getWidth(), header:getHeight())
-            headerW = header:getWidth()
-            headerH = header:getHeight()
+
+            local info = g_ui.createWidget('UILabel', SpecialToolTipLabel)
+            if string.len(data.header) > 0 then
+                info:addAnchor(AnchorTop, 'prev', AnchorBottom)
+            else
+                info:addAnchor(AnchorTop, 'parent', AnchorTop)
+            end
+            info:addAnchor(AnchorLeft, 'parent', AnchorLeft)
+            info:setText(data.info:wrap(445))
+            info:setTextAlign(AlignLeft)
+            info:setColor("#4c4c4cff")
+            info:setTextOffset(topoint('5 0'))
+            info:resizeToText()
+            info:resize(info:getWidth(), info:getHeight())
+            width = width + math.max(headerW, info:getWidth())
+            height = height + headerH + info:getHeight()
         end
 
-        local info = g_ui.createWidget('UILabel', SpecialToolTipLabel)
-        if string.len(data.header) > 0 then
-            info:addAnchor(AnchorTop, 'prev', AnchorBottom)
-        else
-            info:addAnchor(AnchorTop, 'parent', AnchorTop)
-        end
-        info:addAnchor(AnchorLeft, 'parent', AnchorLeft)
-        info:setText(data.info:wrap(445))
-        info:setTextAlign(AlignLeft)
-        info:setColor("#4c4c4cff")
-        info:setTextOffset(topoint('5 0'))
-        info:resizeToText()
-        info:resize(info:getWidth(), info:getHeight())
-        width = width + math.max(headerW, info:getWidth())
-        height = height + headerH + info:getHeight()
+        SpecialToolTipLabel:resize(width, height)
+        SpecialToolTipLabel:show()
+        SpecialToolTipLabel:raise()
+        SpecialToolTipLabel:enable()
+        SpecialToolTipLabel:setOpacity(0)
+        moveSpecialToolTip(true)
+        g_effects.fadeIn(SpecialToolTipLabel, 70)
+        startTrackingSpecialMouseMove()
     end
 
-    SpecialToolTipLabel:resize(width, height)
-    SpecialToolTipLabel:show()
-    SpecialToolTipLabel:raise()
-    SpecialToolTipLabel:enable()
+    local isCurrentlyVisible = SpecialToolTipLabel:isVisible() and SpecialToolTipLabel:getOpacity() > 0.05
 
-    if wasVisible then
-        SpecialToolTipLabel:setOpacity(1.0)
+    if isCurrentlyVisible then
+        local fadeOutTime = 70
+        g_effects.fadeOut(SpecialToolTipLabel, fadeOutTime)
+        startTrackingSpecialMouseMove()
+
+        pendingSpecialTransitionEvent = scheduleEvent(function()
+            pendingSpecialTransitionEvent = nil
+            applySpecialContent()
+        end, fadeOutTime)
     else
-        g_effects.fadeIn(SpecialToolTipLabel, 60)
+        g_effects.cancelFade(SpecialToolTipLabel)
+        applySpecialContent()
     end
-
-    moveSpecialToolTip(true)
-    startTrackingSpecialMouseMove()
 end
 
 function g_tooltip.hide(instant)
     cancelPendingTooltip()
+    cancelPendingTransition()
     cancelPendingHide()
     if pendingHideScheduleEvent then
         removeEvent(pendingHideScheduleEvent)
@@ -585,6 +669,7 @@ end
 
 function g_tooltip.hideSpecial(instant)
     cancelPendingTooltip()
+    cancelPendingSpecialTransition()
     cancelPendingHide()
     if pendingSpecialHideScheduleEvent then
         removeEvent(pendingSpecialHideScheduleEvent)
