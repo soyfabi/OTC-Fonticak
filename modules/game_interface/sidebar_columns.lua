@@ -1,7 +1,7 @@
--- Dynamic multi-column sidebars (ported from CrystalOTC).
+-- Dynamic multi-column sidebars.
 -- Allows N extra left/right columns via +/- and paints empty columns via sidebarFreeSpace.
 
-local SIDEBAR_COLUMN_WIDTH = 198
+local SIDEBAR_COLUMN_WIDTH = 178
 local ABSOLUTE_MIN_MAP_WIDTH = 160
 local MAX_HORIZONTAL_SIDEBAR_COLUMNS = 2
 local VERTICAL_COLUMNS_UNDER_HORIZONTAL = 2

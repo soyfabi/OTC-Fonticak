@@ -60,9 +60,17 @@ local function isSidebarFreeSpaceWidget(widget)
     return widget and widget._sidebarFreeSpaceWidget == true
 end
 
-local function isSidebarSystemWidget(widget)
-    return isSidebarFreeSpaceWidget(widget)
+local function isSidebarPlaceholderWidget(widget)
+    return widget and widget._sidebarPlaceholderWidget == true
 end
+
+local function isSidebarSystemWidget(widget)
+    return isSidebarFreeSpaceWidget(widget) or isSidebarPlaceholderWidget(widget)
+end
+
+UIMiniWindowContainer.isSidebarFreeSpaceWidget = isSidebarFreeSpaceWidget
+UIMiniWindowContainer.isSidebarPlaceholderWidget = isSidebarPlaceholderWidget
+UIMiniWindowContainer.isSidebarSystemWidget = isSidebarSystemWidget
 
 local function shouldManageSidebarFreeSpace(container)
     if not container or container:isDestroyed() or not container:isVisible() then
@@ -367,14 +375,15 @@ function UIMiniWindowContainer:onDrop(widget, mousePos)
         end
 
         if self.isHorizontalPanel then
+            if UIMiniWindow and UIMiniWindow.destroyDropPlaceholder then
+                UIMiniWindow.destroyDropPlaceholder()
+            end
             if floatingParent then
                 floatingParent:removeChild(widget)
             end
             self:addChild(widget)
-            widget.movedWidget = nil
-            widget.setMovedChildMargin = nil
-            widget.movedOldMargin = nil
-            widget.movedIndex = nil
+            widget:setOpacity(widget._origOpacity or 1.0)
+            widget._origOpacity = nil
             widget.smoothDropActive = nil
             self:redistributeChildrenWidths()
             self:saveChildren()
@@ -385,9 +394,11 @@ function UIMiniWindowContainer:onDrop(widget, mousePos)
         local startPos = widget:getPosition()
         local targetIndex
 
-        if widget.movedWidget then
-            local index = self:getChildIndex(widget.movedWidget)
-            targetIndex = index + widget.movedIndex
+        local placeholder = UIMiniWindow and UIMiniWindow.getDropPlaceholder and UIMiniWindow.getDropPlaceholder()
+        local hasPlaceholder = placeholder and not placeholder:isDestroyed() and placeholder:getParent() == self
+
+        if hasPlaceholder then
+            targetIndex = self:getChildIndex(placeholder)
         else
             -- Land before the free-space filler, it always has to stay last.
             targetIndex = self:getChildCount() + 1
@@ -400,7 +411,7 @@ function UIMiniWindowContainer:onDrop(widget, mousePos)
         -- Collapse drag preview margins before layout; leftover top/bottom
         -- margin looks like permanent empty space between docked windows.
         for _, child in ipairs(self:getChildren()) do
-            if child and not child:isDestroyed() and not child._sidebarFreeSpaceWidget then
+            if child and not child:isDestroyed() and not isSidebarSystemWidget(child) then
                 g_effects.cancelValue(child)
                 if child:getMarginTop() ~= 0 then
                     child:setMarginTop(0)
@@ -410,26 +421,24 @@ function UIMiniWindowContainer:onDrop(widget, mousePos)
                 end
             end
         end
-        widget.movedWidget = nil
-        widget.setMovedChildMargin = nil
-        widget.movedOldMargin = nil
-        widget.movedIndex = nil
 
-        if floatingParent then
-            floatingParent:removeChild(widget)
+        local targetPos
+        if hasPlaceholder then
+            targetPos = placeholder:getPosition()
+        else
+            if floatingParent then
+                floatingParent:removeChild(widget)
+            end
+            self:insertChild(targetIndex, widget)
+            applyBotWindowColumnWidth(widget)
+            self:fitAll(widget)
+            targetPos = widget:getPosition()
+            self:removeChild(widget)
         end
 
-        self:insertChild(targetIndex, widget)
-
-        applyBotWindowColumnWidth(widget)
-        self:fitAll(widget)
-
-        local targetPos = widget:getPosition()
-        self:removeChild(widget)
-
-        if floatingParent then
+        if floatingParent and widget:getParent() ~= floatingParent then
             floatingParent:addChild(widget)
-        else
+        elseif not floatingParent and widget:getParent() ~= rootWidget then
             rootWidget:addChild(widget)
         end
 
@@ -437,7 +446,15 @@ function UIMiniWindowContainer:onDrop(widget, mousePos)
         widget.smoothDropActive = true
 
         g_effects.moveTo(widget, targetPos, 95, function()
+            if UIMiniWindow and UIMiniWindow.destroyDropPlaceholder then
+                UIMiniWindow.destroyDropPlaceholder()
+            end
+
             if not widget or widget:isDestroyed() or not widget.smoothDropActive then
+                if widget and not widget:isDestroyed() then
+                    widget:setOpacity(widget._origOpacity or 1.0)
+                    widget._origOpacity = nil
+                end
                 return
             end
 
@@ -452,11 +469,13 @@ function UIMiniWindowContainer:onDrop(widget, mousePos)
 
             self:fitAll(widget)
             self:saveChildren()
+            widget:setOpacity(widget._origOpacity or 1.0)
+            widget._origOpacity = nil
             widget.smoothDropActive = nil
             signalcall(widget.onContainerChanged, widget, self)
 
             for _, child in ipairs(self:getChildren()) do
-                if child and not child:isDestroyed() and not child._sidebarFreeSpaceWidget then
+                if child and not child:isDestroyed() and not isSidebarSystemWidget(child) then
                     if child:getMarginTop() ~= 0 then
                         child:setMarginTop(0)
                     end

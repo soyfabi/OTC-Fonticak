@@ -110,15 +110,15 @@ VerticalScrollBarQtSlider < UIButton
   anchors.centerIn: parent
   size: 12 44
   image-source: /images/ui/scrollbar_new_vertical
-  image-clip: 22 0 12 44
+  image-clip: 24 0 12 44
   image-border-top: 7
   image-border-bottom: 7
 
 VerticalQtScrollBar < UIScrollBar
   orientation: vertical
-  size: 10 78
+  size: 12 78
   image-source: /images/ui/scrollbar_new_vertical
-  image-clip: 0 0 10 78
+  image-clip: 0 0 12 78
   image-border: 2
   pixels-scroll: true
   parent-scroll: true
@@ -128,10 +128,10 @@ VerticalQtScrollBar < UIScrollBar
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.top: parent.top
     image-source: /images/ui/scrollbar_new_vertical
-    image-clip: 10 0 12 12
+    image-clip: 12 0 12 12
     size: 12 12
     $pressed:
-      image-clip: 10 12 12 12
+      image-clip: 12 12 12 12
 
   UIButton
     id: incrementButton
@@ -139,9 +139,9 @@ VerticalQtScrollBar < UIScrollBar
     anchors.bottom: parent.bottom
     size: 12 12
     image-source: /images/ui/scrollbar_new_vertical
-    image-clip: 10 24 12 12
+    image-clip: 12 24 12 12
     $pressed:
-      image-clip: 10 36 12 12
+      image-clip: 12 36 12 12
 
   VerticalScrollBarQtSlider
 
@@ -150,15 +150,15 @@ HorizontalScrollBarQtSlider < UIButton
   anchors.centerIn: parent
   size: 44 12
   image-source: /images/ui/scrollbar_new_horizontal
-  image-clip: 34 22 44 12
+  image-clip: 34 24 44 12
   image-border-left: 7
   image-border-right: 7
 
 HorizontalQtScrollBar < UIScrollBar
   orientation: horizontal
-  size: 78 10
+  size: 78 12
   image-source: /images/ui/scrollbar_new_horizontal
-  image-clip: 0 0 78 10
+  image-clip: 0 0 78 12
   image-border: 2
   pixels-scroll: true
   parent-scroll: true
@@ -168,10 +168,10 @@ HorizontalQtScrollBar < UIScrollBar
     anchors.verticalCenter: parent.verticalCenter
     anchors.left: parent.left
     image-source: /images/ui/scrollbar_new_horizontal
-    image-clip: 42 10 12 12
+    image-clip: 42 12 12 12
     size: 12 12
     $pressed:
-      image-clip: 30 10 12 12
+      image-clip: 30 12 12 12
 
   UIButton
     id: incrementButton
@@ -179,9 +179,9 @@ HorizontalQtScrollBar < UIScrollBar
     anchors.right: parent.right
     size: 12 12
     image-source: /images/ui/scrollbar_new_horizontal
-    image-clip: 66 10 12 12
+    image-clip: 66 12 12 12
     $pressed:
-      image-clip: 54 10 12 12
+      image-clip: 54 12 12 12
 
   HorizontalScrollBarQtSlider
 

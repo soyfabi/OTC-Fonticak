@@ -12,6 +12,9 @@ MiniWindow < UIMiniWindow
   $on:
     image-border-bottom: 2
 
+  $dragging:
+    opacity: 0.75
+
   UIWidget
     id: miniwindowHeader
     anchors.top: parent.top
@@ -205,19 +208,17 @@ MiniWindow < UIMiniWindow
     $on pressed:
       image-clip: 84 28 14 14
 
-  VerticalScrollBar
+  VerticalQtScrollBar
     id: miniwindowScrollBar
     anchors.top: parent.top
     anchors.bottom: parent.bottom
     anchors.right: parent.right
     step: 14
-    margin-top: 16
-    margin-right: 3
-    margin-bottom: 3
+    margin-top: 15
+    margin-right: 4
+    margin-bottom: 4
     pixels-scroll: true
-
-    $!on:
-      width: 0
+    parent-scroll: false
 
   ResizeBorder
     id: bottomResizeBorder
@@ -363,3 +364,12 @@ FloatingInputWindow < UIWindow
 
   $dragging:
     opacity: 0.8
+
+MiniWindowDropPlaceholder < UIWidget
+  id: miniwindowDropPlaceholder
+  image-source: /images/ui/2pixel_up_frame_borderimage_dark_reversed
+  image-border: 2
+  image-repeated: true
+  opacity: 0.88
+  phantom: true
+  focusable: false

@@ -1,8 +1,7 @@
 containerSettings = nil
 
 -- Window chrome outside the item-grid padding rect (title, margins, borders).
--- Measured from live geometry when possible; chromeHeight=31 was calibrated for
--- padding 6+6 and became 6px too tall after padding was reduced to 3+3.
+-- Measured dynamically from live geometry when available, with calibrated fallback.
 local function getContainerChromeHeight(containerWindow, containerPanel, hasPages)
     if containerWindow and containerPanel then
         local paddingRect = containerPanel:getPaddingRect()
@@ -11,7 +10,7 @@ local function getContainerChromeHeight(containerWindow, containerPanel, hasPage
             return windowHeight - paddingRect.height
         end
     end
-    return hasPages and 49 or 25
+    return hasPages and 49 or 31
 end
 
 local function getContainerRowsHeight(cellSize, step, rows)
@@ -784,6 +783,46 @@ function refreshContainerItems(container)
     end)
 end
 
+local function isContainerInHorizontalContext(widget)
+    local current = widget
+    for _ = 1, 12 do
+        if not current then
+            break
+        end
+        if current.isHorizontalPanel then
+            return true
+        end
+        local id = current.getId and current:getId() or nil
+        if id == 'gameLeftTopPanel' or id == 'gameRightTopPanel' then
+            return true
+        end
+        current = current.getParent and current:getParent() or nil
+    end
+    return false
+end
+
+function isContainerMiniWindow(widget)
+    if not widget or (widget.isDestroyed and widget:isDestroyed()) then
+        return false
+    end
+    return widget:getChildById('containerItemWidget') ~= nil
+end
+
+function applyContainerContextLayout(containerWindow)
+    if not containerWindow or (containerWindow.isDestroyed and containerWindow:isDestroyed()) then
+        return
+    end
+    if not isContainerMiniWindow(containerWindow) then
+        return
+    end
+    local contents = containerWindow.getChildById and containerWindow:getChildById('contentsPanel')
+    if not contents then
+        return
+    end
+    contents:setMarginLeft(isContainerInHorizontalContext(containerWindow) and 1 or 5)
+    contents:setMarginRight(1)
+end
+
 function toggleContainerPages(containerWindow, pages)
     local scrollbar = containerWindow:getChildById('miniwindowScrollBar')
     local pagePanel = containerWindow:getChildById('pagePanel')
@@ -800,9 +839,9 @@ function toggleContainerPages(containerWindow, pages)
         scrollbar:addAnchor(AnchorTop, 'closeButton', AnchorBottom)
         scrollbar:addAnchor(AnchorRight, 'parent', AnchorRight)
         scrollbar:addAnchor(AnchorBottom, 'separator', AnchorTop)
-        scrollbar:setMarginTop(2)  -- Small margin from close button
-        scrollbar:setMarginRight(3)
-        scrollbar:setMarginBottom(2)
+        scrollbar:setMarginTop(1)
+        scrollbar:setMarginRight(4)
+        scrollbar:setMarginBottom(3)
         
         -- Content panel anchors to separator when pages are visible
         contentsPanel:breakAnchors()
@@ -810,7 +849,7 @@ function toggleContainerPages(containerWindow, pages)
         contentsPanel:addAnchor(AnchorLeft, 'parent', AnchorLeft)
         contentsPanel:addAnchor(AnchorRight, 'miniwindowScrollBar', AnchorLeft)
         contentsPanel:addAnchor(AnchorBottom, 'separator', AnchorTop)
-        contentsPanel:setMarginLeft(3)
+        contentsPanel:setMarginLeft(isContainerInHorizontalContext(containerWindow) and 1 or 5)
         contentsPanel:setMarginBottom(1)
         contentsPanel:setMarginTop(-2)
         contentsPanel:setMarginRight(1)
@@ -846,9 +885,9 @@ function toggleContainerPages(containerWindow, pages)
         scrollbar:addAnchor(AnchorTop, 'parent', AnchorTop)
         scrollbar:addAnchor(AnchorRight, 'parent', AnchorRight)
         scrollbar:addAnchor(AnchorBottom, 'parent', AnchorBottom)
-        scrollbar:setMarginTop(16)
-        scrollbar:setMarginRight(3)
-        scrollbar:setMarginBottom(3)
+        scrollbar:setMarginTop(15)
+        scrollbar:setMarginRight(4)
+        scrollbar:setMarginBottom(4)
         
         -- Content panel extends to bottom when pages are hidden
         contentsPanel:breakAnchors()
@@ -856,7 +895,7 @@ function toggleContainerPages(containerWindow, pages)
         contentsPanel:addAnchor(AnchorLeft, 'parent', AnchorLeft)
         contentsPanel:addAnchor(AnchorRight, 'miniwindowScrollBar', AnchorLeft)
         contentsPanel:addAnchor(AnchorBottom, 'parent', AnchorBottom)
-        contentsPanel:setMarginLeft(3)
+        contentsPanel:setMarginLeft(isContainerInHorizontalContext(containerWindow) and 1 or 5)
         contentsPanel:setMarginBottom(3)
         contentsPanel:setMarginTop(-2)
         contentsPanel:setMarginRight(1)
@@ -960,13 +999,9 @@ function onContainerOpen(container, previousContainer)
         g_game.close(container)
         containerWindow:hide()
     end
+    containerWindow.onContainerChanged = applyContainerContextLayout
 
-    -- this disables scrollbar auto hiding
-    local scrollbar = containerWindow:getChildById('miniwindowScrollBar')
-    scrollbar:mergeStyle({
-        ['$!on'] = {}
-    })
-    
+
     -- Scrollbar positioning will be handled by toggleContainerPages function
 
     local upButton = containerWindow:getChildById('upButton')
@@ -1115,17 +1150,23 @@ function onContainerOpen(container, previousContainer)
         if mouseButton ~= MouseLeftButton then
             return false
         end
+        if containerWindow.isLocked and containerWindow:isLocked() then
+            containerWindow:setDraggable(false)
+            return false
+        end
         local winX, winY = containerWindow:getX(), containerWindow:getY()
         local winW, winH = containerWindow:getWidth(), containerWindow:getHeight()
         local inBounds = mousePos.x >= winX + TOLERANCE_HORIZONTAL and 
                         mousePos.x <= winX + winW - TOLERANCE_HORIZONTAL and
                         mousePos.y >= winY + TOLERANCE_VERTICAL and 
                         mousePos.y <= winY + winH - TOLERANCE_VERTICAL
-        containerWindow:setDraggable(inBounds and containerWindow:getChildByPos(mousePos) ~= containerPanel)
-        return inBounds
+        local canDrag = inBounds and containerWindow:getChildByPos(mousePos) ~= containerPanel
+        containerWindow:setDraggable(canDrag)
+        return false
     end
     containerWindow.onMouseRelease = function(widget, mousePos, mouseButton)
-        containerWindow:setDraggable(true)
+        local isLocked = containerWindow.isLocked and containerWindow:isLocked()
+        containerWindow:setDraggable(not isLocked)
     end
     containerWindow.onDrop = function(container, widget, mousePos)
         if containerPanel:getChildByPos(mousePos) then
