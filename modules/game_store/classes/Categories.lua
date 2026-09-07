@@ -310,6 +310,9 @@ local function finishCollapseTreeItem(treeItem)
 	if arrow and not arrow:isDestroyed() then
 		arrow:setVisible(false)
 	end
+	if treeItem.mainButton and treeItem.mainButton.setOn then
+		treeItem.mainButton:setOn(false)
+	end
 	setStoreCategoryScroll(treeItem, false)
 end
 
@@ -506,6 +509,10 @@ function Categories:onSelectCategory(widget, name)
 		return true
 	end
 
+	if widget.setOn then
+		widget:setOn(false)
+	end
+
 	Categories:collapseAll(true)
 
 	local thisParent = widget:getParent()
@@ -529,15 +536,9 @@ function Categories:onSelectCategory(widget, name)
 	end
 
 	if Categories.selectTreeItem and Categories.selectTreeItem ~= widget then
-		if Categories.selectTreeItem.setOn then
-			Categories.selectTreeItem:setOn(false)
-		end
 		if Categories.selectTreeItem.text then
 			Categories.selectTreeItem.text:setColor("$var-text-cip-color")
 		end
-	end
-	if widget.setOn then
-		widget:setOn(true)
 	end
 	if widget.text then
 		widget.text:setColor("$var-text-cip-color-highlight")

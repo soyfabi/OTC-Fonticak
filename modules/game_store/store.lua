@@ -125,6 +125,10 @@ function init()
     initStoreProtocol()
   end
 
+  if initStoreDescription then
+    initStoreDescription()
+  end
+
   connect(g_game, {
     onStoreInit = onStoreInit,
     onGameEnd = onGameEnd,
@@ -152,6 +156,10 @@ end
 
 function terminate()
   cancelPendingStoreUpdates(true)
+
+  if terminateStoreDescription then
+    terminateStoreDescription()
+  end
 
   if terminateStoreProtocol then
     terminateStoreProtocol()

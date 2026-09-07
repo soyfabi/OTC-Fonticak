@@ -407,22 +407,3 @@ function Store:openHome()
 		g_game.doThing(true)
 	end, 100)
 end
-
-function Store:getDescription(requestId, offerId, description)
-	local data = {
-		["description"] = "<b>"..description.."</b>",
-		["fontcolor"] = "#f4f4f4",
-		["fontsize"] = "11.1px",
-		["font"] = "Verdana",
-		["id"] = offerId
-	}
-	HTTP.downloadConditionalImage("https://widget.astra.com/"..offerId, data, function(path, err)
-		if err then
-			return
-		end
-		local widget = Store.imageRequests[requestId]
-		if widget then
-			widget:setImageSource(path, false)
-		end
-	end)
-end
