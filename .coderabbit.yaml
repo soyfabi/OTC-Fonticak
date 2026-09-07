@@ -1,0 +1,148 @@
+language: "en-US"
+
+reviews:
+  profile: "chill"
+
+  # General review behavior
+  high_level_summary: true
+  changed_files_summary: true
+  review_status: true
+  collapse_walkthrough: false
+
+  # Useful for larger OTClient ports
+  sequence_diagrams: true
+  related_prs: true
+  suggested_labels: true
+
+  # Automatically review new PRs
+  auto_review:
+    enabled: true
+    drafts: false
+
+  # Don't waste review time on generated/binary files
+  path_filters:
+    - "!**/*.png"
+    - "!**/*.jpg"
+    - "!**/*.jpeg"
+    - "!**/*.gif"
+    - "!**/*.mp3"
+    - "!**/*.ogg"
+    - "!**/*.wav"
+    - "!**/*.spr"
+    - "!**/*.dat"
+    - "!**/*.otb"
+    - "!**/*.dll"
+    - "!**/*.7z"
+    - "!**/*.zip"
+
+  path_instructions:
+
+    # C++ client
+    - path: "src/**"
+      instructions: |
+        Review this as C++ code for an OTClient-based MMORPG client.
+
+        Pay special attention to:
+        - memory safety
+        - ownership and lifetime
+        - null pointer risks
+        - resource management
+        - performance
+        - unnecessary allocations
+        - threading and race conditions
+        - event handling
+        - rendering performance
+        - network/client synchronization
+        - compatibility with existing OTClient architecture
+        - regressions caused by ports from other OTClient forks
+
+        Do not suggest unnecessary rewrites when the existing architecture
+        already provides an appropriate solution.
+
+        Pay particular attention to changes that may affect the game loop,
+        rendering, networking, creatures, map handling, UI or Lua bindings.
+
+    # Lua modules
+    - path: "modules/**"
+      instructions: |
+        Review this as OTClient Lua module code.
+
+        Check carefully for:
+        - incorrect event connections
+        - events that are never disconnected
+        - timers that are never cancelled
+        - widgets that are never destroyed
+        - duplicated functionality
+        - incorrect module lifecycle handling
+        - nil access
+        - unnecessary global variables
+        - performance problems in repeated callbacks
+        - compatibility with existing modules
+        - incorrect g_game, g_ui, g_map, g_window or related API usage
+
+        Prefer solutions that follow the existing patterns used by
+        OTC-Fonticak instead of introducing unnecessary abstractions.
+
+    # OTUI
+    - path: "modules/**/*.otui"
+      instructions: |
+        Review OTUI changes carefully.
+
+        Check:
+        - widget hierarchy
+        - widget IDs
+        - parent/child relationships
+        - duplicated styles
+        - invalid properties
+        - incorrect anchors
+        - layout problems
+        - references to widgets that may not exist
+        - compatibility with existing Lua code
+        - unnecessary duplication of existing UI components
+
+        Do not suggest stylistic changes unless they improve maintainability
+        or prevent an actual UI problem.
+
+    # Data
+    - path: "data/**"
+      instructions: |
+        Review data changes primarily for compatibility and correctness.
+
+        Pay attention to:
+        - references to missing resources
+        - incorrect paths
+        - malformed configuration
+        - compatibility with existing modules
+        - unnecessary duplicated assets or configuration
+
+    # Tests
+    - path: "tests/**"
+      instructions: |
+        Review tests for correctness and meaningful coverage.
+
+        Prefer tests that reproduce the actual behavior being changed.
+        Do not request tests for trivial changes unless the change could
+        realistically introduce a regression.
+
+  # Ask CodeRabbit to focus on meaningful problems
+  tone_instructions: |
+    Focus on real bugs, regressions, crashes, incorrect behavior,
+    compatibility problems, performance issues and maintainability problems.
+
+    Avoid nitpicking formatting or subjective style preferences.
+
+    OTC-Fonticak is an actively modified OTClient fork, so preserve the
+    existing architecture whenever possible.
+
+    When reviewing a port from another OTClient fork, verify that the
+    implementation actually matches the APIs and architecture available
+    in OTC-Fonticak instead of assuming the source fork's APIs exist here.
+
+    For each important finding:
+    1. Explain what is wrong.
+    2. Explain why it can cause a bug or regression.
+    3. Point to the relevant code.
+    4. Suggest a practical fix.
+
+chat:
+  auto_reply: true
