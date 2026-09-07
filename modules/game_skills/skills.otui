@@ -1,4 +1,4 @@
-&var-cip-font: verdana-11px-antialised
+&var-cip-font: Verdana Bold-11px
 &var-text-cip-color: #c0c0c0
 
 MiniWindow
@@ -35,40 +35,62 @@ MiniWindow
   MiniWindowContents
     padding-left: 5
     padding-right: 5
+    padding-bottom: 1
     layout: verticalBox
 
     SkillButton
-      margin-top: 8
+      margin-top: 5
       id: level
       SkillNameLabel
         !text: tr('Level')
       SkillValueLabel
       RedPercentPanel
-        margin-top: 13
 
     SkillButton
+      margin-top: 1
       id: experience
       height: 15
       SkillNameLabel
         !text: tr('XP') 
         color: #1bd625ff
       SkillValueLabel
-      margin-top: -2
 
     SkillButton
+      margin-top: -3
       id: xpGainRate
       height: 15
       SkillNameLabel
         !text: tr('XP Gain Rate')
         color: #ffea79
       SkillValueLabel
-      margin-top: -3
+
+    HorizontalSeparator
+      id: xpBoostTopSeparator
+      margin: 5 0 5 0
+
+    SkillButton
+      id: storeBoost
+      height: 15
+      margin-top: 2
+      tooltip-delayed: true
+      SkillNameLabel
+        id: storeBoostLabel
+        !text: tr('Store Boost')
+      SkillValueLabel
+        id: storeBoostValue
+        margin-top: 0
+        margin-right: 15
+      BoostIcon
+
+    HorizontalSeparator
+      id: xpBoostBottomSeparator
+      margin: 8 0 5 0
 
     XpBoostButton
       id: xpBoos
 
     SkillButton
-      margin-top: -14
+      margin-top: 2
       id: health
       height: 15
       SkillNameLabel
@@ -108,40 +130,33 @@ MiniWindow
       margin-top: -3
 
     SkillButton
+      margin-top: -3
       id: regenerationTime
-      height: 15
       SkillNameLabel
         !text: tr('Food')
       SkillValueLabel
-      margin-top: -3
 
     SkillButton
+      margin-top: -9
       id: stamina
       SkillNameLabel
         !text: tr('Stamina')
-        text-offset: 0 -3
       SkillValueLabel
-        text-offset: 0 -3
       RedPercentPanel
-        margin-top: 10
+        margin-top: 15
 
     SkillButton
+      margin-top: -1
       id: offlineTraining
       SkillNameLabel
         !text: tr('Offline Training')
-        text-offset: 0 -5
       SkillValueLabel
-        text-offset: 0 -5
       RedPercentPanel
-        margin-top: 8
+        margin-top: 15
 
     HorizontalSeparator
       id: separatorSkills
-      margin-top: -3
-      margin-left: 2
-      image-offset: 1 0
-      margin-right: -1
-      margin-bottom: 5
+      margin: 5 0 5 0
 
     SkillButton
       id: magiclevel
@@ -157,6 +172,7 @@ MiniWindow
         background-color: #00c000
 
     SkillButton
+      margin-top: 5
       id: skillId0
       SkillNameLabel
         !text: tr('Fist')
@@ -167,9 +183,10 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-      margin-top: 2
+      margin-top: 5
 
     SkillButton
+      margin-top: 5
       id: skillId1
       SkillNameLabel
         !text: tr('Club')
@@ -180,9 +197,10 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-      margin-top: 2
+      margin-top: 5
 
     SkillButton
+      margin-top: 5
       id: skillId2
       SkillNameLabel
         !text: tr('Sword')
@@ -193,9 +211,10 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-      margin-top: 2
+      margin-top: 5
 
     SkillButton
+      margin-top: 5
       id: skillId3
       SkillNameLabel
         !text: tr('Axe')
@@ -206,9 +225,10 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-      margin-top: 2
+      margin-top: 5
 
     SkillButton
+      margin-top: 5
       id: skillId4
       SkillNameLabel
         !text: tr('Distance')
@@ -219,9 +239,10 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-      margin-top: 2
+      margin-top: 5
 
     SkillButton
+      margin-top: 5
       id: skillId5
       SkillNameLabel
         !text: tr('Shielding')
@@ -232,9 +253,10 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-      margin-top: 2
+      margin-top: 5
 
     SkillButton
+      margin-top: 5
       id: skillId6
       SkillNameLabel
         !text: tr('Fishing')

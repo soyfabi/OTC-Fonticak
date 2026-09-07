@@ -42,6 +42,63 @@ local function syncOffenceExtraSkillRows()
 	hideOffenceStatsInSkillsBar()
 end
 
+local function setupStoreBoostRow()
+	if not skillsWindow then
+		return
+	end
+
+	local storeBoost = skillsWindow:recursiveGetChildById("storeBoost")
+
+	if not storeBoost then
+		return
+	end
+
+	storeBoost:setVisible(true)
+
+	function storeBoost.onClick(widget)
+		if modules.game_store and modules.game_store.openPremiumBoost then
+			modules.game_store.openPremiumBoost()
+		end
+
+		return true
+	end
+end
+
+function updateStoreBoostDisplay(localPlayer)
+	if not skillsWindow then
+		return
+	end
+
+	local storeBoost = skillsWindow:recursiveGetChildById("storeBoost")
+	local storeBoostValue = skillsWindow:recursiveGetChildById("storeBoostValue")
+
+	if not storeBoost or not storeBoostValue then
+		return
+	end
+
+	storeBoost:setVisible(true)
+
+	local boostRemaining = 0
+
+	if localPlayer and localPlayer.getStoreExpBoostTime then
+		boostRemaining = localPlayer:getStoreExpBoostTime() or 0
+	end
+
+	local formattedTime = formatTimeBySeconds(boostRemaining)
+
+	storeBoostValue:setText(formattedTime)
+
+	if boostRemaining <= 0 or boostRemaining <= 300 then
+		storeBoostValue:setColor("$var-text-cip-store-red")
+	else
+		storeBoostValue:setColor("$var-text-cip-color-green")
+	end
+
+	local tooltipText = tr("XP boost remaining time: %s", formattedTime) .. "\n" .. tr("Click here to open the Boosts store.")
+
+	storeBoost:setTooltip(tooltipText)
+end
+
 local function setupHeaderButtons()
 	if not skillsWindow then
 		return
@@ -161,6 +218,7 @@ function init()
 
 	refresh()
 	skillsWindow:setup()
+	setupStoreBoostRow()
 	setupHeaderButtons()
 
 	if g_game.isOnline() then
@@ -1302,6 +1360,8 @@ function update()
 		if xpGainRate then
 			xpGainRate:hide()
 		end
+
+		updateStoreBoostDisplay(nil)
 	end
 end
 
@@ -2293,7 +2353,13 @@ function updateExperienceRate(localPlayer)
 	end
 
 	if xpBoos then
-		xpBoos:show()
+		local boostRemaining = localPlayer and localPlayer.getStoreExpBoostTime and localPlayer:getStoreExpBoostTime() or 0
+		local hasBoost = (ExpRating[ExperienceRate.XP_BOOST] or 0) > 0 or boostRemaining > 0
+		if hasBoost then
+			xpBoos:hide()
+		else
+			xpBoos:show()
+		end
 	end
 
 	if xpBoostButton then
@@ -2305,6 +2371,8 @@ function updateExperienceRate(localPlayer)
 			xpBoostButton:show()
 		end
 	end
+
+	updateStoreBoostDisplay(localPlayer)
 end
 
 function onExperienceRateChange(localPlayer, type, value)

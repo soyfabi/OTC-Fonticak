@@ -1,11 +1,11 @@
-&var-cip-font: verdana-11px-antialised
+&var-cip-font: Verdana Bold-11px
 &var-text-cip-color: #c0c0c0
 
 SkillFirstWidget < UIWidget
 
 SkillButton < UIButton
   height: 21
-  margin-bottom: 2
+  margin-bottom: 1
   &onClick: onSkillButtonClick
 
 SmallSkillButton < SkillButton
@@ -19,17 +19,19 @@ SkillNameLabel < GameLabel
   anchors.left: parent.left
   anchors.top: parent.top
   anchors.bottom: parent.bottom
-  margin-left: 1
+  margin-right: 3
   color: $var-text-cip-color
 
 SkillValueLabel < GameLabel
   id: value
   font: $var-cip-font
   text-align: topright
+  text-auto-resize: true
   anchors.right: parent.right
   anchors.top: parent.top
   anchors.bottom: parent.bottom
   anchors.left: prev.left
+  margin-top: 1
   margin-right: 1
   color: $var-text-cip-color
 
@@ -51,11 +53,21 @@ ImageAbsorb < UIWidget
   anchors.top: parent.top
   phantom: false
 
+BoostIcon < UIWidget
+  id: boostIcon
+  size: 13 13
+  anchors.right: parent.right
+  anchors.top: parent.top
+  margin-top: 0
+  phantom: true
+  focusable: false
+  image-source: /images/icons/xp_boost
+
 RedPercentPanel < ProgressBar
   id: percent
   background-color: #c00000
   height: 5
-  margin-top: 15
+  margin-top: 17
   anchors.left: parent.left
   anchors.right: parent.right
   anchors.top: parent.top
@@ -73,22 +85,15 @@ SkillPercentPanel < ProgressBar
   phantom: false
 
 XpBoostButton < UIWidget
-  height: 28
-  HorizontalSeparator
-    id: leftSeparator
-    anchors.top: parent.bottom
-    anchors.left: parent.left
-    anchors.right: parent.right
-    margin-top: -23
-    margin-left: 1
+  height: 14
+  margin-top: -13
   UIWidget
     id: xpBoostButton
     image-source: /images/ui/button-storexp
     !tooltip: tr('Increase your experience gain with a temporary XP Boost!')
     tooltip-delayed: true
     anchors.horizontalCenter: parent.horizontalCenter
-    anchors.top: prev.bottom
-    margin-top : -7
+    anchors.verticalCenter: parent.verticalCenter
     @onClick: modules.game_store.openPremiumBoost()
     $pressed:
       image-source: /images/ui/button-storexp-pressed
