@@ -813,13 +813,35 @@ function setOption(key, value, force)
     g_settings.set(key, value)
 end
 
-function setupOptionsMainButton()
-    if extraWidgets.optionsButtons then
-        return
+function openManageControlButtonsPage()
+    if not controller.ui:isVisible() then
+        show()
     end
 
-    extraWidgets.optionsButtons = modules.game_mainpanel.addSpecialToggleButton('optionsMainButton', tr('Options'),
-        '/images/options/button_options', toggle, true)
+    openOptionsCategory('Interface', 'Control Butt...')
+
+    if modules.game_mainpanel and modules.game_mainpanel.initControlButtons then
+        modules.game_mainpanel.initControlButtons()
+    end
+end
+
+function setupOptionsMainButton()
+    if not extraWidgets.optionsButtons then
+        extraWidgets.optionsButtons = modules.game_mainpanel.addSpecialToggleButton('optionsMainButton', tr('Options'),
+            '/images/options/button_options', toggle, true)
+    end
+
+    if not extraWidgets.manageControlButtonsButton then
+        extraWidgets.manageControlButtonsButton = modules.game_mainpanel.addToggleButton(
+            'manageControlButtons',
+            tr('Manage control buttons'),
+            '/images/options/button_control',
+            openManageControlButtonsPage,
+            false,
+            9999
+        )
+        extraWidgets.manageControlButtonsButton:setOn(false)
+    end
 end
 
 function getOption(key)

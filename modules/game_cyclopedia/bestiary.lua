@@ -1094,14 +1094,42 @@ local function redrawBestiaryTracker()
 
 	sortTrackerEntries()
 
-	local children = contentsPanel:getChildren()
-	local childrenCount = #children
 	local entriesCount = #trackerEntries
+	local entryRows = {}
+	for _, child in ipairs(contentsPanel:getChildren()) do
+		if child:getId() ~= 'emptyLabel' then
+			entryRows[#entryRows + 1] = child
+		end
+	end
 
-	for i = 1, math.max(childrenCount, entriesCount) do
+	local emptyLabel = contentsPanel:getChildById('emptyLabel')
+	if entriesCount == 0 then
+		for _, row in ipairs(entryRows) do
+			row:destroy()
+		end
+		if not emptyLabel then
+			emptyLabel = g_ui.createWidget('Label', contentsPanel)
+			emptyLabel:setId('emptyLabel')
+			emptyLabel:setFont('verdana-11px-antialised')
+			emptyLabel:setColor('#9d9d9d')
+			emptyLabel:setTextAlign(AlignCenter)
+			emptyLabel:setTextWrap(true)
+			emptyLabel:setMarginTop(8)
+			emptyLabel:setText(tr('No creatures tracked.'))
+		end
+		emptyLabel:setVisible(true)
+		return
+	end
+
+	if emptyLabel then
+		emptyLabel:setVisible(false)
+	end
+
+	local rowsCount = #entryRows
+	for i = 1, math.max(rowsCount, entriesCount) do
 		if i <= entriesCount then
 			local entry = trackerEntries[i]
-			local row = children[i]
+			local row = entryRows[i]
 			if not row then
 				row = g_ui.createWidget('BestiaryTrackerEntry', contentsPanel)
 				row.raceId = entry.raceId
@@ -1129,7 +1157,7 @@ local function redrawBestiaryTracker()
 			row.progressBar:setPercent(math.min(100, math.floor((entry.kills * 100) / math.max(entry.toKill, 1))))
 			row.progressBar:setText(entry.kills)
 		else
-			local row = children[i]
+			local row = entryRows[i]
 			if row then
 				row:destroy()
 			end
@@ -1403,17 +1431,11 @@ function updateBestiaryTracker(msg)
 
 	local window = ensureBestiaryTrackerWindow()
 	if window then
-		if count > 0 then
-			if not window:getSettings('closed') then
-				window:show()
-			end
+		if count > 0 and not window:getSettings('closed') then
+			window:show()
+		end
+		if window:isVisible() then
 			scheduleBestiaryTrackerRefresh()
-		else
-			window:hide()
-			if bestiaryTrackerRefreshEvent then
-				removeEvent(bestiaryTrackerRefreshEvent)
-				bestiaryTrackerRefreshEvent = nil
-			end
 		end
 	end
 
