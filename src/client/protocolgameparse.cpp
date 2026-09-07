@@ -98,6 +98,30 @@ bool shouldShowCreatureFrame(const CreaturePtr& creature)
 
     return shouldShow;
 }
+
+constexpr uint8_t CreatureMarkPlayerAttack = 3;
+
+// weaponType 1-6 -> effect id 304-309 (client jump-table, not contiguous).
+constexpr uint16_t MeleeAttackEffectIds[] = { 0, 304, 305, 306, 309, 307, 308 };
+
+void playMeleeAttackEffect(const CreaturePtr& target, const uint8_t weaponType)
+{
+    if (!target || weaponType < 1 || weaponType > 6)
+        return;
+
+    const auto& localPlayer = g_game.getLocalPlayer();
+    if (!localPlayer || g_game.getAttackingCreature() != target)
+        return;
+
+    const uint16_t effectId = MeleeAttackEffectIds[weaponType];
+    if (!g_things.isValidDatId(effectId, ThingCategoryEffect))
+        return;
+
+    const auto& effect = std::make_shared<Effect>();
+    effect->setId(effectId);
+    effect->setDirection(localPlayer->getPosition().getDirectionFromPosition(target->getPosition()));
+    g_map.addThing(effect, target->getPosition());
+}
 } // namespace
 
 static bool usesModernImbuementWindow()
@@ -3887,31 +3911,34 @@ void ProtocolGame::parseChangeMapAwareRange(const InputMessagePtr& msg)
 void ProtocolGame::parseCreaturesMark(const InputMessagePtr& msg)
 {
     const uint32_t creatureId = msg->getU32();
-    const auto& creature = g_map.getCreatureById(creatureId);
+    const uint8_t markType = msg->getU8();
     const bool isLegacyProtocol = g_game.getClientVersion() < 1076;
-    uint8_t squareType;
-    uint8_t squareColor;
 
-    if (isLegacyProtocol) {
-        squareType = 0;
-        squareColor = msg->getU8();
-    } else {
-        squareType = msg->getU8();
-        squareColor = msg->getU8();
+    uint8_t markValue = 0;
+    if (markType == CreatureMarkPlayerAttack || !isLegacyProtocol || markType == 0x01) {
+        markValue = msg->getU8();
+    } else if (isLegacyProtocol) {
+        markValue = markType;
     }
 
+    const auto& creature = g_map.getCreatureById(creatureId);
     if (!creature) {
         g_logger.traceDebug("ProtocolGame::parseCreaturesMark: could not get creature with id {}", creatureId);
         return;
     }
 
-    if (isLegacyProtocol) {
-        if (shouldShowCreatureFrame(creature))
-            creature->addTimedSquare(squareColor);
+    if (markType == CreatureMarkPlayerAttack) {
+        playMeleeAttackEffect(creature, markValue);
         return;
     }
 
-    if (squareType == 0) {
+    if (isLegacyProtocol) {
+        if (shouldShowCreatureFrame(creature))
+            creature->addTimedSquare(markValue);
+        return;
+    }
+
+    if (markType == 0) {
         creature->hideStaticSquare();
         creature->removeTimedSquare();
         return;
@@ -3920,10 +3947,10 @@ void ProtocolGame::parseCreaturesMark(const InputMessagePtr& msg)
     if (!shouldShowCreatureFrame(creature))
         return;
 
-    if (squareType == 2) {
-        creature->showStaticSquare(squareColor == 0 ? Color::black : Color::from8bit(squareColor));
+    if (markType == 2) {
+        creature->showStaticSquare(markValue == 0 ? Color::black : Color::from8bit(markValue));
     } else {
-        creature->addTimedSquare(squareColor);
+        creature->addTimedSquare(markValue);
     }
 }
 

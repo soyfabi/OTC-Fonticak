@@ -179,6 +179,21 @@ public:
 
     Otc::Direction getDirectionFromPosition(const Position& position) const { return getDirectionFromPositions(*this, position); }
 
+    static void applyDirectionPattern(const Otc::Direction dir, uint8_t& patternX, uint8_t& patternY)
+    {
+        switch (dir) {
+            case Otc::NorthWest: patternX = 0; patternY = 0; break;
+            case Otc::North: patternX = 1; patternY = 0; break;
+            case Otc::NorthEast: patternX = 2; patternY = 0; break;
+            case Otc::East: patternX = 2; patternY = 1; break;
+            case Otc::SouthEast: patternX = 2; patternY = 2; break;
+            case Otc::South: patternX = 1; patternY = 2; break;
+            case Otc::SouthWest: patternX = 0; patternY = 2; break;
+            case Otc::West: patternX = 0; patternY = 1; break;
+            default: patternX = 1; patternY = 1; break;
+        }
+    }
+
     bool isMapPosition() const;
     bool isValid() const { return !(x == UINT16_MAX && y == UINT16_MAX && z == UINT8_MAX); }
     double distance(const Position& pos) const { return sqrt(std::pow<int32_t>(pos.x - x, 2) + std::pow<int32_t>(pos.y - y, 2)); }
