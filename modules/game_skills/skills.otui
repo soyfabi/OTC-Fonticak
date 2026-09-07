@@ -103,7 +103,7 @@ MiniWindow
       SkillNameLabel
         !text: tr('Mana')
       SkillValueLabel
-      margin-top: -3
+        margin-top: -3
 
     SkillButton
       id: soul
@@ -111,7 +111,7 @@ MiniWindow
       SkillNameLabel
         !text: tr('Soul Points')
       SkillValueLabel
-      margin-top: -3
+        margin-top: -3
 
     SkillButton
       id: capacity
@@ -119,7 +119,7 @@ MiniWindow
       SkillNameLabel
         !text: tr('Capacity')
       SkillValueLabel
-      margin-top: -3 
+        margin-top: -3
 
     SkillButton
       id: speed
@@ -127,7 +127,7 @@ MiniWindow
       SkillNameLabel
         !text: tr('Speed')
       SkillValueLabel
-      margin-top: -3
+        margin-top: -3
 
     SkillButton
       margin-top: -3
@@ -183,7 +183,7 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-      margin-top: 5
+        margin-top: 5
 
     SkillButton
       margin-top: 5
@@ -197,7 +197,7 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-      margin-top: 5
+        margin-top: 5
 
     SkillButton
       margin-top: 5
@@ -211,7 +211,7 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-      margin-top: 5
+        margin-top: 5
 
     SkillButton
       margin-top: 5
@@ -225,7 +225,7 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-      margin-top: 5
+        margin-top: 5
 
     SkillButton
       margin-top: 5
@@ -239,7 +239,7 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-      margin-top: 5
+        margin-top: 5
 
     SkillButton
       margin-top: 5
@@ -253,7 +253,7 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-      margin-top: 5
+        margin-top: 5
 
     SkillButton
       margin-top: 5
@@ -267,7 +267,7 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-      margin-top: 2
+        margin-top: 2
 
     HorizontalSeparator
       id: separadorOnOffenceInfoChange
@@ -364,7 +364,7 @@ MiniWindow
       SkillValueLabel
         margin-right: 15
       ImageAbsorb
-      margin-top: -2
+        margin-top: -2
 
     SmallSkillButton
       visible: false
@@ -374,7 +374,7 @@ MiniWindow
       SkillValueLabel
         margin-right: 15
       ImageAbsorb
-      margin-top: -2
+        margin-top: -2
 
     SmallSkillButton
       id: lifeLeech
@@ -383,7 +383,7 @@ MiniWindow
         !text: tr('Life Leech')
         margin-left: -3
       SkillValueLabel
-      margin-top: -2
+        margin-top: -2
       margin-right: 9
 
     SmallSkillButton
@@ -393,7 +393,7 @@ MiniWindow
         !text: tr('Mana Leech')
         margin-left: -3
       SkillValueLabel
-      margin-top: -2
+        margin-top: -2
       margin-right: 9
 
     SmallSkillButton
@@ -410,7 +410,7 @@ MiniWindow
         margin-left: 7
         !text: tr('Chance')
       SkillValueLabel
-      margin-top: -4
+        margin-top: -4
       margin-right: 9
 
     SmallSkillButton
@@ -420,7 +420,7 @@ MiniWindow
         margin-left: 7
         !text: tr('Extra Dam...')
       SkillValueLabel
-      margin-top: -2
+        margin-top: -2
       margin-right: 9
 
     SmallSkillButton
@@ -444,7 +444,7 @@ MiniWindow
         !text: tr('Onslaught')
         margin-left: -3
       SkillValueLabel
-      margin-top: -2
+        margin-top: -2
       margin-right: 9
 
     HorizontalSeparator
@@ -583,7 +583,7 @@ MiniWindow
         !text: tr('Armor Value')
         margin-left: -3
       SkillValueLabel
-      margin-top: -2
+        margin-top: -2
       margin-right: 9
 
     SmallSkillButton
@@ -593,7 +593,7 @@ MiniWindow
         !text: tr('Mantra Value')
         margin-left: -3
       SkillValueLabel
-      margin-top: -2
+        margin-top: -2
       margin-right: 9
 
     SmallSkillButton
@@ -603,7 +603,7 @@ MiniWindow
         !text: tr('Mitigation')
         margin-left: -3
       SkillValueLabel
-      margin-top: -2
+        margin-top: -2
       margin-right: 9
 
     SmallSkillButton
@@ -613,7 +613,7 @@ MiniWindow
         !text: tr('Dodge')
         margin-left: -3
       SkillValueLabel
-      margin-top: -2
+        margin-top: -2
       margin-right: 9
 
     SmallSkillButton
@@ -640,7 +640,7 @@ MiniWindow
         margin-left: -3
         !text: tr('Momentum')
       SkillValueLabel  
-      margin-top: -2
+        margin-top: -2
       margin-right: 9
 
     ForgeMiscStatRow
@@ -651,7 +651,7 @@ MiniWindow
         margin-left: -3
         !text: tr('Transcend...')
       SkillValueLabel  
-      margin-top: -2
+        margin-top: -2
       margin-right: 9
 
     ForgeMiscStatRow
@@ -662,7 +662,7 @@ MiniWindow
         margin-left: -3
         !text: tr('Amplification')
       SkillValueLabel
-      margin-top: -2
+        margin-top: -2
       margin-right: 9
 
   UIWidget

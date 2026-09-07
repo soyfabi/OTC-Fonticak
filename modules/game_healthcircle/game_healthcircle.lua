@@ -1001,8 +1001,8 @@ function setPlayerValues()
     if chooseSkillComboBox then
         chooseSkillComboBox:setCurrentOptionByData(skillType, true)
     end
-    setHarmonyCircle(isHarmonyCircle)
     checkMonkVocation()
+    setHarmonyCircle(isHarmonyCircle)
 end
 
 function setStatsBarOption(dimension, placement)

@@ -802,14 +802,14 @@ function syncControlButtons(persist)
         local repaired = {}
         local seen = {}
         for _, id in ipairs(buttonOrder) do
-            if id ~= MANAGE_CONTROL_BUTTONS_ID and knownIds[id] then
+            if id ~= MANAGE_CONTROL_BUTTONS_ID and knownIds[id] and buttonConfigs[id].visible then
                 table.insert(repaired, id)
                 seen[id] = true
             end
         end
         local missing = {}
         for id in pairs(knownIds) do
-            if not seen[id] and id ~= MANAGE_CONTROL_BUTTONS_ID then
+            if not seen[id] and id ~= MANAGE_CONTROL_BUTTONS_ID and buttonConfigs[id].visible then
                 local button = optionsPanel:getChildById(id)
                 table.insert(missing, {
                     id = id,
@@ -824,7 +824,7 @@ function syncControlButtons(persist)
             table.insert(repaired, entry.id)
             seen[entry.id] = true
         end
-        if knownIds[MANAGE_CONTROL_BUTTONS_ID] then
+        if knownIds[MANAGE_CONTROL_BUTTONS_ID] and buttonConfigs[MANAGE_CONTROL_BUTTONS_ID].visible then
             table.insert(repaired, MANAGE_CONTROL_BUTTONS_ID)
         end
         buttonOrder = repaired
@@ -834,7 +834,7 @@ function syncControlButtons(persist)
     local missingManage = false
     local missingOthers = {}
     for id in pairs(knownIds) do
-        if not table.find(buttonOrder, id) then
+        if not table.find(buttonOrder, id) and buttonConfigs[id].visible then
             if id == MANAGE_CONTROL_BUTTONS_ID then
                 missingManage = true
             else
@@ -869,7 +869,7 @@ function syncControlButtons(persist)
     end
 
     for i = #buttonOrder, 1, -1 do
-        if not knownIds[buttonOrder[i]] then
+        if not knownIds[buttonOrder[i]] or not buttonConfigs[buttonOrder[i]].visible then
             table.remove(buttonOrder, i)
             changed = true
         end

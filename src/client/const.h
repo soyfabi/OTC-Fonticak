@@ -533,7 +533,7 @@ namespace Otc
         GameThingQuickLoot = 83,
         GameThingQuiver = 84,
         GameThingPodium = 85,
-        // 86 reserved (TFS CreatureWalkthrough) - GameThingUpgradeClassification is 130
+        GameThingUpgradeClassification = 86,
         GameThingCounter = 87,
         GameThingClock = 88,
         GameThingPodiumItemType = 89,
@@ -579,7 +579,6 @@ namespace Otc
         GameCreaturePaperdoll = 128,
         GameMultiSpr = 129,
         GameVocationMonk = 130,
-        GameThingUpgradeClassification = GameVocationMonk,
         GameItemTierByte = 131,
         GameProficiency = 132,
         GameEffectSource = 133,
