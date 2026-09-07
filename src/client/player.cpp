@@ -37,6 +37,8 @@ bool Player::isMonk() const {
     switch (m_vocation) {
         case Otc::Vocations_t::MONK:
         case Otc::Vocations_t::EXALTED_MONK:
+        case Otc::Vocations_t::MONK_VOCATION:
+        case Otc::Vocations_t::EXALTED_MONK_VOCATION:
             return true;
         default: return false;
     }

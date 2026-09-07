@@ -693,6 +693,10 @@ function controller:onGameStart()
     if type(applyAsyncTextureLoading) == 'function' then
         applyAsyncTextureLoading()
     end
+
+    if applyOwnHUD then
+        applyOwnHUD()
+    end
 end
 
 function controller:onGameEnd()
@@ -1051,7 +1055,7 @@ function applyOwnHUD(opts, panelTable)
         if map.setDrawPlayerBars then map:setDrawPlayerBars(false) end
         if map.setDrawPlayerNames then map:setDrawPlayerNames(false) end
         map:setDrawManaBar(false)
-        map:setDrawHarmony(false)
+        map:setDrawOwnHarmonyBar(false)
         if g_gameConfig.isDrawingInformationByWidget() and modules.game_creatureinformation then
             modules.game_creatureinformation.toggleInformation()
         end
@@ -1069,17 +1073,16 @@ function applyOwnHUD(opts, panelTable)
     if not showBars then
         if map.setDrawPlayerBars then map:setDrawPlayerBars(false) end
         map:setDrawManaBar(false)
-        map:setDrawHarmony(false)
     else
         if map.setDrawPlayerBars then
             map:setDrawPlayerBars(showHealth)
         end
         map:setDrawManaBar(showMana)
-        map:setDrawHarmony(showHarmony)
     end
     if map.setDrawPlayerNames then
         map:setDrawPlayerNames(showName)
     end
+    map:setDrawOwnHarmonyBar(showHarmony)
 
     -- Keep legacy displayMana key in sync.
     if opts.displayMana then
@@ -1186,6 +1189,7 @@ function resetHUD()
     setOption('healthCheckBox', true, true)
     setOption('manaCheckBox', true, true)
     setOption('showHealthManaCircle', true, true)
+    setOption('harmonyCheckBox', true, true)
     setOption('experienceCheckBox', false, true)
     setOption('skillCheckBox', false, true)
     setOption('sizeBox', 2, true)

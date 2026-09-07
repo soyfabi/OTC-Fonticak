@@ -1025,7 +1025,9 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<LocalPlayer>("setResourceBalance", &LocalPlayer::setResourceBalance);
     g_lua.bindClassMemberFunction<LocalPlayer>("getTotalMoney", &LocalPlayer::getTotalMoney);
     g_lua.bindClassMemberFunction<LocalPlayer>("getHarmony", &LocalPlayer::getHarmony);
+    g_lua.bindClassMemberFunction<LocalPlayer>("setHarmony", &LocalPlayer::setHarmony);
     g_lua.bindClassMemberFunction<LocalPlayer>("isSerene", &LocalPlayer::isSerene);
+    g_lua.bindClassMemberFunction<LocalPlayer>("setSerene", &LocalPlayer::setSerene);
 
     g_lua.registerClass<Tile, AttachableObject>();
     g_lua.bindClassMemberFunction<Tile>("clean", &Tile::clean);
@@ -1201,6 +1203,7 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMap>("isDrawingLights", &UIMap::isDrawingLights);
     g_lua.bindClassMemberFunction<UIMap>("isLimitedVisibleDimension", &UIMap::isLimitedVisibleDimension);
     g_lua.bindClassMemberFunction<UIMap>("isDrawingManaBar", &UIMap::isDrawingManaBar);
+    g_lua.bindClassMemberFunction<UIMap>("isDrawingHarmony", &UIMap::isDrawingHarmony);
     g_lua.bindClassMemberFunction<UIMap>("isDrawingPlayerBars", &UIMap::isDrawingPlayerBars);
     g_lua.bindClassMemberFunction<UIMap>("isDrawingPlayerNames", &UIMap::isDrawingPlayerNames);
     g_lua.bindClassMemberFunction<UIMap>("isLimitVisibleRangeEnabled", &UIMap::isLimitVisibleRangeEnabled);
@@ -1226,6 +1229,8 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMap>("setFloorFading", &UIMap::setFloorFading);
     g_lua.bindClassMemberFunction<UIMap>("clearTiles", &UIMap::clearTiles);
     g_lua.bindClassMemberFunction<UIMap>("setDrawHarmony", &UIMap::setDrawHarmony);
+    g_lua.bindClassMemberFunction<UIMap>("setDrawOwnHarmonyBar", &UIMap::setDrawOwnHarmonyBar);
+    g_lua.bindClassMemberFunction<UIMap>("isDrawingOwnHarmonyBar", &UIMap::isDrawingOwnHarmonyBar);
 
     g_lua.registerClass<UIMinimap, UIWidget>();
     g_lua.bindClassStaticFunction<UIMinimap>("create", [] { return std::make_shared<UIMinimap>(); });

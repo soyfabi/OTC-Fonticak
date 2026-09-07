@@ -1,0 +1,9 @@
+Module
+  name: game_monk
+  description: Monk harmony and serene sync from server extended opcodes.
+  author: Fonticak
+  sandboxed: true
+  dependencies: [ game_interface ]
+  scripts: [ monk ]
+  @onLoad: init()
+  @onUnload: terminate()

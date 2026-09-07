@@ -244,7 +244,9 @@ local function sortOptionsButtons()
         end
         return (a._stableOrder or 0) < (b._stableOrder or 0)
     end)
-    panel:reorderChildren(children)
+    if #children == #panel:getChildren() then
+        panel:reorderChildren(children)
+    end
 end
 
 local function createButton(id, description, image, callback, special, front, index)
@@ -577,7 +579,10 @@ local function updateList(listWidget, isVisibleList)
 
         table.insert(currentChildren, item)
     end
-    listWidget:reorderChildren(currentChildren)
+    local panelChildren = listWidget:getChildren()
+    if #currentChildren == #panelChildren then
+        listWidget:reorderChildren(currentChildren)
+    end
     if focusedId then
         for _, child in ipairs(listWidget:getChildren()) do
             if child.buttonId == focusedId then
@@ -705,20 +710,35 @@ function reorderButtons()
         return
     end
     local optionsPanel = optionsController.ui.onPanel.options
+    if not optionsPanel then
+        return
+    end
+
+    local panelChildren = optionsPanel:getChildren()
     local children = {}
+    local seen = {}
+
     for _, id in ipairs(buttonOrder) do
-        local button = optionsPanel:getChildById(id)
-        if button then
-            table.insert(children, button)
+        if not seen[id] then
+            local button = optionsPanel:getChildById(id)
+            if button then
+                table.insert(children, button)
+                seen[id] = true
+            end
         end
     end
-    for _, button in ipairs(optionsPanel:getChildren()) do
+
+    for _, button in ipairs(panelChildren) do
         local id = button:getId()
-        if not table.find(buttonOrder, id) then
+        if id and not seen[id] then
             table.insert(children, button)
+            seen[id] = true
         end
     end
-    optionsPanel:reorderChildren(children)
+
+    if #children == #panelChildren then
+        optionsPanel:reorderChildren(children)
+    end
 end
 
 local pendingControlButtonsSync = false

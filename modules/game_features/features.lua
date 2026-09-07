@@ -84,8 +84,9 @@ controller:registerEvents(g_game, {
             g_game.enableFeature(GameThingUpgradeClassification)
             g_game.enableFeature(GameItemTierByte)
             g_game.enableFeature(GamePlayerRegenerationTime)
-            -- Custom 8.60 servers (e.g. Astra) extend the outfit packet with familiars.
+            -- Custom 8.60 server extensions (familiars, monk HUD).
             g_game.enableFeature(GamePlayerFamiliars)
+            g_game.enableFeature(GameVocationMonk)
         end
 
         if version >= 862 then

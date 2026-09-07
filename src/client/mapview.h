@@ -92,8 +92,11 @@ public:
     void setDrawPlayerNames(const bool enable) { m_drawPlayerNames = enable; }
     bool isDrawingPlayerNames() const { return m_drawPlayerNames; }
 
-    void setDrawHarmony(const bool enable) { m_drawHarmony = enable; }
-    bool isDrawingHarmony() const { return m_drawHarmony; }
+    void setDrawHarmony(const bool enable) { m_drawOwnHarmonyBar = enable; }
+    bool isDrawingHarmony() const { return m_drawOwnHarmonyBar; }
+
+    void setDrawOwnHarmonyBar(const bool enable) { m_drawOwnHarmonyBar = enable; }
+    bool isDrawingOwnHarmonyBar() const { return m_drawOwnHarmonyBar; }
 
     void move(int32_t x, int32_t y);
 
@@ -275,7 +278,7 @@ private:
     bool m_smooth{ true };
     bool m_follow{ true };
     bool m_drawingLight{ true };
-    bool m_drawHarmony{ true };
+    bool m_drawOwnHarmonyBar{ true };
 
     bool m_fadeFinish{ false };
     bool m_autoViewMode{ false };

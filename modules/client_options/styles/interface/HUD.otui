@@ -106,10 +106,10 @@ UIWidget
           margin-left: 16
           height: 22
 
-          OptionCheckBoxMarked
+          OptionCheckBox
             id: displayHarmony
             !text: tr('Show Harmony')
-            !tooltip: tr('Can be enabled only in version 15.00 or higher')
+            !tooltip: tr('Show Harmony bar on your character in the game window.')
 
       VerticalSeparator
         anchors.top: parent.top
@@ -169,7 +169,7 @@ UIWidget
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: prev.bottom
-      height: 210
+      height: 232
       margin-top: 7
 
       SmallReversedQtPanel
@@ -209,6 +209,19 @@ UIWidget
           anchors.right: parent.right
           anchors.top: parent.top
           margin-left: 4
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 4
+        margin-left: 16
+        height: 22
+
+        OptionCheckBox
+          id: harmonyCheckBox
+          !text: tr('Show Harmony')
+          !tooltip: tr('Show Harmony points on arcs and top bar (Monk vocation).')
 
       SmallReversedQtPanel
         anchors.left: parent.left

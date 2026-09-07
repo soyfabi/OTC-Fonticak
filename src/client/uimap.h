@@ -48,6 +48,7 @@ public:
     void setDrawPlayerBars(bool enable);
     void setDrawPlayerNames(bool enable);
     void setDrawHarmony(bool enable);
+    void setDrawOwnHarmonyBar(bool enable);
     void setShader(std::string_view name, float fadein, float fadeout);
     void setMinimumAmbientLight(float intensity);
     void setDrawViewportEdge(bool force);
@@ -56,6 +57,8 @@ public:
     bool isDrawingLights();
     bool isLimitedVisibleDimension();
     bool isDrawingManaBar();
+    bool isDrawingHarmony();
+    bool isDrawingOwnHarmonyBar();
     bool isDrawingPlayerBars();
     bool isDrawingPlayerNames();
     bool isSwitchingShader();

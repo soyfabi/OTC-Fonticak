@@ -66,9 +66,7 @@ function init()
     manaShieldCircle:setVisible(false)
     manaShieldCircleFront:setVisible(false)
 
-    -- @ MONK
     initMonkWidgets()
-    -- @
     whenMapResizeChange()
     initOnHpAndMpChange()
     initOnGeometryChange()
@@ -133,9 +131,7 @@ function terminate()
     expCircleFront = nil
     skillCircleFront:destroy()
     skillCircleFront = nil
-    -- @ Destroy MONK
     terminateMonkWidgets()
-    -- @
     terminateOnHpAndMpChange()
     terminateOnGeometryChange()
     terminateOnLoginChange()
@@ -384,11 +380,6 @@ function initOnHpAndMpChange()
         onManaShieldChange = whenManaShieldChange,
         onMagicLevelChange = whenSkillsChange,
         onLevelChange = whenSkillsChange,
-        -- @ MONK in modules\game_interface\widgets\statsbar.lua
-        -- onHarmonyChange = whenMonkHarmonyChange,
-        -- onSereneChange = whenMonkSereneChange,
-        -- onVocationChange = function() checkMonkVocation() end
-        -- @
     })
 end
 
@@ -400,11 +391,6 @@ function terminateOnHpAndMpChange()
         onManaShieldChange = whenManaShieldChange,
         onMagicLevelChange = whenSkillsChange,
         onLevelChange = whenSkillsChange,
-        -- @ MONK in modules\game_interface\widgets\statsbar.lua
-        -- onHarmonyChange = whenMonkHarmonyChange,
-        -- onSereneChange = whenMonkSereneChange,
-        -- onVocationChange = function() checkMonkVocation() end
-        -- @
     })
 end
 
@@ -434,12 +420,10 @@ end
 
 function whenHealthChange()
     if g_game.isOnline() then
-        -- @ MONK
         if isMonkMode then
             whenMonkHealthChange()
             return
         end
-        -- @
         local player = g_game.getLocalPlayer()
         if not player then
             return
@@ -680,9 +664,7 @@ function whenMapResizeChange()
         if isExpCircle or isSkillCircle then
             whenSkillsChange()
         end
-        -- @ MONK
         positionMonkWidgets()
-        -- @
     end
 
     -- Re-apply clip geometry after reposition without restarting tweens mid-flight.
@@ -716,7 +698,6 @@ function setHealthCircle(value)
     value = toboolean(value)
     isHealthCircle = value
     if value then
-        -- @ MONK
         checkMonkVocation()
         if isMonkMode then
             healthCircle:setVisible(false)
@@ -728,13 +709,10 @@ function setHealthCircle(value)
         end
         whenMapResizeChange()
         updateManaShieldDisplay()
-        -- @
     else
         healthCircle:setVisible(false)
         healthCircleFront:setVisible(false)
-        -- @ MONK
         setMonkWidgetsVisible(false)
-        -- @
         if manaShieldCircle and manaShieldCircleFront then
             manaShieldCircle:setVisible(false)
             manaShieldCircleFront:setVisible(false)
@@ -827,9 +805,7 @@ function setCircleOpacity(value)
     expCircleFront:setOpacity(value)
     skillCircle:setOpacity(value)
     skillCircleFront:setOpacity(value)
-    -- @ MONK
     setMonkCircleOpacity(value)
-    -- @
     g_settings.set('healthcircle_opacity', value)
 end
 
@@ -1025,6 +1001,8 @@ function setPlayerValues()
     if chooseSkillComboBox then
         chooseSkillComboBox:setCurrentOptionByData(skillType, true)
     end
+    setHarmonyCircle(isHarmonyCircle)
+    checkMonkVocation()
 end
 
 function setStatsBarOption(dimension, placement)

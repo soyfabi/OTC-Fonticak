@@ -578,15 +578,14 @@ namespace Otc
         GameCharacterSkillStats = 127,
         GameCreaturePaperdoll = 128,
         GameMultiSpr = 129,
-        // Aligned with TFS & Astra
-        GameThingUpgradeClassification = 130,
+        GameVocationMonk = 130,
+        GameThingUpgradeClassification = GameVocationMonk,
         GameItemTierByte = 131,
         GameProficiency = 132,
         GameEffectSource = 133,
         // Align with Fantoner/Astra negotiated feature id
         GamePlayerFamiliars = 138,
         GameAstraQuiverCountU16 = 141,
-        GameVocationMonk = 150,
         LastGameFeature
     };
 
@@ -917,6 +916,8 @@ namespace Otc
         MASTER_SORCERER = 13,
         ELDER_DRUID = 14,
         EXALTED_MONK = 15,
+        MONK_VOCATION = 9,
+        EXALTED_MONK_VOCATION = 10,
         FIRST = KNIGHT,
         LAST = MONK,
     };

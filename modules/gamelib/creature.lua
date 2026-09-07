@@ -218,5 +218,6 @@ end
 
 function Creature.isMonk(self)
     local vocation = self:getVocation()
-    return vocation == VocationsServer.Monk or vocation == VocationsServer.ExaltedMonk or vocation == 15
+    return vocation == VocationsServer.Monk or vocation == VocationsServer.ExaltedMonk
+        or vocation == VocationsClient.Monk or vocation == VocationsClient.ExaltedMonk
 end

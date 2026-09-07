@@ -364,7 +364,9 @@ ExtendedIds = {
     Particles = 5,
     MapShader = 6,
     NeedsUpdate = 7,
-    WheelSkills = 145
+    WheelSkills = 145,
+    MonkData = 146,
+    MonkHarmonyOpcode = 130
 }
 
 PreviewState = {

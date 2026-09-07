@@ -8,12 +8,6 @@ monkImageSizeBroad = 0
 monkImageSizeThin = 0
 monkHealthAnim = {}
 
--- @ position constants
-MONK_SERENE_OFFSET_X = 0
-MONK_SERENE_OFFSET_Y = 0
-MONK_HARMONY_OFFSET_X = 0
-MONK_HARMONY_OFFSET_Y = 0
-
 function initMonkWidgets()
     local mapPanel = modules.game_interface.getMapPanel()
     monkCircleBackground = g_ui.createWidget('MonkCircleBackground', mapPanel)
@@ -59,8 +53,33 @@ function terminateMonkWidgets()
     isMonkMode = false
 end
 
+isHarmonyCircle = readDisplayHarmonySetting()
+
+function setHarmonyCircle(value)
+    value = toboolean(value)
+    isHarmonyCircle = value
+
+    if not value then
+        for i = 1, 5 do
+            if monkHarmonySlots[i] then
+                monkHarmonySlots[i]:setVisible(false)
+            end
+        end
+        return
+    end
+
+    if isMonkMode then
+        for i = 1, 5 do
+            if monkHarmonySlots[i] then
+                monkHarmonySlots[i]:setVisible(true)
+            end
+        end
+        whenMonkHarmonyChange(g_game.getLocalPlayer(), g_game.getLocalPlayer() and g_game.getLocalPlayer():getHarmony() or 0)
+    end
+end
+
 function switchToMonkMode(enabled)
-    if not g_game.getFeature(GameVocationMonk) then
+    if not isMonkFeatureEnabled() then
         return
     end
     isMonkMode = enabled
@@ -70,7 +89,7 @@ function switchToMonkMode(enabled)
     monkHealthCircle:setVisible(enabled)
     monkSereneCircle:setVisible(enabled)
     for i = 1, 5 do
-        monkHarmonySlots[i]:setVisible(enabled)
+        monkHarmonySlots[i]:setVisible(enabled and isHarmonyCircle)
     end
     if enabled then
         whenMapResizeChange()
@@ -83,7 +102,7 @@ function checkMonkVocation()
     if not player then
         return false
     end
-    local isMonk = player:isMonk() and g_game.getFeature(GameVocationMonk)
+    local isMonk = isMonkPlayer(player)
     if isMonk ~= isMonkMode then
         switchToMonkMode(isMonk)
     end
@@ -141,7 +160,6 @@ function whenMonkHealthChange()
         return
     end
 
-    -- 30 Hz is enough for the pixel-clipped arc and halves per-frame work.
     g_effects.animateValue(monkHealthAnim, monkHealthAnim.value, healthPercent, nil, function(v)
         monkHealthAnim.value = v
         if v ~= healthPercent and monkHealthAnim.applied and math.abs(v - monkHealthAnim.applied) < 0.2 then
@@ -152,7 +170,7 @@ function whenMonkHealthChange()
     end, false, 33)
 end
 
-function whenMonkSereneChange(localplayer, serene)
+function whenMonkSereneChange(_, serene)
     if serene then
         monkSereneCircle:setImageColor('#9933FF')
         monkSereneCircle:setOpacity(1.0)
@@ -161,7 +179,10 @@ function whenMonkSereneChange(localplayer, serene)
     end
 end
 
-function whenMonkHarmonyChange(localplayer, harmony)
+function whenMonkHarmonyChange(_, harmony)
+    if not isHarmonyCircle then
+        return
+    end
     for i = 1, 5 do
         if i <= harmony then
             monkHarmonySlots[i]:setImageColor('#FFD700')
@@ -182,11 +203,11 @@ function positionMonkWidgets()
     monkCircleBackground:setY(monkY)
     monkHealthCircle:setX(monkX)
     monkHealthCircle:setY(monkY)
-    monkSereneCircle:setX(monkX + MONK_SERENE_OFFSET_X)
-    monkSereneCircle:setY(monkY + MONK_SERENE_OFFSET_Y)
+    monkSereneCircle:setX(monkX)
+    monkSereneCircle:setY(monkY)
     for i = 1, 5 do
-        monkHarmonySlots[i]:setX(monkX + MONK_HARMONY_OFFSET_X)
-        monkHarmonySlots[i]:setY(monkY + MONK_HARMONY_OFFSET_Y)
+        monkHarmonySlots[i]:setX(monkX)
+        monkHarmonySlots[i]:setY(monkY)
     end
     whenMonkHealthChange()
 end
