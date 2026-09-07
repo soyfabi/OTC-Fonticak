@@ -809,7 +809,11 @@ local function refreshFoodRegenerationUi(regenerationTime)
 end
 
 local function tickFoodRegeneration()
-	refreshFoodRegenerationUi(getFoodRegenerationRemaining())
+	local regenerationTime = getFoodRegenerationRemaining()
+	refreshFoodRegenerationUi(regenerationTime)
+	if regenerationTime == 0 then
+		stopFoodRegenerationTicker()
+	end
 end
 
 function getFoodRegenerationRemaining()

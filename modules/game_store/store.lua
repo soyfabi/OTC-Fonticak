@@ -14,6 +14,7 @@ giftWindow = nil
 
 local categoryUpdateEvent = nil
 local contentUpdateEvent = nil
+local openCategoryEvent = nil
 local storeStylesImported = false
 -- Shared with the purchase callback in classes/Offers.lua.
 ensureStoreWindow = nil
@@ -21,8 +22,10 @@ ensureStoreWindow = nil
 local function cancelPendingStoreUpdates(cancelRenders)
   removeEvent(categoryUpdateEvent)
   removeEvent(contentUpdateEvent)
+  removeEvent(openCategoryEvent)
   categoryUpdateEvent = nil
   contentUpdateEvent = nil
+  openCategoryEvent = nil
   if cancelRenders and Categories and Categories.cancelRender then
     Categories:cancelRender()
   end
@@ -376,7 +379,9 @@ function openCategory(categoryName, subCategoryName)
     end
   end
 
-  scheduleEvent(function()
+  removeEvent(openCategoryEvent)
+  openCategoryEvent = scheduleEvent(function()
+    openCategoryEvent = nil
     if Categories and Categories.pendingCategory and Categories.selectCategoryByName then
       if Categories:selectCategoryByName(Categories.pendingCategory.category, Categories.pendingCategory.subCategory) then
         if Categories.clearPendingCategory then
