@@ -129,6 +129,42 @@ static bool usesModernImbuementWindow()
     return g_game.getProtocolVersion() >= 860 || g_game.getClientVersion() >= 860;
 }
 
+namespace {
+
+void parseDisplayChargesPayload(const InputMessagePtr& msg, const ItemPtr& item)
+{
+    const uint32_t charges = msg->getU32();
+    const uint8_t chargesMeta = msg->getU8();
+    uint32_t maxCharges = 0;
+    if (chargesMeta > 1)
+        maxCharges = chargesMeta;
+    else if (chargesMeta == 1)
+        maxCharges = charges;
+    item->setDisplayCharges(charges, maxCharges);
+}
+
+void parseAstraItemState(const InputMessagePtr& msg, const ItemPtr& item)
+{
+    if (g_game.getFeature(Otc::GameDisplayItemDuration)) {
+        const bool hasDuration = msg->getU8() == 1;
+        if (hasDuration) {
+            const uint32_t duration = msg->getU32();
+            const bool stopTime = msg->getU8() == 1;
+            item->setDurationTime(duration);
+            item->setDurationPaused(stopTime);
+            item->setDecaying(duration > 0 && !stopTime);
+        }
+    }
+
+    if (g_game.getFeature(Otc::GameDisplayItemCharges)) {
+        const bool hasCharges = msg->getU8() == 1;
+        if (hasCharges)
+            parseDisplayChargesPayload(msg, item);
+    }
+}
+
+} // namespace
+
 void ProtocolGame::parseMessage(const InputMessagePtr& msg)
 {
     int opcode = -1;
@@ -4442,6 +4478,8 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
         }
     }
 
+    parseAstraItemState(msg, item);
+
     if (g_game.getFeature(Otc::GameItemAnimationPhase)) {
         if (item->getAnimationPhases() > 1) {
             // 0x00 => automatic phase
@@ -4547,7 +4585,7 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
         }
     }
 
-    if (g_game.getFeature(Otc::GameThingClock)) {
+    if (g_game.getFeature(Otc::GameThingClock) && !g_game.getFeature(Otc::GameDisplayItemDuration)) {
         if (item->hasClockExpire() || item->hasExpire() || item->hasExpireStop()) {
             if (item->getId() != 23398) {
                 item->setDurationTime(msg->getU32());
@@ -4556,11 +4594,9 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
         }
     }
 
-    if (g_game.getFeature(Otc::GameThingCounter)) {
-        if (item->hasWearOut()) {
-            item->setCharges(msg->getU32());
-            msg->getU8(); // Is brand-new
-        }
+    if (g_game.getFeature(Otc::GameThingCounter) && !g_game.getFeature(Otc::GameDisplayItemCharges)) {
+        if (item->hasWearOut())
+            parseDisplayChargesPayload(msg, item);
     }
 
     if (g_game.getFeature(Otc::GameWrapKit)) {
@@ -6676,15 +6712,23 @@ void ProtocolGame::parseCreatureTyping(const InputMessagePtr& msg)
 
 void ProtocolGame::parseFeatures(const InputMessagePtr& msg)
 {
+    bool itemStateEnabled = false;
     const uint16_t features = msg->getU16();
     for (auto i = 0; i < features; ++i) {
         const auto feature = static_cast<Otc::GameFeature>(msg->getU8());
         const auto enabled = static_cast<bool>(msg->getU8());
         if (enabled) {
             g_game.enableFeature(feature);
+            if (feature == Otc::GameDisplayItemDuration || feature == Otc::GameDisplayItemCharges) {
+                itemStateEnabled = true;
+            }
         } else {
             g_game.disableFeature(feature);
         }
+    }
+
+    if (itemStateEnabled) {
+        g_lua.callGlobalField("g_game", "onItemStateFeatures");
     }
 }
 

@@ -23,12 +23,14 @@
 #pragma once
 
 #include "declarations.h"
+#include <framework/core/declarations.h>
 #include <framework/ui/uiwidget.h>
 
 class UIItem final : public UIWidget
 {
 public:
     UIItem();
+    ~UIItem() override;
     void drawSelf(DrawPoolType drawPane) override;
 
     void setItemId(int id);
@@ -37,7 +39,7 @@ public:
     void setItemVisible(const bool visible) { m_itemVisible = visible; }
     void setItem(const ItemPtr& item);
     void setShowCount(const bool value) { m_alwaysShowCount = value; }
-    void setShowDuration(const bool value) { m_showDuration = value; repaint(); }
+    void setShowDuration(const bool value);
     void setShowCharges(const bool value) { m_showCharges = value; repaint(); }
     void setDisplayCount(int count) { m_displayCount = count; repaint(); }
     void clearDisplayCount() { m_displayCount = -1; repaint(); }
@@ -60,6 +62,9 @@ public:
 protected:
     void onStyleApply(std::string_view styleName, const OTMLNodePtr& styleNode) override;
 
+    void updateDurationTicker();
+    void stopDurationTicker();
+
     std::string m_shaderName;
     ItemPtr m_item;
     uint32_t m_itemId{ 0 };
@@ -71,4 +76,5 @@ protected:
     bool m_showCharges{ false };
     int m_displayCount{ -1 }; // -1 = use item stack; >= 0 forces that count (including 0)
     uint8_t m_flipDirection{ 0 }; // 0 = none, 1 = horizontal, 2 = vertical
+    ScheduledEventPtr m_durationRepaintEvent;
 };

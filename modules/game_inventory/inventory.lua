@@ -143,8 +143,7 @@ local function inventoryEvent(player, slot, item, oldItem)
     slotPanel.item:setWidth(34)
     slotPanel.item:setHeight(34)
     
-    slotPanel.item:setShowDuration(g_game.getFeature(GameThingClock) and modules.client_options.getOption('showExpiryInInvetory'))
-    slotPanel.item:setShowCharges(g_game.getFeature(GameThingCounter) and modules.client_options.getOption('showExpiryInInvetory'))
+    ItemsDatabase.applyExpiryDisplay(slotPanel.item, 'showExpiryInInvetory')
     ItemsDatabase.setTier(slotPanel.item, item)
 
     if slot == InventorySlotLeft then
@@ -315,7 +314,18 @@ function inventoryController:onInit()
     })
 end
 
+function onItemStateFeatures()
+    reloadInventory()
+    if modules.game_containers and modules.game_containers.reloadContainers then
+        modules.game_containers.reloadContainers()
+    end
+end
+
 function inventoryController:onGameStart()
+    connect(g_game, {
+        onItemStateFeatures = onItemStateFeatures
+    })
+
     local player = g_game.getLocalPlayer()
     if player then
         local char = g_game.getCharacterName()

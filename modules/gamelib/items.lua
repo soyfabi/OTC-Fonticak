@@ -221,4 +221,13 @@ function ItemsDatabase.setTier(widget, item, isSmall)
     widget.tier:setVisible(true)
 end
 
+function ItemsDatabase.applyExpiryDisplay(itemWidget, optionKey)
+    if not itemWidget then
+        return
+    end
+
+    local show = modules.client_options.getOption(optionKey)
+    itemWidget:setShowDuration((g_game.getFeature(GameDisplayItemDuration) or g_game.getFeature(GameThingClock)) and show)
+    itemWidget:setShowCharges((g_game.getFeature(GameDisplayItemCharges) or g_game.getFeature(GameThingCounter)) and show)
+end
 

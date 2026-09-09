@@ -815,6 +815,7 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<Item>("getDurationTime", &Item::getDurationTime);
     g_lua.bindClassMemberFunction<Item>("getTier", &Item::getTier);
     g_lua.bindClassMemberFunction<Item>("getCharges", &Item::getCharges);
+    g_lua.bindClassMemberFunction<Item>("hasDisplayCharges", &Item::hasDisplayCharges);
 
     g_lua.bindClassMemberFunction<Item>("isStackable", &Item::isStackable);
     g_lua.bindClassMemberFunction<Item>("isQuiver", &Item::isQuiver);

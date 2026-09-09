@@ -22,12 +22,71 @@
 
 #include "uiitem.h"
 
+#include "framework/core/eventdispatcher.h"
 #include "framework/graphics/drawpoolmanager.h"
 #include "framework/otml/otmlnode.h"
 #include "gameconfig.h"
 #include "item.h"
 
+namespace {
+constexpr Color DURATION_COLOR_NORMAL{ 255, 255, 255 };
+constexpr Color DURATION_COLOR_WARNING{ 255, 245, 140 };
+constexpr Color DURATION_COLOR_CRITICAL{ 255, 64, 64 };
+
+Color getExpiryStateColor(const uint8_t percentRemaining)
+{
+    if (percentRemaining <= 20)
+        return DURATION_COLOR_CRITICAL;
+    if (percentRemaining < 50)
+        return DURATION_COLOR_WARNING;
+    return DURATION_COLOR_NORMAL;
+}
+} // namespace
+
 UIItem::UIItem() { setProp(PropDraggable, true, false); }
+
+UIItem::~UIItem()
+{
+    stopDurationTicker();
+}
+
+void UIItem::setShowDuration(const bool value)
+{
+    if (m_showDuration == value)
+        return;
+
+    m_showDuration = value;
+    updateDurationTicker();
+    repaint();
+}
+
+void UIItem::updateDurationTicker()
+{
+    if (!m_showDuration || !m_item || m_item->getDurationTime() == 0 || !m_item->isDecaying()) {
+        stopDurationTicker();
+        return;
+    }
+
+    if (m_durationRepaintEvent)
+        return;
+
+    m_durationRepaintEvent = g_dispatcher.cycleEvent([self = static_self_cast<UIItem>()] {
+        if (!self->m_showDuration || !self->m_item || self->m_item->getDurationTime() == 0 || !self->m_item->isDecaying()) {
+            self->stopDurationTicker();
+            return;
+        }
+        self->repaint();
+    }, 1000);
+}
+
+void UIItem::stopDurationTicker()
+{
+    if (!m_durationRepaintEvent)
+        return;
+
+    m_durationRepaintEvent->cancel();
+    m_durationRepaintEvent = nullptr;
+}
 
 void UIItem::drawSelf(const DrawPoolType drawPane)
 {
@@ -65,8 +124,9 @@ void UIItem::drawSelf(const DrawPoolType drawPane)
         const auto& countFont = itemCountFont ? itemCountFont : m_font;
 
         const bool hasDisplayOverride = m_displayCount >= 0;
+        const bool hasItemCount = m_item->isStackable() || m_item->isChargeable() || m_item->isQuiver();
         const int displayCount = hasDisplayOverride ? m_displayCount
-                               : ((m_item->isStackable() || m_item->isQuiver()) ? m_item->getCountOrSubType() : 0);
+                               : (hasItemCount ? m_item->getCountOrSubType() : 0);
         // Override (including 0) is used by Action Bar to show missing stacks.
         const bool shouldDrawCount = hasDisplayOverride ? m_alwaysShowCount
                                : (m_item->isQuiver() ? displayCount > 0 : displayCount > 1);
@@ -94,12 +154,15 @@ void UIItem::drawSelf(const DrawPoolType drawPane)
                 } else {
                     durationText = fmt::format("{}s", secs);
                 }
-                countFont->drawText(durationText, Rect(m_rect.topLeft(), m_rect.bottomRight()), Color::white, Fw::AlignBottomLeft);
+                const Color durationColor = getExpiryStateColor(m_item->getDurationPercent());
+                const Fw::AlignmentFlag durationAlign = secs < 60 ? Fw::AlignBottomCenter : Fw::AlignBottomLeft;
+                countFont->drawText(durationText, Rect(m_rect.topLeft(), m_rect.bottomRight() - Point(1, 0)), durationColor, durationAlign);
             }
         }
 
-        if (countFont && m_showCharges && m_item->getCharges() > 0) {
-            countFont->drawText(std::to_string(m_item->getCharges()), Rect(m_rect.x() + 2, m_rect.y() + 2, m_rect.width(), m_rect.height()), Color::white, Fw::AlignTopLeft);
+        if (countFont && m_showCharges && m_item->hasDisplayCharges()) {
+            const Color chargesColor = getExpiryStateColor(m_item->getChargesPercent());
+            countFont->drawText(std::to_string(m_item->getCharges()), Rect(m_rect.x() + 2, m_rect.y() + 2, m_rect.width(), m_rect.height()), chargesColor, Fw::AlignTopLeft);
         }
 
 #ifdef FRAMEWORK_EDITOR
@@ -118,9 +181,10 @@ void UIItem::setItemId(const int id)
     m_itemId = id;
     m_displayCount = -1;
 
-    if (id == 0)
+    if (id == 0) {
         m_item = nullptr;
-    else if (m_item)
+        stopDurationTicker();
+    } else if (m_item)
         m_item->setId(id);
     else
         m_item = Item::create(id);
@@ -152,6 +216,7 @@ void UIItem::setItem(const ItemPtr& item)
     if (item)
         m_itemId = item->getClientId();
 
+    updateDurationTicker();
     callLuaField("onItemChange");
 }
 

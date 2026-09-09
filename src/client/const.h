@@ -577,13 +577,14 @@ namespace Otc
         GameForgeSkillStats = 126,
         GameCharacterSkillStats = 127,
         GameCreaturePaperdoll = 128,
-        GameMultiSpr = 129,
+        GameDisplayItemDuration = 129,
         GameVocationMonk = 130,
         GameItemTierByte = 131,
         GameProficiency = 132,
         GameEffectSource = 133,
-        // Align with Fantoner/Astra negotiated feature id
+        // Align with Fantoner/Astra negotiated feature ids
         GamePlayerFamiliars = 138,
+        GameDisplayItemCharges = 139,
         GameAstraQuiverCountU16 = 141,
         LastGameFeature
     };
