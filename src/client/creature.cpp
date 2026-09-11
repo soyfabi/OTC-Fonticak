@@ -796,6 +796,12 @@ void Creature::updateWalkAnimation()
     if (footAnimPhases == 0)
         return;
 
+    // diagonal walk is taking longer than the animation, thus why don't animate continously
+    if (m_walkTimer.ticksElapsed() < getStepDuration() && m_walkedPixels == g_gameConfig.getSpriteSize()) {
+        m_walkAnimationPhase = 0;
+        return;
+    }
+
     int minFootDelay = 20;
     const int maxFootDelay = footAnimPhases > 2 ? 80 : 205;
     int footAnimDelay = footAnimPhases;
@@ -804,6 +810,18 @@ void Creature::updateWalkAnimation()
         minFootDelay += 10;
         if (footAnimDelay > 1)
             footAnimDelay /= 1.5;
+    }
+
+    // Walk phases tied to step progress: one full frame cycle lands exactly on one tile.
+    const uint16_t stepDurationMs = getStepDuration(false);
+    const float stepProgress = stepDurationMs > 0
+        ? m_walkTimer.ticksElapsed() / static_cast<float>(stepDurationMs)
+        : -1.f;
+
+    if (std::isfinite(stepProgress) && stepProgress >= 0.f) {
+        const float progress = std::min(stepProgress, 0.999f);
+        m_walkAnimationPhase = static_cast<uint8_t>(1 + static_cast<int>(progress * footAnimPhases));
+        return;
     }
 
     const auto walkSpeed = m_walkingAnimationSpeed > 0 ? m_walkingAnimationSpeed : m_stepCache.getDuration(m_lastStepDirection);
@@ -888,18 +906,16 @@ void Creature::nextWalkUpdate()
 
     // do the update
     updateWalk();
-    if (isCameraFollowing()) {
-        g_map.notificateCameraMove(m_walkOffset);
-    }
 
     if (!m_walking) return;
 
     // schedules next update
-    auto self = static_self_cast<Creature>();
-    m_walkUpdateEvent = g_dispatcher.scheduleEvent([self] {
+    auto action = [self = static_self_cast<Creature>()] {
         self->m_walkUpdateEvent = nullptr;
         self->nextWalkUpdate();
-    }, m_stepCache.walkDuration);
+    };
+
+    m_walkUpdateEvent = isCameraFollowing() ? g_dispatcher.addEvent(action) : g_dispatcher.scheduleEvent(action, m_stepCache.walkDuration);
 }
 
 void Creature::updateWalk(const bool isPreWalking)
@@ -913,9 +929,15 @@ void Creature::updateWalk(const bool isPreWalking)
     // needed for paralyze effect
     m_walkedPixels = std::max<int>(m_walkedPixels, totalPixelsWalked);
 
+    const auto oldWalkOffset = m_walkOffset;
+
     updateWalkAnimation();
     updateWalkOffset(m_walkedPixels);
     updateWalkingTile();
+
+    if (isCameraFollowing() && oldWalkOffset != m_walkOffset) {
+        g_map.notificateCameraMove(m_walkOffset);
+    }
 
     if (m_walkedPixels == g_gameConfig.getSpriteSize()) {
         if (isPreWalking) {
