@@ -14,9 +14,9 @@ Module
     - client_locales
     - client_topmenu
     - client_bottommenu
+    - client_terminal
     - client_background
     - client_options
     - client_entergame
-    - client_terminal
     - client_debug_info
     - client_serverlist

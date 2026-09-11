@@ -15,3 +15,15 @@ Panel
     effect: background-effect
     anchors.fill: parent
     phantom: true
+
+  TerminalShortcutButton
+    id: terminalShortcutButton
+    !text: tr('Terminal')
+    !tooltip: tr('Terminal') .. ' (Ctrl+T)'
+    size: 64 18
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    margin-left: 4
+    margin-bottom: 2
+    focusable: false
+    @onClick: modules.client_terminal.toggle()

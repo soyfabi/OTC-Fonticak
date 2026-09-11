@@ -9,6 +9,14 @@ function init()
     background = g_ui.displayUI('background')
     background:lower()
 
+    local terminalShortcutButton = background:getChildById('terminalShortcutButton')
+    if terminalShortcutButton then
+        terminalShortcutButton:raise()
+    end
+    if modules.client_terminal and modules.client_terminal.syncTerminalShortcutButtons then
+        modules.client_terminal.syncTerminalShortcutButtons()
+    end
+
     connect(g_game, {
         onGameStart = hide
     })
@@ -45,6 +53,10 @@ end
 
 function show()
     background:show()
+    local terminalShortcutButton = background:getChildById('terminalShortcutButton')
+    if terminalShortcutButton then
+        terminalShortcutButton:raise()
+    end
     startBackgroundEffectLoop()
 end
 

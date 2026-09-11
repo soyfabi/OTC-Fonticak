@@ -175,6 +175,11 @@ function init()
 
     terminalButton = modules.client_topmenu.addTopRightToggleButton('terminalButton', tr('Terminal') .. ' (Ctrl + T)',
                                                           '/images/topbuttons/terminal', toggle)
+
+    connect(g_game, {
+        onGameStart = syncTerminalShortcutButtons
+    })
+    syncTerminalShortcutButtons()
     Keybind.new("Misc.", "Toggle Terminal", "Ctrl+T", "")
     Keybind.bind("Misc.", "Toggle Terminal", {{
         type = KEY_DOWN,
@@ -254,6 +259,10 @@ function terminate()
     }
     g_settings.setNode('terminal-window', settings)
 
+    disconnect(g_game, {
+        onGameStart = syncTerminalShortcutButtons
+    })
+
     Keybind.delete("Misc.", "Toggle Terminal")
     g_logger.setOnLog(nil)
     terminalWindow:destroy()
@@ -265,8 +274,39 @@ function terminate()
     _G.terminalLines = allLines
 end
 
+local function forEachTerminalShortcutButton(callback)
+    if modules.game_interface and modules.game_interface.gameRootPanel then
+        local button = modules.game_interface.gameRootPanel:getChildById('terminalShortcutButton')
+        if button then
+            callback(button)
+        end
+    end
+
+    if modules.client_background then
+        local background = modules.client_background.getBackground()
+        if background then
+            local button = background:getChildById('terminalShortcutButton')
+            if button then
+                callback(button)
+            end
+        end
+    end
+end
+
+function syncTerminalShortcutButtons()
+    forEachTerminalShortcutButton(function(button)
+        button:raise()
+        if disabled then
+            button:hide()
+        end
+    end)
+end
+
 function hideButton()
     terminalButton:hide()
+    forEachTerminalShortcutButton(function(button)
+        button:hide()
+    end)
 end
 
 function popWindow()
@@ -347,6 +387,9 @@ end
 
 function disable()
     terminalButton:hide()
+    forEachTerminalShortcutButton(function(button)
+        button:hide()
+    end)
     disabled = true
 end
 

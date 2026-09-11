@@ -5,6 +5,6 @@ Module
   website: https://github.com/edubart/otclient
   sandboxed: true
   scripts: [ background ]
-  dependencies: [ client_topmenu ]
+  dependencies: [ client_topmenu, client_terminal ]
   @onLoad: init()
   @onUnload: terminate()

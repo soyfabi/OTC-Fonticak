@@ -124,6 +124,9 @@ function init()
     gameLeftLockPanel = gameRootPanel:recursiveGetChildById('leftLock')
 
     initSidebarColumns()
+    if modules.client_terminal and modules.client_terminal.syncTerminalShortcutButtons then
+        modules.client_terminal.syncTerminalShortcutButtons()
+    end
     updateSidePanelButtons()
     applyMobileMargins()
 
