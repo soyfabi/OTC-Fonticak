@@ -632,6 +632,9 @@ function closeAssignItemWindow()
 end
 
 function closeAllAssignWindows(except, destroy)
+    if except ~= 'equipment' and closeEquipmentAssignWindow then
+        closeEquipmentAssignWindow()
+    end
     if except ~= 'spell' then
         closeAssignSpellWindow(destroy)
     end
@@ -1048,6 +1051,10 @@ end
 -- =============================================*/
 function onDropActionButton(self, mousePosition, mouseButton)
     if not g_ui.isMouseGrabbed() then
+        return
+    end
+    if handleEquipmentAssignPickMouseRelease
+        and handleEquipmentAssignPickMouseRelease(self, mousePosition, mouseButton) then
         return
     end
     -- Restore cursor
