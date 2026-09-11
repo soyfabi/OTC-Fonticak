@@ -64,8 +64,25 @@ local equipmentAssignTypeRadioGroup
 local equipmentSetSharedCooldownUntil = nil
 local pendingEquipmentSetQueue = nil
 local pendingEquipmentSetEvent = nil
+local EQUIP_ASSIGN_DEBUG = false
+local SERVER_EQUIPMENT_DATA = dofile('/modules/game_actionbar/logics/EquipmentServerSlots.lua')
+local SERVER_ITEM_INVENTORY_SLOTS = SERVER_EQUIPMENT_DATA.slots or SERVER_EQUIPMENT_DATA
+local SERVER_ITEM_QUIVERS = SERVER_EQUIPMENT_DATA.quivers or {}
+local SERVER_ITEM_SHIELDS = SERVER_EQUIPMENT_DATA.shields or {}
+local SERVER_ITEM_TWO_HANDED_DISTANCE = SERVER_EQUIPMENT_DATA.twoHandedDistance or {}
 
 EAssign = {}
+
+local function equipAssignDebug(fmt, ...)
+    if not EQUIP_ASSIGN_DEBUG then
+        return
+    end
+    if select("#", ...) > 0 then
+        print(string.format("[EAssign] " .. fmt, ...))
+    else
+        print("[EAssign] " .. tostring(fmt))
+    end
+end
 
 local function isEquipmentAssignVisualBackpackSlot(invSlot)
     return invSlot == EQUIPMENT_ASSIGN_BACKPACK_SLOT
@@ -312,25 +329,138 @@ local function usesLegacyEquipmentMetadata()
     return not g_game.getFeature(GameEnterGameShowAppearance)
 end
 
-local ARMOR_NAME_HINTS = {
-    "armor", "helmet", "legs", "boots", "mail", "plate", "robe", "amulet",
-    "ring", "mask", "hat", "tiara", "crown", "coat", "jacket", "tunic",
-    "cloak", "cape", "sandals", "shoes", "greaves", "hauberk", "brassard"
+local function getServerItemInventorySlot(item)
+    if not item or not SERVER_ITEM_INVENTORY_SLOTS then
+        return 0
+    end
+    return SERVER_ITEM_INVENTORY_SLOTS[item:getId()] or 0
+end
+
+local function isServerQuiverItem(item)
+    return item and SERVER_ITEM_QUIVERS[item:getId()] == true
+end
+
+local function isServerShieldItem(item)
+    return item and SERVER_ITEM_SHIELDS[item:getId()] == true
+end
+
+local function isServerTwoHandedDistanceItem(item)
+    return item and SERVER_ITEM_TWO_HANDED_DISTANCE[item:getId()] == true
+end
+
+local function serverItemFitsInventorySlot(item, invSlot)
+    local serverSlot = getServerItemInventorySlot(item)
+    return serverSlot > 0 and serverSlot == invSlot
+end
+
+local ARMOR_SLOT_NAME_HINTS = {
+    [InventorySlotHead] = { "helmet", "hat", "mask", "tiara", "crown" },
+    [InventorySlotNeck] = { "amulet", "necklace" },
+    [InventorySlotBody] = { "armor", "mail", "plate", "robe", "coat", "jacket", "tunic", "cloak", "cape", "hauberk", "brassard" },
+    [InventorySlotLeg] = { "legs", "greaves" },
+    [InventorySlotFeet] = { "boots", "shoes", "sandals" },
+    [InventorySlotFinger] = { "ring" },
 }
 
-local function itemNameSuggestsArmorPiece(item)
+local function getEquipmentItemLookupName(item)
     if not item then
-        return false
+        return nil
+    end
+    if item.getName then
+        local name = item:getName()
+        if type(name) == "string" and name ~= "" then
+            return name:lower()
+        end
+    end
+    local md = item.getMarketData and item:getMarketData()
+    if md and type(md.name) == "string" and md.name ~= "" then
+        return md.name:lower()
     end
     local thingType = g_things.getThingType(item:getId(), ThingCategoryItem)
-    if not thingType or not thingType.getName then
+    if thingType then
+        if thingType.getName then
+            local name = thingType:getName()
+            if type(name) == "string" and name ~= "" then
+                return name:lower()
+            end
+        end
+        if thingType.getMarketData then
+            md = thingType:getMarketData()
+            if md and type(md.name) == "string" and md.name ~= "" then
+                return md.name:lower()
+            end
+        end
+    end
+    local created = Item.create(item:getId())
+    if created and created.getName then
+        local name = created:getName()
+        if type(name) == "string" and name ~= "" then
+            return name:lower()
+        end
+    end
+    return nil
+end
+
+local function itemNameSuggestsInventorySlot(item, invSlot)
+    if not item or not invSlot then
         return false
     end
-    local name = thingType:getName():lower()
-    for _, hint in ipairs(ARMOR_NAME_HINTS) do
-        if name:find(hint, 1, true) then
+    local hints = ARMOR_SLOT_NAME_HINTS[invSlot]
+    if not hints then
+        return false
+    end
+    local name = getEquipmentItemLookupName(item)
+    if not name then
+        return false
+    end
+    for _, hint in ipairs(hints) do
+        if invSlot == InventorySlotFinger and hint == "ring" then
+            if name == "ring" or name:find(" ring", 1, true) or name:find("^ring ", 1, true) then
+                return true
+            end
+        elseif name:find(hint, 1, true) then
             return true
         end
+    end
+    return false
+end
+
+local function itemNameSuggestsDedicatedArmorSlot(item)
+    for invSlot, _ in pairs(ARMOR_SLOT_NAME_HINTS) do
+        if itemNameSuggestsInventorySlot(item, invSlot) then
+            return invSlot
+        end
+    end
+    return 0
+end
+
+local function itemIsWeaponForLeftHand(item)
+    if serverItemFitsInventorySlot(item, InventorySlotLeft) then
+        return not isServerQuiverItem(item)
+            and not isServerShieldItem(item)
+            and getServerItemInventorySlot(item) ~= InventorySlotAmmo
+    end
+    if EAssign.isDualWielding(item) then
+        return true
+    end
+    if EAssign.getWeaponMarketSlots(item) then
+        return true
+    end
+    local cat = EAssign.getMarketCategory(item)
+    if MarketCategory and cat then
+        if MarketCategoryWeapons and MarketCategoryWeapons[cat] then
+            return true
+        end
+        if cat == MarketCategory.FistWeapons or cat == MarketCategory.Quivers then
+            return true
+        end
+    end
+    local clothSlot = item:getClothSlot()
+    if clothSlot == InventorySlotLeft or clothSlot == InventorySlotOther then
+        if usesLegacyEquipmentMetadata() and itemNameSuggestsDedicatedArmorSlot(item) > 0 then
+            return false
+        end
+        return true
     end
     return false
 end
@@ -338,6 +468,14 @@ end
 function EAssign.resolveItemInventorySlot(item)
     if not item then
         return 0
+    end
+    local serverSlot = getServerItemInventorySlot(item)
+    if serverSlot > 0 then
+        return serverSlot
+    end
+    local nameSlot = itemNameSuggestsDedicatedArmorSlot(item)
+    if nameSlot > 0 then
+        return nameSlot
     end
     local cat = EAssign.getMarketCategory(item)
     local categorySlot = getMarketCategoryInventorySlot(cat)
@@ -349,9 +487,6 @@ function EAssign.resolveItemInventorySlot(item)
     end
     local clothSlot = item:getClothSlot()
     if clothSlot > 0 then
-        if usesLegacyEquipmentMetadata() and itemNameSuggestsArmorPiece(item) then
-            return 0
-        end
         if clothSlot == InventorySlotLeft or clothSlot == InventorySlotOther then
             if itemIsWeaponForLeftHand(item) then
                 return InventorySlotLeft
@@ -382,6 +517,9 @@ end
 
 function EAssign.isQuiver(item)
     if not item then return false end
+    if isServerQuiverItem(item) then
+        return true
+    end
     if item.isQuiver and item:isQuiver() then
         return true
     end
@@ -391,6 +529,9 @@ end
 
 function EAssign.isBowOrCrossbow(item)
     if not item then return false end
+    if isServerTwoHandedDistanceItem(item) then
+        return true
+    end
     local cat = EAssign.getMarketCategory(item)
     if not MarketCategory or cat ~= MarketCategory.DistanceWeapons then
         return false
@@ -400,6 +541,9 @@ end
 
 function EAssign.isShield(item)
     if not item or EAssign.isQuiver(item) then return false end
+    if isServerShieldItem(item) then
+        return true
+    end
     if item:getClothSlot() == InventorySlotRight then return true end
     local cat = EAssign.getMarketCategory(item)
     return MarketCategory and cat == MarketCategory.Shields
@@ -472,65 +616,96 @@ function EAssign.reconcileHandSlots()
     end
 end
 
-local function isEquippableActionBarItem(item)
-    if not item or item:isContainer() then return false end
-    if not g_game.getFeature(GameEnterGameShowAppearance) then
-        return item.isPickupable and item:isPickupable()
+local function isEquippableActionBarItem(item, debugLabel)
+    if not item or item:isContainer() then
+        equipAssignDebug("%s equippable reject: missing item or container", debugLabel or "equippable")
+        return false
     end
     local clothSlot = item:getClothSlot()
     if clothSlot == InventorySlotBack then
+        equipAssignDebug("%s equippable reject: backpack clothSlot", debugLabel or "equippable")
         return false
     end
-    if clothSlot > 0 then
-        return true
-    end
     local cat = EAssign.getMarketCategory(item)
-    if cat then
-        if MarketCategoryWeapons and MarketCategoryWeapons[cat] then
-            return true
-        end
-        if MarketCategory and (cat == MarketCategory.FistWeapons or cat == MarketCategory.Quivers
-            or cat == MarketCategory.Shields or getMarketCategoryInventorySlot(cat)) then
-            return true
-        end
-    end
+    local categorySlot = getMarketCategoryInventorySlot(cat)
+    local nameSlot = itemNameSuggestsDedicatedArmorSlot(item)
+    local serverSlot = getServerItemInventorySlot(item)
+    local resolvedSlot = EAssign.resolveItemInventorySlot(item)
     local thingType = g_things.getThingType(item:getId(), ThingCategoryItem)
-    if thingType and thingType.isCloth and thingType:isCloth() then
+    local isCloth = thingType and thingType.isCloth and thingType:isCloth()
+    local isAmmo = item:isAmmo()
+
+    equipAssignDebug(
+        "%s equippable itemId=%s name='%s' clothSlot=%s serverSlot=%s marketCat=%s categorySlot=%s nameSlot=%s resolved=%s isCloth=%s isAmmo=%s legacy=%s",
+        debugLabel or "equippable",
+        tostring(item:getId()),
+        tostring(getEquipmentItemLookupName(item)),
+        tostring(clothSlot),
+        tostring(serverSlot),
+        tostring(cat),
+        tostring(categorySlot),
+        tostring(nameSlot),
+        tostring(resolvedSlot),
+        tostring(isCloth),
+        tostring(isAmmo),
+        tostring(usesLegacyEquipmentMetadata())
+    )
+
+    if serverSlot > 0 then
         return true
     end
-    if item:isAmmo() then
+    if nameSlot > 0 then
         return true
     end
+    if categorySlot then
+        return true
+    end
+    if resolvedSlot > 0 then
+        return true
+    end
+    if cat and MarketCategoryWeapons and MarketCategoryWeapons[cat] then
+        return true
+    end
+    if MarketCategory and cat and (cat == MarketCategory.FistWeapons or cat == MarketCategory.Quivers
+        or cat == MarketCategory.Shields) then
+        return true
+    end
+    if clothSlot > 0 then
+        if clothSlot == InventorySlotLeft or clothSlot == InventorySlotOther then
+            return itemIsWeaponForLeftHand(item)
+        end
+        return true
+    end
+    if isCloth then
+        return true
+    end
+    if isAmmo then
+        return true
+    end
+    equipAssignDebug("%s equippable reject: no equipment signals", debugLabel or "equippable")
     return false
 end
 
-local function itemIsWeaponForLeftHand(item)
-    if EAssign.isDualWielding(item) then
+local function itemIsDedicatedArmorPiece(item)
+    local serverSlot = getServerItemInventorySlot(item)
+    if serverSlot > 0 then
+        return ARMOR_INVENTORY_SLOTS[serverSlot] == true
+    end
+    if itemNameSuggestsDedicatedArmorSlot(item) > 0 then
         return true
     end
-    if EAssign.getWeaponMarketSlots(item) then
-        return true
-    end
-    local cat = EAssign.getMarketCategory(item)
-    if MarketCategory and cat then
-        if MarketCategoryWeapons and MarketCategoryWeapons[cat] then
-            return true
-        end
-        if cat == MarketCategory.FistWeapons or cat == MarketCategory.Quivers then
-            return true
-        end
-    end
-    local clothSlot = item:getClothSlot()
-    if clothSlot == InventorySlotLeft or clothSlot == InventorySlotOther then
-        if usesLegacyEquipmentMetadata() and itemNameSuggestsArmorPiece(item) then
-            return false
-        end
-        return true
-    end
-    return false
+    local categorySlot = getMarketCategoryInventorySlot(EAssign.getMarketCategory(item))
+    return categorySlot ~= nil and ARMOR_INVENTORY_SLOTS[categorySlot] == true
 end
 
 local function itemBlocksArmorInventorySlot(item)
+    local serverSlot = getServerItemInventorySlot(item)
+    if serverSlot > 0 then
+        return not ARMOR_INVENTORY_SLOTS[serverSlot]
+    end
+    if itemIsDedicatedArmorPiece(item) then
+        return false
+    end
     if EAssign.isDualWielding(item) then
         return true
     end
@@ -555,6 +730,65 @@ local function itemBlocksArmorInventorySlot(item)
     return false
 end
 
+local function itemIsObviousNonArmorEquipment(item)
+    return itemBlocksArmorInventorySlot(item)
+        or EAssign.isShield(item)
+        or EAssign.isQuiver(item)
+        or item:isAmmo()
+end
+
+local function itemFitsDedicatedArmorSlot(item, invSlot, debugLabel)
+    if not ARMOR_INVENTORY_SLOTS[invSlot] then
+        equipAssignDebug("%s armor-slot reject: invSlot %s is not a dedicated armor slot",
+            debugLabel or "fit", tostring(invSlot))
+        return false
+    end
+    local nameMatch = itemNameSuggestsInventorySlot(item, invSlot)
+    local serverSlot = getServerItemInventorySlot(item)
+    local categorySlot = getMarketCategoryInventorySlot(EAssign.getMarketCategory(item))
+    local clothSlot = item:getClothSlot()
+    local obviousNonArmor = itemIsObviousNonArmorEquipment(item)
+    local resolvedSlot = EAssign.resolveItemInventorySlot(item)
+    equipAssignDebug(
+        "%s armor-slot check itemId=%s name='%s' target=%s serverSlot=%s nameMatch=%s marketCat=%s categorySlot=%s clothSlot=%s obviousNonArmor=%s resolved=%s legacy=%s",
+        debugLabel or "fit",
+        tostring(item:getId()),
+        tostring(getEquipmentItemLookupName(item)),
+        tostring(invSlot),
+        tostring(serverSlot),
+        tostring(nameMatch),
+        tostring(EAssign.getMarketCategory(item)),
+        tostring(categorySlot),
+        tostring(clothSlot),
+        tostring(obviousNonArmor),
+        tostring(resolvedSlot),
+        tostring(usesLegacyEquipmentMetadata())
+    )
+    if serverSlot > 0 and serverSlot == invSlot then
+        equipAssignDebug("%s armor-slot accept: server items.xml slot", debugLabel or "fit")
+        return true
+    end
+    if nameMatch then
+        equipAssignDebug("%s armor-slot accept: name hint", debugLabel or "fit")
+        return true
+    end
+    if categorySlot == invSlot then
+        equipAssignDebug("%s armor-slot accept: market category", debugLabel or "fit")
+        return true
+    end
+    if clothSlot == invSlot then
+        equipAssignDebug("%s armor-slot accept: clothSlot", debugLabel or "fit")
+        return true
+    end
+    if obviousNonArmor then
+        equipAssignDebug("%s armor-slot reject: treated as non-armor equipment", debugLabel or "fit")
+        return false
+    end
+    local fits = resolvedSlot > 0 and resolvedSlot == invSlot
+    equipAssignDebug("%s armor-slot %s: resolved slot match", debugLabel or "fit", fits and "accept" or "reject")
+    return fits
+end
+
 local function itemFitsEquipmentAssignSlotByExclusion(item, invSlot)
     if item:isAmmo() then
         return invSlot == InventorySlotAmmo
@@ -563,6 +797,22 @@ local function itemFitsEquipmentAssignSlotByExclusion(item, invSlot)
         return item:isAmmo()
     end
     if invSlot == InventorySlotRight then
+        if serverItemFitsInventorySlot(item, invSlot) then
+            local leftItem = EAssign.draftLeftHandItem()
+            if EAssign.isQuiver(item) then
+                if leftItem and EAssign.isBowOrCrossbow(leftItem) then
+                    return true
+                end
+                return not leftItem or not EAssign.blocksShieldSlot(leftItem)
+            end
+            if leftItem and EAssign.isBowOrCrossbow(leftItem) then
+                return false
+            end
+            if leftItem and EAssign.blocksShieldSlot(leftItem) then
+                return false
+            end
+            return true
+        end
         local leftItem = EAssign.draftLeftHandItem()
         if leftItem and EAssign.isBowOrCrossbow(leftItem) then
             return EAssign.isQuiver(item)
@@ -576,6 +826,11 @@ local function itemFitsEquipmentAssignSlotByExclusion(item, invSlot)
         return false
     end
     if invSlot == InventorySlotLeft then
+        if serverItemFitsInventorySlot(item, invSlot) then
+            return not isServerQuiverItem(item)
+                and not isServerShieldItem(item)
+                and not item:isAmmo()
+        end
         if EAssign.isShield(item) or EAssign.isQuiver(item) or item:isAmmo() then
             return false
         end
@@ -593,13 +848,47 @@ local function itemFitsEquipmentAssignSlotByExclusion(item, invSlot)
     return false
 end
 
-local function itemFitsEquipmentAssignSlot(item, invSlot)
+local function itemFitsEquipmentAssignSlot(item, invSlot, debugLabel)
+    local rawInvSlot = invSlot
     invSlot = normalizeInventorySlot(invSlot)
-    if not item or not invSlot or isEquipmentAssignVisualBackpackSlot(invSlot) then return false end
-    if not isEquippableActionBarItem(item) then return false end
+    equipAssignDebug(
+        "%s start itemId=%s rawInvSlot=%s (%s) normalizedInvSlot=%s",
+        debugLabel or "fit",
+        item and tostring(item:getId()) or "nil",
+        tostring(rawInvSlot),
+        type(rawInvSlot),
+        tostring(invSlot)
+    )
+    if not item or not invSlot or isEquipmentAssignVisualBackpackSlot(invSlot) then
+        equipAssignDebug("%s reject: missing item/invSlot or backpack slot", debugLabel or "fit")
+        return false
+    end
+    if not isEquippableActionBarItem(item, debugLabel) then
+        equipAssignDebug("%s reject: not equippable", debugLabel or "fit")
+        return false
+    end
     local clothSlot = item:getClothSlot()
-    if clothSlot == InventorySlotBack then return false end
+    if clothSlot == InventorySlotBack then
+        equipAssignDebug("%s reject: backpack clothSlot", debugLabel or "fit")
+        return false
+    end
     if invSlot == InventorySlotRight then
+        if serverItemFitsInventorySlot(item, invSlot) then
+            local leftItem = EAssign.draftLeftHandItem()
+            if EAssign.isQuiver(item) then
+                if leftItem and EAssign.isBowOrCrossbow(leftItem) then
+                    return true
+                end
+                return not leftItem or not EAssign.blocksShieldSlot(leftItem)
+            end
+            if leftItem and EAssign.isBowOrCrossbow(leftItem) then
+                return false
+            end
+            if leftItem and EAssign.blocksShieldSlot(leftItem) then
+                return false
+            end
+            return true
+        end
         local leftItem = EAssign.draftLeftHandItem()
         if leftItem and EAssign.isBowOrCrossbow(leftItem) then
             return EAssign.isQuiver(item)
@@ -613,6 +902,11 @@ local function itemFitsEquipmentAssignSlot(item, invSlot)
         return itemFitsEquipmentAssignSlotByExclusion(item, invSlot)
     end
     if invSlot == InventorySlotLeft then
+        if serverItemFitsInventorySlot(item, invSlot) then
+            return not isServerQuiverItem(item)
+                and not isServerShieldItem(item)
+                and not item:isAmmo()
+        end
         if EAssign.isShield(item) or EAssign.isQuiver(item) or item:isAmmo() then
             return false
         end
@@ -621,18 +915,21 @@ local function itemFitsEquipmentAssignSlot(item, invSlot)
         end
         return itemIsWeaponForLeftHand(item)
     end
-    if ARMOR_INVENTORY_SLOTS[invSlot] or invSlot == InventorySlotAmmo then
+    if ARMOR_INVENTORY_SLOTS[invSlot] then
+        return itemFitsDedicatedArmorSlot(item, invSlot, debugLabel)
+    end
+    if invSlot == InventorySlotAmmo then
         local resolvedSlot = EAssign.resolveItemInventorySlot(item)
         if resolvedSlot > 0 and resolvedSlot == invSlot then
             return true
         end
-        return itemFitsEquipmentAssignSlotByExclusion(item, invSlot)
+        return item:isAmmo()
     end
     local resolvedSlot = EAssign.resolveItemInventorySlot(item)
     if resolvedSlot > 0 then
         return resolvedSlot == invSlot
     end
-    return itemFitsEquipmentAssignSlotByExclusion(item, invSlot)
+    return false
 end
 
 local function forEachEquipmentAssignSlot(callback)
@@ -885,7 +1182,15 @@ end
 
 local function equipmentAssignSetSlotItem(invSlot, item, slotWidget)
     if isEquipmentAssignVisualBackpackSlot(invSlot) or not item then return false end
-    if not itemFitsEquipmentAssignSlot(item, invSlot) then
+    if slotWidget then
+        equipAssignDebug(
+            "setSlot widgetId=%s widget.inventorySlot=%s (%s)",
+            tostring(slotWidget:getId()),
+            tostring(slotWidget.inventorySlot),
+            type(slotWidget.inventorySlot)
+        )
+    end
+    if not itemFitsEquipmentAssignSlot(item, invSlot, "setSlot") then
         modules.game_textmessage.displayFailureMessage(tr("This item is not suitable for this equipment slot."))
         return false
     end
@@ -908,9 +1213,19 @@ local function equipmentAssignSetSlotItem(invSlot, item, slotWidget)
 end
 
 local function onEquipmentAssignSlotDrop(slotWidget, draggedWidget, mousePos, invSlot)
+    equipAssignDebug(
+        "drop invSlot=%s (%s) widgetId=%s widget.inventorySlot=%s",
+        tostring(invSlot),
+        type(invSlot),
+        slotWidget and tostring(slotWidget:getId()) or "nil",
+        slotWidget and tostring(slotWidget.inventorySlot) or "nil"
+    )
     if isEquipmentAssignVisualBackpackSlot(invSlot) then return false end
     local item = equipmentAssignDraggedItem(draggedWidget)
-    if not item then return false end
+    if not item then
+        equipAssignDebug("drop reject: dragged item is nil")
+        return false
+    end
     if equipmentAssignSetSlotItem(invSlot, item, slotWidget) then
         slotWidget:setBorderWidth(0)
         if draggedWidget then draggedWidget:setBorderWidth(0) end
@@ -1071,6 +1386,12 @@ local function cancelEquipmentAssignPickMode()
 end
 
 local function startEquipmentAssignChooseItem(invSlot)
+    equipAssignDebug(
+        "pick start rawInvSlot=%s (%s) normalized=%s",
+        tostring(invSlot),
+        type(invSlot),
+        tostring(normalizeInventorySlot(invSlot))
+    )
     if not equipmentAssignWindow or equipmentAssignWindow:isDestroyed()
         or isEquipmentAssignVisualBackpackSlot(invSlot) or g_ui.isMouseGrabbed() then
         return
@@ -1107,10 +1428,21 @@ end
 
 local function onEquipmentAssignChooseItemMouseRelease(self, mousePosition, mouseButton)
     local invSlot = equipmentAssignPickInvSlot
+    equipAssignDebug(
+        "pick release invSlot=%s (%s) mouseButton=%s",
+        tostring(invSlot),
+        type(invSlot),
+        tostring(mouseButton)
+    )
     local item
     if mouseButton == MouseLeftButton then
         item = resolvePickItemAtMouse(mousePosition)
-        if item and not itemFitsEquipmentAssignSlot(item, invSlot) then
+        if item then
+            equipAssignDebug("pick selected itemId=%s name='%s'", item:getId(), tostring(getEquipmentItemLookupName(item)))
+        else
+            equipAssignDebug("pick selected item: nil")
+        end
+        if item and not itemFitsEquipmentAssignSlot(item, invSlot, "pick") then
             modules.game_textmessage.displayFailureMessage(tr("This item is not suitable for this equipment slot."))
             item = nil
         end
@@ -1349,6 +1681,15 @@ local function forEachEquipmentPresetButton(callback)
     end
 end
 
+local function clearEquipmentPresetCooldownEvents()
+    forEachEquipmentPresetButton(function(button)
+        if button.cache and button.cache.removeCooldownEvent then
+            removeEvent(button.cache.removeCooldownEvent)
+            button.cache.removeCooldownEvent = nil
+        end
+    end)
+end
+
 local function startEquipmentSetActionCooldownVisual(button)
     if not button or not button.cooldown or not updateCooldown then
         return
@@ -1392,7 +1733,7 @@ function executeEquipmentPreset(button)
 
     startEquipmentSetActionCooldown()
     enqueueEquipmentSetActions(actions, function()
-        if button and updateButtonState then
+        if button and not button:isDestroyed() and updateButtonState then
             updateButtonState(button)
         end
     end)
@@ -1525,9 +1866,18 @@ function closeEquipmentAssignWindow()
     equipmentAssignTypeIndex = 0
 end
 
-function resetEquipmentAssignOnGameEnd()
+function resetEquipmentAssignRuntimeState()
     cancelEquipmentSetQueue()
     equipmentSetSharedCooldownUntil = nil
+    clearEquipmentPresetCooldownEvents()
+end
+
+function resetEquipmentAssignOnGameEnd()
+    resetEquipmentAssignRuntimeState()
+end
+
+function resetEquipmentAssignOnModuleTerminate()
+    resetEquipmentAssignRuntimeState()
 end
 
 local function applyEquipmentAssign(closeAfter)

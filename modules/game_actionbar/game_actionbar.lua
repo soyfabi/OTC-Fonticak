@@ -472,6 +472,9 @@ end
 function ActionBarController:onTerminate()
     ApiJson.saveData()
     closeAllAssignWindows(nil, true)
+    if resetEquipmentAssignOnModuleTerminate then
+        resetEquipmentAssignOnModuleTerminate()
+    end
     cleanupMultiActionState()
     for _, actionbar in pairs(actionBars) do
         if actionbar and not actionbar:isDestroyed() then
@@ -533,8 +536,8 @@ end
 function ActionBarController:onGameEnd()
     isLoaded = false
     closeAllAssignWindows()
-    if resetEquipmentAssignOnGameEnd then
-        resetEquipmentAssignOnGameEnd()
+    if resetEquipmentAssignRuntimeState then
+        resetEquipmentAssignRuntimeState()
     end
     cleanupMultiActionState()
     -- Release the "pick object" mouse grab if the player logs out mid-assignment.
