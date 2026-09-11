@@ -598,6 +598,27 @@ function ApiJson.createOrUpdateAction(barId, buttonId, useMode, itemId, itemTier
     }
 end
 
+function ApiJson.createOrUpdateEquipmentAction(barId, buttonId, equipments, equipmentIconIndex, equipmentDescription, equipmentTypeIndex)
+    barId = tonumber(barId)
+    buttonId = tonumber(buttonId)
+    if not barId or not buttonId then
+        return
+    end
+
+    local entry = getOrCreateMappingEntry(barId, buttonId)
+    local serialized = serializeEquipmentsForJson(equipments)
+    local display = equipmentAssignDisplayEntry(equipments)
+    entry["actionsetting"] = {
+        ["useType"] = "Equip",
+        ["equipments"] = serialized,
+        ["equipmentIconIndex"] = equipmentIconIndex,
+        ["equipmentDescription"] = equipmentDescription or "",
+        ["equipmentTypeIndex"] = equipmentTypeIndex or 0,
+        ["useObject"] = display and display.itemId or 0,
+        ["upgradeTier"] = display and display.getTier or 0
+    }
+end
+
 function ApiJson.createOrUpdatePassive(barId, buttonId, passiveId)
     barId = tonumber(barId)
     buttonId = tonumber(buttonId)

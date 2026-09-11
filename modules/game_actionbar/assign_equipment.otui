@@ -1,0 +1,363 @@
+EquipmentAssignSlot < UIWidget
+  size: 66 66
+  image-source: /images/ui/item66
+  phantom: false
+
+  UIWidget
+    id: hoverPlaceholder
+    anchors.fill: parent
+    margin: 3
+    phantom: true
+    focusable: false
+    visible: false
+    background-color: #8CB8E8
+
+EquipmentAssignItem < Item
+  anchors.centerIn: parent
+  size: 64 64
+  fixed-item-size: false
+  padding: 0
+  image-source:
+  virtual: true
+  phantom: true
+  focusable: false
+  show-count: false
+
+  UIWidget
+    id: tier
+    visible: false
+
+EquipmentAssignNeckSlot < EquipmentAssignSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_neck
+    phantom: true
+
+  EquipmentAssignItem
+    id: equippedItem
+
+EquipmentAssignHeadSlot < EquipmentAssignSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_head
+    phantom: true
+
+  EquipmentAssignItem
+    id: equippedItem
+
+EquipmentAssignBackSlot < EquipmentAssignSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_back
+    phantom: true
+
+  EquipmentAssignItem
+    id: equippedItem
+
+EquipmentAssignLeftSlot < EquipmentAssignSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_left_hand
+    phantom: true
+
+  EquipmentAssignItem
+    id: equippedItem
+
+EquipmentAssignRingSlot < EquipmentAssignSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_finger
+    phantom: true
+
+  EquipmentAssignItem
+    id: equippedItem
+
+EquipmentAssignBodySlot < EquipmentAssignSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_torso
+    phantom: true
+
+  EquipmentAssignItem
+    id: equippedItem
+
+EquipmentAssignLegSlot < EquipmentAssignSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_legs
+    phantom: true
+
+  EquipmentAssignItem
+    id: equippedItem
+
+EquipmentAssignFeetSlot < EquipmentAssignSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_feet
+    phantom: true
+
+  EquipmentAssignItem
+    id: equippedItem
+
+EquipmentAssignRightSlot < EquipmentAssignSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_right_hand
+    phantom: true
+
+  EquipmentAssignItem
+    id: equippedItem
+
+EquipmentAssignAmmoSlot < EquipmentAssignSlot
+  UIWidget
+    id: slotIcon
+    anchors.centerIn: parent
+    size: 64 64
+    image-source: /images/inventory/inventory_hip
+    phantom: true
+
+  EquipmentAssignItem
+    id: equippedItem
+
+EquipmentAssignActionSlot < UIWidget
+  size: 34 34
+  image-source: /images/game/actionbar/slot-actionbar-filled
+  image-size: 34 34
+  image-clip: 0 0 34 34
+  phantom: false
+
+  UIWidget
+    id: equipmentSlotIcon
+    anchors.centerIn: parent
+    size: 32 32
+    image-source: /images/game/spells/equipment-icons
+    image-size: 32 32
+    image-clip: 0 0 32 32
+    phantom: true
+    visible: false
+
+  UIWidget
+    id: equipmentTypeIcon
+    size: 9 9
+    image-size: 9 9
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    margin-left: 1
+    margin-bottom: 1
+    phantom: true
+    visible: false
+
+EquipmentAssignCopySetButton < UIButton
+  size: 34 34
+  phantom: false
+  image-source: /images/game/actionbar/slot-actionbar-filled
+  image-size: 34 34
+  image-clip: 0 0 34 34
+  icon-source: /images/game/actionbar/icon-copy-set
+  icon-offset: 1 1
+  icon-size: 32 32
+
+  $pressed:
+    image-clip: 0 34 34 34
+    icon-offset: 2 2
+
+  $disabled:
+    image-clip: 0 34 34 34
+    opacity: 0.8
+
+EquipmentAssignButton < Button
+  font: verdana-11px-monochrome
+  color: #ffffff
+  size: 43 20
+  padding: 0
+  text-offset: 0 3
+  text-align: center
+
+  $pressed:
+    image-clip: 0 20 43 20
+    text-offset: 1 4
+
+  $disabled:
+    color: #ffffff88
+    opacity: 0.8
+
+MainLogoWindow
+  !text: ''
+  size: 240 448
+  padding-top: 8
+  padding-left: 8
+  padding-right: 8
+  padding-bottom: 8
+  clipping: false
+  margin-top: -1
+  @onEscape: modules.game_actionbar.closeEquipmentAssignWindow()
+  @onEnter: modules.game_actionbar.equipmentAssignOk()
+
+  EquipmentAssignButton
+    id: cancelButton
+    text: Cancel
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    margin-bottom: 6
+    margin-right: 4
+    @onClick: modules.game_actionbar.closeEquipmentAssignWindow()
+
+  EquipmentAssignButton
+    id: applyButton
+    text: Apply
+    anchors.bottom: cancelButton.bottom
+    anchors.right: cancelButton.left
+    margin-right: 6
+    enabled: false
+    @onClick: modules.game_actionbar.equipmentAssignApply()
+
+  EquipmentAssignButton
+    id: okButton
+    text: Ok
+    anchors.bottom: cancelButton.bottom
+    anchors.right: applyButton.left
+    margin-right: 6
+    enabled: false
+    @onClick: modules.game_actionbar.equipmentAssignOk()
+
+  Label
+    id: equipmentHelpLabel
+    anchors.bottom: cancelButton.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 6
+    margin-left: 2
+    margin-right: 2
+    text-auto-resize: true
+    text-wrap: true
+    text-align: center
+    font: verdana-11px-antialised
+    color: #a8a8a8
+    !text: tr('Right-click or drag items into slots. Copy your set, assign an icon and save.')
+
+  HorizontalSeparator
+    id: equipmentSeparator
+    anchors.bottom: equipmentHelpLabel.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 6
+    height: 2
+
+  Panel
+    id: equipmentPanel
+    width: 210
+    clipping: false
+    phantom: false
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.top: logoBackdropCrest.bottom
+    anchors.bottom: equipmentSeparator.top
+    margin-top: 2
+    margin-bottom: 6
+    margin-left: 1
+
+    EquipmentAssignNeckSlot
+      id: neckSlot
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 36
+      &inventorySlot: 2
+
+    EquipmentAssignHeadSlot
+      id: headSlot
+      anchors.top: parent.top
+      anchors.left: neckSlot.right
+      margin-left: 6
+      &inventorySlot: 1
+
+    EquipmentAssignBackSlot
+      id: backSlot
+      anchors.top: parent.top
+      anchors.left: headSlot.right
+      margin-top: 36
+      margin-left: 6
+      &inventorySlot: 3
+
+    EquipmentAssignLeftSlot
+      id: leftSlot
+      anchors.top: neckSlot.bottom
+      anchors.left: neckSlot.left
+      margin-top: 6
+      &inventorySlot: 6
+
+    EquipmentAssignRingSlot
+      id: ringSlot
+      anchors.top: leftSlot.bottom
+      anchors.left: neckSlot.left
+      margin-top: 6
+      &inventorySlot: 9
+
+    EquipmentAssignBodySlot
+      id: bodySlot
+      anchors.top: headSlot.bottom
+      anchors.left: headSlot.left
+      margin-top: 6
+      &inventorySlot: 4
+
+    EquipmentAssignLegSlot
+      id: legSlot
+      anchors.top: bodySlot.bottom
+      anchors.left: headSlot.left
+      margin-top: 6
+      &inventorySlot: 7
+
+    EquipmentAssignFeetSlot
+      id: feetSlot
+      anchors.top: legSlot.bottom
+      anchors.left: headSlot.left
+      margin-top: 6
+      &inventorySlot: 8
+
+    EquipmentAssignRightSlot
+      id: rightSlot
+      anchors.top: backSlot.bottom
+      anchors.left: backSlot.left
+      margin-top: 6
+      &inventorySlot: 5
+
+    EquipmentAssignAmmoSlot
+      id: ammoSlot
+      anchors.top: rightSlot.bottom
+      anchors.left: backSlot.left
+      margin-top: 6
+      &inventorySlot: 10
+
+    EquipmentAssignCopySetButton
+      id: copySetButton
+      anchors.top: feetSlot.bottom
+      anchors.left: feetSlot.left
+      margin-top: 6
+      margin-left: -3
+      !tooltip: tr('Copy your equipped equipments')
+      @onClick: modules.game_actionbar.equipmentAssignCopyCurrentSet()
+
+    EquipmentAssignActionSlot
+      id: assignActionSlot
+      anchors.top: copySetButton.top
+      anchors.left: copySetButton.right
+      margin-left: 5
+      !tooltip: tr('Assign an icon to this equipment slot')
+      @onClick: modules.game_actionbar.openEquipmentAssignIconWindow()
+
