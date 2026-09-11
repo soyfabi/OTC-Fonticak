@@ -812,7 +812,8 @@ local function tickFoodRegeneration()
 	local regenerationTime = getFoodRegenerationRemaining()
 	refreshFoodRegenerationUi(regenerationTime)
 	if regenerationTime == 0 then
-		stopFoodRegenerationTicker()
+		foodRegenerationRemaining = 0
+		stopFoodRegenerationTicker(false)
 	end
 end
 
@@ -864,11 +865,19 @@ function startFoodRegenerationTicker()
 	foodRegenerationTickEvent = cycleEvent(tickFoodRegeneration, FOOD_REGENERATION_TICK_MS)
 end
 
-function stopFoodRegenerationTicker()
+function stopFoodRegenerationTicker(clearState)
+	if clearState == nil then
+		clearState = true
+	end
+
 	if foodRegenerationTickEvent then
 		foodRegenerationTickEvent:cancel()
 
 		foodRegenerationTickEvent = nil
+	end
+
+	if not clearState then
+		return
 	end
 
 	foodRegenerationRemaining = 0

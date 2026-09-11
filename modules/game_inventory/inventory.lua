@@ -314,7 +314,7 @@ function inventoryController:onInit()
     })
 end
 
-function onItemStateFeatures()
+local function onItemStateFeatures()
     reloadInventory()
     if modules.game_containers and modules.game_containers.reloadContainers then
         modules.game_containers.reloadContainers()
@@ -393,6 +393,10 @@ function inventoryController:onGameStart()
 end
 
 function inventoryController:onGameEnd()
+    disconnect(g_game, {
+        onItemStateFeatures = onItemStateFeatures
+    })
+
     monkMirrorItem = nil
 
     local lastCombatControls = g_settings.getNode('LastCombatControls')
@@ -415,6 +419,10 @@ function inventoryController:onGameEnd()
 end
 
 function inventoryController:onTerminate()
+    disconnect(g_game, {
+        onItemStateFeatures = onItemStateFeatures
+    })
+
     if iconTopMenu then
         iconTopMenu:destroy()
         iconTopMenu = nil

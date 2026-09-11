@@ -234,6 +234,26 @@ local function displayWidgetTooltip(widget)
     return true
 end
 
+local function scheduleHide(instant)
+    cancelPendingHide()
+    if instant then
+        cancelPendingTransition()
+        cancelPendingSpecialTransition()
+        g_tooltip.hide(true)
+        g_tooltip.hideSpecial(true)
+        return
+    end
+
+    -- 80ms grace window prevents flickering when crossing margins/borders between adjacent items
+    pendingHideEvent = scheduleEvent(function()
+        pendingHideEvent = nil
+        if not currentHoveredWidget or not currentHoveredWidget:isHovered() then
+            g_tooltip.hide()
+            g_tooltip.hideSpecial()
+        end
+    end, 80)
+end
+
 local function scheduleTooltip(widget)
     if not widget or g_mouse.isPressed() then
         return
@@ -268,26 +288,6 @@ local function scheduleTooltip(widget)
             pendingHoveredWidget = nil
         end, delay)
     end
-end
-
-local function scheduleHide(instant)
-    cancelPendingHide()
-    if instant then
-        cancelPendingTransition()
-        cancelPendingSpecialTransition()
-        g_tooltip.hide(true)
-        g_tooltip.hideSpecial(true)
-        return
-    end
-
-    -- 80ms grace window prevents flickering when crossing margins/borders between adjacent items
-    pendingHideEvent = scheduleEvent(function()
-        pendingHideEvent = nil
-        if not currentHoveredWidget or not currentHoveredWidget:isHovered() then
-            g_tooltip.hide()
-            g_tooltip.hideSpecial()
-        end
-    end, 80)
 end
 
 local function onWidgetDestroy(widget)

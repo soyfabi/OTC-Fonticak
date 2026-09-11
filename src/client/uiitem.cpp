@@ -22,6 +22,8 @@
 
 #include "uiitem.h"
 
+#include <memory>
+
 #include "framework/core/eventdispatcher.h"
 #include "framework/graphics/drawpoolmanager.h"
 #include "framework/otml/otmlnode.h"
@@ -70,7 +72,11 @@ void UIItem::updateDurationTicker()
     if (m_durationRepaintEvent)
         return;
 
-    m_durationRepaintEvent = g_dispatcher.cycleEvent([self = static_self_cast<UIItem>()] {
+    m_durationRepaintEvent = g_dispatcher.cycleEvent([weakSelf = std::weak_ptr<UIItem>(static_self_cast<UIItem>())] {
+        const auto self = weakSelf.lock();
+        if (!self) {
+            return;
+        }
         if (!self->m_showDuration || !self->m_item || self->m_item->getDurationTime() == 0 || !self->m_item->isDecaying()) {
             self->stopDurationTicker();
             return;
@@ -129,7 +135,7 @@ void UIItem::drawSelf(const DrawPoolType drawPane)
                                : (hasItemCount ? m_item->getCountOrSubType() : 0);
         // Override (including 0) is used by Action Bar to show missing stacks.
         const bool shouldDrawCount = hasDisplayOverride ? m_alwaysShowCount
-                               : (m_item->isQuiver() ? displayCount > 0 : displayCount > 1);
+                               : ((m_item->isQuiver() || m_item->isChargeable()) ? displayCount > 0 : displayCount > 1);
         if (countFont && shouldDrawCount) {
             static constexpr Color STACK_COLOR(191, 191, 191);
             std::string countText;

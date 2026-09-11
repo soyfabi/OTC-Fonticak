@@ -1276,7 +1276,7 @@ TopStatsBarCompactOnBottom < UIWidget
     id: manashield
     anchors.top: icons.bottom
     anchors.right: parent.right
-    anchors.left: icons.right
+    anchors.left: monkStats.right
     !statsbar-type: 'manashield'
     !statsbar-size: 'small'
     !statsbar-orientation: 'horizontal'

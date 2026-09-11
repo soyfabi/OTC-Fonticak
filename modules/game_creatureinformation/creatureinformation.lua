@@ -64,7 +64,7 @@ local function isHarmonyHudEnabled()
 end
 
 local function shouldShowMonkBars(creature)
-    return isMonkPlayer(creature) and isHarmonyHudEnabled()
+    return creature:isLocalPlayer() and isMonkPlayer(creature) and isHarmonyHudEnabled()
 end
 
 local function refreshMonkBars(creature)

@@ -627,17 +627,19 @@ function Categories:selectCategoryByName(categoryName, subCategoryName)
 		Categories:expandTreeItem(treeItem, cat, targetChild)
 		local panel = treeItem:getChildById('panel')
 		if panel then
-			for _, childBtn in pairs(panel:getChildren()) do
+			for index, child in ipairs(cat.childs) do
+				local childBtn = panel:getChildById('TreeButton' .. tostring(index))
 				if childBtn and not childBtn:isDestroyed() then
-					local textWidget = childBtn:getChildById('text')
-					local btnText = textWidget and textWidget:getText() or ""
-					if not targetChild or btnText:lower() == tostring(targetChild):lower() then
+					if not targetChild or child.name:lower() == tostring(targetChild):lower() then
 						if childBtn.onClick then
 							childBtn.onClick()
 						end
 						return true
 					end
 				end
+			end
+			if subCategoryName or matchedChild then
+				return false
 			end
 		end
 	else

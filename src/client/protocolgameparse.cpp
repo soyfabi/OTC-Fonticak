@@ -2824,16 +2824,18 @@ void ProtocolGame::parsePlayerSkills(const InputMessagePtr& msg) const
 
         // bonus cap
         const uint32_t capacity = msg->getU32(); // base + bonus capacity
-        msg->getU32(); // base capacity
+        const uint32_t baseCapacity = msg->getU32(); // base capacity
 
         m_localPlayer->setTotalCapacity(capacity);
+        m_localPlayer->setBaseCapacity(baseCapacity);
     }
 
     if (g_game.getFeature(Otc::GameCharacterSkillStats)) {
         //msg->getU8(); //  GameConcotions ??
         const uint32_t capacity = msg->getU32(); // base + bonus capacity
-        msg->getU32(); // base capacity
+        const uint32_t baseCapacity = msg->getU32(); // base capacity
         m_localPlayer->setTotalCapacity(capacity);
+        m_localPlayer->setBaseCapacity(baseCapacity);
         // Flat Damage and Healing Total
         const uint16_t flatBonus = msg->getU16();
         m_localPlayer->setFlatDamageHealing(flatBonus);
