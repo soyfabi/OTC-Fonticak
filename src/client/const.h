@@ -585,6 +585,7 @@ namespace Otc
         // Align with Fantoner/Astra negotiated feature ids
         GamePlayerFamiliars = 138,
         GameDisplayItemCharges = 139,
+        GamePackedPlayerInventory = 140,
         GameAstraQuiverCountU16 = 141,
         LastGameFeature
     };

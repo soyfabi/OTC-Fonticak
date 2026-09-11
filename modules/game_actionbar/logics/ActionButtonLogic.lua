@@ -398,7 +398,8 @@ function onExecuteAction(button, isPress)
         if g_game.getFeature(GameThingUpgradeClassification) then
             tier = button.cache.upgradeTier
         end
-        if player:getInventoryCount(button.cache.itemId, tier) == 0 then
+        if player:getInventoryCount(button.cache.itemId, tier) == 0
+            and not player:hasEquippedItemId(button.cache.itemId, tier) then
             return
         end
         g_game.equipItemId(button.cache.itemId, tier)

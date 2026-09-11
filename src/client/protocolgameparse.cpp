@@ -3857,7 +3857,8 @@ void ProtocolGame::parsePlayerInventory(const InputMessagePtr& msg)
         const uint16_t itemId = msg->getU16();
         const uint8_t attribute = msg->getU8();
 
-        const uint32_t amount = g_game.getProtocolVersion() < 1500 ? msg->getU16() : readPackedCount1500(msg);
+        const uint32_t amount = (g_game.getFeature(Otc::GamePackedPlayerInventory) || g_game.getProtocolVersion() >= 1500)
+            ? readPackedCount1500(msg) : msg->getU16();
 
         uint8_t tier = 0;
         if (const auto thingType = g_things.getThingType(itemId, ThingCategoryItem)) {

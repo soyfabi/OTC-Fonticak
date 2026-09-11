@@ -258,6 +258,20 @@ local function getThingClassification(item)
   return 0
 end
 
+local function canEquipHotkeyItem(item)
+  if not item or item:isContainer() then
+    return false
+  end
+  if not g_game.getFeature(GameEnterGameShowAppearance) then
+    return true
+  end
+  local clothSlot = item:getClothSlot()
+  if clothSlot == 0 and (getThingClassification(item) > 0 or item:isAmmo()) then
+    return true
+  end
+  return clothSlot > 0 or (clothSlot == 0 and item:hasWearout())
+end
+
 local function showInvalidObjectMessage()
   if modules.game_textmessage and modules.game_textmessage.displayFailureMessage then
     modules.game_textmessage.displayFailureMessage(tr('Invalid object!'))
@@ -985,7 +999,7 @@ function assignObjectDialog(row, itemId, itemTier)
       end
     end
 
-    if (i == 5 and item and item:getClothSlot() > 0) or (i == 5 and item and item:getClothSlot() == 0 and (getThingClassification(item) > 0 or item:isAmmo())) then
+    if i == 5 and canEquipHotkeyItem(item) then
       child:setEnabled(true)
       if not objectRadio:getSelectedWidget() then
         objectRadio:selectWidget(child)

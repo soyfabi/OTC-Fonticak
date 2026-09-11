@@ -881,11 +881,22 @@ function Keybind.hotkeyCallback(hotkeyId, chatMode)
       end
     end
   elseif action == HOTKEY_ACTION.EQUIP then
-    if g_game.getClientVersion() >= 910 then
-      local item = Item.create(data.itemId)
-
-      g_game.equipItem(item)
+    local localPlayer = g_game.getLocalPlayer()
+    if not localPlayer or not data.itemId or data.itemId == 0 then
+      return
     end
+
+    local tier = 0
+    if g_game.getFeature(GameThingUpgradeClassification) and data.upgradeTier then
+      tier = data.upgradeTier
+    end
+
+    if localPlayer:getInventoryCount(data.itemId, tier) == 0
+        and not localPlayer:hasEquippedItemId(data.itemId, tier) then
+      return
+    end
+
+    g_game.equipItemId(data.itemId, tier)
   elseif action == HOTKEY_ACTION.USE then
     if g_game.getClientVersion() < 780 then
       local item = g_game.findPlayerItem(data.itemId, data.subType or -1)
