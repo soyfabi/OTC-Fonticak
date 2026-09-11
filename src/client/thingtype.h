@@ -198,6 +198,7 @@ public:
         for (auto& data : m_textureData) {
             data.source = nullptr;
         }
+        m_loading.store(false, std::memory_order_release);
     }
 
     PLAYER_ACTION getDefaultAction() { return m_defaultAction; }

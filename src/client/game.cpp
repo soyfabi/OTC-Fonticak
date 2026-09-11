@@ -30,6 +30,7 @@
 #include "map.h"
 #include "protocolgame.h"
 #include "protocolcodes.h"
+#include "spritemanager.h"
 #include "thingtype.h"
 #include "thingtypemanager.h"
 #include "tile.h"
@@ -240,6 +241,11 @@ void Game::processGameEnd()
 
     // clean map creatures
     g_map.cleanDynamicThings();
+
+    // Release stuck async sprite/thing texture state so reconnecting in the
+    // same client session does not require a full restart.
+    g_sprites.resetLoadingState();
+    g_things.unloadTextures();
 }
 
 void Game::processDeath(const uint8_t deathType, const uint8_t penality)

@@ -99,6 +99,32 @@ local function load(version)
     g_game.setProtocolVersion(0)
 end
 
+function recoverSpriteState()
+    if g_app.setLoadingAsyncTexture then
+        g_app.setLoadingAsyncTexture(false)
+    end
+
+    if g_things.unloadTextures then
+        g_things.unloadTextures()
+    end
+
+    if g_sprites.resetLoadingState then
+        g_sprites.resetLoadingState()
+    end
+
+    if g_sprites.reload then
+        g_sprites.reload()
+    elseif g_sprites.isLoaded and g_sprites.isLoaded() then
+        local version = g_game.getClientVersion()
+        if version and version > 0 then
+            local sprPath = filename and resolvepath('/data/things/' .. filename)
+                or resolvepath('/data/things/' .. version .. '/Tibia')
+            g_sprites.unload()
+            g_sprites.loadSpr(sprPath)
+        end
+    end
+end
+
 function ThingsLoaderController:onInit()
     self:registerEvents(g_game, {
         onClientVersionChange = load
