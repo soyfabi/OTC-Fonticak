@@ -22,6 +22,8 @@
 
 #include "item.h"
 
+#include <unordered_map>
+
 #include "animator.h"
 #include "game.h"
 #include "gameconfig.h"
@@ -441,11 +443,78 @@ void Item::serializeItem(const OutputBinaryTreePtr& out)
 
 #endif
 
+namespace {
+std::unordered_map<uint32_t, uint32_t> g_rememberedChargesMaxByClientId;
+} // namespace
+
+void Item::clearRememberedDisplayCharges()
+{
+    g_rememberedChargesMaxByClientId.clear();
+}
+
+void Item::setDisplayCharges(const uint32_t charges, const uint32_t maxChargesHint)
+{
+    if (charges == 0) {
+        m_charges = 0;
+        m_chargesMax = 0;
+        m_hasDisplayCharges = false;
+        return;
+    }
+
+    m_charges = charges;
+    m_hasDisplayCharges = !isChargeable() && !isStackable();
+
+    uint32_t remembered = 0;
+    const auto rememberedIt = g_rememberedChargesMaxByClientId.find(m_clientId);
+    if (rememberedIt != g_rememberedChargesMaxByClientId.end())
+        remembered = rememberedIt->second;
+
+    if (maxChargesHint > 0)
+        m_chargesMax = maxChargesHint;
+    else
+        m_chargesMax = std::max(remembered, charges);
+
+    m_chargesMax = std::max(m_chargesMax, charges);
+    g_rememberedChargesMaxByClientId[m_clientId] = std::max(remembered, m_chargesMax);
+}
+
+uint8_t Item::getChargesPercent() const
+{
+    if (m_chargesMax == 0)
+        return 100;
+
+    if (m_charges == 0)
+        return 0;
+
+    return static_cast<uint8_t>(std::min<uint32_t>(100, (m_charges * 100) / m_chargesMax));
+}
+
 void Item::setDurationTime(uint32_t duration)
 {
+    if (duration == 0) {
+        m_duration = 0;
+        m_durationMax = 0;
+        if (m_decaying)
+            m_durationEnd = 0;
+        return;
+    }
+
+    m_durationMax = std::max(m_durationMax, duration);
     m_duration = duration;
     if (m_decaying)
         m_durationEnd = g_clock.millis() + static_cast<int64_t>(m_duration) * 1000;
+}
+
+uint8_t Item::getDurationPercent() const
+{
+    if (m_durationMax == 0)
+        return 100;
+
+    const uint32_t remaining = getDurationTime();
+    if (remaining == 0)
+        return 0;
+
+    return static_cast<uint8_t>(std::min<uint32_t>(100, (remaining * 100) / m_durationMax));
 }
 
 void Item::setDecaying(bool decaying)

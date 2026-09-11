@@ -209,11 +209,6 @@ function consoleController:onInit()
     defaultTab = addTab(tr('Local Chat'), true)
     serverTab = addTab(tr('Server Log'), false)
 
-    local clientVersion = g_game.getClientVersion()
-    if clientVersion >= 820 then
-        local tab = addTab('NPCs', false)
-        tab.npcChat = true
-    end
 
     readOnlyPanel = consolePanel:getChildById('readOnlyPanel')
     readOnlyPanel:hide()
@@ -838,22 +833,22 @@ function clear()
     -- close channels
     for _, channelName in pairs(channels) do
         local tab = consoleTabBar:getTab(channelName)
-        if tab and tab ~= defaultTab and tab ~= serverTab and not tab.npcChat then
+        if tab and tab ~= defaultTab and tab ~= serverTab then
             consoleTabBar:removeTab(tab)
         end
     end
     channels = {}
+
+    local npcTab = consoleTabBar:getTab('NPCs')
+    if npcTab then
+        consoleTabBar:removeTab(npcTab)
+    end
 
     if defaultTab then
         defaultTab.tabPanel:getChildById('consoleBuffer'):destroyChildren()
     end
     if serverTab then
         serverTab.tabPanel:getChildById('consoleBuffer'):destroyChildren()
-    end
-
-    local npcTab = consoleTabBar:getTab('NPCs')
-    if npcTab then
-        npcTab.tabPanel:getChildById('consoleBuffer'):destroyChildren()
     end
 
     consoleTextEdit:clearText()

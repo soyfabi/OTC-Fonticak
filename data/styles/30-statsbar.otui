@@ -321,10 +321,9 @@ TopStatsSkillElement < UIWidget
 
 HarmonyIcon < UIWidget
   size: 13 13
-  !tooltip: 'Harmoney'
-  image-source: /images/game/vocations/monk/icon-combopoint-empty
+  image-source: /images/game/topbar/icon-combopoint-empty
   $on:
-    image-source: /images/game/vocations/monk/icon-combopoint-filled
+    image-source: /images/game/topbar/icon-combopoint-filled
 
 MonkStats < UIWidget
   id: monkStats
@@ -336,19 +335,18 @@ MonkStats < UIWidget
     size: 0 0
   $!disabled:
     visible: true
-    margin-left: 7
-    width: 103
+    margin-left: 6
+    width: 96
+    height: 13
 
   Panel
     id: harmonies
     anchors.left: parent.left
     anchors.top: parent.top
-    margin-top: -1
-    padding: 2
-    size: 80 18
+    size: 73 13
     layout:
       type: horizontalBox
-      spacing: 3
+      spacing: 2
     HarmonyIcon
     HarmonyIcon
     HarmonyIcon
@@ -360,23 +358,18 @@ MonkStats < UIWidget
     anchors.left: harmonies.right
     anchors.top: parent.top
     anchors.bottom: parent.bottom
-    margin-left: 5
-    margin-top: 2
-    margin-bottom: 2
+    margin-left: 4
     width: 2
 
   UIWidget
     id: serene
     anchors.left: separatorHarmoniesSerene.right
     anchors.top: parent.top
-    margin-left: 3
-    margin-top: 1
+    margin-left: 4
     size: 13 13
-    !tooltip: 'Serene'
-    image-source: /images/game/vocations/monk/icon-serene-off
+    image-source: /images/game/topbar/icon-serene-off
     $on:
-      image-source: /images/game/vocations/monk/icon-serene-on
-    @onSetup: self:setOn(true)
+      image-source: /images/game/topbar/icon-serene-on
     $disabled:
       visible: false
       size: 0 0
@@ -1060,11 +1053,16 @@ TopStatsBarLargeOnBottom < UIWidget
     margin-bottom: 6
     height: 27
 
+  MonkStats
+    anchors.top: icons.top
+    anchors.bottom: icons.bottom
+    anchors.left: icons.right
+
   StatsBarUp
     id: mana
     anchors.top: icons.top
     anchors.right: parent.right
-    anchors.left: icons.right
+    anchors.left: monkStats.right
     !statsbar-type: 'mana'
     !statsbar-size: 'large'
     !statsbar-orientation: 'horizontal'
@@ -1078,7 +1076,7 @@ TopStatsBarLargeOnBottom < UIWidget
     id: manashield
     anchors.top: mana.bottom
     anchors.right: parent.right
-    anchors.left: icons.right
+    anchors.left: monkStats.right
     !statsbar-type: 'manashield'
     !statsbar-size: 'large'
     !statsbar-orientation: 'horizontal'
@@ -1157,6 +1155,11 @@ TopStatsBarParallelOnBottom < UIWidget
     layout:
       type: horizontalBox
 
+  MonkStats
+    anchors.top: skills.bottom
+    anchors.left: icons.right
+    anchors.bottom: parent.bottom
+
 TopStatsBarDefaultOnBottom < UIWidget
   StatsBarBottomWithShrink
     anchors.fill: parent
@@ -1218,6 +1221,11 @@ TopStatsBarDefaultOnBottom < UIWidget
     layout:
       type: horizontalBox
 
+  MonkStats
+    anchors.top: skills.bottom
+    anchors.left: icons.right
+    anchors.bottom: parent.bottom
+
 TopStatsBarCompactOnBottom < UIWidget
   StatsBarBottomWithShrink
     anchors.fill: parent
@@ -1228,11 +1236,15 @@ TopStatsBarCompactOnBottom < UIWidget
     image-source: /images/ui/containerslot
     anchors.top: parent.top
     anchors.horizontalCenter: parent.horizontalCenter
-    anchors.bottom: parent.bottom
     margin-top: 8
     size: 103 14
     layout:
       type: horizontalBox
+
+  MonkStats
+    anchors.top: icons.top
+    anchors.left: icons.right
+    anchors.bottom: icons.bottom
 
   StatsBarUp
     id: health
@@ -1251,7 +1263,7 @@ TopStatsBarCompactOnBottom < UIWidget
     id: mana
     anchors.top: icons.top
     anchors.right: parent.right
-    anchors.left: icons.right
+    anchors.left: monkStats.right
     !statsbar-type: 'mana'
     !statsbar-size: 'small'
     !statsbar-orientation: 'horizontal'
@@ -1262,9 +1274,9 @@ TopStatsBarCompactOnBottom < UIWidget
 
   StatsBarUp
     id: manashield
-    anchors.top: mana.bottom
+    anchors.top: icons.bottom
     anchors.right: parent.right
-    anchors.left: icons.right
+    anchors.left: monkStats.right
     !statsbar-type: 'manashield'
     !statsbar-size: 'small'
     !statsbar-orientation: 'horizontal'

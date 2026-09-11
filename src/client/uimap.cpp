@@ -121,6 +121,8 @@ void UIMap::setDrawPlayerNames(const bool enable) { m_mapView->setDrawPlayerName
 
 void UIMap::setDrawHarmony(const bool enable) { m_mapView->setDrawHarmony(enable); }
 
+void UIMap::setDrawOwnHarmonyBar(const bool enable) { m_mapView->setDrawOwnHarmonyBar(enable); }
+
 void UIMap::setShader(std::string_view name, float fadein, float fadeout) { m_mapView->setShader(name, fadein, fadeout); }
 
 void UIMap::setMinimumAmbientLight(const float intensity) { m_mapView->setMinimumAmbientLight(intensity); }
@@ -136,6 +138,10 @@ bool UIMap::isDrawingLights() { return m_mapView->isDrawingLights(); }
 bool UIMap::isLimitedVisibleDimension() { return m_mapView->isLimitedVisibleDimension(); }
 
 bool UIMap::isDrawingManaBar() { return m_mapView->isDrawingManaBar(); }
+
+bool UIMap::isDrawingHarmony() { return m_mapView->isDrawingHarmony(); }
+
+bool UIMap::isDrawingOwnHarmonyBar() { return m_mapView->isDrawingOwnHarmonyBar(); }
 
 bool UIMap::isDrawingPlayerBars() { return m_mapView->isDrawingPlayerBars(); }
 

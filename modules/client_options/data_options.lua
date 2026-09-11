@@ -643,10 +643,25 @@ return {
     displayHarmony                     = {
         value = true,
         action = function(value, options, controller, panels, extraWidgets)
+            g_settings.set('displayHarmony', value)
+            if options.harmonyCheckBox then
+                options.harmonyCheckBox.value = value
+                local hud = panels.interfaceHUD
+                local harmonyBox = hud and hud:recursiveGetChildById('harmonyCheckBox')
+                if harmonyBox and harmonyBox:isChecked() ~= value then
+                    harmonyBox:setChecked(value)
+                end
+            end
+            if modules.game_healthcircle then
+                modules.game_healthcircle.setHarmonyCircle(value)
+            end
+            if modules.game_interface and modules.game_interface.StatsBar then
+                modules.game_interface.StatsBar.setHarmonyVisible(value)
+            end
             if modules.client_options and modules.client_options.applyOwnHUD then
                 modules.client_options.applyOwnHUD(options, panels)
             else
-                panels.gameMapPanel:setDrawHarmony(value)
+                panels.gameMapPanel:setDrawOwnHarmonyBar(value)
             end
         end
     },
@@ -692,6 +707,20 @@ return {
                     master:setChecked(bothOn)
                 end
             end
+        end
+    },
+    harmonyCheckBox                   = {
+        value = (function()
+            if g_settings.exists('displayHarmony') then
+                return g_settings.getBoolean('displayHarmony')
+            end
+            if g_settings.exists('healthcircle_harmony') then
+                return g_settings.getBoolean('healthcircle_harmony')
+            end
+            return true
+        end)(),
+        action = function(value, options, controller, panels, extraWidgets)
+            modules.client_options.setOption('displayHarmony', value, true)
         end
     },
     experienceCheckBox                = {

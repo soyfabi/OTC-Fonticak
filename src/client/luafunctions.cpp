@@ -815,6 +815,7 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<Item>("getDurationTime", &Item::getDurationTime);
     g_lua.bindClassMemberFunction<Item>("getTier", &Item::getTier);
     g_lua.bindClassMemberFunction<Item>("getCharges", &Item::getCharges);
+    g_lua.bindClassMemberFunction<Item>("hasDisplayCharges", &Item::hasDisplayCharges);
 
     g_lua.bindClassMemberFunction<Item>("isStackable", &Item::isStackable);
     g_lua.bindClassMemberFunction<Item>("isQuiver", &Item::isQuiver);
@@ -1000,6 +1001,10 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<LocalPlayer>("getRegenerationTime", &LocalPlayer::getRegenerationTime);
     g_lua.bindClassMemberFunction<LocalPlayer>("getBaseMagicLevel", &LocalPlayer::getBaseMagicLevel);
     g_lua.bindClassMemberFunction<LocalPlayer>("getTotalCapacity", &LocalPlayer::getTotalCapacity);
+    g_lua.bindClassMemberFunction<LocalPlayer>("getBaseCapacity", &LocalPlayer::getBaseCapacity);
+    g_lua.bindClassMemberFunction<LocalPlayer>("setBaseCapacity", &LocalPlayer::setBaseCapacity);
+    g_lua.bindClassMemberFunction<LocalPlayer>("canBuyExpBoost", &LocalPlayer::canBuyExpBoost);
+    g_lua.bindClassMemberFunction<LocalPlayer>("setCanBuyExpBoost", &LocalPlayer::setCanBuyExpBoost);
     g_lua.bindClassMemberFunction<LocalPlayer>("getInventoryItem", &LocalPlayer::getInventoryItem);
     g_lua.bindClassMemberFunction<LocalPlayer>("hasEquippedItemId", &LocalPlayer::hasEquippedItemId);
     g_lua.bindClassMemberFunction<LocalPlayer>("getInventoryCount", &LocalPlayer::getInventoryCount);
@@ -1021,7 +1026,9 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<LocalPlayer>("setResourceBalance", &LocalPlayer::setResourceBalance);
     g_lua.bindClassMemberFunction<LocalPlayer>("getTotalMoney", &LocalPlayer::getTotalMoney);
     g_lua.bindClassMemberFunction<LocalPlayer>("getHarmony", &LocalPlayer::getHarmony);
+    g_lua.bindClassMemberFunction<LocalPlayer>("setHarmony", &LocalPlayer::setHarmony);
     g_lua.bindClassMemberFunction<LocalPlayer>("isSerene", &LocalPlayer::isSerene);
+    g_lua.bindClassMemberFunction<LocalPlayer>("setSerene", &LocalPlayer::setSerene);
 
     g_lua.registerClass<Tile, AttachableObject>();
     g_lua.bindClassMemberFunction<Tile>("clean", &Tile::clean);
@@ -1197,6 +1204,7 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMap>("isDrawingLights", &UIMap::isDrawingLights);
     g_lua.bindClassMemberFunction<UIMap>("isLimitedVisibleDimension", &UIMap::isLimitedVisibleDimension);
     g_lua.bindClassMemberFunction<UIMap>("isDrawingManaBar", &UIMap::isDrawingManaBar);
+    g_lua.bindClassMemberFunction<UIMap>("isDrawingHarmony", &UIMap::isDrawingHarmony);
     g_lua.bindClassMemberFunction<UIMap>("isDrawingPlayerBars", &UIMap::isDrawingPlayerBars);
     g_lua.bindClassMemberFunction<UIMap>("isDrawingPlayerNames", &UIMap::isDrawingPlayerNames);
     g_lua.bindClassMemberFunction<UIMap>("isLimitVisibleRangeEnabled", &UIMap::isLimitVisibleRangeEnabled);
@@ -1222,6 +1230,8 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMap>("setFloorFading", &UIMap::setFloorFading);
     g_lua.bindClassMemberFunction<UIMap>("clearTiles", &UIMap::clearTiles);
     g_lua.bindClassMemberFunction<UIMap>("setDrawHarmony", &UIMap::setDrawHarmony);
+    g_lua.bindClassMemberFunction<UIMap>("setDrawOwnHarmonyBar", &UIMap::setDrawOwnHarmonyBar);
+    g_lua.bindClassMemberFunction<UIMap>("isDrawingOwnHarmonyBar", &UIMap::isDrawingOwnHarmonyBar);
 
     g_lua.registerClass<UIMinimap, UIWidget>();
     g_lua.bindClassStaticFunction<UIMinimap>("create", [] { return std::make_shared<UIMinimap>(); });

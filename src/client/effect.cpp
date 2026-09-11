@@ -65,20 +65,27 @@ void Effect::draw(const Point& dest, const bool drawThings, LightView* lightView
     const int offsetX = m_position.x - g_map.getCentralPosition().x;
     const int offsetY = m_position.y - g_map.getCentralPosition().y;
 
-    int xPattern = static_cast<unsigned>(offsetX) % getNumPatternX();
-    xPattern = 1 - xPattern - getNumPatternX();
-    if (xPattern < 0) xPattern += getNumPatternX();
+    int xPattern;
+    int yPattern;
+    if (m_useDirectionPattern) {
+        xPattern = m_numPatternX;
+        yPattern = m_numPatternY;
+    } else {
+        xPattern = static_cast<unsigned>(offsetX) % getNumPatternX();
+        xPattern = 1 - xPattern - getNumPatternX();
+        if (xPattern < 0) xPattern += getNumPatternX();
 
-    int yPattern = static_cast<unsigned>(offsetY) % getNumPatternY();
+        yPattern = static_cast<unsigned>(offsetY) % getNumPatternY();
 
-    if (g_game.getFeature(Otc::GameMapOldEffectRendering)) {
-        xPattern = offsetX % getNumPatternX();
-        if (xPattern < 0)
-            xPattern += getNumPatternX();
+        if (g_game.getFeature(Otc::GameMapOldEffectRendering)) {
+            xPattern = offsetX % getNumPatternX();
+            if (xPattern < 0)
+                xPattern += getNumPatternX();
 
-        yPattern = offsetY % getNumPatternY();
-        if (yPattern < 0)
-            yPattern += getNumPatternY();
+            yPattern = offsetY % getNumPatternY();
+            if (yPattern < 0)
+                yPattern += getNumPatternY();
+        }
     }
 
     // Check if the effect can actually be drawn before setting opacity/shader
@@ -161,6 +168,9 @@ void Effect::setPosition(const Position& position, const uint8_t stackPos)
         return;
 
     Thing::setPosition(position, stackPos);
+    if (m_useDirectionPattern)
+        return;
+
     int pattern_x = getNumPatternX();
     int pattern_y = getNumPatternY();
     if (pattern_x == 0 || pattern_y == 0) {
@@ -170,6 +180,12 @@ void Effect::setPosition(const Position& position, const uint8_t stackPos)
 
     m_numPatternX = m_position.x % pattern_x;
     m_numPatternY = m_position.y % pattern_y;
+}
+
+void Effect::setDirection(const Otc::Direction dir)
+{
+    m_useDirectionPattern = true;
+    Position::applyDirectionPattern(dir, m_numPatternX, m_numPatternY);
 }
 
 ThingType* Effect::getThingType() const {

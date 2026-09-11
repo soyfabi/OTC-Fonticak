@@ -32,6 +32,7 @@ public:
     void draw(const Point& /*dest*/, bool drawThings = true, LightView* = nullptr) override;
     void setId(uint32_t id) override;
     void setPosition(const Position& position, uint8_t stackPos = 0) override;
+    void setDirection(Otc::Direction direction);
     void setPermanent(bool permanent) { m_permanent = permanent; }
     void setSource(Otc::MagicEffectSources source) { m_source = source; }
 
@@ -52,5 +53,6 @@ private:
     uint16_t m_duration{ 0 };
     uint16_t m_timeToStartDrawing{ 0 };
     bool m_permanent{ false };
+    bool m_useDirectionPattern{ false };
     Otc::MagicEffectSources m_source{ Otc::ME_SOURCE_DEFAULT };
 };

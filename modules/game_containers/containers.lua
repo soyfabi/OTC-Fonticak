@@ -18,6 +18,23 @@ local function getContainerRowsHeight(cellSize, step, rows)
     return cellSize.height + (rows - 1) * step
 end
 
+local function getItemExpirySortValue(item)
+    if not item then
+        return 0
+    end
+    return item:getDurationTime() or 0
+end
+
+local function getItemStackSortValue(item)
+    if not item then
+        return 0
+    end
+    if item:hasDisplayCharges() then
+        return item:getCharges() or 0
+    end
+    return item:getCount() or 1
+end
+
 local function withPreservedContainerScroll(container, fn)
     local panel = container and container.itemsPanel
     local scrollbar = panel and (panel.verticalScrollBar or (container.window and container.window:getChildById('miniwindowScrollBar')))
@@ -463,154 +480,24 @@ function sortContainerItems(container, sortMode)
         -- TODO: Implement weight-based sorting (descending)
         return
     elseif sortMode == 'sortAscByExpiry' then
-        sortWithContainersFirst(items, function(a, b) 
+        sortWithContainersFirst(items, function(a, b)
             if not a or not a.item or not b or not b.item then return false end
-            
-            local aExpiry = 0
-            local bExpiry = 0
-            
-            -- Use getDurationTime() for expiry - this exists on Item objects
-            local success, result = pcall(function()
-                if a.item.getDurationTime and type(a.item.getDurationTime) == "function" then
-                    return a.item:getDurationTime() or 0
-                end
-                return 0
-            end)
-            if success then aExpiry = result end
-            
-            success, result = pcall(function()
-                if b.item.getDurationTime and type(b.item.getDurationTime) == "function" then
-                    return b.item:getDurationTime() or 0
-                end
-                return 0
-            end)
-            if success then bExpiry = result end
-            
-            return aExpiry < bExpiry
+            return getItemExpirySortValue(a.item) < getItemExpirySortValue(b.item)
         end)
     elseif sortMode == 'sortDescByExpiry' then
-        sortWithContainersFirst(items, function(a, b) 
+        sortWithContainersFirst(items, function(a, b)
             if not a or not a.item or not b or not b.item then return false end
-            
-            local aExpiry = 0
-            local bExpiry = 0
-            
-            -- Use getDurationTime() for expiry - this exists on Item objects
-            local success, result = pcall(function()
-                if a.item.getDurationTime and type(a.item.getDurationTime) == "function" then
-                    return a.item:getDurationTime() or 0
-                end
-                return 0
-            end)
-            if success then aExpiry = result end
-            
-            success, result = pcall(function()
-                if b.item.getDurationTime and type(b.item.getDurationTime) == "function" then
-                    return b.item:getDurationTime() or 0
-                end
-                return 0
-            end)
-            if success then bExpiry = result end
-            
-            return aExpiry > bExpiry
+            return getItemExpirySortValue(a.item) > getItemExpirySortValue(b.item)
         end)
     elseif sortMode == 'sortAscByStackSize' then
-        sortWithContainersFirst(items, function(a, b) 
+        sortWithContainersFirst(items, function(a, b)
             if not a or not a.item or not b or not b.item then return false end
-            
-            local countA = 1
-            local countB = 1
-            local chargesA = 0
-            local chargesB = 0
-            
-            -- Use getCount() - this exists on Item objects
-            local success, result = pcall(function()
-                if a.item.getCount and type(a.item.getCount) == "function" then
-                    return a.item:getCount() or 1
-                end
-                return 1
-            end)
-            if success then countA = result end
-            
-            success, result = pcall(function()
-                if b.item.getCount and type(b.item.getCount) == "function" then
-                    return b.item:getCount() or 1
-                end
-                return 1
-            end)
-            if success then countB = result end
-            
-            -- Get charges
-            success, result = pcall(function()
-                if a.item.getCharges and type(a.item.getCharges) == "function" then
-                    return a.item:getCharges() or 0
-                end
-                return 0
-            end)
-            if success then chargesA = result end
-            
-            success, result = pcall(function()
-                if b.item.getCharges and type(b.item.getCharges) == "function" then
-                    return b.item:getCharges() or 0
-                end
-                return 0
-            end)
-            if success then chargesB = result end
-            
-            -- Use charges if available, otherwise use count
-            local valueA = chargesA > 0 and chargesA or countA
-            local valueB = chargesB > 0 and chargesB or countB
-            
-            return valueA < valueB 
+            return getItemStackSortValue(a.item) < getItemStackSortValue(b.item)
         end)
     elseif sortMode == 'sortDescByStackSize' then
-        sortWithContainersFirst(items, function(a, b) 
+        sortWithContainersFirst(items, function(a, b)
             if not a or not a.item or not b or not b.item then return false end
-            
-            local countA = 1
-            local countB = 1
-            local chargesA = 0
-            local chargesB = 0
-            
-            -- Use getCount() - this exists on Item objects
-            local success, result = pcall(function()
-                if a.item.getCount and type(a.item.getCount) == "function" then
-                    return a.item:getCount() or 1
-                end
-                return 1
-            end)
-            if success then countA = result end
-            
-            success, result = pcall(function()
-                if b.item.getCount and type(b.item.getCount) == "function" then
-                    return b.item:getCount() or 1
-                end
-                return 1
-            end)
-            if success then countB = result end
-            
-            -- Get charges
-            success, result = pcall(function()
-                if a.item.getCharges and type(a.item.getCharges) == "function" then
-                    return a.item:getCharges() or 0
-                end
-                return 0
-            end)
-            if success then chargesA = result end
-            
-            success, result = pcall(function()
-                if b.item.getCharges and type(b.item.getCharges) == "function" then
-                    return b.item:getCharges() or 0
-                end
-                return 0
-            end)
-            if success then chargesB = result end
-            
-            -- Use charges if available, otherwise use count
-            local valueA = chargesA > 0 and chargesA or countA
-            local valueB = chargesB > 0 and chargesB or countB
-            
-            return valueA > valueB 
+            return getItemStackSortValue(a.item) > getItemStackSortValue(b.item)
         end)
     else
         -- No sorting or unknown mode
@@ -641,8 +528,7 @@ function sortContainerItems(container, sortMode)
                 
                 ItemsDatabase.setRarityItem(itemWidget, itemData.item)
                 ItemsDatabase.setTier(itemWidget, itemData.item)
-                itemWidget:setShowDuration(g_game.getFeature(GameThingClock) and modules.client_options.getOption('showExpiryInContainers'))
-                itemWidget:setShowCharges(g_game.getFeature(GameThingCounter) and modules.client_options.getOption('showExpiryInContainers'))
+                ItemsDatabase.applyExpiryDisplay(itemWidget, 'showExpiryInContainers')
             end
         end
     end
@@ -767,8 +653,7 @@ function refreshContainerItems(container)
                 itemWidget:setItem(container:getItem(slot))
                 ItemsDatabase.setRarityItem(itemWidget, container:getItem(slot))
                 ItemsDatabase.setTier(itemWidget, container:getItem(slot))
-                itemWidget:setShowDuration(g_game.getFeature(GameThingClock) and modules.client_options.getOption('showExpiryInContainers'))
-                itemWidget:setShowCharges(g_game.getFeature(GameThingCounter) and modules.client_options.getOption('showExpiryInContainers'))
+                ItemsDatabase.applyExpiryDisplay(itemWidget, 'showExpiryInContainers')
             end
         end
 
@@ -1112,8 +997,7 @@ function onContainerOpen(container, previousContainer)
         itemWidget:setItem(container:getItem(slot))
         ItemsDatabase.setRarityItem(itemWidget, container:getItem(slot))
         ItemsDatabase.setTier(itemWidget, container:getItem(slot))
-        itemWidget:setShowDuration(g_game.getFeature(GameThingClock) and modules.client_options.getOption('showExpiryInContainers'))
-        itemWidget:setShowCharges(g_game.getFeature(GameThingCounter) and modules.client_options.getOption('showExpiryInContainers'))
+        ItemsDatabase.applyExpiryDisplay(itemWidget, 'showExpiryInContainers')
         itemWidget:setMargin(0)
         itemWidget.position = container:getSlotPosition(slot)
 
@@ -1243,8 +1127,7 @@ function onContainerUpdateItem(container, slot, item, oldItem)
             itemWidget:setItem(item)
             ItemsDatabase.setRarityItem(itemWidget, item)
             ItemsDatabase.setTier(itemWidget, item)
-            itemWidget:setShowDuration(g_game.getFeature(GameThingClock) and modules.client_options.getOption('showExpiryInContainers'))
-            itemWidget:setShowCharges(g_game.getFeature(GameThingCounter) and modules.client_options.getOption('showExpiryInContainers'))
+            ItemsDatabase.applyExpiryDisplay(itemWidget, 'showExpiryInContainers')
         end
     end)
     

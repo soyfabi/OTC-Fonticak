@@ -533,7 +533,7 @@ namespace Otc
         GameThingQuickLoot = 83,
         GameThingQuiver = 84,
         GameThingPodium = 85,
-        // 86 reserved (TFS CreatureWalkthrough) - GameThingUpgradeClassification is 130
+        GameThingUpgradeClassification = 86,
         GameThingCounter = 87,
         GameThingClock = 88,
         GameThingPodiumItemType = 89,
@@ -577,16 +577,15 @@ namespace Otc
         GameForgeSkillStats = 126,
         GameCharacterSkillStats = 127,
         GameCreaturePaperdoll = 128,
-        GameMultiSpr = 129,
-        // Aligned with TFS & Astra
-        GameThingUpgradeClassification = 130,
+        GameDisplayItemDuration = 129,
+        GameVocationMonk = 130,
         GameItemTierByte = 131,
         GameProficiency = 132,
         GameEffectSource = 133,
-        // Align with Fantoner/Astra negotiated feature id
+        // Align with Fantoner/Astra negotiated feature ids
         GamePlayerFamiliars = 138,
+        GameDisplayItemCharges = 139,
         GameAstraQuiverCountU16 = 141,
-        GameVocationMonk = 150,
         LastGameFeature
     };
 
@@ -917,6 +916,8 @@ namespace Otc
         MASTER_SORCERER = 13,
         ELDER_DRUID = 14,
         EXALTED_MONK = 15,
+        MONK_VOCATION = 9,
+        EXALTED_MONK_VOCATION = 10,
         FIRST = KNIGHT,
         LAST = MONK,
     };

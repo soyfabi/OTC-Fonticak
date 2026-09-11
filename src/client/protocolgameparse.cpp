@@ -98,12 +98,72 @@ bool shouldShowCreatureFrame(const CreaturePtr& creature)
 
     return shouldShow;
 }
+
+constexpr uint8_t CreatureMarkPlayerAttack = 3;
+
+// weaponType 1-6 -> effect id 304-309 (client jump-table, not contiguous).
+constexpr uint16_t MeleeAttackEffectIds[] = { 0, 304, 305, 306, 309, 307, 308 };
+
+void playMeleeAttackEffect(const CreaturePtr& target, const uint8_t weaponType)
+{
+    if (!target || weaponType < 1 || weaponType > 6)
+        return;
+
+    const auto& localPlayer = g_game.getLocalPlayer();
+    if (!localPlayer || g_game.getAttackingCreature() != target)
+        return;
+
+    const uint16_t effectId = MeleeAttackEffectIds[weaponType];
+    if (!g_things.isValidDatId(effectId, ThingCategoryEffect))
+        return;
+
+    const auto& effect = std::make_shared<Effect>();
+    effect->setId(effectId);
+    effect->setDirection(localPlayer->getPosition().getDirectionFromPosition(target->getPosition()));
+    g_map.addThing(effect, target->getPosition());
+}
 } // namespace
 
 static bool usesModernImbuementWindow()
 {
     return g_game.getProtocolVersion() >= 860 || g_game.getClientVersion() >= 860;
 }
+
+namespace {
+
+void parseDisplayChargesPayload(const InputMessagePtr& msg, const ItemPtr& item)
+{
+    const uint32_t charges = msg->getU32();
+    const uint8_t chargesMeta = msg->getU8();
+    uint32_t maxCharges = 0;
+    if (chargesMeta > 1)
+        maxCharges = chargesMeta;
+    else if (chargesMeta == 1)
+        maxCharges = charges;
+    item->setDisplayCharges(charges, maxCharges);
+}
+
+void parseAstraItemState(const InputMessagePtr& msg, const ItemPtr& item)
+{
+    if (g_game.getFeature(Otc::GameDisplayItemDuration)) {
+        const bool hasDuration = msg->getU8() == 1;
+        if (hasDuration) {
+            const uint32_t duration = msg->getU32();
+            const bool stopTime = msg->getU8() == 1;
+            item->setDurationTime(duration);
+            item->setDurationPaused(stopTime);
+            item->setDecaying(duration > 0 && !stopTime);
+        }
+    }
+
+    if (g_game.getFeature(Otc::GameDisplayItemCharges)) {
+        const bool hasCharges = msg->getU8() == 1;
+        if (hasCharges)
+            parseDisplayChargesPayload(msg, item);
+    }
+}
+
+} // namespace
 
 void ProtocolGame::parseMessage(const InputMessagePtr& msg)
 {
@@ -2622,7 +2682,8 @@ void ProtocolGame::parsePlayerStats(const InputMessagePtr& msg) const
     const uint8_t levelPercent = msg->getU8();
 
     if (g_game.getFeature(Otc::GameExperienceBonus)) {
-        if (g_game.getClientVersion() <= 1096) {
+        const bool useModernExperienceBonus = g_game.getClientVersion() >= 1097 || g_game.getClientVersion() == 860;
+        if (!useModernExperienceBonus) {
             const double experienceBonus = msg->getDouble();
             m_localPlayer->setExperienceRate(Otc::EXP_BASE, experienceBonus * 100);
         } else {
@@ -2661,9 +2722,12 @@ void ProtocolGame::parsePlayerStats(const InputMessagePtr& msg) const
     const uint16_t regeneration = g_game.getFeature(Otc::GamePlayerRegenerationTime) ? msg->getU16() : 0;
     const uint16_t training = g_game.getFeature(Otc::GameOfflineTrainingTime) ? msg->getU16() : 0;
 
-    if (g_game.getClientVersion() >= 1097) {
-        m_localPlayer->setStoreExpBoostTime(msg->getU16()); // xp boost time (seconds)
-        msg->getU8(); // enables exp boost in the store
+    if (g_game.getClientVersion() >= 1097 || (g_game.getClientVersion() == 860 && g_game.getFeature(Otc::GameExperienceBonus))) {
+        const uint16_t remainingStoreXpBoostSeconds = msg->getU16(); // xp boost time (seconds)
+        const uint8_t canBuyMoreStoreXpBoosts = msg->getU8(); // enables exp boost in the store
+        m_localPlayer->setStoreExpBoostTime(remainingStoreXpBoostSeconds);
+        m_localPlayer->setCanBuyExpBoost(canBuyMoreStoreXpBoosts != 0);
+        m_localPlayer->callLuaField("onExpBoostChange", remainingStoreXpBoostSeconds, canBuyMoreStoreXpBoosts != 0);
     }
 
     if (g_game.getClientVersion() >= 1281) {
@@ -2760,16 +2824,18 @@ void ProtocolGame::parsePlayerSkills(const InputMessagePtr& msg) const
 
         // bonus cap
         const uint32_t capacity = msg->getU32(); // base + bonus capacity
-        msg->getU32(); // base capacity
+        const uint32_t baseCapacity = msg->getU32(); // base capacity
 
         m_localPlayer->setTotalCapacity(capacity);
+        m_localPlayer->setBaseCapacity(baseCapacity);
     }
 
     if (g_game.getFeature(Otc::GameCharacterSkillStats)) {
         //msg->getU8(); //  GameConcotions ??
         const uint32_t capacity = msg->getU32(); // base + bonus capacity
-        msg->getU32(); // base capacity
+        const uint32_t baseCapacity = msg->getU32(); // base capacity
         m_localPlayer->setTotalCapacity(capacity);
+        m_localPlayer->setBaseCapacity(baseCapacity);
         // Flat Damage and Healing Total
         const uint16_t flatBonus = msg->getU16();
         m_localPlayer->setFlatDamageHealing(flatBonus);
@@ -3883,31 +3949,34 @@ void ProtocolGame::parseChangeMapAwareRange(const InputMessagePtr& msg)
 void ProtocolGame::parseCreaturesMark(const InputMessagePtr& msg)
 {
     const uint32_t creatureId = msg->getU32();
-    const auto& creature = g_map.getCreatureById(creatureId);
+    const uint8_t markType = msg->getU8();
     const bool isLegacyProtocol = g_game.getClientVersion() < 1076;
-    uint8_t squareType;
-    uint8_t squareColor;
 
-    if (isLegacyProtocol) {
-        squareType = 0;
-        squareColor = msg->getU8();
-    } else {
-        squareType = msg->getU8();
-        squareColor = msg->getU8();
+    uint8_t markValue = 0;
+    if (markType == CreatureMarkPlayerAttack || !isLegacyProtocol || markType == 0x01) {
+        markValue = msg->getU8();
+    } else if (isLegacyProtocol) {
+        markValue = markType;
     }
 
+    const auto& creature = g_map.getCreatureById(creatureId);
     if (!creature) {
         g_logger.traceDebug("ProtocolGame::parseCreaturesMark: could not get creature with id {}", creatureId);
         return;
     }
 
-    if (isLegacyProtocol) {
-        if (shouldShowCreatureFrame(creature))
-            creature->addTimedSquare(squareColor);
+    if (markType == CreatureMarkPlayerAttack) {
+        playMeleeAttackEffect(creature, markValue);
         return;
     }
 
-    if (squareType == 0) {
+    if (isLegacyProtocol) {
+        if (shouldShowCreatureFrame(creature))
+            creature->addTimedSquare(markValue);
+        return;
+    }
+
+    if (markType == 0) {
         creature->hideStaticSquare();
         creature->removeTimedSquare();
         return;
@@ -3916,10 +3985,10 @@ void ProtocolGame::parseCreaturesMark(const InputMessagePtr& msg)
     if (!shouldShowCreatureFrame(creature))
         return;
 
-    if (squareType == 2) {
-        creature->showStaticSquare(squareColor == 0 ? Color::black : Color::from8bit(squareColor));
+    if (markType == 2) {
+        creature->showStaticSquare(markValue == 0 ? Color::black : Color::from8bit(markValue));
     } else {
-        creature->addTimedSquare(squareColor);
+        creature->addTimedSquare(markValue);
     }
 }
 
@@ -4411,6 +4480,8 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
         }
     }
 
+    parseAstraItemState(msg, item);
+
     if (g_game.getFeature(Otc::GameItemAnimationPhase)) {
         if (item->getAnimationPhases() > 1) {
             // 0x00 => automatic phase
@@ -4516,7 +4587,7 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
         }
     }
 
-    if (g_game.getFeature(Otc::GameThingClock)) {
+    if (g_game.getFeature(Otc::GameThingClock) && !g_game.getFeature(Otc::GameDisplayItemDuration)) {
         if (item->hasClockExpire() || item->hasExpire() || item->hasExpireStop()) {
             if (item->getId() != 23398) {
                 item->setDurationTime(msg->getU32());
@@ -4525,11 +4596,9 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
         }
     }
 
-    if (g_game.getFeature(Otc::GameThingCounter)) {
-        if (item->hasWearOut()) {
-            item->setCharges(msg->getU32());
-            msg->getU8(); // Is brand-new
-        }
+    if (g_game.getFeature(Otc::GameThingCounter) && !g_game.getFeature(Otc::GameDisplayItemCharges)) {
+        if (item->hasWearOut())
+            parseDisplayChargesPayload(msg, item);
     }
 
     if (g_game.getFeature(Otc::GameWrapKit)) {
@@ -6645,15 +6714,23 @@ void ProtocolGame::parseCreatureTyping(const InputMessagePtr& msg)
 
 void ProtocolGame::parseFeatures(const InputMessagePtr& msg)
 {
+    bool itemStateEnabled = false;
     const uint16_t features = msg->getU16();
     for (auto i = 0; i < features; ++i) {
         const auto feature = static_cast<Otc::GameFeature>(msg->getU8());
         const auto enabled = static_cast<bool>(msg->getU8());
         if (enabled) {
             g_game.enableFeature(feature);
+            if (feature == Otc::GameDisplayItemDuration || feature == Otc::GameDisplayItemCharges) {
+                itemStateEnabled = true;
+            }
         } else {
             g_game.disableFeature(feature);
         }
+    }
+
+    if (itemStateEnabled) {
+        g_lua.callGlobalField("g_game", "onItemStateFeatures");
     }
 }
 

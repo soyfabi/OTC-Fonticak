@@ -14,6 +14,7 @@ giftWindow = nil
 
 local categoryUpdateEvent = nil
 local contentUpdateEvent = nil
+local openCategoryEvent = nil
 local storeStylesImported = false
 -- Shared with the purchase callback in classes/Offers.lua.
 ensureStoreWindow = nil
@@ -21,8 +22,10 @@ ensureStoreWindow = nil
 local function cancelPendingStoreUpdates(cancelRenders)
   removeEvent(categoryUpdateEvent)
   removeEvent(contentUpdateEvent)
+  removeEvent(openCategoryEvent)
   categoryUpdateEvent = nil
   contentUpdateEvent = nil
+  openCategoryEvent = nil
   if cancelRenders and Categories and Categories.cancelRender then
     Categories:cancelRender()
   end
@@ -125,6 +128,10 @@ function init()
     initStoreProtocol()
   end
 
+  if initStoreDescription then
+    initStoreDescription()
+  end
+
   connect(g_game, {
     onStoreInit = onStoreInit,
     onGameEnd = onGameEnd,
@@ -152,6 +159,10 @@ end
 
 function terminate()
   cancelPendingStoreUpdates(true)
+
+  if terminateStoreDescription then
+    terminateStoreDescription()
+  end
 
   if terminateStoreProtocol then
     terminateStoreProtocol()
@@ -344,7 +355,41 @@ function toggle()
 end
 
 function openPremiumBoost()
+  openCategory("Boosts")
+end
+
+function openCategory(categoryName, subCategoryName)
+  if not categoryName or categoryName == "" then
+    show()
+    return
+  end
+
+  if Categories and Categories.setPendingCategory then
+    Categories:setPendingCategory(categoryName, subCategoryName)
+  end
+
   show()
+
+  if Categories and Categories.selectCategoryByName then
+    if Categories:selectCategoryByName(categoryName, subCategoryName) then
+      if Categories.clearPendingCategory then
+        Categories:clearPendingCategory()
+      end
+      return
+    end
+  end
+
+  removeEvent(openCategoryEvent)
+  openCategoryEvent = scheduleEvent(function()
+    openCategoryEvent = nil
+    if Categories and Categories.pendingCategory and Categories.selectCategoryByName then
+      if Categories:selectCategoryByName(Categories.pendingCategory.category, Categories.pendingCategory.subCategory) then
+        if Categories.clearPendingCategory then
+          Categories:clearPendingCategory()
+        end
+      end
+    end
+  end, 200)
 end
 
 local function updateCoinBalanceWidgets(refreshOffers)

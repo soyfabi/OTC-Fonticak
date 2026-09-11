@@ -5,7 +5,6 @@ local specialsAmount = 0
 local storeAmount = 0
 
 local chaseModeRadioGroup
-local controlButton1400 = nil
 local optionPanel = nil
 local buttonConfigs = {}
 local buttonOrder = {}
@@ -30,6 +29,46 @@ local PANEL_CONSTANTS = {
 }
 
 local optionsShrink = false
+
+ControlButtonNames = {
+    skillsButton = 'Skills',
+    battleButton = 'Battle List',
+    vipListButton = 'VIP List',
+    unjustifiedPointsButton = 'Unjustified Points',
+    questLogButton = 'Quest Log',
+    questTrackerButton = 'Quest Tracker',
+    highscoresButton = 'Highscores',
+    ProficiencyButton = 'Weapon Proficiency',
+    forgeButton = 'Exaltation Forge',
+    wheelButton = 'Wheel of Destiny',
+    imbuementTrackerButton = 'Imbuement Tracker',
+    rewardWall = 'Reward Wall',
+    spelllistButton = 'Spell List',
+    analyzerButton = 'Analytics Selector',
+    botAnalyzersButton = 'vBot Analyzers',
+    manageControlButtons = 'Manage Control Buttons',
+    optionsMainButton = 'Options',
+    preyButton = 'Prey Dialog',
+    cyclopediaButton = 'Cyclopedia',
+    bestiaryTrackerButton = 'Bestiary Tracker',
+    botButton = 'Bot Hub',
+}
+
+local MANAGE_CONTROL_BUTTONS_ID = 'manageControlButtons'
+local MANAGE_CONTROL_BUTTONS_INDEX = 9999
+
+local function getControlButtonDisplayName(id, button)
+    if ControlButtonNames[id] then
+        return ControlButtonNames[id]
+    end
+    if button and button.getTooltip then
+        local tooltip = button:getTooltip()
+        if type(tooltip) == 'string' and tooltip ~= '' then
+            return tooltip:gsub('%s*%b()$', '')
+        end
+    end
+    return id
+end
 
 local function calculatePanelHeight(panel, max_icons_per_row)
     local icon_count = 0
@@ -205,7 +244,9 @@ local function sortOptionsButtons()
         end
         return (a._stableOrder or 0) < (b._stableOrder or 0)
     end)
-    panel:reorderChildren(children)
+    if #children == #panel:getChildren() then
+        panel:reorderChildren(children)
+    end
 end
 
 local function createButton(id, description, image, callback, special, front, index)
@@ -243,7 +284,9 @@ local function createButton(id, description, image, callback, special, front, in
         button.index = index or 1000
     end
 
-    if not special and not configLoaded then
+    if not special and g_game.isOnline() then
+        scheduleControlButtonsSync()
+    elseif not special and not configLoaded then
         sortOptionsButtons()
     end
     refreshOptionsSizes()
@@ -263,7 +306,53 @@ function optionsController:onInit()
     if not optionPanel then
         optionPanel = g_ui.loadUI('option_control_buttons', modules.client_options:getPanel())
         modules.client_options.addButton("Interface", "Control Butt...", optionPanel, function() initControlButtons() end)
+        bindControlButtonsPanelEvents()
     end
+end
+
+local function updateMoveToDisplayedButtonState(button, hasAvailableButtons)
+    if not button then
+        return
+    end
+
+    button:setEnabled(hasAvailableButtons)
+    if button.setOpacity then
+        button:setOpacity(hasAvailableButtons and 1.0 or 0.35)
+    end
+end
+
+function bindControlButtonsPanelEvents()
+    if not optionPanel or optionPanel.controlButtonsEventsBound then
+        return
+    end
+
+    optionPanel.controlButtonsEventsBound = true
+    local displayedList = optionPanel.panelDisplayedButtons.displayedButtonsList
+    local availableList = optionPanel.panelAvailableButtons.displayedAvailableButtonsList
+
+    if displayedList then
+        displayedList.onChildFocusChange = function()
+            updateControlButtonsActionStates()
+        end
+    end
+
+    if availableList then
+        availableList.onChildFocusChange = function()
+            updateControlButtonsActionStates()
+        end
+    end
+end
+
+function updateControlButtonsActionStates()
+    if not optionPanel then
+        return
+    end
+
+    local availableList = optionPanel.panelAvailableButtons.displayedAvailableButtonsList
+    local moveToDisplayedBtn = optionPanel.panelAvailableButtons.moveToDisplayedButtonsList
+    local availableCount = availableList and #availableList:getChildren() or 0
+
+    updateMoveToDisplayedButtonState(moveToDisplayedBtn, availableCount > 0)
 end
 
 function toggleStore()
@@ -276,49 +365,34 @@ function optionsController:onTerminate()
         optionPanel = nil
         modules.client_options.removeButton("Interface", "Control Butt...")  -- hot reload
     end
-    if controlButton1400 then
-        controlButton1400:destroy()
-        controlButton1400 = nil
-    end
 end
 
 function optionsController:onGameStart()
     optionsShrink = g_settings.getBoolean('mainpanel_shrink_options')
+    local config = loadButtonConfig()
+    buttonConfigs = config.buttons or {}
+    buttonOrder = config.order or {}
+
     refreshOptionsSizes()
     modules.game_interface.setupOptionsMainButton()
     modules.client_options.setupOptionsMainButton()
-    local getOptionsPanel = optionsController.ui.onPanel.options
-    local children = getOptionsPanel:getChildren()
-    for i, child in ipairs(children) do
-        child._stableOrder = i
-    end
-    sortOptionsButtons()
+
     optionsController:scheduleEvent(function()
+        syncControlButtons(true)
         if optionPanel then
-            local config = loadButtonConfig()
-            buttonConfigs = config.buttons or {}
-            buttonOrder = config.order or {}
-            local optionsPanel = optionsController.ui.onPanel.options
-            if optionsPanel then
-                for _, button in ipairs(optionsPanel:getChildren()) do
-                    local id = button:getId()
-                    if id and buttonConfigs[id] then
-                        button:setVisible(buttonConfigs[id].visible)
-                    end
-                end
-                reorderButtons()
-                updateDisplayedButtonsList()
-                updateAvailableButtonsList()
-                reloadMainPanelSizes()
-            end
+            updateDisplayedButtonsList()
+            updateAvailableButtonsList()
         end
         configLoaded = true
     end, 50, "onGameStart")
-    if g_game.getClientVersion() >= 1400 and not controlButton1400 then
-        controlButton1400 = modules.game_mainpanel.addToggleButton('controButtons', tr('Manage control buttons'),
-        '/images/options/button_control', function() modules.client_options.openOptionsCategory("Interface", "Control Butt...") end, false, 1)
-        controlButton1400:setOn(false)
-    end
+
+    optionsController:scheduleEvent(function()
+        syncControlButtons(true)
+        if optionPanel then
+            updateDisplayedButtonsList()
+            updateAvailableButtonsList()
+        end
+    end, 300, "onGameStartLateSync")
 end
 
 function optionsController:onGameEnd()
@@ -490,9 +564,25 @@ local function updateList(listWidget, isVisibleList)
             item:setBackgroundColor((i % 2 == 0) and COLORS.BASE_1 or COLORS.BASE_2)
         end
 
+        item.onDoubleClick = function(widget)
+            widget:focus()
+            if isVisibleList then
+                moveToAvailable()
+            else
+                moveToDisplayed()
+            end
+        end
+
+        item.onFocusChange = function()
+            updateControlButtonsActionStates()
+        end
+
         table.insert(currentChildren, item)
     end
-    listWidget:reorderChildren(currentChildren)
+    local panelChildren = listWidget:getChildren()
+    if #currentChildren == #panelChildren then
+        listWidget:reorderChildren(currentChildren)
+    end
     if focusedId then
         for _, child in ipairs(listWidget:getChildren()) do
             if child.buttonId == focusedId then
@@ -501,6 +591,7 @@ local function updateList(listWidget, isVisibleList)
             end
         end
     end
+    updateControlButtonsActionStates()
 end
 
 function updateDisplayedButtonsList()
@@ -619,20 +710,177 @@ function reorderButtons()
         return
     end
     local optionsPanel = optionsController.ui.onPanel.options
+    if not optionsPanel then
+        return
+    end
+
+    local panelChildren = optionsPanel:getChildren()
     local children = {}
+    local seen = {}
+
     for _, id in ipairs(buttonOrder) do
-        local button = optionsPanel:getChildById(id)
-        if button then
-            table.insert(children, button)
+        if not seen[id] then
+            local button = optionsPanel:getChildById(id)
+            if button then
+                table.insert(children, button)
+                seen[id] = true
+            end
         end
     end
+
+    for _, button in ipairs(panelChildren) do
+        local id = button:getId()
+        if id and not seen[id] then
+            table.insert(children, button)
+            seen[id] = true
+        end
+    end
+
+    if #children == #panelChildren then
+        optionsPanel:reorderChildren(children)
+    end
+end
+
+local pendingControlButtonsSync = false
+
+function scheduleControlButtonsSync()
+    if pendingControlButtonsSync or not g_game.isOnline() then
+        return
+    end
+
+    pendingControlButtonsSync = true
+    scheduleEvent(function()
+        pendingControlButtonsSync = false
+        syncControlButtons(true)
+    end, 0)
+end
+
+function syncControlButtons(persist)
+    if not g_game.isOnline() then
+        return
+    end
+
+    local optionsPanel = optionsController and optionsController.ui and optionsController.ui.onPanel and optionsController.ui.onPanel.options
+    if not optionsPanel then
+        return
+    end
+
+    local changed = false
+    local knownIds = {}
+
     for _, button in ipairs(optionsPanel:getChildren()) do
         local id = button:getId()
-        if not table.find(buttonOrder, id) then
-            table.insert(children, button)
+        if id then
+            knownIds[id] = true
+            if not button.index and id == MANAGE_CONTROL_BUTTONS_ID then
+                button.index = MANAGE_CONTROL_BUTTONS_INDEX
+            end
+            if not buttonConfigs[id] then
+                buttonConfigs[id] = {
+                    visible = table.find(buttonOrder, id) ~= nil or button:isVisible(),
+                    tooltip = getControlButtonDisplayName(id, button)
+                }
+                changed = true
+            end
+            button:setVisible(buttonConfigs[id].visible)
         end
     end
-    optionsPanel:reorderChildren(children)
+
+    local panelButtonCount = 0
+    for _ in pairs(knownIds) do
+        panelButtonCount = panelButtonCount + 1
+    end
+
+    local orderKnownCount = 0
+    for _, id in ipairs(buttonOrder) do
+        if knownIds[id] then
+            orderKnownCount = orderKnownCount + 1
+        end
+    end
+
+    if orderKnownCount > 0 and orderKnownCount < panelButtonCount and buttonOrder[1] == MANAGE_CONTROL_BUTTONS_ID then
+        local repaired = {}
+        local seen = {}
+        for _, id in ipairs(buttonOrder) do
+            if id ~= MANAGE_CONTROL_BUTTONS_ID and knownIds[id] and buttonConfigs[id].visible then
+                table.insert(repaired, id)
+                seen[id] = true
+            end
+        end
+        local missing = {}
+        for id in pairs(knownIds) do
+            if not seen[id] and id ~= MANAGE_CONTROL_BUTTONS_ID and buttonConfigs[id].visible then
+                local button = optionsPanel:getChildById(id)
+                table.insert(missing, {
+                    id = id,
+                    index = button and button.index or 1000
+                })
+            end
+        end
+        table.sort(missing, function(a, b)
+            return a.index < b.index
+        end)
+        for _, entry in ipairs(missing) do
+            table.insert(repaired, entry.id)
+            seen[entry.id] = true
+        end
+        if knownIds[MANAGE_CONTROL_BUTTONS_ID] and buttonConfigs[MANAGE_CONTROL_BUTTONS_ID].visible then
+            table.insert(repaired, MANAGE_CONTROL_BUTTONS_ID)
+        end
+        buttonOrder = repaired
+        changed = true
+    end
+
+    local missingManage = false
+    local missingOthers = {}
+    for id in pairs(knownIds) do
+        if not table.find(buttonOrder, id) and buttonConfigs[id].visible then
+            if id == MANAGE_CONTROL_BUTTONS_ID then
+                missingManage = true
+            else
+                local button = optionsPanel:getChildById(id)
+                table.insert(missingOthers, {
+                    id = id,
+                    index = button and button.index or 1000
+                })
+            end
+        end
+    end
+
+    table.sort(missingOthers, function(a, b)
+        return a.index < b.index
+    end)
+
+    for _, entry in ipairs(missingOthers) do
+        table.insert(buttonOrder, entry.id)
+        changed = true
+    end
+
+    if missingManage then
+        if not buttonConfigs[MANAGE_CONTROL_BUTTONS_ID] then
+            local button = optionsPanel:getChildById(MANAGE_CONTROL_BUTTONS_ID)
+            buttonConfigs[MANAGE_CONTROL_BUTTONS_ID] = {
+                visible = button and button:isVisible() or true,
+                tooltip = getControlButtonDisplayName(MANAGE_CONTROL_BUTTONS_ID, button)
+            }
+        end
+        table.insert(buttonOrder, MANAGE_CONTROL_BUTTONS_ID)
+        changed = true
+    end
+
+    for i = #buttonOrder, 1, -1 do
+        if not knownIds[buttonOrder[i]] or not buttonConfigs[buttonOrder[i]].visible then
+            table.remove(buttonOrder, i)
+            changed = true
+        end
+    end
+
+    reorderButtons()
+    reloadMainPanelSizes()
+
+    if persist and changed then
+        saveButtonConfig()
+    end
 end
 
 function reset()
@@ -647,9 +895,16 @@ function reset()
                 button:setVisible(true)
                 buttonConfigs[id] = {
                     visible = true,
-                    tooltip = button:getTooltip() or id
+                    tooltip = getControlButtonDisplayName(id, button)
                 }
                 table.insert(buttonOrder, id)
+            end
+        end
+        for i, id in ipairs(buttonOrder) do
+            if id == MANAGE_CONTROL_BUTTONS_ID then
+                table.remove(buttonOrder, i)
+                table.insert(buttonOrder, MANAGE_CONTROL_BUTTONS_ID)
+                break
             end
         end
     end
@@ -671,10 +926,10 @@ function initControlButtons()
             if not buttonConfigs[id] then
                 buttonConfigs[id] = {
                     visible = button:isVisible(),
-                    tooltip = button:getTooltip() or id
+                    tooltip = getControlButtonDisplayName(id, button)
                 }
 
-                if button:isVisible() and not table.find(buttonOrder, id) then
+                if button:isVisible() and not table.find(buttonOrder, id) and id ~= MANAGE_CONTROL_BUTTONS_ID then
                     table.insert(buttonOrder, id)
                 end
             else
@@ -701,6 +956,6 @@ function initControlButtons()
     end
     updateDisplayedButtonsList()
     updateAvailableButtonsList()
-    reorderButtons()
+    syncControlButtons(false)
     reloadMainPanelSizes()
 end

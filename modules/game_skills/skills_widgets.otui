@@ -1,0 +1,99 @@
+&var-cip-font: Verdana Bold-11px
+&var-text-cip-color: #c0c0c0
+
+SkillFirstWidget < UIWidget
+
+SkillButton < UIButton
+  height: 21
+  margin-bottom: 1
+  &onClick: onSkillButtonClick
+
+SmallSkillButton < SkillButton
+  height: 14
+
+ForgeMiscStatRow < SkillButton
+  height: 14
+
+SkillNameLabel < GameLabel
+  font: $var-cip-font
+  anchors.left: parent.left
+  anchors.top: parent.top
+  anchors.bottom: parent.bottom
+  margin-right: 3
+  color: $var-text-cip-color
+
+SkillValueLabel < GameLabel
+  id: value
+  font: $var-cip-font
+  text-align: topright
+  text-auto-resize: true
+  anchors.right: parent.right
+  anchors.top: parent.top
+  anchors.bottom: parent.bottom
+  anchors.left: prev.left
+  margin-top: 1
+  margin-right: 1
+  color: $var-text-cip-color
+
+ImageSkill < UIWidget
+  id: icon
+  size: 9 9
+  width: 9
+  margin-top: 13
+  anchors.left: parent.left
+  anchors.top: parent.top
+  phantom: false
+
+ImageAbsorb < UIWidget
+  id: icon
+  size: 9 9
+  width: 9
+  margin-top: 2
+  anchors.right: parent.right
+  anchors.top: parent.top
+  phantom: false
+
+BoostIcon < UIWidget
+  id: boostIcon
+  size: 13 13
+  anchors.right: parent.right
+  anchors.top: parent.top
+  margin-top: 0
+  phantom: true
+  focusable: false
+  image-source: /images/icons/xp_boost
+
+RedPercentPanel < ProgressBar
+  id: percent
+  background-color: #c00000
+  height: 5
+  margin-top: 17
+  anchors.left: parent.left
+  anchors.right: parent.right
+  anchors.top: parent.top
+  phantom: false
+
+SkillPercentPanel < ProgressBar
+  id: percent
+  background-color: #00c000
+  height: 5
+  margin-top: 15
+  margin-left: 15
+  anchors.left: parent.left
+  anchors.right: parent.right
+  anchors.top: parent.top
+  phantom: false
+
+XpBoostButton < UIWidget
+  height: 14
+  margin-top: -13
+  UIWidget
+    id: xpBoostButton
+    image-source: /images/ui/button-storexp
+    !tooltip: tr('Increase your experience gain with a temporary XP Boost!')
+    tooltip-delayed: true
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.verticalCenter: parent.verticalCenter
+    @onClick: modules.game_store.openPremiumBoost()
+    $pressed:
+      image-source: /images/ui/button-storexp-pressed

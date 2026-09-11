@@ -111,6 +111,7 @@ void Game::resetGameStates()
     m_containers.clear();
     m_vips.clear();
     m_gmActions.clear();
+    Item::clearRememberedDisplayCharges();
     g_map.resetAwareRange();
 }
 

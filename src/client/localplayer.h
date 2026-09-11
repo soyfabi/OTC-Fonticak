@@ -80,6 +80,8 @@ public:
 
     uint32_t getFreeCapacity() { return m_freeCapacity; }
     uint32_t getTotalCapacity() { return m_totalCapacity; }
+    uint32_t getBaseCapacity() { return m_baseCapacity > 0 ? m_baseCapacity : m_totalCapacity; }
+    void setBaseCapacity(uint32_t baseCapacity) { m_baseCapacity = baseCapacity; }
 
     uint16_t getMagicLevel() { return m_magicLevel; }
     uint16_t getMagicLevelPercent() { return m_magicLevelPercent; }
@@ -97,6 +99,8 @@ public:
     uint16_t getRegenerationTime() { return m_regenerationTime; }
     uint16_t getOfflineTrainingTime() { return m_offlineTrainingTime; }
     uint16_t getStoreExpBoostTime() { return m_storeExpBoostTime; }
+    bool canBuyExpBoost() const { return m_canBuyExpBoost; }
+    void setCanBuyExpBoost(bool canBuy) { m_canBuyExpBoost = canBuy; }
 
     auto getStates() { return m_states; }
     uint32_t getMana() { return m_mana; }
@@ -223,6 +227,8 @@ private:
     uint16_t m_regenerationTime{ 0 };
     uint16_t m_offlineTrainingTime{ 0 };
     uint16_t m_storeExpBoostTime{ 0 };
+    bool m_canBuyExpBoost{ true };
+    uint32_t m_baseCapacity{ 0 };
 
     uint8_t m_attackElement{ 0 };
     uint8_t m_convertedElement{ 0 };

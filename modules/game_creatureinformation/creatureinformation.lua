@@ -37,6 +37,79 @@ local function setAnimatedPercent(bar, targetPercent, optionKey, firstPaint)
     bar._animReady = true
 end
 
+local function updateHarmonyWidget(creature, harmony)
+    local widget = creature:getWidgetInformation()
+    if not widget or not widget.harmonyBar then
+        return
+    end
+
+    harmony = math.max(0, math.min(5, harmony or 0))
+    for i = 1, 5 do
+        local segment = widget.harmonyBar:getChildByIndex(i)
+        if segment then
+            segment:setOn(i <= harmony)
+        end
+    end
+end
+
+local function updateSereneWidget(creature, serene)
+    local widget = creature:getWidgetInformation()
+    if widget and widget.sereneBar then
+        widget.sereneBar:setOn(serene == true)
+    end
+end
+
+local function isHarmonyHudEnabled()
+    return isMapHarmonyBarEnabled()
+end
+
+local function shouldShowMonkBars(creature)
+    return creature:isLocalPlayer() and isMonkPlayer(creature) and isHarmonyHudEnabled()
+end
+
+local function refreshMonkBars(creature)
+    local widget = creature:getWidgetInformation()
+    if not widget then
+        return
+    end
+
+    local visible = shouldShowMonkBars(creature)
+    if widget.harmonyBar then
+        widget.harmonyBar:setVisible(visible)
+    end
+    if widget.sereneBar then
+        widget.sereneBar:setVisible(visible)
+    end
+
+    if visible then
+        updateHarmonyWidget(creature, creature:getHarmony())
+        updateSereneWidget(creature, creature:isSerene())
+    end
+end
+
+local function onHarmonyChange(creature, harmony)
+    if not creature:isLocalPlayer() then
+        return
+    end
+    refreshMonkBars(creature)
+    updateHarmonyWidget(creature, harmony)
+end
+
+local function onSereneChange(creature, serene)
+    if not creature:isLocalPlayer() then
+        return
+    end
+    refreshMonkBars(creature)
+    updateSereneWidget(creature, serene)
+end
+
+local function onVocationChange(creature)
+    if not creature:isLocalPlayer() then
+        return
+    end
+    refreshMonkBars(creature)
+end
+
 local function onCreate(creature)
     local widget = g_ui.loadUI('creatureinformation')
 
@@ -50,6 +123,7 @@ local function onCreate(creature)
     widget.manaBar:setVisible(creature:isLocalPlayer())
 
     creature:setWidgetInformation(widget)
+    refreshMonkBars(creature)
 end
 
 local function onHealthPercentChange(creature, healthPercent, oldHealthPercent)
@@ -203,6 +277,7 @@ function toggleInformation()
     local gameMapPanel = modules.game_interface.getMapPanel()
 
     localPlayer:getWidgetInformation().manaBar:setVisible(gameMapPanel:isDrawingManaBar())
+    refreshMonkBars(localPlayer)
 
     local drawPlayerNames = gameMapPanel.isDrawingPlayerNames and gameMapPanel:isDrawingPlayerNames() or gameMapPanel:isDrawingNames()
     local drawPlayerBars = gameMapPanel.isDrawingPlayerBars and gameMapPanel:isDrawingPlayerBars() or gameMapPanel:isDrawingHealthBars()
@@ -213,6 +288,7 @@ function toggleInformation()
         if creature:isLocalPlayer() then
             info.name:setVisible(drawPlayerNames)
             info.lifeBar:setVisible(drawPlayerBars)
+            refreshMonkBars(creature)
         else
             info.name:setVisible(gameMapPanel:isDrawingNames())
             info.lifeBar:setVisible(gameMapPanel:isDrawingHealthBars())
@@ -222,7 +298,12 @@ end
 
 function controller:onInit()
     controller:registerEvents(Creature, creatureEvents)
-    controller:registerEvents(LocalPlayer, { onManaChange = onManaChange })
+    controller:registerEvents(LocalPlayer, {
+        onManaChange = onManaChange,
+        onHarmonyChange = onHarmonyChange,
+        onSereneChange = onSereneChange,
+        onVocationChange = onVocationChange
+    })
 end
 
 if devMode then

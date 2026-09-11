@@ -223,6 +223,8 @@ local function parseCatalog(msg)
   pendingStoreRequest = nil
   if pending then
     showOffers(pending[1], pending[2], pending[3])
+  elseif Categories and Categories.pendingCategory and Categories.pendingCategory.category then
+    showOffers(OPEN_CATEGORY, Categories.pendingCategory.category, 0)
   else
     showOffers(OPEN_HOME, "", 0)
   end
@@ -304,7 +306,11 @@ function StoreProtocol.openStore(forceRefresh)
       showStoreWindow()
     else
       signalcall(g_game.onStoreCategories, categories)
-      showOffers(OPEN_HOME, "", 0)
+      if Categories and Categories.pendingCategory and Categories.pendingCategory.category then
+        showOffers(OPEN_CATEGORY, Categories.pendingCategory.category, 0)
+      else
+        showOffers(OPEN_HOME, "", 0)
+      end
     end
     return
   elseif catalogRequestPending then

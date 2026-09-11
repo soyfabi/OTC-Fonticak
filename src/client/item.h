@@ -87,8 +87,11 @@ public:
     void setPosition(const Position& position, uint8_t stackPos = 0) override;
     void setTooltip(const std::string& str) { m_tooltip = str; }
     void setDurationTime(uint32_t duration);
+    void setDurationPaused(const bool paused) { m_durationPaused = paused; }
     void setDecaying(bool decaying);
-    void setCharges(const uint32_t charges) { m_charges = charges; }
+    void setCharges(const uint32_t charges) { m_charges = charges; m_hasDisplayCharges = false; }
+    void setDisplayCharges(uint32_t charges, uint32_t maxChargesHint = 0);
+    static void clearRememberedDisplayCharges();
     void setTier(const uint8_t tier) { m_tier = tier; }
 
     int getCountOrSubType() { return m_countOrSubType; }
@@ -97,8 +100,14 @@ public:
     int getClothSlot();
     std::string getTooltip() { return m_tooltip; }
     uint32_t getDurationTime() const;
+    uint32_t getDurationMax() const { return m_durationMax; }
+    uint8_t getDurationPercent() const;
+    bool isDurationPaused() const { return m_durationPaused; }
     bool isDecaying() const { return m_decaying; }
     uint32_t getCharges() { return m_charges; }
+    uint32_t getChargesMax() const { return m_chargesMax; }
+    uint8_t getChargesPercent() const;
+    bool hasDisplayCharges() const { return m_hasDisplayCharges; }
     uint8_t getTier() { return m_tier; }
 
     bool isValid() { return getThingType() != nullptr; }
@@ -172,9 +181,13 @@ private:
 
     uint16_t m_countOrSubType{ 0 };
     uint32_t m_duration{ 0 };
+    uint32_t m_durationMax{ 0 };
     int64_t m_durationEnd{ 0 };
     bool m_decaying{ false };
+    bool m_durationPaused{ false };
     uint32_t m_charges{ 0 };
+    uint32_t m_chargesMax{ 0 };
+    bool m_hasDisplayCharges{ false };
     uint8_t m_tier{ 0 };
     uint8_t m_phase{ 0 };
 

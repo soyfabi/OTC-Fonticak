@@ -453,8 +453,14 @@ void LocalPlayer::setInventoryItem(const Otc::InventorySlot inventory, const Ite
     if (item)
         invalidateInventoryCountCache(item->getId(), item->getTier());
 
-    if (item && g_game.getFeature(Otc::GameThingClock) && item->getDurationTime() > 0
-            && item->getClothSlot() == static_cast<int>(inventory)){
+    if (oldItem && g_game.getFeature(Otc::GameDisplayItemDuration)) {
+        oldItem->setDecaying(false);
+    }
+
+    if (item && g_game.getFeature(Otc::GameDisplayItemDuration) && item->getDurationTime() > 0) {
+        item->setDecaying(!item->isDurationPaused());
+    } else if (item && g_game.getFeature(Otc::GameThingClock) && item->getDurationTime() > 0
+            && item->getClothSlot() == static_cast<int>(inventory)) {
         // expirestop-only items (e.g. toggled-off magic light wand) are paused
         // server-side, so their countdown must not tick client-side either
         item->setDecaying(item->hasExpire() || item->hasClockExpire());

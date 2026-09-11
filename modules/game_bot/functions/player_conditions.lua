@@ -36,4 +36,9 @@ context.isInProtectionZone = function() return context.hasCondition(PlayerStates
 context.hasPz = function() return context.hasCondition(PlayerStates.Pz) end
 context.isInPz = function() return context.hasCondition(PlayerStates.Pz) end
 context.isBleeding = function() return context.hasCondition(PlayerStates.Bleeding) end
-context.isHungry = function() return context.hasCondition(PlayerStates.Hungry) end
+context.isHungry = function()
+    if context.player and context.player.isHungry then
+        return context.player:isHungry()
+    end
+    return context.hasCondition(PlayerStates.Hungry)
+end

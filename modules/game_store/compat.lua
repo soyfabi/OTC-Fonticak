@@ -1,7 +1,6 @@
 -- Fonticak compatibility shims for the Astra store UI.
 
-local storeOtuiVars = {
-  ['$var-cip-font'] = 'verdana-11px-antialised',
+local storeOtuiVars = {  ['$var-cip-font'] = 'verdana-11px-antialised',
   ['$var-cip-font-off'] = 'verdana-11px-antialised',
   ['$var-cip-main-font'] = 'Verdana Bold-11px',
   ['$var-text-color'] = '#dfdfdf',
@@ -53,6 +52,10 @@ if UIWidget then
   UIWidget.setClickSound = UIWidget.setClickSound or function(self) return self end
   UIWidget.addSound = UIWidget.addSound or function(self) return self end
   UIWidget.setHTML = UIWidget.setHTML or function(self, html)
+    if StoreDescription and StoreDescription.render and StoreDescription.render(self, tostring(html or '')) then
+      return self
+    end
+
     if self.setText then
       local text = tostring(html or '')
       text = text:gsub('<br%s*/?>', '\n')
@@ -89,13 +92,10 @@ if UIWidget then
   end
 end
 
--- Astra UIItem:hook() applies rarity/tier borders; Fonticak can no-op safely.
 if UIItem then
   UIItem.hook = UIItem.hook or function(self) return self end
 end
 
--- Store OTUI uses animate/idle-animate. Provide Lua helpers that drive
--- Creature:setStaticWalking so previews animate even before a C++ rebuild.
 if UICreature and not UICreature._storeAnimateCompat then
   local rawSetOutfit = UICreature.setOutfit
 
