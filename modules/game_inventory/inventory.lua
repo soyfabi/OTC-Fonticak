@@ -323,7 +323,8 @@ end
 
 function inventoryController:onGameStart()
     connect(g_game, {
-        onItemStateFeatures = onItemStateFeatures
+        onItemStateFeatures = onItemStateFeatures,
+        onBlessingsChange = onBlessingsChange
     })
 
     local player = g_game.getLocalPlayer()
@@ -369,7 +370,7 @@ function inventoryController:onGameStart()
         {inventoryController.ui.onPanel.redFistBox}
     }
     
-    local showBlessings = g_game.getClientVersion() >= 1000
+    local showBlessings = g_game.getClientVersion() >= 860
     local showPVPMode = g_game.getFeature(GamePVPMode)
     
     for i, elementGroup in ipairs(elements) do
@@ -394,7 +395,8 @@ end
 
 function inventoryController:onGameEnd()
     disconnect(g_game, {
-        onItemStateFeatures = onItemStateFeatures
+        onItemStateFeatures = onItemStateFeatures,
+        onBlessingsChange = onBlessingsChange
     })
 
     monkMirrorItem = nil
@@ -598,24 +600,38 @@ function toggleAdventurerStyle(hasBlessing)
     end
 end
 
-function onBlessingsChange(blessings, blessVisualState)
-    toggleAdventurerStyle(blessings == 1)
-    local blessedButton = getInventoryUi().blessings
---[[     local tooltip = 'You are protected by the following blessings:'
-        tooltip = tooltip .. '\nTwist of Fate'
-        tooltip = tooltip .. '\nWisdom of Solitude'
-        tooltip = tooltip .. '\nSpark of the Phoenix'
-        tooltip = tooltip .. '\nFire of the Suns'
-        tooltip = tooltip .. '\nSpiritual Shielding'
-        tooltip = tooltip .. '\nEmbrace of Tibia'
-        tooltip = tooltip .. '\nHeart of the Mountain'
-        tooltip = tooltip .. '\nBlood of the Mountain'
-        blessedButton:setTooltip(tooltip) ]]
-    if blessVisualState == 1 then
-        blessedButton:setImageSource('/images/inventory/button_blessings_grey')
-    elseif blessVisualState == 2 then
-        blessedButton:setImageSource('/images/inventory/button_blessings_gold')
-    elseif blessVisualState == 3 then
-        blessedButton:setImageSource('/images/inventory/button_blessings_green')
+local BLESSING_BUTTON_IMAGES = {
+    [1] = '/images/game/blessings/button-blessings-grey-idle',
+    [2] = '/images/game/blessings/button-blessings-gold-idle',
+    [3] = '/images/game/blessings/button-blessings-green-idle'
+}
+
+local lastBlessVisualState = 1
+
+local function applyBlessingsIcon(blessVisualState)
+    local image = BLESSING_BUTTON_IMAGES[blessVisualState] or BLESSING_BUTTON_IMAGES[1]
+    local buttons = {
+        inventoryController.ui.onPanel.blessings,
+        inventoryController.ui.offPanel.blessings
+    }
+
+    for _, button in ipairs(buttons) do
+        if button then
+            button:setImageSource(image)
+            button:setImageClip('0 0 12 12')
+        end
     end
+end
+
+function onBlessingsChange(blessings, blessVisualState)
+    if blessVisualState and blessVisualState > 0 then
+        lastBlessVisualState = blessVisualState
+    end
+
+    toggleAdventurerStyle(blessings == 1)
+    applyBlessingsIcon(lastBlessVisualState)
+end
+
+function refreshBlessingsIcon()
+    applyBlessingsIcon(lastBlessVisualState)
 end

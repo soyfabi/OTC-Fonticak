@@ -1,0 +1,226 @@
+&var-text-cip-color: #c0c0c0
+&var-cip-font: verdana-11px-antialised
+&var-cip-font-new: Verdana Bold-11px-new
+
+BlessingWidget < UIWidget
+  size: 66 88
+  margin-top: 10
+  UIWidget
+    id: containerImage
+    size: 66 66
+    anchors.top: parent.top
+    anchors.left: parent.left
+    image-source: /images/ui/item66
+    UIWidget
+      id: image
+      size: 64 64
+      margin-left: 1
+      margin-top: 1
+      anchors.top: parent.top
+      anchors.left: parent.left
+      //image-source: /images/game/blessings/blessings-icons_4
+  UIWidget
+    id: containerCount
+    size: 66 20
+    anchors.top: containerImage.bottom
+    anchors.left: parent.left
+    margin-top: 3
+    color: $var-text-cip-color
+    font: $var-cip-font
+    image-source: /images/game/blessings/panel-20
+    background-color: #404040
+    text-offset: 0 1
+    text: 1 (0)
+    visible: true
+    text-align: center
+  UIButton
+    id: storeButton
+    size: 66 20
+    anchors.top: containerImage.bottom
+    anchors.left: parent.left
+    margin-top: 3
+    image-source: /images/game/blessings/button-store
+    image-clip: 0 0 66 20
+    visible: false
+    $hover !pressed:
+      image-clip: 0 0 66 20
+    $pressed:
+      image-clip: 0 20 66 20
+    @onClick: modules.game_blessing.openStoreFromBlessings()
+
+BlessingPanel < UIWidget
+  size: 66 66
+  image-source: /images/ui/item66
+
+MiniWindowBlessing < Panel
+  font: verdana-11px-antialised
+  icon-rect: 4 4 16 16
+  width: 192
+  height: 200
+  text-offset: 24 5
+  text-align: topLeft
+  image-source: /images/ui/miniwindow
+  image-border: 4
+  image-border-top: 23
+  image-border-bottom: 4
+  focusable: false
+  &minimizedHeight: 24
+  $on:
+    image-border-bottom: 2
+
+  UIWidget
+    id: miniwindowTopBar
+    anchors.top: parent.top
+    anchors.right: parent.right
+    anchors.left: parent.left
+    margin-right: 3
+    margin-left: 3
+    margin-top: 3
+    size: 258 18
+    phantom: true
+
+MainWindowHigh
+  id: blessingWindow
+  !text: tr('Blessings')
+  font: $var-cip-font-new
+  color: #909090
+  text-offset: 0 2
+  size: 615 427
+  @onEscape: modules.game_blessing.closeBlessing()
+
+  MiniWindowBlessing
+    id: miniWindowBlessing
+    anchors.top: parent.top
+    anchors.right: parent.right
+    size: 583 125
+    margin-top: -7
+    !text: tr('Record of Blessings')
+    font: $var-cip-font-new
+    color: #909090
+    text-align: center
+    text-offset: 0 -54
+    image-source: /images/ui/t2pixel-up-frame-borderimage
+    image-border: 3
+
+    Panel
+      id: blessings
+      height: 88
+      anchors.top: parent.top
+      anchors.horizontalCenter: parent.horizontalCenter
+      margin-top: 17
+      layout:
+        type: grid
+        cell-size: 66 88
+        cell-spacing: 5
+        num-columns: 8
+
+  MiniWindowBlessing
+    id: miniWindowPromotion
+    !text: tr('Promotion and Premium Status')
+    font: $var-cip-font-new
+    color: #909090
+    anchors.top: miniWindowBlessing.bottom
+    anchors.right: parent.right
+    text-align: center
+    text-offset: 0 -28
+    size: 583 74
+    image-source: /images/ui/t2pixel-up-frame-borderimage
+    image-border: 3
+    margin-top: 11
+
+    Label
+      id: label
+      height: 60
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      text-auto-resize: true
+      text-wrap: true
+      font: $var-cip-font-new
+      color: #c0c0c0
+      margin-top: 20
+      margin-left: 9
+
+    FlatPanel
+      id: premium
+      image-source: /images/game/blessings/premium-only
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.right: parent.right
+      margin-right: 10
+      margin-top: 9
+
+  MiniWindowBlessing
+    id: miniWindowInfo
+    !text: tr('Effect on Death Penalty')
+    font: $var-cip-font-new
+    text-align: center
+    text-offset: 0 -52
+    color: #909090
+    anchors.top: miniWindowPromotion.bottom
+    anchors.right: parent.right
+    size: 583 121
+    image-source: /images/ui/t2pixel-up-frame-borderimage
+    image-border: 3
+    margin-top: 11
+
+    Label
+      id: pvpDeath
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 27
+      margin-left: 9
+      font: $var-cip-font-new
+      color: #c0c0c0
+      text-wrap: true
+      height: 29
+
+    Label
+      id: pveDeath
+      anchors.top: pvpDeath.bottom
+      anchors.left: pvpDeath.left
+      font: $var-cip-font-new
+      color: #c0c0c0
+      text-wrap: true
+      height: 16
+
+    Label
+      id: pvpDrop
+      anchors.top: pveDeath.bottom
+      anchors.left: pvpDeath.left
+      font: $var-cip-font-new
+      color: #c0c0c0
+      text-wrap: true
+      height: 29
+
+    Label
+      id: pveDrop
+      anchors.top: pvpDrop.bottom
+      anchors.left: pvpDeath.left
+      font: $var-cip-font-new
+      color: #c0c0c0
+      text-wrap: true
+      height: 18
+
+  HorizontalSeparator
+    id: separator
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 11
+  Button
+    size: 43 20
+    !text: tr('Close')
+    anchors.right: parent.right
+    anchors.top: separator.bottom
+    margin-top: 11
+    text-offset: 0 0
+    @onClick: closeBlessing()
+  Button
+    size: 43 20
+    !text: tr('History')
+    anchors.right: prev.left
+    anchors.top: separator.bottom
+    margin-top: 11
+    margin-right: 6
+    text-offset: 0 0
+    @onClick: history()

@@ -1,3 +1,7 @@
+&var-text-cip-color: #c0c0c0
+&var-cip-font: verdana-11px-antialised
+&var-cip-font-new: Verdana Bold-11px-new
+
 historyData < UIWidget
   height: 16
   Label
@@ -32,26 +36,3 @@ historyData < UIWidget
     color: #ff0000cf
     phantom: true
     margin-left: 5
-
-blessingTEST < UIWidget
-  background-color: alpha
-  height: 62
-  width: 70
-  focusable: true
-  text-align: left
-  UIWidget
-    id: enabled
-    anchors.left: parent.left
-    anchors.verticalCenter: parent.verticalCenter
-    margin-top: -10
-    margin-left: 3
-  Label
-    id: text
-    text-align: center
-    margin-top: 5
-    width: 65
-    anchors.left: prev.left
-    anchors.top: prev.bottom
-
-    image-source: /game_blessing/images/blessingContainer
-    focusable: false

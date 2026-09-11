@@ -929,7 +929,7 @@ void ProtocolGame::parseBlessings(const InputMessagePtr& msg) const
 {
     const uint16_t blessings = msg->getU16(); // glowing effect indicator
     uint8_t blessVisualState = 0;
-    if (g_game.getClientVersion() >= 1200) {
+    if (g_game.getClientVersion() >= 860) {
         blessVisualState = msg->getU8(); // 1 = Disabled | 2 = normal | 3 = green
     }
     m_localPlayer->setBlessings(blessings);
