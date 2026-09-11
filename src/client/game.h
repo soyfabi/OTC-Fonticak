@@ -453,6 +453,7 @@ public:
     void inspectionNormalObject(const Position& position);
     void inspectionObject(Otc::InspectObjectTypes inspectionType, uint16_t itemId, uint8_t itemCount);
     void inspectCharacter(const uint32_t creatureId, const uint8_t tab);
+    void inspectPlayer(uint8_t action, uint32_t creatureId = 0);
     void requestBestiary();
     void requestBestiaryOverview(std::string_view catName, bool search = false, std::vector<uint16_t> raceIds = {});
     void requestBestiarySearch(uint16_t raceId);

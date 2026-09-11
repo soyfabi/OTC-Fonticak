@@ -274,6 +274,37 @@ function UIMiniWindow:close(dontSave)
     signalcall(self.onClose, self)
 end
 
+function UIMiniWindow:closeAndForgetLayout()
+    local parent = self:getParent()
+    local containerParent = parent and parent:getClassName() == 'UIMiniWindowContainer' and parent
+
+    if self:isExplicitlyVisible() then
+        self:close()
+    else
+        self:setSettings({
+            closed = true
+        })
+    end
+
+    self:eraseSettings({
+        parentId = true,
+        index = true,
+        position = true
+    })
+
+    if parent and not parent:isDestroyed() then
+        self:setParent(nil, true)
+    end
+
+    if containerParent and not containerParent:isDestroyed() then
+        containerParent:fitAll()
+        containerParent:saveChildren()
+        if type(containerParent.scheduleSidebarFreeSpaceRefresh) == 'function' then
+            containerParent:scheduleSidebarFreeSpaceRefresh()
+        end
+    end
+end
+
 function UIMiniWindow:setFloating()
     local root = floatingGameRoot()
 

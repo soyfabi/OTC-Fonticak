@@ -406,6 +406,7 @@ void Client::registerLuaFunctions()
     g_lua.bindSingletonFunction("g_game", "inspectionNormalObject", &Game::inspectionNormalObject, &g_game);
     g_lua.bindSingletonFunction("g_game", "inspectionObject", &Game::inspectionObject, &g_game);
     g_lua.bindSingletonFunction("g_game", "inspectCharacter", &Game::inspectCharacter, &g_game);
+    g_lua.bindSingletonFunction("g_game", "inspectPlayer", &Game::inspectPlayer, &g_game);
     g_lua.bindSingletonFunction("g_game", "requestBestiary", &Game::requestBestiary, &g_game);
     g_lua.bindSingletonFunction("g_game", "requestBestiaryOverview", &Game::requestBestiaryOverview, &g_game);
     g_lua.bindSingletonFunction("g_game", "requestBestiarySearch", &Game::requestBestiarySearch, &g_game);

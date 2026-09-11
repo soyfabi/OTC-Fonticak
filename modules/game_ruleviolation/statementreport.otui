@@ -1,0 +1,604 @@
+&var-cip-font-new: Verdana Bold-11px-new
+
+ReportReasonListLabel < Label
+  height: 16
+  font: $var-cip-font-new
+  color: #c0c0c0
+  background-color: alpha
+  text-offset: 1 0
+  focusable: true
+
+  $focus:
+    background-color: #585858
+    color: #f4f4f4
+
+ReportStep2TextEdit < MultilineTextEdit
+  image-source: /images/ui/1pixel-down-frame
+  image-border: 3
+  border-width: 0
+  background-color: #363636
+  padding: 5
+  padding-right: 19
+  text-offset: -1 -1
+  padding-bottom: 0
+
+ReportStep2EditableTextEdit < ReportStep2TextEdit
+  text-wrap: true
+  cursor-visible: false
+
+ReportStep3LineTextEdit < TextEdit
+  image-source: /images/ui/1pixel-down-frame
+  image-border: 3
+  border-width: 0
+  background-color: #363636
+  padding: 0
+  padding-top: 1
+  padding-left: 3
+  padding-right: 3
+
+ReportReasonDescriptionEdit < MultilineTextEdit
+  image-source: /images/ui/1pixel-down-frame
+  image-border: 3
+  border-width: 0
+  background-color: #363636
+  padding: 5
+  padding-right: 19
+  text-offset: 0 0
+  padding-bottom: 0
+
+MainWindowHigh
+  id: playerReportWindow
+  !text: tr('Report Rule Violation')
+  size: 545 455
+  font: Verdana-11px-lowspace
+  color: #909090
+  text-offset: 0 2
+  @onEscape: modules.game_ruleviolation.hidePlayerReportWindow()
+
+  Panel
+    id: step1Panel
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: footerSeparator.top
+    margin-bottom: 6
+
+    Label
+      id: step1Label
+      font: $var-cip-font-new
+      color: #c0c0c0
+      text-wrap: true
+      text-auto-resize: true
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: -7
+      margin-left: -1
+      !text: tr('Step 1 of 3:\nPlease select the CrystalOTC Rule which is violated.')
+
+    HorizontalSeparator
+      id: step1Separator
+      anchors.top: step1Label.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 6
+
+    Panel
+      id: reasonListFrame
+      anchors.top: step1Separator.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      height: 149
+      margin-top: 6
+      image-source: /images/ui/1pixel-down-frame
+      image-border: 3
+      border-width: 0
+
+      TextList
+        id: reasonList
+        vertical-scrollbar: reasonListScrollBar
+        anchors.fill: parent
+        margin: 1
+        padding: 0 
+        focusable: false
+        border-width: 0
+        background-color: #404040
+
+      VerticalQtScrollBar
+        id: reasonListScrollBar
+        anchors.top: reasonList.top
+        anchors.bottom: reasonList.bottom
+        anchors.right: reasonList.right
+        step: 16
+        pixels-scroll: true
+
+    ReportReasonDescriptionEdit
+      id: reasonDescriptionLabel
+      anchors.top: reasonListFrame.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      height: 148
+      margin-top: 6
+      font: $var-cip-font-new
+      color: #c0c0c0
+      editable: false
+      focusable: false
+      vertical-scrollbar: reasonDescriptionScrollBar
+
+    VerticalQtScrollBar
+      id: reasonDescriptionScrollBar
+      anchors.top: reasonDescriptionLabel.top
+      anchors.bottom: reasonDescriptionLabel.bottom
+      anchors.right: reasonDescriptionLabel.right
+      margin-right: 1
+      margin-top: 1
+      margin-bottom: 1
+      step: 16
+      pixels-scroll: true
+
+    Label
+      id: reasonSelectHint
+      !text: tr('Please select a reason.')
+      font: $var-cip-font-new
+      color: #c04040
+      text-auto-resize: true
+      anchors.top: reasonDescriptionLabel.bottom
+      anchors.right: parent.right
+      margin-top: 6
+      margin-right: 1
+
+  Panel
+    id: step2Panel
+    anchors.fill: step1Panel
+    visible: false
+
+    Label
+      id: step2Label
+      font: $var-cip-font-new
+      color: #c0c0c0
+      text-wrap: true
+      text-auto-resize: true
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: -7
+      margin-left: -1
+      !text: tr('Step 2 of 3:\nAdd details on the statement report.')
+
+    HorizontalSeparator
+      id: step2Separator
+      anchors.top: step2Label.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 6
+
+    Panel
+      id: statementBlock
+      anchors.top: step2Separator.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 6
+      height: 91
+
+      Label
+        id: statementCaption
+        !text: tr('Statement:')
+        font: $var-cip-font-new
+        color: #c0c0c0
+        text-offset: -1 0
+        text-wrap: true
+        text-auto-resize: true
+        anchors.top: parent.top
+        anchors.left: parent.left
+
+      ReportStep2TextEdit
+        id: statementText
+        anchors.top: statementCaption.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        margin-top: 6
+        height: 73
+        font: $var-cip-font-new
+        color: #c0c0c0
+        editable: false
+        focusable: false
+        vertical-scrollbar: statementScrollBar
+
+      VerticalQtScrollBar
+        id: statementScrollBar
+        anchors.top: statementText.top
+        anchors.bottom: statementText.bottom
+        anchors.right: statementText.right
+        margin-right: 1
+        margin-top: 1
+        margin-bottom: 1
+        step: 16
+        pixels-scroll: true
+
+    Panel
+      id: translationBlock
+      anchors.top: statementBlock.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 6
+      height: 110
+
+      Label
+        id: translationCaption
+        !text: tr('Please give a translation if you report something that is not in English:')
+        font: $var-cip-font-new
+        color: #c0c0c0
+        text-offset: -1 0
+        text-wrap: true
+        text-auto-resize: true
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+
+      ReportStep2EditableTextEdit
+        id: translationText
+        anchors.top: translationCaption.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        margin-top: 6
+        height: 74
+        font: $var-cip-font-new
+        color: #c0c0c0
+        max-length: 300
+        vertical-scrollbar: translationScrollBar
+
+      VerticalQtScrollBar
+        id: translationScrollBar
+        anchors.top: translationText.top
+        anchors.bottom: translationText.bottom
+        anchors.right: translationText.right
+        margin-right: 1
+        margin-top: 1
+        margin-bottom: 1
+        step: 16
+        pixels-scroll: true
+
+      Label
+        id: translationCounter
+        !text: tr('300 characters left')
+        font: $var-cip-font-new
+        color: #c0c0c0
+        text-auto-resize: true
+        anchors.top: translationText.bottom
+        anchors.right: parent.right
+        margin-top: 6
+
+    Panel
+      id: commentBlock
+      anchors.top: translationBlock.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 6
+      height: 106
+
+      Label
+        id: commentCaption
+        !text: tr('Please give us more details about your report:')
+        font: $var-cip-font-new
+        color: #c0c0c0
+        text-offset: -1 0
+        text-wrap: true
+        text-auto-resize: true
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+
+      ReportStep2EditableTextEdit
+        id: commentText
+        anchors.top: commentCaption.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        margin-top: 6
+        height: 73
+        font: $var-cip-font-new
+        color: #c0c0c0
+        max-length: 300
+        vertical-scrollbar: commentScrollBar
+
+      VerticalQtScrollBar
+        id: commentScrollBar
+        anchors.top: commentText.top
+        anchors.bottom: commentText.bottom
+        anchors.right: commentText.right
+        margin-right: 1
+        margin-top: 1
+        margin-bottom: 1
+        step: 16
+        pixels-scroll: true
+
+      Label
+        id: commentHint
+        !text: tr('Please enter a comment.')
+        font: $var-cip-font-new
+        color: #c04040
+        text-auto-resize: true
+        anchors.top: commentText.bottom
+        anchors.right: parent.right
+        margin-top: 6
+        margin-right: 1
+
+      Label
+        id: commentCounter
+        font: $var-cip-font-new
+        color: #c0c0c0
+        text-auto-resize: true
+        anchors.top: commentText.bottom
+        anchors.right: parent.right
+        margin-top: 6
+        margin-right: 1
+        visible: false
+
+  Panel
+    id: step3Panel
+    anchors.fill: step1Panel
+    visible: false
+
+    Label
+      id: step3Label
+      font: $var-cip-font-new
+      color: #c0c0c0
+      text-wrap: true
+      text-auto-resize: true
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: -7
+      margin-left: -1
+      !text: tr('Step 3 of 3:\nPlease verify your Statement report. If everything is correct, click on \'Send\' to forward the report to customer support.')
+
+    HorizontalSeparator
+      id: step3Separator
+      anchors.top: step3Label.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 6
+
+    Panel
+      id: summaryNameRow
+      anchors.top: step3Separator.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 6
+      height: 16
+
+      Label
+        id: summaryNameCaption
+        !text: tr('Name') .. ':'
+        font: $var-cip-font-new
+        color: #c0c0c0
+        text-offset: -1 0
+        text-wrap: true
+        text-auto-resize: true
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: summaryNameText.left
+        margin-right: 6
+
+      ReportStep3LineTextEdit
+        id: summaryNameText
+        width: 425
+        anchors.top: parent.top
+        anchors.right: parent.right
+        height: 16
+        font: $var-cip-font-new
+        color: #c0c0c0
+        editable: false
+        focusable: false
+
+    Panel
+      id: summaryReasonRow
+      anchors.top: summaryNameRow.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 3
+      height: 16
+
+      Label
+        id: summaryReasonCaption
+        !text: tr('Reason') .. ':'
+        font: $var-cip-font-new
+        color: #c0c0c0
+        text-offset: -1 0
+        text-wrap: true
+        text-auto-resize: true
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: summaryReasonText.left
+        margin-right: 6
+
+      ReportStep3LineTextEdit
+        id: summaryReasonText
+        width: 425
+        anchors.top: parent.top
+        anchors.right: parent.right
+        height: 16
+        font: $var-cip-font-new
+        color: #c0c0c0
+        editable: false
+        focusable: false
+
+    Panel
+      id: summaryStatementBlock
+      anchors.top: summaryReasonRow.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      height: 92
+
+      Label
+        id: summaryStatementCaption
+        !text: tr('Statement') .. ':'
+        font: $var-cip-font-new
+        color: #c0c0c0
+        text-offset: -1 0
+        text-wrap: true
+        text-auto-resize: true
+        anchors.top: summaryStatementText.top
+        anchors.left: parent.left
+        anchors.right: summaryStatementText.left
+        margin-right: 6
+
+      ReportStep2TextEdit
+        id: summaryStatementText
+        width: 425
+        anchors.top: parent.top
+        anchors.right: parent.right
+        margin-top: 3
+        height: 89
+        font: $var-cip-font-new
+        color: #c0c0c0
+        editable: false
+        focusable: false
+        vertical-scrollbar: summaryStatementScrollBar
+
+      VerticalQtScrollBar
+        id: summaryStatementScrollBar
+        anchors.top: summaryStatementText.top
+        anchors.bottom: summaryStatementText.bottom
+        anchors.right: summaryStatementText.right
+        margin-right: 1
+        margin-top: 1
+        margin-bottom: 1
+        step: 16
+        pixels-scroll: true
+
+    Panel
+      id: summaryTranslationBlock
+      anchors.top: summaryStatementBlock.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      height: 92
+
+      Label
+        id: summaryTranslationCaption
+        !text: tr('Translation') .. ':'
+        font: $var-cip-font-new
+        color: #c0c0c0
+        text-offset: -1 0
+        text-wrap: true
+        text-auto-resize: true
+        anchors.top: summaryTranslationText.top
+        anchors.left: parent.left
+        anchors.right: summaryTranslationText.left
+        margin-right: 6
+
+      ReportStep2TextEdit
+        id: summaryTranslationText
+        width: 425
+        anchors.top: parent.top
+        anchors.right: parent.right
+        margin-top: 3
+        height: 89
+        font: $var-cip-font-new
+        color: #c0c0c0
+        editable: false
+        focusable: false
+        vertical-scrollbar: summaryTranslationScrollBar
+
+      VerticalQtScrollBar
+        id: summaryTranslationScrollBar
+        anchors.top: summaryTranslationText.top
+        anchors.bottom: summaryTranslationText.bottom
+        anchors.right: summaryTranslationText.right
+        margin-right: 1
+        margin-top: 1
+        margin-bottom: 1
+        step: 16
+        pixels-scroll: true
+
+    Panel
+      id: summaryCommentBlock
+      anchors.top: summaryTranslationBlock.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      height: 92
+
+      Label
+        id: summaryCommentCaption
+        !text: tr('Comment') .. ':'
+        font: $var-cip-font-new
+        color: #c0c0c0
+        text-offset: -1 0
+        text-wrap: true
+        text-auto-resize: true
+        anchors.top: summaryCommentText.top
+        anchors.left: parent.left
+        anchors.right: summaryCommentText.left
+        margin-right: 6
+
+      ReportStep2TextEdit
+        id: summaryCommentText
+        width: 425
+        anchors.top: parent.top
+        anchors.right: parent.right
+        margin-top: 3
+        height: 89
+        font: $var-cip-font-new
+        color: #c0c0c0
+        editable: false
+        focusable: false
+        vertical-scrollbar: summaryCommentScrollBar
+
+      VerticalQtScrollBar
+        id: summaryCommentScrollBar
+        anchors.top: summaryCommentText.top
+        anchors.bottom: summaryCommentText.bottom
+        anchors.right: summaryCommentText.right
+        margin-right: 1
+        margin-top: 1
+        margin-bottom: 1
+        step: 16
+        pixels-scroll: true
+
+  HorizontalSeparator
+    id: footerSeparator
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: cancelButton.top
+    margin-bottom: 11
+
+  Button
+    id: backButton
+    !text: tr('Previous')
+    size: 64 20
+    text-offset: 0 0
+    anchors.right: nextButton.left
+    anchors.bottom: parent.bottom
+    margin-right: 6
+    visible: false
+    @onClick: modules.game_ruleviolation.backPlayerReportStep()
+
+  Button
+    id: nextButton
+    !text: tr('Next')
+    size: 64 20
+    text-offset: 0 0
+    anchors.right: cancelButton.left
+    anchors.bottom: parent.bottom
+    margin-right: 6
+    enabled: false
+    @onClick: modules.game_ruleviolation.nextPlayerReportStep()
+
+  Button
+    id: sendButton
+    !text: tr('Send')
+    size: 43 20
+    text-offset: 0 0
+    anchors.right: cancelButton.left
+    anchors.bottom: parent.bottom
+    margin-right: 6
+    visible: false
+    @onClick: modules.game_ruleviolation.submitPlayerReport()
+
+  Button
+    id: cancelButton
+    !text: tr('Cancel')
+    size: 43 20
+    text-offset: 0 0
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    @onClick: modules.game_ruleviolation.hidePlayerReportWindow()

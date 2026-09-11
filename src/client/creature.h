@@ -211,7 +211,7 @@ minHeight,
         m_cameraFollowing = v;
     }
 
-    void setVocation(uint8_t vocation) { m_vocation = vocation; }
+    void setVocation(uint8_t vocation);
     uint8_t getVocation() { return m_vocation; }
 
     void attachPaperdoll(const PaperdollPtr& obj);

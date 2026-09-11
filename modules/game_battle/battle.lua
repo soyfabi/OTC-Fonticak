@@ -8,9 +8,80 @@ local eventOnCheckCreature = nil
 local eventsConnected = false
 
 -- Forward declarations
-local onBattleButtonHoverChange, onBattleButtonMouseRelease
+local onBattleButtonHoverChange, onBattleButtonMousePress, onBattleButtonMouseRelease
 BattleListInstance = nil
 BattleButtonPool = nil
+
+local function findBattleListCreatureButton(mousePos)
+    local clicked = g_ui.getRootWidget():recursiveGetChildByPos(mousePos, false)
+
+    while clicked do
+        if clicked.isBattleButton and clicked.creature then
+            return clicked
+        end
+
+        clicked = clicked:getParent()
+    end
+
+    return nil
+end
+
+local function isBattleListCreatureClick(mousePos)
+    return findBattleListCreatureButton(mousePos) ~= nil
+end
+
+local function bindBattleButtonHandlers(widget)
+    local label = widget:getChildById('label')
+
+    if label then
+        label:breakAnchors()
+        label:addAnchor(AnchorLeft, 'spacer', AnchorRight)
+        label:addAnchor(AnchorRight, 'iconsMonsterSlot3', AnchorLeft)
+        label:addAnchor(AnchorTop, 'creature', AnchorTop)
+    end
+
+    widget.onHoverChange = onBattleButtonHoverChange
+    widget.onMousePress = onBattleButtonMousePress
+    widget.onMouseRelease = onBattleButtonMouseRelease
+end
+
+local function getBattleMapPanel()
+    if not modules.game_interface or not modules.game_interface.getMapPanel then
+        return nil
+    end
+
+    return modules.game_interface.getMapPanel()
+end
+
+local function getBattleSpectators()
+    local mapPanel = getBattleMapPanel()
+    if mapPanel and mapPanel.getSpectators then
+        return mapPanel:getSpectators() or {}
+    end
+
+    local player = g_game.getLocalPlayer()
+    local pos = player and player:getPosition()
+    if pos then
+        return g_map.getSpectators(pos, false, true) or {}
+    end
+
+    return {}
+end
+
+local function finishBattlePanelUpdate(panel)
+    if not panel then
+        return
+    end
+
+    local layout = panel:getLayout()
+    if layout then
+        layout:update()
+    end
+
+    if panel.enableUpdate then
+        panel:enableUpdate()
+    end
+end
 
 -- Utility functions
 function tableCopy(t)
@@ -329,6 +400,10 @@ function BattleListManager:createWindowForInstance(instance)
     
     newWindow.onMousePress = function(widget, mousePos, button)
         if button == MouseRightButton then
+            if isBattleListCreatureClick(mousePos) then
+                return false
+            end
+
             local menu = g_ui.createWidget('PopupMenu')
             menu:addOption('Edit Name', function() instance:openEditNameDialog() end)
             menu:addOption('Create New Battle List', function() BattleListManager:createNewInstance() end)
@@ -1004,30 +1079,50 @@ function BattleListInstance:checkCreatures()
     if not self.panel or not g_game.isOnline() then
         return false
     end
-    
+
+    if self._checkingCreatures then
+        self._checkCreaturesPending = true
+        return false
+    end
+
+    self._checkingCreatures = true
     self.panel:disableUpdateTemporarily()
-    
+
     local player = g_game.getLocalPlayer()
     if not player then
+        self._checkingCreatures = false
         return false
     end
-    
+
     local position = player:getPosition()
     if not position then
+        self._checkingCreatures = false
         return false
     end
-    
+
     self:removeAllCreatures()
-    
-    local spectators = modules.game_interface.getMapPanel():getSpectators()
+
+    local spectators = getBattleSpectators()
     local sortType = self:getSortType()
-    local sortOrder = self:getSortOrder()
-    
+
     for _, creature in ipairs(spectators) do
-        if self:doCreatureFitFilters(creature) then
+        if creature and self:doCreatureFitFilters(creature) then
             self:addCreature(creature, sortType)
         end
     end
+
+    finishBattlePanelUpdate(self.panel)
+
+    self._checkingCreatures = false
+
+    if self._checkCreaturesPending then
+        self._checkCreaturesPending = false
+        scheduleEvent(function()
+            self:checkCreatures()
+        end, 1)
+    end
+
+    return true
 end
 
 function BattleListInstance:doCreatureFitFilters(creature)
@@ -1036,6 +1131,10 @@ function BattleListInstance:doCreatureFitFilters(creature)
     end
     
     if creature:isDead() then
+        return false
+    end
+
+    if creature:getHealthPercent() <= 0 then
         return false
     end
     
@@ -1105,12 +1204,23 @@ function BattleListInstance:addCreature(creature, sortType)
         if creature:getPosition() == nil then
             return
         end
+
+        local localPlayer = g_game.getLocalPlayer()
+        local localPosition = localPlayer and localPlayer:getPosition()
+        if not localPosition then
+            return
+        end
+
+        local creatureName = creature:getName()
+        if not creatureName then
+            return
+        end
         
         local newCreature = {}
         newCreature.id = creatureId
-        newCreature.name = creature:getName():lower()
+        newCreature.name = creatureName:lower()
         newCreature.healthpercent = creature:getHealthPercent()
-        newCreature.distance = getDistanceBetween(g_game.getLocalPlayer():getPosition(), creature:getPosition())
+        newCreature.distance = getDistanceBetween(localPosition, creature:getPosition())
         newCreature.age = self.lastAge + 1
         self.lastAge = self.lastAge + 1
         
@@ -1147,8 +1257,10 @@ function BattleListInstance:addCreature(creature, sortType)
         end
     end
     
-    battleButton:setVisible(canBeSeen(creature))
-    self.panel:getLayout():update()
+    if battleButton then
+        battleButton:setVisible(canBeSeen(creature))
+        finishBattlePanelUpdate(self.panel)
+    end
 end
 
 function BattleListInstance:removeAllCreatures()
@@ -1176,10 +1288,24 @@ function BattleListInstance:removeCreature(creature, all)
         
         local sortType = self:getSortType()
         local valuetoSearch = self:getAttributeByOrderType(battleButton, sortType)
-        assert(valuetoSearch, 'Could not find information (data) in sent battleButton')
+        if not valuetoSearch then
+            BattleButtonPool:release(battleButton)
+            self.battleButtons[creatureId] = nil
+            return false
+        end
+
         valuetoSearch.id = creatureId
         
         local index = binarySearch(self.binaryTree, valuetoSearch, BSComparatorSortType, sortType, creatureId)
+        if index == nil or creatureId ~= self.binaryTree[index].id then
+            for i, entry in ipairs(self.binaryTree) do
+                if entry.id == creatureId then
+                    index = i
+                    break
+                end
+            end
+        end
+
         if index ~= nil and creatureId == self.binaryTree[index].id then
             local creatureListSize = #self.binaryTree
             if index < creatureListSize then
@@ -1363,6 +1489,7 @@ function connecting()
         onOutfitChange = onCreatureOutfitChange,
         onHealthPercentChange = onCreatureHealthPercentChange,
         onPositionChange = onCreaturePositionChange,
+        onVocationChange = onCreatureVocationChange,
         onAppear = onCreatureAppear,
         onDisappear = onCreatureDisappear
     })
@@ -1388,6 +1515,7 @@ function disconnecting(gameEvent)
         onOutfitChange = onCreatureOutfitChange,
         onHealthPercentChange = onCreatureHealthPercentChange,
         onPositionChange = onCreaturePositionChange,
+        onVocationChange = onCreatureVocationChange,
         onAppear = onCreatureAppear,
         onDisappear = onCreatureDisappear
     })
@@ -1405,6 +1533,7 @@ function init()
                 local widget = g_ui.createWidget('BattleButton')
                 widget:show()
                 widget:setOn(true)
+                bindBattleButtonHandlers(widget)
                 return widget
             end,
             release = function(obj)
@@ -1419,8 +1548,7 @@ function init()
                 local widget = g_ui.createWidget('BattleButton')
                 widget:show()
                 widget:setOn(true)
-                widget.onHoverChange = onBattleButtonHoverChange
-                widget.onMouseRelease = onBattleButtonMouseRelease
+                bindBattleButtonHandlers(widget)
                 return widget
             end,
             function(obj)
@@ -1498,6 +1626,11 @@ function init()
     local options = { 'hidePlayers', 'hideNPCs', 'hideMonsters', 'hideSkulls', 'hideParty', 'hideKnights', 'hidePaladins', 'hideDruids', 'hideSorcerers', 'hideMonks', 'hideSummons', 'hideMembersOwnGuild' }
     for i, v in ipairs(options) do
         hideButtons[v] = battleWindow:recursiveGetChildById(v)
+        if hideButtons[v] then
+            hideButtons[v].onClick = function(button)
+                mainInstance:onFilterButtonClick(button)
+            end
+        end
     end
     
     mainInstance.hideButtons = hideButtons
@@ -1597,6 +1730,10 @@ function init()
     
     battleWindow.onMousePress = function(widget, mousePos, button)
         if button == MouseRightButton then
+            if isBattleListCreatureClick(mousePos) then
+                return false
+            end
+
             local menu = g_ui.createWidget('PopupMenu')
             menu:addOption('Edit Name', function() mainInstance:onMenuAction('editBattleListName') end)
             menu:display(mousePos)
@@ -1682,6 +1819,10 @@ end
 function onGameStart()
     battleWindow:setupOnStart() -- load character window configuration
 
+    if g_game.isOnline() then
+        connecting()
+    end
+
     -- Update battle list title in case it was customized
     updateBattleListTitle()
     
@@ -1696,6 +1837,7 @@ function onGameStart()
         if instance.window then
             instance.window:setupOnStart()
         end
+        instance:loadHideButtonStates()
         instance:updateTitle()
     end
 
@@ -1705,12 +1847,16 @@ function onGameStart()
     -- Set up periodic auto-save to prevent data loss
     BattleListManager:startPeriodicSave()
 
-    -- Initialize creatures for all instances (including main instance ID 0)
+    -- Rebuild once the map is fully ready after login.
     scheduleEvent(function()
+        if not g_game.isOnline() then
+            return
+        end
+
         for _, instance in pairs(BattleListManager.instances) do
             instance:checkCreatures()
         end
-    end, 500) -- Increased delay to ensure restored instances are fully set up
+    end, 500)
 end
 
 function onGameEnd()
@@ -1852,22 +1998,33 @@ end
 
 function onFilterButtonClick(button)
     button:setChecked(not button:isChecked())
-    
-    -- Save hide button states for main instance
+
     local mainInstance = BattleListManager.instances[0]
     if mainInstance then
         mainInstance:saveHideButtonStates()
     end
-    
-    -- Update all battle list instances
+
     for _, instance in pairs(BattleListManager.instances) do
         instance:checkCreatures()
     end
 end
 
 function canBeSeen(creature)
-    return creature and creature:canBeSeen() and creature:getPosition() and
-        modules.game_interface.getMapPanel():isInRange(creature:getPosition())
+    if not creature or not creature:canBeSeen() then
+        return false
+    end
+
+    local pos = creature:getPosition()
+    if not pos then
+        return false
+    end
+
+    local mapPanel = getBattleMapPanel()
+    if not mapPanel or not mapPanel.isInRange then
+        return true
+    end
+
+    return mapPanel:isInRange(pos)
 end
 
 function getDistanceBetween(p1, p2) -- Calculate distance
@@ -2222,7 +2379,7 @@ local function rebuildBattleList(instance)
     local spectators = g_map.getSpectators(pos, false, true) or {}
 
     if #spectators == 0 then
-      spectators = modules.game_interface.getMapPanel():getSpectators() or {}
+      spectators = getBattleSpectators()
     end
 
     local sortType = instance:getSortType()
@@ -2242,9 +2399,7 @@ local function rebuildBattleList(instance)
       end
     end
 
-    if instance.panel.enableUpdate then
-      instance.panel:enableUpdate()
-    end
+    finishBattlePanelUpdate(instance.panel)
   end)
 end
 
@@ -2276,12 +2431,19 @@ function onCreaturePositionChange(creature, newPos, oldPos) -- Update battleButt
                         for i, v in ipairs(instance.binaryTree) do
                             local oldDistance = v.distance
                             local battleButton = instance.battleButtons[v.id]
+                            if not battleButton then
+                                goto continue_distance_update
+                            end
                             local mob = battleButton.creature or g_map.getCreatureById(v.id)
+                            if not mob or not mob:getPosition() then
+                                goto continue_distance_update
+                            end
                             local newDistance = getDistanceBetween(newPos, mob:getPosition())
                             if oldDistance ~= newDistance then
                                 v.distance = newDistance
                                 battleButton.data.distance = newDistance
                             end
+                            ::continue_distance_update::
                         end
                         table.sort(instance.binaryTree, function(a, b)
                             return BSComparatorSortType(a, b, 'distance', true) == 1
@@ -2354,10 +2516,7 @@ function onCreaturePositionChange(creature, newPos, oldPos) -- Update battleButt
                                     end
                                     instance:correctBattleButtons()
                                 else
-                                    assert(index ~= nil,
-                                        'Not able to update Position Change. Creature: ' .. creature:getName() .. ' id ' ..
-                                        creatureId .. ' not found in binary search using ' .. sortType .. ' to find value ' ..
-                                        oldDistance .. '.\n')
+                                    instance:checkCreatures()
                                 end
                             end
                         end
@@ -2435,28 +2594,67 @@ function onCreatureHealthPercentChange(creature, healthPercent, oldHealthPercent
     end
 end
 
+function onCreatureVocationChange(creature)
+    if not creature or creature:isLocalPlayer() or not creature:isPlayer() then
+        return
+    end
+
+    for _, instance in pairs(BattleListManager.instances) do
+        instance:checkCreatures()
+    end
+end
+
 function onCreatureAppear(creature) -- Update battleButton once a creature appear (add)
+    if not creature then
+        return
+    end
+
     if creature:isLocalPlayer() then
         addEvent(updateStaticSquare)
     end
 
     -- Update all battle list instances (including main instance ID 0)
     for _, instance in pairs(BattleListManager.instances) do
+        if instance._checkingCreatures then
+            goto continue_creature_appear
+        end
+
         local sortType = instance:getSortType()
         if instance:doCreatureFitFilters(creature) then
             instance:addCreature(creature, sortType)
         end
+
+        ::continue_creature_appear::
     end
 end
 
 function onCreatureDisappear(creature) -- Update battleButton once a creature disappear (remove/dead)
+    if not creature then
+        return
+    end
+
     -- Update all battle list instances (including main instance ID 0)
     for _, instance in pairs(BattleListManager.instances) do
+        if instance._checkingCreatures then
+            goto continue_creature_disappear
+        end
+
         instance:removeCreature(creature)
+
+        ::continue_creature_disappear::
     end
 end
 
 -- BattleWindow controllers
+function onBattleButtonMousePress(self, mousePosition, mouseButton)
+    if mouseButton == MouseRightButton and not g_mouse.isPressed(MouseLeftButton) and self.creature then
+        modules.game_interface.createBattleListCreatureMenu(mousePosition, self.creature)
+        return true
+    end
+
+    return false
+end
+
 function onBattleButtonMouseRelease(self, mousePosition, mouseButton) -- Interactions with mouse (right, left, right + left and shift interactions)
     if mouseWidget.cancelNextRelease then
         mouseWidget.cancelNextRelease = false
@@ -2470,9 +2668,6 @@ function onBattleButtonMouseRelease(self, mousePosition, mouseButton) -- Interac
         return true
     elseif mouseButton == MouseLeftButton and g_keyboard.isShiftPressed() then
         g_game.look(self.creature, true)
-        return true
-    elseif mouseButton == MouseRightButton and not g_mouse.isPressed(MouseLeftButton) then
-        modules.game_interface.createThingMenu(mousePosition, nil, nil, self.creature)
         return true
     elseif mouseButton == MouseLeftButton and not g_mouse.isPressed(MouseRightButton) then
         if self.isTarget then

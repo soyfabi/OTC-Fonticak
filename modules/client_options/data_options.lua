@@ -218,7 +218,17 @@ return {
     },
     smartWalk                         = false,
     alwaysTurnTowardsMoveDirection    = true,
-    allowInspect                      = false,
+    allowInspect                      = {
+        value = false,
+        action = function(value)
+            if not g_game.isOnline() or not g_game.inspectPlayer then
+                return
+            end
+
+            local flag = value and InspectionParseFlags.AllowAll or InspectionParseFlags.DismissAll
+            g_game.inspectPlayer(flag)
+        end
+    },
     autoChaseOverride                 = true,
     talkOnRightClick                  = false,
     quickAllCorpses                   = false,

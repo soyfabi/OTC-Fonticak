@@ -1140,6 +1140,15 @@ void ProtocolGame::sendInspectCharacter(const uint32_t creatureId, const uint8_t
     send(msg);
 }
 
+void ProtocolGame::sendInspectPlayer(const uint8_t action, const uint32_t creatureId)
+{
+    const auto& msg = std::make_shared<OutputMessage>();
+    msg->addU8(Proto::ClientInspectionCharacter);
+    msg->addU8(action);
+    msg->addU32(creatureId);
+    send(msg);
+}
+
 void ProtocolGame::sendRequestBestiaryOverview(const std::string_view catName, bool search, std::vector<uint16_t> raceIds)
 {
     const auto& msg = std::make_shared<OutputMessage>();

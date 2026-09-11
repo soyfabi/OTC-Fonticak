@@ -113,7 +113,7 @@ BattleSorcerers < BattleIcon
 
 BattleMonks < BattleIcon
   @onSetup: |
-    if g_game.getClientVersion() >= 1500 then
+    if g_game.getFeature(GameVocationMonk) then
       self:setVisible(true)
     else
       self:setVisible(false)
@@ -194,62 +194,50 @@ MiniWindow
     BattlePlayers
       id: hidePlayers
       !tooltip: tr('Hide players')
-      @onClick: modules.game_battle.onFilterButtonClick(self)
 
     BattleKnights
       id: hideKnights
       !tooltip: tr('Hide knights')
-      @onClick: modules.game_battle.onFilterButtonClick(self)
 
     BattlePaladins
       id: hidePaladins
       !tooltip: tr('Hide paladins')
-      @onClick: modules.game_battle.onFilterButtonClick(self)
 
     BattleDruids
       id: hideDruids
       !tooltip: tr('Hide druids')
-      @onClick: modules.game_battle.onFilterButtonClick(self)
 
     BattleSorcerers
       id: hideSorcerers
       !tooltip: tr('Hide sorcerers')
-      @onClick: modules.game_battle.onFilterButtonClick(self)
 
     BattleMonks
       id: hideMonks
       !tooltip: tr('Hide monks')
-      @onClick: modules.game_battle.onFilterButtonClick(self)
 
     BattleSummons
       id: hideSummons
       !tooltip: tr('Hide summons')
-      @onClick: modules.game_battle.onFilterButtonClick(self)
 
     BattleNPCs
       id: hideNPCs
       !tooltip: tr('Hide Npcs')
-      @onClick: modules.game_battle.onFilterButtonClick(self)
 
     BattleMonsters
       id: hideMonsters
       !tooltip: tr('Hide monsters')
-      @onClick: modules.game_battle.onFilterButtonClick(self)
 
     BattleSkulls
       id: hideSkulls
       !tooltip: tr('Hide non-skull players')
-      @onClick: modules.game_battle.onFilterButtonClick(self)
 
     BattleParty
       id: hideParty
       !tooltip: tr('Hide party members')
-      @onClick: modules.game_battle.onFilterButtonClick(self)
 
     BattleMembersOwnGuild
       id: hideMembersOwnGuild
       !tooltip: tr('Hide own guild members')
-      @onClick: modules.game_battle.onFilterButtonClick(self)
 
   Panel
     height: 18

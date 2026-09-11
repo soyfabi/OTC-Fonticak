@@ -68,7 +68,8 @@ function init()
     connect(g_game, {
         onGameStart = onGameStart,
         onGameEnd = onGameEnd,
-        onLoginAdvice = onLoginAdvice
+        onLoginAdvice = onLoginAdvice,
+        onInspectionState = onInspectionState
     }, true)
 
     -- Call load AFTER game window has been created and
@@ -270,7 +271,8 @@ function terminate()
     disconnect(g_game, {
         onGameStart = onGameStart,
         onGameEnd = onGameEnd,
-        onLoginAdvice = onLoginAdvice
+        onLoginAdvice = onLoginAdvice,
+        onInspectionState = onInspectionState
     })
 
     for k, v in pairs(panelsList) do
@@ -632,6 +634,339 @@ function removeMenuHook(category, name)
     end
 end
 
+local function normalizeInspectionFlag(flag)
+    flag = flag or 0
+
+    if flag == 2 or flag == 3 then
+        return InspectionFlags and InspectionFlags.AskAndRevoke or 1
+    end
+
+    if flag == 6 or flag == 7 then
+        return InspectionFlags and InspectionFlags.InspectAndRevoke or 5
+    end
+
+    if flag >= 9 and flag <= 11 then
+        return InspectionFlags and InspectionFlags.AskAndAllow or 8
+    end
+
+    if flag >= 13 then
+        return flag % 13
+    end
+
+    return flag
+end
+
+local function canInspectPlayer(flag)
+    return flag == 4 or flag == 5 or flag == 12
+end
+
+local function canRevokeInspectMe(flag)
+    return flag == 1 or flag == 5 or flag == 12
+end
+
+local function canAllowInspectMe(flag)
+    return flag == (InspectionFlags and InspectionFlags.AskAndAllow or 8)
+end
+
+local function isLocalAllowAllInspectEnabled()
+    if not modules.client_options or not modules.client_options.getOption then
+        return false
+    end
+
+    return modules.client_options.getOption('allowInspect') == true
+end
+
+local creatureInspectionFlags = {}
+
+local function syncCreatureInspectionFlag(creatureId, flag)
+    creatureInspectionFlags[creatureId] = flag
+
+    local creature = g_map.getCreatureById(creatureId)
+
+    if creature and creature.setInspectionFlag then
+        creature:setInspectionFlag(flag)
+    end
+end
+
+local function getCreatureInspectionFlag(creatureThing)
+    local creatureId = creatureThing:getId()
+
+    if creatureInspectionFlags[creatureId] ~= nil then
+        return creatureInspectionFlags[creatureId]
+    end
+
+    if creatureThing.getInspectionFlag then
+        return creatureThing:getInspectionFlag()
+    end
+
+    return 0
+end
+
+local function predictInspectionFlagAfterAction(currentFlag, actionType)
+    currentFlag = normalizeInspectionFlag(currentFlag)
+
+    local inviteFlag = InspectionParseFlags and InspectionParseFlags.Invite or 1
+    local revokeFlag = InspectionParseFlags and InspectionParseFlags.Revoke or 5
+    local askFlag = InspectionParseFlags and InspectionParseFlags.Ask or 2
+    local allowFlag = InspectionParseFlags and InspectionParseFlags.Allow or 3
+
+    if actionType == inviteFlag then
+        if canInspectPlayer(currentFlag) then
+            return InspectionFlags and InspectionFlags.InspectAndRevoke or 5
+        end
+
+        return InspectionFlags and InspectionFlags.AskAndRevoke or 1
+    end
+
+    if actionType == revokeFlag then
+        if canInspectPlayer(currentFlag) then
+            return InspectionFlags and InspectionFlags.InspectAndInvite or 4
+        end
+
+        return InspectionFlags and InspectionFlags.AskAndInvite or 0
+    end
+
+    if actionType == askFlag then
+        return currentFlag
+    end
+
+    if actionType == allowFlag then
+        if canInspectPlayer(currentFlag) then
+            return InspectionFlags and InspectionFlags.InspectAndRevoke or 5
+        end
+
+        return InspectionFlags and InspectionFlags.AskAndRevoke or 1
+    end
+
+    return currentFlag
+end
+
+local function sendInspectionPlayerAction(actionType, creatureThing, creatureName)
+    if not g_game.inspectPlayer then
+        g_logger.warning('[game_interface] g_game.inspectPlayer unavailable - recompile the client.')
+        return
+    end
+
+    local creatureId = creatureThing:getId()
+
+    if not creatureId or creatureId == 0 then
+        g_logger.warning('[game_interface] invalid creature id for inspect action on %s', creatureName or '?')
+        return
+    end
+
+    local currentFlag = normalizeInspectionFlag(getCreatureInspectionFlag(creatureThing))
+
+    g_game.inspectPlayer(actionType, creatureId)
+    syncCreatureInspectionFlag(creatureId, predictInspectionFlagAfterAction(currentFlag, actionType))
+end
+
+function onInspectionState(creatureId, state)
+    if not creatureId or creatureId == 0 then
+        return
+    end
+
+    local creature = g_map.getCreatureById(creatureId)
+    local previousFlag = creatureInspectionFlags[creatureId]
+
+    if previousFlag == nil and creature and creature.getInspectionFlag then
+        previousFlag = creature:getInspectionFlag()
+    end
+
+    syncCreatureInspectionFlag(creatureId, state)
+
+    local creatureName = creature and creature:getName() or tr('a player')
+    local normalized = normalizeInspectionFlag(state)
+    local previousNormalized = normalizeInspectionFlag(previousFlag or 0)
+
+    if previousNormalized == normalized then
+        return
+    end
+
+    if canInspectPlayer(normalized) and not canInspectPlayer(previousNormalized) then
+        if modules.game_textmessage and modules.game_textmessage.displayGameMessage then
+            modules.game_textmessage.displayGameMessage(tr('%s has granted you permission to inspect their character.', creatureName))
+        end
+    elseif canAllowInspectMe(normalized) and not canAllowInspectMe(previousNormalized) and modules.game_textmessage and modules.game_textmessage.displayGameMessage then
+        modules.game_textmessage.displayGameMessage(tr('%s asked for permission to inspect your character.', creatureName))
+    end
+end
+
+local function addOtherPlayerInspectOptions(menu, creatureThing, creatureName)
+    local creatureId = creatureThing:getId()
+    local flag = normalizeInspectionFlag(getCreatureInspectionFlag(creatureThing))
+    local askFlag = InspectionParseFlags and InspectionParseFlags.Ask or 2
+    local inspectFlag = InspectionParseFlags and InspectionParseFlags.Inspect or 4
+    local inviteFlag = InspectionParseFlags and InspectionParseFlags.Invite or 1
+    local revokeFlag = InspectionParseFlags and InspectionParseFlags.Revoke or 5
+    local allowFlag = InspectionParseFlags and InspectionParseFlags.Allow or 3
+
+    if canInspectPlayer(flag) then
+        menu:addOption(tr('Inspect %s', creatureName), function()
+            if modules.game_inspect and modules.game_inspect.beginCharacterInspectRequest then
+                modules.game_inspect.beginCharacterInspectRequest(creatureId)
+            end
+
+            sendInspectionPlayerAction(inspectFlag, creatureThing, creatureName)
+        end)
+    else
+        menu:addOption(tr('Ask to inspect %s', creatureName), function()
+            sendInspectionPlayerAction(askFlag, creatureThing, creatureName)
+        end)
+    end
+
+    if isLocalAllowAllInspectEnabled() then
+        return
+    end
+
+    if canAllowInspectMe(flag) then
+        menu:addOption(tr('Allow %s to inspect me', creatureName), function()
+            sendInspectionPlayerAction(allowFlag, creatureThing, creatureName)
+        end)
+    elseif canRevokeInspectMe(flag) then
+        menu:addOption(tr("Revoke %s's allowance to inspect me", creatureName), function()
+            sendInspectionPlayerAction(revokeFlag, creatureThing, creatureName)
+        end)
+    else
+        menu:addOption(tr('Invite %s to inspect me', creatureName), function()
+            sendInspectionPlayerAction(inviteFlag, creatureThing, creatureName)
+        end)
+    end
+end
+
+local function addOtherPlayerVipOption(menu, localPlayer, creatureName)
+    if not localPlayer:hasVip(creatureName) then
+        menu:addOption(tr('Add %s to VIP list', creatureName), function()
+            g_game.addVip(creatureName)
+        end)
+    end
+end
+
+local function addOtherPlayerPartyOption(menu, localPlayer, creatureThing, creatureName)
+    local localPlayerShield = localPlayer:getShield()
+    local creatureShield = creatureThing:getShield()
+
+    if localPlayerShield == ShieldNone or localPlayerShield == ShieldWhiteBlue then
+        if creatureShield == ShieldWhiteYellow then
+            menu:addOption(tr("Join %s's Party", creatureName), function()
+                g_game.partyJoin(creatureThing:getId())
+            end)
+        else
+            menu:addOption(tr('Invite %s to Party', creatureName), function()
+                g_game.partyInvite(creatureThing:getId())
+            end)
+        end
+    elseif localPlayerShield == ShieldWhiteYellow then
+        if creatureShield == ShieldWhiteBlue then
+            menu:addOption(tr("Revoke %s's Invitation", creatureName), function()
+                g_game.partyRevokeInvitation(creatureThing:getId())
+            end)
+        end
+    elseif localPlayerShield == ShieldYellow or localPlayerShield == ShieldYellowSharedExp or
+        localPlayerShield == ShieldYellowNoSharedExpBlink or localPlayerShield == ShieldYellowNoSharedExp then
+        if creatureShield == ShieldWhiteBlue then
+            menu:addOption(tr("Revoke %s's Invitation", creatureName), function()
+                g_game.partyRevokeInvitation(creatureThing:getId())
+            end)
+        elseif creatureShield == ShieldBlue or creatureShield == ShieldBlueSharedExp or creatureShield ==
+            ShieldBlueNoSharedExpBlink or creatureShield == ShieldBlueNoSharedExp then
+            menu:addOption(tr('Pass Leadership to %s', creatureName), function()
+                g_game.partyPassLeadership(creatureThing:getId())
+            end)
+        else
+            menu:addOption(tr('Invite %s to Party', creatureName), function()
+                g_game.partyInvite(creatureThing:getId())
+            end)
+        end
+    end
+
+    addOtherPlayerInspectOptions(menu, creatureThing, creatureName)
+end
+
+function createBattleListCreatureMenu(menuPosition, creature)
+    if not g_game.isOnline() or not creature or creature:isLocalPlayer() then
+        return
+    end
+
+    local localPlayer = g_game.getLocalPlayer()
+
+    if not localPlayer then
+        return
+    end
+
+    local menu = g_ui.createWidget('PopupMenu')
+
+    menu:setGameMenu(true)
+
+    local shortcut = g_platform.isMobile() and nil or '(Alt)'
+    local localPosition = localPlayer:getPosition()
+    local creatureName = creature:getName()
+    local creaturePos = creature:getPosition()
+    local sameFloor = creaturePos and localPosition and creaturePos.z == localPosition.z
+
+    if sameFloor then
+        if creature:isNpc() then
+            menu:addOption(tr('Talk'), function()
+                g_game.attack(creature)
+            end)
+        elseif g_game.getAttackingCreature() ~= creature then
+            menu:addOption(tr('Attack'), function()
+                g_game.attack(creature)
+            end, shortcut)
+        else
+            menu:addOption(tr('Stop Attack'), function()
+                g_game.cancelAttack()
+            end, shortcut)
+        end
+
+        if g_game.getFollowingCreature() ~= creature then
+            menu:addOption(tr('Follow'), function()
+                g_game.follow(creature)
+            end)
+        else
+            menu:addOption(tr('Stop Follow'), function()
+                g_game.cancelFollow()
+            end)
+        end
+    end
+
+    menu:addOption(tr('Look'), function()
+        g_game.look(creature, true)
+    end, g_platform.isMobile() and nil or '(Shift)')
+
+    if creature:isPlayer() then
+        menu:addSeparator()
+        menu:addOption(tr('Message to %s', creatureName), function()
+            g_game.openPrivateChannel(creatureName)
+        end)
+        addOtherPlayerVipOption(menu, localPlayer, creatureName)
+
+        if modules.game_console.isIgnored(creatureName) then
+            menu:addOption(tr('Unignore %s', creatureName), function()
+                modules.game_console.removeIgnoredPlayer(creatureName)
+            end)
+        else
+            menu:addOption(tr('Ignore %s', creatureName), function()
+                modules.game_console.addIgnoredPlayer(creatureName)
+            end)
+        end
+
+        addOtherPlayerPartyOption(menu, localPlayer, creature, creatureName)
+        menu:addSeparator()
+        menu:addOption(tr('Report Name'), function()
+            modules.game_ruleviolation.openNameReport(creatureName)
+        end)
+        menu:addOption(tr('Report Bot/Macro'), function()
+            modules.game_ruleviolation.openBotMacroReport(creatureName)
+        end)
+    end
+
+    menu:addSeparator()
+    menu:addOption(tr('Copy Name'), function()
+        g_window.setClipboardText(creatureName)
+    end)
+    menu:display(menuPosition)
+end
+
 function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
     if not g_game.isOnline() then
         return
@@ -836,66 +1171,35 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
                 menu:addOption(tr('Message to %s', creatureName), function()
                     g_game.openPrivateChannel(creatureName)
                 end)
-                if modules.game_console.getOwnPrivateTab() then
-                    menu:addOption(tr('Invite to private chat'), function()
-                        g_game.inviteToOwnChannel(creatureName)
-                    end)
-                    menu:addOption(tr('Exclude from private chat'), function()
-                        g_game.excludeFromOwnChannel(creatureName)
-                    end) -- [TODO] must be removed after message's popup labels been implemented
-                end
-                if not localPlayer:hasVip(creatureName) then
-                    menu:addOption(tr('Add to VIP list'), function()
-                        g_game.addVip(creatureName)
-                    end)
-                end
+                addOtherPlayerVipOption(menu, localPlayer, creatureName)
 
                 if modules.game_console.isIgnored(creatureName) then
-                    menu:addOption(tr('Unignore') .. ' ' .. creatureName, function()
+                    menu:addOption(tr('Unignore %s', creatureName), function()
                         modules.game_console.removeIgnoredPlayer(creatureName)
                     end)
                 else
-                    menu:addOption(tr('Ignore') .. ' ' .. creatureName, function()
+                    menu:addOption(tr('Ignore %s', creatureName), function()
                         modules.game_console.addIgnoredPlayer(creatureName)
                     end)
                 end
 
-                local localPlayerShield = localPlayer:getShield()
-                local creatureShield = creatureThing:getShield()
-
-                if localPlayerShield == ShieldNone or localPlayerShield == ShieldWhiteBlue then
-                    if creatureShield == ShieldWhiteYellow then
-                        menu:addOption(tr('Join %s\'s Party', creatureThing:getName()), function()
-                            g_game.partyJoin(creatureThing:getId())
-                        end)
-                    else
-                        menu:addOption(tr('Invite to Party'), function()
-                            g_game.partyInvite(creatureThing:getId())
-                        end)
-                    end
-                elseif localPlayerShield == ShieldWhiteYellow then
-                    if creatureShield == ShieldWhiteBlue then
-                        menu:addOption(tr('Revoke %s\'s Invitation', creatureThing:getName()), function()
-                            g_game.partyRevokeInvitation(creatureThing:getId())
-                        end)
-                    end
-                elseif localPlayerShield == ShieldYellow or localPlayerShield == ShieldYellowSharedExp or
-                    localPlayerShield == ShieldYellowNoSharedExpBlink or localPlayerShield == ShieldYellowNoSharedExp then
-                    if creatureShield == ShieldWhiteBlue then
-                        menu:addOption(tr('Revoke %s\'s Invitation', creatureThing:getName()), function()
-                            g_game.partyRevokeInvitation(creatureThing:getId())
-                        end)
-                    elseif creatureShield == ShieldBlue or creatureShield == ShieldBlueSharedExp or creatureShield ==
-                        ShieldBlueNoSharedExpBlink or creatureShield == ShieldBlueNoSharedExp then
-                        menu:addOption(tr('Pass Leadership to %s', creatureThing:getName()), function()
-                            g_game.partyPassLeadership(creatureThing:getId())
-                        end)
-                    else
-                        menu:addOption(tr('Invite to Party'), function()
-                            g_game.partyInvite(creatureThing:getId())
-                        end)
-                    end
-                end
+                addOtherPlayerPartyOption(menu, localPlayer, creatureThing, creatureName)
+                menu:addSeparator()
+                menu:addOption(tr('Report Name'), function()
+                    modules.game_ruleviolation.openNameReport(creatureName)
+                end)
+                menu:addOption(tr('Report Bot/Macro'), function()
+                    modules.game_ruleviolation.openBotMacroReport(creatureName)
+                end)
+                menu:addSeparator()
+                menu:addOption(tr('Copy Name'), function()
+                    g_window.setClipboardText(creatureName)
+                end)
+            else
+                menu:addSeparator()
+                menu:addOption(tr('Copy Name'), function()
+                    g_window.setClipboardText(creatureThing:getName())
+                end)
             end
         end
 
@@ -905,11 +1209,6 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
                 modules.game_ruleviolation.show(creatureThing:getName())
             end)
         end
-
-        menu:addSeparator()
-        menu:addOption(tr('Copy Name'), function()
-            g_window.setClipboardText(creatureThing:getName())
-        end)
     end
 
     -- hooked menu options

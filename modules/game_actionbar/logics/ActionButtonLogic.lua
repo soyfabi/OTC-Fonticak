@@ -786,7 +786,9 @@ function setupButtonTooltip(button, isEmpty)
         if cache.actionType == UseTypes["Equip"] and isEquipmentPresetCache and isEquipmentPresetCache(cache) then
             actionDesc = equipmentPresetTooltip and equipmentPresetTooltip(cache) or tr("Equipment set")
         elseif cache.actionType == UseTypes["Equip"] and button.item then
-            local itemName = getItemNameById(button.item:getItem():getId()) ..
+            local item = button.item:getItem()
+            local itemId = (item and item:getId()) or button.cache.itemId or button.item:getItemId() or 0
+            local itemName = getItemNameById(itemId) ..
                                  ((cache.upgradeTier and cache.upgradeTier > 0) and " (Tier " .. cache.upgradeTier ..
                                      ")" or "")
             actionDesc = tr(actionDesc, (button.item:isChecked() and "Unequip" or "Equip"), itemName)
@@ -795,7 +797,7 @@ function setupButtonTooltip(button, isEmpty)
         end
 
         if not (isEquipmentPresetCache and isEquipmentPresetCache(cache)) then
-            local itemCount = player:getInventoryCount(button.cache.itemId, button.cache.upgradeTier)
+            local itemCount = player:getInventoryCount(button.cache.itemId or 0, button.cache.upgradeTier or 0)
             actionDesc = actionDesc .. "\n    Amount:  " .. itemCount
         end
         if cache.isRuneSpell and spellData then

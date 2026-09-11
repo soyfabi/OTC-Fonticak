@@ -2226,6 +2226,14 @@ void Game::inspectCharacter(const uint32_t creatureId, const uint8_t tab)
     m_protocolGame->sendInspectCharacter(creatureId, tab);
 }
 
+void Game::inspectPlayer(const uint8_t action, const uint32_t creatureId)
+{
+    if (!canPerformGameAction())
+        return;
+
+    m_protocolGame->sendInspectPlayer(action, creatureId);
+}
+
 void Game::requestBestiary()
 {
     if (!canPerformGameAction())

@@ -181,6 +181,7 @@ public:
     void sendInspectionNormalObject(const Position& position);
     void sendInspectionObject(Otc::InspectObjectTypes inspectionType, uint16_t itemId, uint8_t itemCount);
     void sendInspectCharacter(uint32_t creatureId, uint8_t tab);
+    void sendInspectPlayer(uint8_t action, uint32_t creatureId);
 
     // Wheel of Destiny
     void sendOpenWheel(uint32_t playerId);

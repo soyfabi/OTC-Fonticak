@@ -524,3 +524,22 @@ InspectObjectTypes = {
 InspectCreaturesTypes = {
     INSPECT_CREATURE = 4,
 }
+
+InspectionParseFlags = {
+    Revoke = 5,
+    Inspect = 4,
+    Invite = 1,
+    Ask = 2,
+    Allow = 3,
+    DismissAll = 7,
+    AllowAll = 6
+}
+
+InspectionFlags = {
+    AskAndAllow = 8,
+    InspectAndRevoke = 5,
+    InspectAndInvite = 4,
+    AskAndRevoke = 1,
+    AskAndInvite = 0,
+    InspectAndAllow = 12
+}

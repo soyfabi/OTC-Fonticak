@@ -196,28 +196,42 @@ function Creature:onIconChange(iconId)
     end
 end
 
+local function matchesVocationFamily(vocation, serverBase, serverPromoted, clientBase, clientPromoted)
+    return vocation == serverBase or vocation == serverPromoted
+        or vocation == clientBase or vocation == clientPromoted
+end
+
 function Creature.isDruid(self)
     local vocation = self:getVocation()
-    return vocation == VocationsServer.Druid or vocation == VocationsServer.ElderDruid or vocation == 14
+    return matchesVocationFamily(vocation,
+        VocationsServer.Druid, VocationsServer.ElderDruid,
+        VocationsClient.Druid, VocationsClient.ElderDruid)
 end
 
 function Creature.isSorcerer(self)
     local vocation = self:getVocation()
-    return vocation == VocationsServer.Sorcerer or vocation == VocationsServer.MasterSorcerer or vocation == 13
+    return matchesVocationFamily(vocation,
+        VocationsServer.Sorcerer, VocationsServer.MasterSorcerer,
+        VocationsClient.Sorcerer, VocationsClient.MasterSorcerer)
 end
 
 function Creature.isPaladin(self)
     local vocation = self:getVocation()
-    return vocation == VocationsServer.Paladin or vocation == VocationsServer.RoyalPaladin or vocation == 12
+    return matchesVocationFamily(vocation,
+        VocationsServer.Paladin, VocationsServer.RoyalPaladin,
+        VocationsClient.Paladin, VocationsClient.RoyalPaladin)
 end
 
 function Creature.isKnight(self)
     local vocation = self:getVocation()
-    return vocation == VocationsServer.Knight or vocation == VocationsServer.EliteKnight or vocation == 11
+    return matchesVocationFamily(vocation,
+        VocationsServer.Knight, VocationsServer.EliteKnight,
+        VocationsClient.Knight, VocationsClient.EliteKnight)
 end
 
 function Creature.isMonk(self)
     local vocation = self:getVocation()
-    return vocation == VocationsServer.Monk or vocation == VocationsServer.ExaltedMonk
-        or vocation == VocationsClient.Monk or vocation == VocationsClient.ExaltedMonk
+    return matchesVocationFamily(vocation,
+        VocationsServer.Monk, VocationsServer.ExaltedMonk,
+        VocationsClient.Monk, VocationsClient.ExaltedMonk)
 end

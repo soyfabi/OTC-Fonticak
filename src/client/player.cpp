@@ -46,11 +46,6 @@ bool Player::isMonk() const {
 
 void Player::setVocation(const uint8_t vocation)
 {
-    if (m_vocation == vocation)
-        return;
-
-    const uint8_t oldVocation = m_vocation;
     m_vocation = vocation;
-
-    callLuaField("onVocationChange", vocation, oldVocation);
+    Creature::setVocation(vocation);
 }
