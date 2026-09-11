@@ -26,16 +26,18 @@ CreatureButton < UICreatureButton
   UIWidget
     id: emblem
     height: 11
-    anchors.left: skull.right
+    anchors.right: parent.right
     anchors.top: creature.top
+    margin-right: 2
+    margin-top: 2
     phantom: true
 
   UIWidget
     id: iconsMonsterSlot1
     height: 11
     width: 11
-    anchors.right: parent.right
-    anchors.top: label.top
+    anchors.right: emblem.left
+    anchors.top: creature.top
     margin-right: 4
     margin-top: 2
     phantom: true
@@ -45,7 +47,7 @@ CreatureButton < UICreatureButton
     height: 11
     width: 11
     anchors.right: prev.left
-    anchors.top: label.top
+    anchors.top: creature.top
     margin-right: 4
     margin-top: 2
     phantom: true
@@ -55,17 +57,19 @@ CreatureButton < UICreatureButton
     height: 11
     width: 11
     anchors.right: prev.left
-    anchors.top: label.top
+    anchors.top: creature.top
     margin-right: 4
     margin-top: 2
     phantom: true
 
   Label
     id: label
-    anchors.left: emblem.right
+    anchors.left: skull.right
+    anchors.right: iconsMonsterSlot3.left
     anchors.top: creature.top
     color: #888888
     margin-left: 2
+    margin-right: 4
     phantom: true
     text-auto-resize: true
 

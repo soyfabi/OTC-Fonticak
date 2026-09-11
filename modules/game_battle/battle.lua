@@ -31,15 +31,6 @@ local function isBattleListCreatureClick(mousePos)
 end
 
 local function bindBattleButtonHandlers(widget)
-    local label = widget:getChildById('label')
-
-    if label then
-        label:breakAnchors()
-        label:addAnchor(AnchorLeft, 'spacer', AnchorRight)
-        label:addAnchor(AnchorRight, 'iconsMonsterSlot3', AnchorLeft)
-        label:addAnchor(AnchorTop, 'creature', AnchorTop)
-    end
-
     widget.onHoverChange = onBattleButtonHoverChange
     widget.onMousePress = onBattleButtonMousePress
     widget.onMouseRelease = onBattleButtonMouseRelease
