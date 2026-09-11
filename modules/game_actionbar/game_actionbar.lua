@@ -533,6 +533,9 @@ end
 function ActionBarController:onGameEnd()
     isLoaded = false
     closeAllAssignWindows()
+    if resetEquipmentAssignOnGameEnd then
+        resetEquipmentAssignOnGameEnd()
+    end
     cleanupMultiActionState()
     -- Release the "pick object" mouse grab if the player logs out mid-assignment.
     if mouseGrabberWidget and onDropActionButton and g_ui.isMouseGrabbed() then
