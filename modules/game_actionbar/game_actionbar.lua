@@ -471,7 +471,7 @@ end
 --- Handles termination event
 function ActionBarController:onTerminate()
     ApiJson.saveData()
-    closeAllAssignWindows()
+    closeAllAssignWindows(nil, true)
     cleanupMultiActionState()
     for _, actionbar in pairs(actionBars) do
         if actionbar and not actionbar:isDestroyed() then

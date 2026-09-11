@@ -8,15 +8,26 @@ end
 local assignSpellWindow = nil
 local assignSpellRadio = nil
 
-function closeAssignSpellWindow()
+function closeAssignSpellWindow(destroy)
     if assignSpellRadio then
         assignSpellRadio:destroy()
         assignSpellRadio = nil
     end
     if assignSpellWindow and not assignSpellWindow:isDestroyed() then
-        assignSpellWindow:destroy()
+        local content = assignSpellWindow:getChildById('contentPanel') or assignSpellWindow.contentPanel
+        local spellList = content and (content:getChildById('spellList') or content.spellList)
+        if spellList then
+            Spells.cancelSpellListPopulate(spellList)
+        end
+        if destroy then
+            assignSpellWindow:destroy()
+            assignSpellWindow = nil
+        else
+            assignSpellWindow:hide()
+        end
+    elseif destroy then
+        assignSpellWindow = nil
     end
-    assignSpellWindow = nil
 end
 
 function assignSpell(button, multiSlotIndex)
@@ -28,24 +39,33 @@ function assignSpell(button, multiSlotIndex)
 
     closeAllAssignWindows('spell')
 
-    local ok, window = pcall(function()
-        return g_ui.loadUI('/modules/game_actionbar/spells', g_ui.getRootWidget())
-    end)
-    if not ok or not window then
-        perror('Failed to open Assign Spell window: ' .. tostring(window))
-        return
-    end
-    assignSpellWindow = window
-    local currentSpellWindow = window
-    window.onDestroy = function()
-        if assignSpellWindow ~= currentSpellWindow then
+    local window = assignSpellWindow
+    if not window or window:isDestroyed() then
+        local ok, loadedWindow = pcall(function()
+            return g_ui.loadUI('/modules/game_actionbar/spells', g_ui.getRootWidget())
+        end)
+        if not ok or not loadedWindow then
+            perror('Failed to open Assign Spell window: ' .. tostring(loadedWindow))
             return
         end
+        window = loadedWindow
+        assignSpellWindow = window
+        local currentSpellWindow = window
+        window.onDestroy = function()
+            if assignSpellWindow ~= currentSpellWindow then
+                return
+            end
+            if assignSpellRadio then
+                assignSpellRadio:destroy()
+                assignSpellRadio = nil
+            end
+            assignSpellWindow = nil
+        end
+    else
         if assignSpellRadio then
             assignSpellRadio:destroy()
             assignSpellRadio = nil
         end
-        assignSpellWindow = nil
     end
 
     local content = window:getChildById('contentPanel') or window.contentPanel
@@ -64,6 +84,7 @@ function assignSpell(button, multiSlotIndex)
     local checkPanel = content:getChildById('checkPanel') or content.checkPanel
     local tickWidget = checkPanel and (checkPanel:getChildById('tick') or checkPanel.tick)
     local filterVocationWidget = checkPanel and (checkPanel:getChildById('filterVocation') or checkPanel.filterVocation)
+    local filterLearntWidget = checkPanel and (checkPanel:getChildById('filterLearnt') or checkPanel.filterLearnt)
     local sortByLevelWidget = checkPanel and (checkPanel:getChildById('sortByLevel') or checkPanel.sortByLevel)
     local buttonOk = content:getChildById('buttonOk') or content.buttonOk
     local buttonClose = content:getChildById('buttonClose') or content.buttonClose
@@ -82,12 +103,22 @@ function assignSpell(button, multiSlotIndex)
     window:raise()
     window:focus()
 
+    if searchText then
+        searchText:clearText()
+    end
+    if paramText then
+        paramText:clearText()
+    end
+    if previewWidget then
+        previewWidget:setText('')
+    end
+
     local playerVocation = player:getVocation()
     local playerLevel = player:getLevel()
-    local spells = modules.gamelib.SpellInfo['Default']
     local defaultIconsFolder = SpelllistSettings['Default'].iconFile
 
     local okFunc = nil
+    local spellListPopulating = true
 
     local function sortSpellWidgets()
         local sortByLevel = sortByLevelWidget and sortByLevelWidget:isChecked()
@@ -98,90 +129,10 @@ function assignSpell(button, multiSlotIndex)
         local search = searchText and searchText:getText() or ''
         local filterLevel = tickWidget and tickWidget:isChecked()
         local filterVocation = filterVocationWidget and filterVocationWidget:isChecked()
-        Spells.filterSpellWidgets(spellList, search, playerLevel, filterLevel, playerVocation, filterVocation)
+        local filterLearnt = filterLearntWidget and filterLearntWidget:isChecked()
+        Spells.filterSpellWidgets(spellList, search, playerLevel, filterLevel, playerVocation, filterVocation, filterLearnt)
         sortSpellWidgets()
     end
-
-    local function fillSpellList()
-        if assignSpellRadio then
-            assignSpellRadio:destroy()
-        end
-        spellList:destroyChildren()
-        assignSpellRadio = UIRadioGroup.create()
-        for spellName, spellData in pairs(spells) do
-            local widget = g_ui.createWidget('SpellPreview', spellList)
-            local spellId = spellData.clientId
-            local clip = Spells.getImageClip(spellId)
-            assignSpellRadio:addWidget(widget)
-            widget:setId(spellData.id)
-            widget:setText(spellName .. "\n" .. spellData.words)
-            widget.words = spellData.words
-            widget.voc = spellData.vocations
-            widget.param = spellData.parameter
-            widget.spellLevel = spellData.level or 0
-            widget.source = defaultIconsFolder
-            widget.clip = clip
-            if widget.image then
-                widget.image:setImageSource(widget.source)
-                widget.image:setImageClip(widget.clip)
-            end
-            if spellData.level and widget.levelLabel then
-                widget.levelLabel:setVisible(true)
-                widget.levelLabel:setText(string.format("Level: %d", spellData.level))
-                if widget.image and widget.image.gray then
-                    widget.image.gray:setVisible(playerLevel < spellData.level)
-                end
-            end
-            local primaryGroup = Spells.getPrimaryGroup(spellData)
-            if primaryGroup ~= -1 and widget.imageGroup then
-                local offSet = (primaryGroup == 2 and 20) or (primaryGroup == 3 and 40) or 0
-                widget.imageGroup:setImageClip(offSet .. " 0 20 20")
-                widget.imageGroup:setVisible(true)
-            end
-
-            widget.onDoubleClick = function(self)
-                assignSpellRadio:selectWidget(self)
-                if okFunc then
-                    okFunc()
-                end
-                return true
-            end
-        end
-
-        local widgets = sortSpellWidgets()
-
-        assignSpellRadio.onSelectionChange = function(_, selected)
-            if selected then
-                previewWidget:setText(selected:getText())
-                if previewWidget.image then
-                    previewWidget.image:setImageSource(selected.source)
-                    previewWidget.image:setImageClip(selected.clip)
-                end
-                paramLabel:setOn(selected.param)
-                paramText:setEnabled(selected.param)
-                paramText:clearText()
-                if selected:getText():lower():find("levitate") then
-                    paramText:setText("up|down")
-                end
-            end
-        end
-
-        applyFilters()
-
-        local firstVisible = nil
-        for _, widget in ipairs(spellList:getChildren()) do
-            if widget:isVisible() then
-                firstVisible = widget
-                break
-            end
-        end
-        if firstVisible then
-            assignSpellRadio:selectWidget(firstVisible)
-        end
-        return widgets
-    end
-
-    local widgets = fillSpellList()
 
     local preselectSpellData = nil
     local preselectCastParam = nil
@@ -201,7 +152,11 @@ function assignSpell(button, multiSlotIndex)
         preselectCastParam = button.cache.castParam
     end
 
-    if preselectSpellData then
+    local function applyPreselect(widgets)
+        if not preselectSpellData then
+            return
+        end
+
         local spellData = preselectSpellData
         local spellId = spellData.clientId
         if not spellId then
@@ -222,13 +177,107 @@ function assignSpell(button, multiSlotIndex)
             paramText:setCursorPos(#preselectCastParam)
         end
         for _, k in ipairs(widgets) do
-            if k:getId() == tostring(spellData.id) then
+            if k:getId() == tostring(spellData.id) and k:isVisible() then
                 assignSpellRadio:selectWidget(k)
                 spellList:ensureChildVisible(k)
                 break
             end
         end
     end
+
+    local function finishSpellListSetup(widgets)
+        spellListPopulating = false
+        if buttonOk then
+            buttonOk:setEnabled(true)
+        end
+
+        assignSpellRadio.onSelectionChange = function(_, selected)
+            if selected then
+                previewWidget:setText(selected:getText())
+                if previewWidget.image then
+                    previewWidget.image:setImageSource(selected.source)
+                    previewWidget.image:setImageClip(selected.clip)
+                end
+                paramLabel:setOn(selected.param)
+                paramText:setEnabled(selected.param)
+                paramText:clearText()
+                if selected:getText():lower():find("levitate") then
+                    paramText:setText("up|down")
+                end
+            end
+        end
+
+        applyFilters()
+
+        if preselectSpellData then
+            applyPreselect(widgets)
+        else
+            local firstVisible = nil
+            for _, widget in ipairs(spellList:getChildren()) do
+                if widget:isVisible() then
+                    firstVisible = widget
+                    break
+                end
+            end
+            if firstVisible then
+                assignSpellRadio:selectWidget(firstVisible)
+            end
+        end
+    end
+
+    Spells.cancelSpellListPopulate(spellList)
+    assignSpellRadio = UIRadioGroup.create()
+    if buttonOk then
+        buttonOk:setEnabled(false)
+    end
+    Spells.populateSpellListAsync(spellList, {
+        widgetType = 'SpellPreview',
+        radio = assignSpellRadio,
+        batchSize = 25,
+        onAfterBatch = applyFilters,
+        onCancelled = function()
+            spellListPopulating = false
+            if buttonOk then
+                buttonOk:setEnabled(true)
+            end
+        end,
+        onSetupWidget = function(widget, spellName, spellData)
+            local spellId = spellData.clientId
+            local clip = Spells.getImageClip(spellId)
+            widget:setId(spellData.id)
+            widget:setText(spellName .. "\n" .. spellData.words)
+            widget.words = spellData.words
+            widget.voc = spellData.vocations
+            widget.param = spellData.parameter
+            widget.spellLevel = spellData.level or 0
+            widget.source = defaultIconsFolder
+            widget.clip = clip
+            if widget.image then
+                widget.image:setImageSource(widget.source)
+                widget.image:setImageClip(widget.clip)
+            end
+            if spellData.level and widget.levelLabel then
+                Spells.setSpellLevelLabel(widget.levelLabel, spellData.level)
+                if widget.image and widget.image.gray then
+                    widget.image.gray:setVisible(playerLevel < spellData.level)
+                end
+            end
+            local primaryGroup = Spells.getPrimaryGroup(spellData)
+            if primaryGroup ~= -1 and widget.imageGroup then
+                local offSet = (primaryGroup == 2 and 20) or (primaryGroup == 3 and 40) or 0
+                widget.imageGroup:setImageClip(offSet .. " 0 20 20")
+                widget.imageGroup:setVisible(true)
+            end
+        end,
+        onDoubleClick = function(self)
+            assignSpellRadio:selectWidget(self)
+            if okFunc then
+                okFunc()
+            end
+            return true
+        end,
+        onComplete = finishSpellListSetup
+    })
 
     local function isEnterKey(keyCode)
         return keyCode == KeyEnter or keyCode == KeyReturn or keyCode == 5 or keyCode == 13 or (KeyNumpadEnter and keyCode == KeyNumpadEnter) or (g_keyboard and g_keyboard.isEnterKey and g_keyboard.isEnterKey(keyCode))
@@ -274,13 +323,20 @@ function assignSpell(button, multiSlotIndex)
     if filterVocationWidget then
         filterVocationWidget.onCheckChange = applyFilters
     end
+    if filterLearntWidget then
+        filterLearntWidget.onCheckChange = applyFilters
+    end
     if sortByLevelWidget then
         sortByLevelWidget.onCheckChange = applyFilters
     end
 
     okFunc = function()
+        if spellListPopulating then
+            return
+        end
+
         local selected = assignSpellRadio and assignSpellRadio:getSelectedWidget()
-        if not selected then
+        if not selected or not selected:isVisible() then
             closeAssignSpellWindow()
             return
         end
@@ -324,6 +380,9 @@ function assignSpell(button, multiSlotIndex)
     buttonShowAll.onClick = function()
         if filterVocationWidget then
             filterVocationWidget:setChecked(false)
+        end
+        if filterLearntWidget then
+            filterLearntWidget:setChecked(false)
         end
         if tickWidget then
             tickWidget:setChecked(false)
@@ -572,9 +631,9 @@ function closeAssignItemWindow()
     assignItemWindow = nil
 end
 
-function closeAllAssignWindows(except)
+function closeAllAssignWindows(except, destroy)
     if except ~= 'spell' then
-        closeAssignSpellWindow()
+        closeAssignSpellWindow(destroy)
     end
     if except ~= 'text' then
         closeAssignTextWindow()

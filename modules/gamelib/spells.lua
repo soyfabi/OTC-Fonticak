@@ -620,14 +620,136 @@ function Spells.spellMatchesVocation(spellVocations, playerVocation)
     return false
 end
 
-function Spells.filterSpellWidgets(spellList, searchText, playerLevel, filterLevel, playerVocation, filterVocation)
+Spells.SPELL_LEVEL_LABEL_COLOR = '#ffff99'
+Spells.SPELL_LEVEL_VALUE_COLOR = '#c0c0c0'
+
+function Spells.setSpellLevelLabel(label, level)
+    if not label then
+        return
+    end
+
+    level = level or 0
+    if label.setColoredText then
+        label:setColoredText({
+            'Level:',
+            Spells.SPELL_LEVEL_LABEL_COLOR,
+            ' ' .. tostring(level),
+            Spells.SPELL_LEVEL_VALUE_COLOR
+        })
+    else
+        label:setText(string.format('Level: %d', level))
+    end
+    label:setVisible(true)
+end
+
+function Spells.spellPassesLearntFilter(spellLevel, spellVocations, playerLevel, playerVocation)
+    if (spellLevel or 0) > (playerLevel or 0) then
+        return false
+    end
+    return Spells.spellMatchesVocation(spellVocations, playerVocation)
+end
+
+function Spells.filterSpellWidgets(spellList, searchText, playerLevel, filterLevel, playerVocation, filterVocation, filterLearnt)
     local search = tostring(searchText or ''):trim():lower()
     for _, widget in ipairs(spellList:getChildren()) do
         local matchesSearch = search:len() == 0 or widget:getText():lower():find(search, 1, true)
         local matchesLevel = not filterLevel or (widget.spellLevel or 0) <= playerLevel
         local matchesVocation = not filterVocation or Spells.spellMatchesVocation(widget.voc, playerVocation)
-        widget:setVisible(matchesSearch and matchesLevel and matchesVocation)
+        local matchesLearnt = not filterLearnt or Spells.spellPassesLearntFilter(widget.spellLevel, widget.voc, playerLevel, playerVocation)
+        widget:setVisible(matchesSearch and matchesLevel and matchesVocation and matchesLearnt)
     end
+end
+
+local spellListPopulateTokens = {}
+
+function Spells.getDefaultSpellEntries()
+    if Spells._defaultSpellEntries then
+        return Spells._defaultSpellEntries
+    end
+
+    local entries = {}
+    for spellName, spellData in pairs(SpellInfo['Default']) do
+        table.insert(entries, { name = spellName, data = spellData })
+    end
+    table.sort(entries, function(a, b)
+        return a.name < b.name
+    end)
+    Spells._defaultSpellEntries = entries
+    return entries
+end
+
+function Spells.cancelSpellListPopulate(spellList)
+    if not spellList then
+        return
+    end
+    spellListPopulateTokens[spellList] = (spellListPopulateTokens[spellList] or 0) + 1
+end
+
+function Spells.populateSpellListAsync(spellList, config)
+    if not spellList or not config or not config.widgetType then
+        return
+    end
+
+    Spells.cancelSpellListPopulate(spellList)
+    local token = spellListPopulateTokens[spellList] or 0
+    spellList:destroyChildren()
+
+    local entries = Spells.getDefaultSpellEntries()
+    local index = 1
+    local batchSize = config.batchSize or 25
+    local widgets = {}
+
+    local function isCancelled()
+        return spellList:isDestroyed() or (spellListPopulateTokens[spellList] or 0) ~= token
+    end
+
+    local function processBatch()
+        if isCancelled() then
+            if config.onCancelled then
+                config.onCancelled()
+            end
+            return
+        end
+
+        local endIndex = math.min(index + batchSize - 1, #entries)
+        for i = index, endIndex do
+            local entry = entries[i]
+            local widget = g_ui.createWidget(config.widgetType, spellList)
+            widget:setEnabled(false)
+            widget.onDoubleClick = nil
+            if config.radio then
+                config.radio:addWidget(widget)
+            end
+            if config.onSetupWidget then
+                config.onSetupWidget(widget, entry.name, entry.data)
+            end
+            table.insert(widgets, widget)
+        end
+        index = endIndex + 1
+
+        if config.onAfterBatch then
+            config.onAfterBatch()
+        end
+
+        if index <= #entries then
+            addEvent(processBatch)
+            return
+        end
+
+        for _, widget in ipairs(spellList:getChildren()) do
+            local interactive = widget:isVisible()
+            widget:setEnabled(interactive)
+            if interactive and config.onDoubleClick then
+                widget.onDoubleClick = config.onDoubleClick
+            end
+        end
+
+        if config.onComplete then
+            config.onComplete(widgets)
+        end
+    end
+
+    addEvent(processBatch)
 end
 
 function Spells.getIconFileByProfile(profile)

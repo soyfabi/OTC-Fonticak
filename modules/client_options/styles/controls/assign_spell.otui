@@ -101,7 +101,7 @@ SpellMainWindow < NewMainWindow
       anchors.left: parent.left
       anchors.right: parent.right
       margin-top: 11
-      height: 420
+      height: 402
       padding: 1
       padding-top: 26
       focusable: false
@@ -155,15 +155,16 @@ SpellMainWindow < NewMainWindow
       margin-top: 6
       anchors.left: parent.left
       anchors.right: parent.right
-      height: 22
+      height: 40
       image-source: /images/ui/panel_flat_border
       image-border: 1
 
       CheckBox
         id: tick
         anchors.left: parent.left
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.top: parent.top
         margin-left: 5
+        margin-top: 3
         text: Filter: Level
         font: Verdana Bold-11px
         color: #c0c0c0
@@ -176,7 +177,7 @@ SpellMainWindow < NewMainWindow
       CheckBox
         id: filterVocation
         anchors.left: tick.right
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.top: tick.top
         margin-left: 10
         text: Filter: Vocation
         font: Verdana Bold-11px
@@ -188,9 +189,24 @@ SpellMainWindow < NewMainWindow
           color: #c0c0c0
 
       CheckBox
+        id: filterLearnt
+        anchors.left: parent.left
+        anchors.top: tick.bottom
+        margin-left: 5
+        margin-top: 1
+        text: Filter: Learnt
+        font: Verdana Bold-11px
+        color: #c0c0c0
+        checked: true
+        change-cursor-image: false
+        text-auto-resize: true
+        $hover !disabled:
+          color: #c0c0c0
+
+      CheckBox
         id: sortByLevel
-        anchors.left: filterVocation.right
-        anchors.verticalCenter: parent.verticalCenter
+        anchors.left: filterLearnt.right
+        anchors.top: filterLearnt.top
         margin-left: 10
         text: Sort by Level
         font: Verdana Bold-11px
