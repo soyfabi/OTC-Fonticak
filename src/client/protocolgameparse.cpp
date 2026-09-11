@@ -4581,7 +4581,9 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
         }
     }
 
-    if (g_game.getFeature(Otc::GameThingUpgradeClassification)) {
+    // Tier is read earlier when GameItemTierByte is negotiated (8.60 server path).
+    // Only consume the trailing tier byte for Tibia 12+ clients that use upgrade classification alone.
+    if (g_game.getFeature(Otc::GameThingUpgradeClassification) && !g_game.getFeature(Otc::GameItemTierByte)) {
         if (item->getClassification()) {
             item->setTier(msg->getU8());
         }

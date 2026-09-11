@@ -183,7 +183,6 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-        margin-top: 5
 
     SkillButton
       margin-top: 5
@@ -197,7 +196,6 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-        margin-top: 5
 
     SkillButton
       margin-top: 5
@@ -211,7 +209,6 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-        margin-top: 5
 
     SkillButton
       margin-top: 5
@@ -225,7 +222,6 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-        margin-top: 5
 
     SkillButton
       margin-top: 5
@@ -239,7 +235,6 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-        margin-top: 5
 
     SkillButton
       margin-top: 5
@@ -253,7 +248,6 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-        margin-top: 5
 
     SkillButton
       margin-top: 5
@@ -267,7 +261,6 @@ MiniWindow
         image-size: 9 9
         margin-left: 1
       SkillPercentPanel
-        margin-top: 2
 
     HorizontalSeparator
       id: separadorOnOffenceInfoChange
