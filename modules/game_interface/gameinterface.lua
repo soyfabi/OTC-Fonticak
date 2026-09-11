@@ -301,6 +301,9 @@ end
 
 function onGameEnd()
     hide()
+    if modules.game_things and modules.game_things.recoverSpriteState then
+        modules.game_things.recoverSpriteState()
+    end
 end
 
 function show()

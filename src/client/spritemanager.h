@@ -54,6 +54,7 @@ public:
     bool loadCwmSpr(std::string file);
     void reload();
     void unload();
+    void resetLoadingState();
 
 #ifdef FRAMEWORK_EDITOR
     void saveSpr(const std::string& fileName);
