@@ -84,9 +84,10 @@ controller:registerEvents(g_game, {
             g_game.enableFeature(GameThingUpgradeClassification)
             g_game.enableFeature(GameItemTierByte)
             g_game.enableFeature(GamePlayerRegenerationTime)
-            -- Custom 8.60 server extensions (familiars, monk HUD).
+            -- Custom 8.60 server extensions (familiars, monk HUD, frags).
             g_game.enableFeature(GamePlayerFamiliars)
             g_game.enableFeature(GameVocationMonk)
+            g_game.enableFeature(GameUnjustifiedPoints)
         end
 
         if version >= 862 then

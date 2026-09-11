@@ -192,7 +192,7 @@ function sendMarketAcceptOffer(timestamp, counter, amount)
     end
 end
 
-ProtocolGame.registerOpcode(0x2F, function(p, m) m:skipBytes(12) return true end)
+-- 0x2F is handled by game_unjustifiedpoints for custom frag stats.
 ProtocolGame.registerOpcode(0x0E, function(p, m)
     m:getU8()
     local text = m:getString()

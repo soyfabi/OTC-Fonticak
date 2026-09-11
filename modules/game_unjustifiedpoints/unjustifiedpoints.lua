@@ -18,6 +18,48 @@ daySkullWidget = nil
 weekSkullWidget = nil
 monthSkullWidget = nil
 
+local OPCODE_UNJUSTIFIED_REQUEST = 0x2E
+local OPCODE_UNJUSTIFIED_SEND = 0x2F
+local ACTION_REFRESH = 1
+local SECONDS_PER_DAY = 24 * 60 * 60
+
+local function registerProtocol()
+    ProtocolGame.unregisterOpcode(OPCODE_UNJUSTIFIED_SEND)
+    ProtocolGame.registerOpcode(OPCODE_UNJUSTIFIED_SEND, function(protocol, msg)
+        local unjustifiedPoints = {
+            killsDay = msg:getU8(),
+            killsDayRemaining = msg:getU8(),
+            killsWeek = msg:getU8(),
+            killsWeekRemaining = msg:getU8(),
+            killsMonth = msg:getU8(),
+            killsMonthRemaining = msg:getU8(),
+            skullTimeSeconds = msg:getU32()
+        }
+        local openPvpSituations = msg:getU8()
+        local skull = msg:getU8()
+
+        onUnjustifiedPointsChange(unjustifiedPoints)
+        onOpenPvpSituationsChange(openPvpSituations)
+
+        local localPlayer = g_game.getLocalPlayer()
+        if localPlayer then
+            onSkullChange(localPlayer, skull)
+        end
+    end)
+end
+
+local function requestRefresh()
+    local protocolGame = g_game.getProtocolGame()
+    if not protocolGame then
+        return
+    end
+
+    local msg = OutputMessage.create()
+    msg:addU8(OPCODE_UNJUSTIFIED_REQUEST)
+    msg:addU8(ACTION_REFRESH)
+    protocolGame:send(msg)
+end
+
 function init()
     connect(g_game, {
         onGameStart = online,
@@ -120,6 +162,8 @@ function terminate()
         unjustifiedPointsButton:destroy()
         unjustifiedPointsButton = nil
     end
+
+    ProtocolGame.unregisterOpcode(OPCODE_UNJUSTIFIED_SEND)
 end
 
 function onMiniWindowOpen()
@@ -153,6 +197,8 @@ function toggle()
 end
 
 function online()
+    registerProtocol()
+
     if g_game.getFeature(GameUnjustifiedPoints) and not unjustifiedPointsButton then
         unjustifiedPointsWindow:setupOnStart() -- load character window configuration
         unjustifiedPointsButton = modules.game_mainpanel.addToggleButton('unjustifiedPointsButton',
@@ -161,6 +207,7 @@ function online()
     end
 
     refresh()
+    requestRefresh()
 end
 
 function offline()
@@ -275,18 +322,20 @@ local function setProgressBarImage(progressBar, progressBarBackground, currentKi
     progressBar:setImageBorderBottom(1)
 end
 
-function onUnjustifiedPointsChange(unjustifiedPoints)    
-    if unjustifiedPoints.skullTime == 0 then
+function onUnjustifiedPointsChange(unjustifiedPoints)
+    local skullTimeSeconds = unjustifiedPoints.skullTimeSeconds or unjustifiedPoints.skullTime or 0
+    if skullTimeSeconds == 0 then
         skullTimeLabel:setText('0 days')
         skullTimeLabel:setTooltip('No Skull time active')
     else
-        skullTimeLabel:setText(unjustifiedPoints.skullTime .. ' days')
+        local skullDays = math.max(1, math.ceil(skullTimeSeconds / SECONDS_PER_DAY))
+        skullTimeLabel:setText(skullDays .. ' days')
         skullTimeLabel:setTooltip('Remaining skull time')
     end
 
     -- Check if player has red skull to determine max kill thresholds
     local localPlayer = g_game.getLocalPlayer()
-    local hasRedBlackSkull = localPlayer and localPlayer:getSkull() == SkullRed or localPlayer:getSkull() == SkullBlack
+    local hasRedBlackSkull = localPlayer and (localPlayer:getSkull() == SkullRed or localPlayer:getSkull() == SkullBlack)
 
     -- Set base thresholds: 3 daily, 5 weekly, 10 monthly for red skull
     -- Double these amounts (6, 10, 20) for black skull when player already has red skull
