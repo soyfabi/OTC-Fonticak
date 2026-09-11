@@ -266,15 +266,24 @@ local function showInvalidObjectMessage()
   end
 end
 
-local function closeSpellDialog()
+local function closeSpellDialog(destroy)
   if spellRadio then
     spellRadio:destroy()
     spellRadio = nil
   end
   if spellWindow and not spellWindow:isDestroyed() then
-    spellWindow:destroy()
+    if spellWindow.contentPanel and spellWindow.contentPanel.spellList then
+      Spells.cancelSpellListPopulate(spellWindow.contentPanel.spellList)
+    end
+    if destroy then
+      spellWindow:destroy()
+      spellWindow = nil
+    else
+      spellWindow:hide()
+    end
+  elseif destroy then
+    spellWindow = nil
   end
-  spellWindow = nil
 end
 
 local function closeObjectDialog()
@@ -360,7 +369,7 @@ function terminate_custom_hotkeys()
     chatModeGroup = nil
   end
 
-  closeSpellDialog()
+  closeSpellDialog(true)
   closeObjectDialog()
 
   if textWindow then
@@ -572,73 +581,44 @@ end
 function assignSpellDialog(row)
   closeSpellDialog()
 
-  spellWindow = g_ui.createWidget('SpellMainWindow', g_ui.getRootWidget())
-  local currentSpellWindow = spellWindow
-  spellWindow.onDestroy = function()
-    if spellWindow ~= currentSpellWindow then
-      return
+  if not spellWindow or spellWindow:isDestroyed() then
+    spellWindow = g_ui.createWidget('SpellMainWindow', g_ui.getRootWidget())
+    local currentSpellWindow = spellWindow
+    spellWindow.onDestroy = function()
+      if spellWindow ~= currentSpellWindow then
+        return
+      end
+      if spellRadio then
+        spellRadio:destroy()
+        spellRadio = nil
+      end
+      spellWindow = nil
     end
-    if spellRadio then
-      spellRadio:destroy()
-      spellRadio = nil
-    end
-    spellWindow = nil
+  elseif spellRadio then
+    spellRadio:destroy()
+    spellRadio = nil
   end
+
   spellWindow:show()
   spellWindow:raise()
   spellWindow:focus()
   controller.ui:hide()
 
-  local okFunc = nil
-  spellRadio = UIRadioGroup.create()
-  local spells = modules.gamelib.SpellInfo['Default']
   local player = g_game.getLocalPlayer()
-
-  for spellName, spellData in pairs(spells) do
-    if not player then break end
-
-    local widget = g_ui.createWidget('CustomHotkeySpellPreview', spellWindow.contentPanel.spellList)
-    local iconId = tonumber(spellData.clientId)
-
-    spellRadio:addWidget(widget)
-    widget:setId(spellData.id)
-    widget:setText(spellName.."\n"..spellData.words)
-    widget.words = spellData.words
-    widget.voc = spellData.vocations
-    widget.param = spellData.parameter
-    widget.spellLevel = spellData.level or 0
-    widget.source = SpelllistSettings['Default'].iconFile
-    widget.clip = Spells.getImageClip(iconId, 'Default')
-    if SpellIcons and SpellIcons[spellName] and SpelllistSettings['Default'].iconsFolder and Spells.getImageClipNormal then
-      widget.source = SpelllistSettings['Default'].iconsFolder .. SpellIcons[spellName][1]
-      widget.clip = Spells.getImageClipNormal(SpellIcons[spellName][2])
-    end
-    widget.image:setImageSource(widget.source)
-    widget.image:setImageClip(widget.clip)
-
-    if spellData.level then
-      widget.levelLabel:setVisible(true)
-      widget.levelLabel:setText(string.format("Level: %d", spellData.level))
-      if player:getLevel() < spellData.level then
-        widget.image.gray:setVisible(true)
-      end
-    end
-
-    widget.onDoubleClick = function(self)
-      spellRadio:selectWidget(self)
-      if okFunc then
-        okFunc()
-      end
-      return true
-    end
-  end
-
   local playerLevel = player and player:getLevel() or 0
   local playerVocation = player and player:getVocation() or 0
   local spellList = spellWindow.contentPanel.spellList
   local tickWidget = spellWindow.contentPanel.checkPanel.tick
   local filterVocationWidget = spellWindow.contentPanel.checkPanel.filterVocation
+  local filterLearntWidget = spellWindow.contentPanel.checkPanel.filterLearnt
   local sortByLevelWidget = spellWindow.contentPanel.checkPanel.sortByLevel
+
+  spellWindow.contentPanel.searchText:clearText()
+  spellWindow.contentPanel.paramText:clearText()
+  spellWindow.contentPanel.preview:setText('')
+
+  local okFunc = nil
+  spellRadio = UIRadioGroup.create()
 
   local function sortSpellWidgets()
     local sortByLevel = sortByLevelWidget and sortByLevelWidget:isChecked()
@@ -649,7 +629,8 @@ function assignSpellDialog(row)
     local search = spellWindow.contentPanel.searchText:getText()
     local filterLevel = tickWidget and tickWidget:isChecked()
     local filterVocation = filterVocationWidget and filterVocationWidget:isChecked()
-    Spells.filterSpellWidgets(spellList, search, playerLevel, filterLevel, playerVocation, filterVocation)
+    local filterLearnt = filterLearntWidget and filterLearntWidget:isChecked()
+    Spells.filterSpellWidgets(spellList, search, playerLevel, filterLevel, playerVocation, filterVocation, filterLearnt)
     sortSpellWidgets()
   end
   spellWindow.contentPanel.searchText.onTextChange = filterSpells
@@ -659,31 +640,89 @@ function assignSpellDialog(row)
   if filterVocationWidget then
     filterVocationWidget.onCheckChange = filterSpells
   end
+  if filterLearntWidget then
+    filterLearntWidget.onCheckChange = filterSpells
+  end
   if sortByLevelWidget then
     sortByLevelWidget.onCheckChange = filterSpells
   end
   spellWindow.contentPanel.clearButton.onClick = function()
     spellWindow.contentPanel.searchText:clearText()
   end
-  filterSpells()
 
-  spellRadio.onSelectionChange = function(_, selected)
-    if selected then
-      spellWindow.contentPanel.preview:setText(selected:getText())
-      spellWindow.contentPanel.preview.image:setImageSource(selected.source)
-      spellWindow.contentPanel.preview.image:setImageClip(selected.clip)
-      spellWindow.contentPanel.paramLabel:setOn(selected.param)
-      spellWindow.contentPanel.paramText:setEnabled(selected.param)
-      spellWindow.contentPanel.paramText:clearText()
-      if selected.words and selected.words:lower():find("levitate") then
-        spellWindow.contentPanel.paramText:setText("up|down")
+  local function finishSpellListSetup()
+    spellRadio.onSelectionChange = function(_, selected)
+      if selected then
+        spellWindow.contentPanel.preview:setText(selected:getText())
+        spellWindow.contentPanel.preview.image:setImageSource(selected.source)
+        spellWindow.contentPanel.preview.image:setImageClip(selected.clip)
+        spellWindow.contentPanel.paramLabel:setOn(selected.param)
+        spellWindow.contentPanel.paramText:setEnabled(selected.param)
+        spellWindow.contentPanel.paramText:clearText()
+        if selected.words and selected.words:lower():find("levitate") then
+          spellWindow.contentPanel.paramText:setText("up|down")
+        end
+      end
+    end
+
+    filterSpells()
+
+    if spellList:getChildCount() > 0 then
+      local firstVisible = nil
+      for _, widget in ipairs(spellList:getChildren()) do
+        if widget:isVisible() then
+          firstVisible = widget
+          break
+        end
+      end
+      if firstVisible then
+        spellRadio:selectWidget(firstVisible)
       end
     end
   end
 
-  if spellWindow.contentPanel.spellList:getChildCount() > 0 then
-    spellRadio:selectWidget(spellWindow.contentPanel.spellList:getChildByIndex(1))
-  end
+  Spells.cancelSpellListPopulate(spellList)
+  Spells.populateSpellListAsync(spellList, {
+    widgetType = 'CustomHotkeySpellPreview',
+    radio = spellRadio,
+    batchSize = 25,
+    onSetupWidget = function(widget, spellName, spellData)
+      if not player then
+        return
+      end
+
+      local iconId = tonumber(spellData.clientId)
+      widget:setId(spellData.id)
+      widget:setText(spellName .. "\n" .. spellData.words)
+      widget.words = spellData.words
+      widget.voc = spellData.vocations
+      widget.param = spellData.parameter
+      widget.spellLevel = spellData.level or 0
+      widget.source = SpelllistSettings['Default'].iconFile
+      widget.clip = Spells.getImageClip(iconId, 'Default')
+      if SpellIcons and SpellIcons[spellName] and SpelllistSettings['Default'].iconsFolder and Spells.getImageClipNormal then
+        widget.source = SpelllistSettings['Default'].iconsFolder .. SpellIcons[spellName][1]
+        widget.clip = Spells.getImageClipNormal(SpellIcons[spellName][2])
+      end
+      widget.image:setImageSource(widget.source)
+      widget.image:setImageClip(widget.clip)
+
+      if spellData.level then
+        Spells.setSpellLevelLabel(widget.levelLabel, spellData.level)
+        if player:getLevel() < spellData.level and widget.image.gray then
+          widget.image.gray:setVisible(true)
+        end
+      end
+    end,
+    onDoubleClick = function(self)
+      spellRadio:selectWidget(self)
+      if okFunc then
+        okFunc()
+      end
+      return true
+    end,
+    onComplete = finishSpellListSetup
+  })
 
   local function isEnterKey(keyCode)
     return keyCode == KeyEnter or keyCode == KeyReturn or keyCode == 5 or keyCode == 13 or (KeyNumpadEnter and keyCode == KeyNumpadEnter) or (g_keyboard and g_keyboard.isEnterKey and g_keyboard.isEnterKey(keyCode))
