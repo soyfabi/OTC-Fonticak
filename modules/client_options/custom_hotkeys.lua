@@ -618,6 +618,7 @@ function assignSpellDialog(row)
   spellWindow.contentPanel.preview:setText('')
 
   local okFunc = nil
+  local spellListPopulating = true
   spellRadio = UIRadioGroup.create()
 
   local function sortSpellWidgets()
@@ -651,6 +652,11 @@ function assignSpellDialog(row)
   end
 
   local function finishSpellListSetup()
+    spellListPopulating = false
+    if spellWindow.contentPanel.buttonOk then
+      spellWindow.contentPanel.buttonOk:setEnabled(true)
+    end
+
     spellRadio.onSelectionChange = function(_, selected)
       if selected then
         spellWindow.contentPanel.preview:setText(selected:getText())
@@ -682,10 +688,20 @@ function assignSpellDialog(row)
   end
 
   Spells.cancelSpellListPopulate(spellList)
+  if spellWindow.contentPanel.buttonOk then
+    spellWindow.contentPanel.buttonOk:setEnabled(false)
+  end
   Spells.populateSpellListAsync(spellList, {
     widgetType = 'CustomHotkeySpellPreview',
     radio = spellRadio,
     batchSize = 25,
+    onAfterBatch = filterSpells,
+    onCancelled = function()
+      spellListPopulating = false
+      if spellWindow.contentPanel.buttonOk then
+        spellWindow.contentPanel.buttonOk:setEnabled(true)
+      end
+    end,
     onSetupWidget = function(widget, spellName, spellData)
       if not player then
         return
@@ -729,8 +745,14 @@ function assignSpellDialog(row)
   end
 
   okFunc = function()
+    if spellListPopulating then
+      return
+    end
+
     local selected = spellRadio and spellRadio:getSelectedWidget()
-    if not selected then return end
+    if not selected or not selected:isVisible() then
+      return
+    end
 
     local paramText = spellWindow.contentPanel.paramText:getText()
     local words = selected.words

@@ -118,6 +118,7 @@ function assignSpell(button, multiSlotIndex)
     local defaultIconsFolder = SpelllistSettings['Default'].iconFile
 
     local okFunc = nil
+    local spellListPopulating = true
 
     local function sortSpellWidgets()
         local sortByLevel = sortByLevelWidget and sortByLevelWidget:isChecked()
@@ -176,7 +177,7 @@ function assignSpell(button, multiSlotIndex)
             paramText:setCursorPos(#preselectCastParam)
         end
         for _, k in ipairs(widgets) do
-            if k:getId() == tostring(spellData.id) then
+            if k:getId() == tostring(spellData.id) and k:isVisible() then
                 assignSpellRadio:selectWidget(k)
                 spellList:ensureChildVisible(k)
                 break
@@ -185,6 +186,11 @@ function assignSpell(button, multiSlotIndex)
     end
 
     local function finishSpellListSetup(widgets)
+        spellListPopulating = false
+        if buttonOk then
+            buttonOk:setEnabled(true)
+        end
+
         assignSpellRadio.onSelectionChange = function(_, selected)
             if selected then
                 previewWidget:setText(selected:getText())
@@ -221,10 +227,20 @@ function assignSpell(button, multiSlotIndex)
 
     Spells.cancelSpellListPopulate(spellList)
     assignSpellRadio = UIRadioGroup.create()
+    if buttonOk then
+        buttonOk:setEnabled(false)
+    end
     Spells.populateSpellListAsync(spellList, {
         widgetType = 'SpellPreview',
         radio = assignSpellRadio,
         batchSize = 25,
+        onAfterBatch = applyFilters,
+        onCancelled = function()
+            spellListPopulating = false
+            if buttonOk then
+                buttonOk:setEnabled(true)
+            end
+        end,
         onSetupWidget = function(widget, spellName, spellData)
             local spellId = spellData.clientId
             local clip = Spells.getImageClip(spellId)
@@ -315,8 +331,12 @@ function assignSpell(button, multiSlotIndex)
     end
 
     okFunc = function()
+        if spellListPopulating then
+            return
+        end
+
         local selected = assignSpellRadio and assignSpellRadio:getSelectedWidget()
-        if not selected then
+        if not selected or not selected:isVisible() then
             closeAssignSpellWindow()
             return
         end

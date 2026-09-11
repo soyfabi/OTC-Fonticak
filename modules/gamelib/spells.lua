@@ -715,22 +715,36 @@ function Spells.populateSpellListAsync(spellList, config)
         for i = index, endIndex do
             local entry = entries[i]
             local widget = g_ui.createWidget(config.widgetType, spellList)
+            widget:setEnabled(false)
+            widget.onDoubleClick = nil
             if config.radio then
                 config.radio:addWidget(widget)
             end
             if config.onSetupWidget then
                 config.onSetupWidget(widget, entry.name, entry.data)
             end
-            if config.onDoubleClick then
-                widget.onDoubleClick = config.onDoubleClick
-            end
             table.insert(widgets, widget)
         end
         index = endIndex + 1
 
+        if config.onAfterBatch then
+            config.onAfterBatch()
+        end
+
         if index <= #entries then
             addEvent(processBatch)
-        elseif config.onComplete then
+            return
+        end
+
+        for _, widget in ipairs(spellList:getChildren()) do
+            local interactive = widget:isVisible()
+            widget:setEnabled(interactive)
+            if interactive and config.onDoubleClick then
+                widget.onDoubleClick = config.onDoubleClick
+            end
+        end
+
+        if config.onComplete then
             config.onComplete(widgets)
         end
     end
