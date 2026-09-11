@@ -102,17 +102,6 @@ SideActionButton < UIButton
     phantom: true
     visible: false
 
-  UIWidget
-    id: equipmentTypeIcon
-    size: 9 9
-    image-size: 9 9
-    anchors.bottom: parent.bottom
-    anchors.left: parent.left
-    margin-left: 1
-    margin-bottom: 1
-    phantom: true
-    visible: false
-
 TopSliders < Panel
   size: 34 17
 

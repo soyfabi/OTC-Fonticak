@@ -6,4 +6,4 @@ Module
   sandboxed: true
   @onLoad: ActionBarController:init()
   @onUnload: ActionBarController:terminate()
-  scripts: [ game_actionbar, logics/const, logics/EquipmentAssignLogic, logics/ActionButtonLogic, logics/ActionAssignmentWindows, logics/MultiActionLogic, logics/ActionHotkeys, logics/ActionBarOptions]
+  scripts: [ game_actionbar, logics/ActionButtonLogic, logics/ActionAssignmentWindows, logics/MultiActionLogic, logics/ActionHotkeys, logics/ActionBarOptions , logics/const]

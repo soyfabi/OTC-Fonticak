@@ -394,15 +394,6 @@ function onExecuteAction(button, isPress)
     end
 
     if action == UseTypes["Equip"] and button.item then
-        if isEquipmentPresetCache and isEquipmentPresetCache(button.cache) then
-            if isEquipmentSetOnCooldown and isEquipmentSetOnCooldown() then
-                return
-            end
-            if executeEquipmentPreset then
-                executeEquipmentPreset(button)
-            end
-            return
-        end
         local tier = 0
         if g_game.getFeature(GameThingUpgradeClassification) then
             tier = button.cache.upgradeTier
@@ -528,9 +519,6 @@ function updateButtonState(button)
         button.item.text.gray:setVisible(not playerCanUseSpell(button.cache.spellData))
         local spellId = 0
         button:recursiveGetChildById('activeSpell'):setVisible(button.cache.spellData.id == spellId)
-    elseif isEquipmentPresetCache and isEquipmentPresetCache(button.cache) then
-        if button.item.gray then button.item.gray:setVisible(false) end
-        setupButtonTooltip(button, false)
     elseif button.cache.itemId ~= 0 then
         local tier = 0
         if g_game.getFeature(GameThingUpgradeClassification) then
@@ -706,14 +694,6 @@ function resetButtonCache(button)
     c.itemId = 0
     c.multiActions = {{}, {}, {}}
     c.smartMode = false
-    c.equipments = nil
-    c.equipmentIconIndex = nil
-    c.equipmentDescription = nil
-    c.equipmentTypeIndex = nil
-    c.isEquipmentPreset = false
-    if button.equipmentTypeIcon then
-        button.equipmentTypeIcon:setVisible(false)
-    end
     if button.multiIcon then
         button.multiIcon:setVisible(false)
     end
@@ -783,9 +763,7 @@ function setupButtonTooltip(button, isEmpty)
             actionDesc = "Use %s"
         end
 
-        if cache.actionType == UseTypes["Equip"] and isEquipmentPresetCache and isEquipmentPresetCache(cache) then
-            actionDesc = equipmentPresetTooltip and equipmentPresetTooltip(cache) or tr("Equipment set")
-        elseif cache.actionType == UseTypes["Equip"] and button.item then
+        if cache.actionType == UseTypes["Equip"] and button.item then
             local itemName = getItemNameById(button.item:getItem():getId()) ..
                                  ((cache.upgradeTier and cache.upgradeTier > 0) and " (Tier " .. cache.upgradeTier ..
                                      ")" or "")
@@ -794,10 +772,8 @@ function setupButtonTooltip(button, isEmpty)
             actionDesc = tr(actionDesc, getItemNameById(button.item:getItem():getId()))
         end
 
-        if not (isEquipmentPresetCache and isEquipmentPresetCache(cache)) then
-            local itemCount = player:getInventoryCount(button.cache.itemId, button.cache.upgradeTier)
-            actionDesc = actionDesc .. "\n    Amount:  " .. itemCount
-        end
+        local itemCount = player:getInventoryCount(button.cache.itemId, button.cache.upgradeTier)
+        actionDesc = actionDesc .. "\n    Amount:  " .. itemCount
         if cache.isRuneSpell and spellData then
             actionDesc = actionDesc .. "\n" .. spellStatsTooltip(spellData)
         end
@@ -984,16 +960,6 @@ function configureButtonMouseRelease(button)
                 end
             end
 
-            if isEquipmentPresetCache and isEquipmentPresetCache(button.cache) then
-                menu:addOption(tr('Edit Equipments'), function()
-                    assignEquipment(button)
-                end)
-            else
-                menu:addOption(tr('Assign Equipments'), function()
-                    assignEquipment(button)
-                end)
-            end
-
             if button.cache.actionType > 0 or hasMultiActions then
                 menu:addSeparator()
                 menu:addOption(tr('Clear Action'), function()
@@ -1114,43 +1080,8 @@ function updateButton(button)
     local passiveAbility = buttonData["actionsetting"]["passiveAbility"]
     local specialAction = buttonData["actionsetting"]["specialAction"]
     local multiActions = buttonData["actionsetting"]["multiActions"]
-    local equipmentsSetting = buttonData["actionsetting"]["equipments"]
-    local equipmentIconIndex = buttonData["actionsetting"]["equipmentIconIndex"]
 
     local hasMultiData = type(multiActions) == "table" and hasMultiActions(multiActions) or false
-
-    if buttonData["actionsetting"]["useType"] == "Equip"
-        and (equipmentsSetting ~= nil or (type(equipmentIconIndex) == "number" and equipmentIconIndex > 0)) then
-        button.cache.actionType = UseTypes["Equip"]
-        button.cache.equipments = normalizeEquipmentsFromSetting and normalizeEquipmentsFromSetting(equipmentsSetting) or {}
-        button.cache.equipmentIconIndex = equipmentIconIndex or 0
-        button.cache.equipmentDescription = buttonData["actionsetting"]["equipmentDescription"] or ""
-        button.cache.equipmentTypeIndex = buttonData["actionsetting"]["equipmentTypeIndex"] or 0
-        button.cache.isEquipmentPreset = true
-        button.cache.smartMode = false
-        local display = equipmentAssignDisplayEntry and equipmentAssignDisplayEntry(button.cache.equipments)
-        if display then
-            button.cache.itemId = display.itemId
-            button.cache.upgradeTier = display.getTier or 0
-        else
-            button.cache.itemId = 0
-            button.cache.upgradeTier = 0
-        end
-        if loadEquipmentPresetDisplay then
-            loadEquipmentPresetDisplay(button)
-        end
-        button.item:setDraggable(true)
-        button.item.onClick = function()
-            onExecuteAction(button)
-        end
-        if button.item.text then
-            button.item.text.onClick = function()
-                onExecuteAction(button)
-            end
-        end
-        configureButtonMouseRelease(button)
-        return true
-    end
 
     if hasMultiData then
         button.cache.multiActions = {{}, {}, {}}

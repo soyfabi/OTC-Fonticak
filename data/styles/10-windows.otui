@@ -33,24 +33,7 @@ WindowHigh < Window
 
 MainWindowHigh < WindowHigh
   anchors.centerIn: parent
-
-LogoWindow < Window
-  image-source: /images/ui/4pixel-frame-borderimage
-  image-border: 5
-  anchors.centerIn: parent
-
-  UIWidget
-    id: logoBackdropCrest
-    size: 145 56
-    anchors.top: parent.top
-    anchors.horizontalCenter: parent.horizontalCenter
-    margin-top: -40
-    image-source: /images/game/tutorial/backdrop_crest
-    phantom: true
-
-MainLogoWindow < LogoWindow
-  anchors.centerIn: parent
-
+  
 StaticWindow < Window
   draggable: false
 
