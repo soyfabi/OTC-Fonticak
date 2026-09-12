@@ -1,5 +1,9 @@
 local CustomMarketOpcode = 0xDB
 
+-- Market enter item records on proto-feat servers always end with classification.
+-- Do not gate this on getUnreadSize(); multi-item chunks always have unread bytes left.
+local MARKET_ENTER_ITEM_INCLUDES_CLASSIFICATION = true
+
 local CustomMarketResponse = {
     Message = 0,
     Enter = 1,
@@ -47,7 +51,7 @@ function parseCustomMarketMessage(protocol, msg)
             local amount = msg:getU16()
             local tier = msg:getU8()
             local classification = 0
-            if msg:getUnreadSize() > 0 then
+            if MARKET_ENTER_ITEM_INCLUDES_CLASSIFICATION then
                 classification = msg:getU8()
             end
 

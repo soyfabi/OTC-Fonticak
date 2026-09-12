@@ -1600,19 +1600,8 @@ function initBestiary(contentContainer)
 			end, 300)
 		end
 	end
-		
-	--- Extras
-	connect(g_game, {
-		onEnterGame = registerBestiaryProtocol, 
-		onPendingGame = registerBestiaryProtocol
-	})
-	
-	if g_game.isOnline() then
-        registerBestiaryProtocol()
-    end
 
-	-- Protocolling request
-	requestBestiaryData() -- We request the bestiary data
+	requestBestiaryData()
 end
 local function requestBestiaryInfo()
 	local protocolGame = g_game.getProtocolGame()

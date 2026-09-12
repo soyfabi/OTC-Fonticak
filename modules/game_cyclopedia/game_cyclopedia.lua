@@ -90,15 +90,27 @@ local function requestMarketItemsPreload()
 	end
 end
 
+local function onCyclopediaEnterGame()
+	if registerBestiaryProtocol then
+		registerBestiaryProtocol()
+	end
+end
+
 function init()
 	
 	-- The rest
 	connect(g_game, {
 		onGameStart = onCyclopediaGameStart,
 		onGameEnd = onCyclopediaGameEnd,
+		onEnterGame = onCyclopediaEnterGame,
+		onPendingGame = registerBestiaryProtocol,
 		onParseItemDetail = onCyclopediaItemDetail,
 		onItemDetails = onCyclopediaItemDetails
 	}, true)
+
+	if registerBestiaryProtocol then
+		registerBestiaryProtocol()
+	end
 
 	g_ui.importStyle('styles/bestiary_tracker')
 	window 	   = g_ui.displayUI('game_cyclopedia')
@@ -131,6 +143,8 @@ function terminate()
 	disconnect(g_game, {
 		onGameStart = onCyclopediaGameStart,
 		onGameEnd = onCyclopediaGameEnd,
+		onEnterGame = onCyclopediaEnterGame,
+		onPendingGame = registerBestiaryProtocol,
 		onParseItemDetail = onCyclopediaItemDetail,
 		onItemDetails = onCyclopediaItemDetails
 	})
@@ -174,6 +188,9 @@ function getCurrentType()
 end
 
 function onCyclopediaGameStart()
+	if registerBestiaryProtocol then
+		registerBestiaryProtocol()
+	end
 	if restoreBestiaryTracker then
 		restoreBestiaryTracker()
 	end
