@@ -796,12 +796,6 @@ void Creature::updateWalkAnimation()
     if (footAnimPhases == 0)
         return;
 
-    // diagonal walk is taking longer than the animation, thus why don't animate continously
-    if (m_walkTimer.ticksElapsed() < getStepDuration() && m_walkedPixels == g_gameConfig.getSpriteSize()) {
-        m_walkAnimationPhase = 0;
-        return;
-    }
-
     int minFootDelay = 20;
     const int maxFootDelay = footAnimPhases > 2 ? 80 : 205;
     int footAnimDelay = footAnimPhases;
@@ -915,7 +909,7 @@ void Creature::nextWalkUpdate()
         self->nextWalkUpdate();
     };
 
-    m_walkUpdateEvent = isCameraFollowing() ? g_dispatcher.addEvent(action) : g_dispatcher.scheduleEvent(action, m_stepCache.walkDuration);
+    m_walkUpdateEvent = g_dispatcher.scheduleEvent(action, m_stepCache.walkDuration);
 }
 
 void Creature::updateWalk(const bool isPreWalking)
