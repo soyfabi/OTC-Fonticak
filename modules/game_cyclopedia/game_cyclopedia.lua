@@ -1,3 +1,5 @@
+Cyclopedia = Cyclopedia or {}
+
 local window, previousType, currentType
 local bestiaryPanel
 cyclopediaButton = nil
@@ -154,6 +156,9 @@ function toggleWindow(type)
 		items:setOn(true)
 		items:disable()
 		changePreviousType(items)
+		if showItems then
+			showItems()
+		end
 	elseif (type == "bestiary") then
 		bestiary:setOn(true)
 		bestiary:disable()

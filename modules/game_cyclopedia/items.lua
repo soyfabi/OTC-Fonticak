@@ -184,12 +184,6 @@ end
 
 local function getDefaultValue(item)
   local itemId = getItemId(item)
-  if ItemsDatabase and ItemsDatabase.getItemValue then
-    local bulkValue = asNumber(ItemsDatabase.getItemValue(itemId))
-    if bulkValue > 0 then
-      return bulkValue
-    end
-  end
   local serverValue = asNumber(itemsData.serverValues[tostring(itemId)] or itemsData.serverValues[itemId])
   if serverValue > 0 then return serverValue end
   local defaultValue = asNumber(call(item, 'getDefaultValue'))

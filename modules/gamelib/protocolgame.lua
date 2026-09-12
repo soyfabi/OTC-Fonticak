@@ -10,12 +10,16 @@ function ProtocolGame:onOpcode(opcode, msg)
         return false
     end
 
-    local ok, err = pcall(callback, self, msg)
+    local ok, handled = pcall(callback, self, msg)
     if not ok then
-        g_logger.error(string.format('Opcode 0x%02X handler error: %s', opcode, tostring(err)))
+        g_logger.error(string.format('Opcode 0x%02X handler error: %s', opcode, tostring(handled)))
         if msg and msg.getMessageSize and msg.setReadPos then
             msg:setReadPos(msg:getMessageSize())
         end
+        return true
+    end
+    if handled == false then
+        return false
     end
     return true
 end

@@ -5,6 +5,7 @@ ItemsDatabase = {}
 ItemsDatabase.serverValues = ItemsDatabase.serverValues or {}
 
 local OPCODE_ITEM_VALUES = 0xC6
+local OPCODE_ITEM_DETAILS = 0xC7
 
 ItemsDatabase.rarityColors = {
     ["yellow"] = TextColors.yellow,
@@ -121,7 +122,12 @@ function ItemsDatabase.getClipAndImagePath(item)
     local clip = nil
 
     if type(item) == "number" then
-        item = g_things.getThingType(item, ThingCategoryItem)
+        local thingType = g_things.getThingType(item, ThingCategoryItem)
+        if thingType and thingType.getId and thingType:getId() == item then
+            item = thingType
+        else
+            return nil, nil, nil
+        end
     end
 
     if not item then
@@ -154,12 +160,12 @@ function ItemsDatabase.getClipAndImagePath(item)
     return clip, imagePath, clipObject
 end
 
-function ItemsDatabase.setRarityItem(widget, item, style)
+local function applyRarityToWidget(widget, price, style)
     if not widget then
         return
     end
 
-    if not g_game.getFeature(GameColorizedLootValue) or not item then
+    if not g_game.getFeature(GameColorizedLootValue) or not price or price <= 0 then
         widget:setImageClip(torect("0 0 0 0"))
         widget:setImageSource('/images/ui/item')
         if style then
@@ -168,9 +174,29 @@ function ItemsDatabase.setRarityItem(widget, item, style)
         return
     end
 
-    local clip, imagePath = ItemsDatabase.getClipAndImagePath(item)
+    local frameOption = modules.client_options.getOption('framesRarity')
+    if frameOption == "none" then
+        widget:setImageClip(torect("0 0 0 0"))
+        widget:setImageSource('/images/ui/item')
+        if style then
+            widget:setStyle(style)
+        end
+        return
+    end
 
-    if not imagePath or not clip then
+    local clip = clipfunction(price)
+    local imagePath = '/images/ui/item'
+    if clip ~= "" then
+        if frameOption == "frames" then
+            imagePath = "/images/ui/rarity_frames"
+        elseif frameOption == "corners" then
+            imagePath = "/images/ui/containerslot-coloredges"
+        end
+    else
+        clip = nil
+    end
+
+    if not clip then
         widget:setImageClip(torect("0 0 0 0"))
         widget:setImageSource('/images/ui/item')
         if style then
@@ -184,6 +210,19 @@ function ItemsDatabase.setRarityItem(widget, item, style)
     if style then
         widget:setStyle(style)
     end
+end
+
+function ItemsDatabase.setRarityItem(widget, item, style)
+    if not item then
+        applyRarityToWidget(widget, 0, style)
+        return
+    end
+
+    applyRarityToWidget(widget, ItemsDatabase.getItemPrice(item), style)
+end
+
+function ItemsDatabase.setRarityItemByPrice(widget, price, style)
+    applyRarityToWidget(widget, tonumber(price) or 0, style)
 end
 
 function ItemsDatabase.getColorForRarity(rarity)
@@ -307,12 +346,13 @@ function ItemsDatabase.applyExpiryDisplay(itemWidget, optionKey)
     itemWidget:setShowCharges((g_game.getFeature(GameDisplayItemCharges) or g_game.getFeature(GameThingCounter)) and show)
 end
 
+local function usesCustomItemValueProtocol()
+    return g_game.getFeature(GameColorizedLootValue)
+end
+
 local function onItemValuesOpcode(_, msg)
-    if not g_game.getFeature(GameColorizedLootValue) then
-        if msg and msg.getMessageSize and msg.setReadPos then
-            msg:setReadPos(msg:getMessageSize())
-        end
-        return
+    if not usesCustomItemValueProtocol() then
+        return false
     end
 
     local count = msg:getU16()
@@ -321,27 +361,80 @@ local function onItemValuesOpcode(_, msg)
         local value = msg:getU32()
         ItemsDatabase.registerServerItemValue(itemId, value)
     end
+    return true
 end
 
-local function registerItemValuesOpcode()
-    if not ProtocolGame or not ProtocolGame.registerOpcode then
+local function onItemDetailsOpcode(_, msg)
+    if not usesCustomItemValueProtocol() then
+        return false
+    end
+
+    local itemId = msg:getU16()
+    if not itemId or itemId <= 0 then
+        return true
+    end
+
+    local defaultValue = msg:getU32()
+    msg:getU32() -- default buy price
+    msg:getU32() -- average market price
+
+    local descriptionsSize = msg:getU8()
+    for _ = 1, descriptionsSize do
+        msg:getString()
+        msg:getString()
+    end
+
+    local npcSaleDataSize = msg:getU16()
+    for _ = 1, npcSaleDataSize do
+        msg:getString()
+        msg:getString()
+        msg:getU32()
+        msg:getU32()
+        msg:getString()
+    end
+
+    if defaultValue > 0 then
+        ItemsDatabase.registerServerItemValue(itemId, defaultValue)
+    end
+
+    if g_game.onItemDetails then
+        g_game.onItemDetails(itemId, defaultValue)
+    end
+    return true
+end
+
+local function registerCustomItemOpcodes()
+    if not ProtocolGame or not ProtocolGame.registerOpcode or not usesCustomItemValueProtocol() then
         return
     end
     pcall(function()
         ProtocolGame.unregisterOpcode(OPCODE_ITEM_VALUES)
+        ProtocolGame.unregisterOpcode(OPCODE_ITEM_DETAILS)
     end)
     ProtocolGame.registerOpcode(OPCODE_ITEM_VALUES, onItemValuesOpcode)
+    ProtocolGame.registerOpcode(OPCODE_ITEM_DETAILS, onItemDetailsOpcode)
+end
+
+local function unregisterCustomItemOpcodes()
+    if not ProtocolGame or not ProtocolGame.unregisterOpcode then
+        return
+    end
+    pcall(function()
+        ProtocolGame.unregisterOpcode(OPCODE_ITEM_VALUES)
+        ProtocolGame.unregisterOpcode(OPCODE_ITEM_DETAILS)
+    end)
 end
 
 local function onGameStart()
     ItemsDatabase.clearServerItemValues()
+    registerCustomItemOpcodes()
 end
 
 local function onGameEnd()
     ItemsDatabase.clearServerItemValues()
+    unregisterCustomItemOpcodes()
 end
 
-registerItemValuesOpcode()
 connect(g_game, {
     onGameStart = onGameStart,
     onGameEnd = onGameEnd

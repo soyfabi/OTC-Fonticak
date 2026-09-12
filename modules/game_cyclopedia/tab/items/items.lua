@@ -1,4 +1,5 @@
-Cyclopedia.Items = {}
+Cyclopedia = Cyclopedia or {}
+Cyclopedia.Items = Cyclopedia.Items or {}
 Cyclopedia.Items.currentItemId = nil
 
 -- Additional variables for new features
@@ -244,7 +245,12 @@ function Cyclopedia.Items.showItemPrice(obj)
 
 	-- Get NPC value (use thingType if available, fallback to item)
 	local npcValue = Cyclopedia.Items.getNpcValue(thingType or item, true)
-	
+	local serverValue = ItemsDatabase and ItemsDatabase.getItemValue and ItemsDatabase.getItemValue(itemId) or 0
+
+	if npcValue == 0 and serverValue > 0 then
+		npcValue = serverValue
+	end
+
 	-- If no NPC buy price found, fallback to market average price
 	if npcValue == 0 then
 		npcValue = avgMarket
@@ -307,7 +313,12 @@ function Cyclopedia.Items.getCurrentItemValue(item)
 
 	-- Get NPC value
 	local npcValue = Cyclopedia.Items.getNpcValue(item, true)
-	
+	local serverValue = ItemsDatabase and ItemsDatabase.getItemValue and ItemsDatabase.getItemValue(itemId) or 0
+
+	if npcValue == 0 and serverValue > 0 then
+		npcValue = serverValue
+	end
+
 	-- If no NPC buy price found, fallback to market average price
 	if npcValue == 0 then
 		npcValue = avgMarket
@@ -390,7 +401,7 @@ function Cyclopedia.Items.updateResultGoldValue(itemId, customValue, avgMarket, 
 	
 	-- Update rarity visual indicator based on final value
 	if finalValue > 0 and UI.InfoBase.ResultGoldBase.Rarity then
-		ItemsDatabase.setRarityItem(UI.InfoBase.ResultGoldBase.Rarity, finalValue)
+		ItemsDatabase.setRarityItemByPrice(UI.InfoBase.ResultGoldBase.Rarity, finalValue)
 	elseif UI.InfoBase.ResultGoldBase.Rarity then
 		UI.InfoBase.ResultGoldBase.Rarity:setImageSource("")
 	end
@@ -606,7 +617,7 @@ function Cyclopedia.Items.onChangeCustomPrice(widget)
 end
 
 function showItems()
-    UI = g_ui.loadUI("items", contentContainer)
+    UI = g_ui.loadUI("styles/items", contentContainer)
     UI:show()
     Cyclopedia.Items.VocFilter = false
     Cyclopedia.Items.LevelFilter = false
@@ -639,11 +650,19 @@ function showItems()
         connect(g_game, { onInspectionObject = Cyclopedia.Items.onInspection })
     end
     
-    controllerCyclopedia.ui.CharmsBase:setVisible(false)
-    controllerCyclopedia.ui.GoldBase:setVisible(false)
-    controllerCyclopedia.ui.BestiaryTrackerButton:setVisible(false)
-    if g_game.getClientVersion() >= 1410 then
-        controllerCyclopedia.ui.CharmsBase1410:setVisible(false)
+    if controllerCyclopedia and controllerCyclopedia.ui then
+        if controllerCyclopedia.ui.CharmsBase then
+            controllerCyclopedia.ui.CharmsBase:setVisible(false)
+        end
+        if controllerCyclopedia.ui.GoldBase then
+            controllerCyclopedia.ui.GoldBase:setVisible(false)
+        end
+        if controllerCyclopedia.ui.BestiaryTrackerButton then
+            controllerCyclopedia.ui.BestiaryTrackerButton:setVisible(false)
+        end
+        if g_game.getClientVersion() >= 1410 and controllerCyclopedia.ui.CharmsBase1410 then
+            controllerCyclopedia.ui.CharmsBase1410:setVisible(false)
+        end
     end
     local CategoryColor = "#484848"
 
@@ -878,8 +897,8 @@ function Cyclopedia.internalCreateItem(data)
         end
 
         if price > 0 then
-            ItemsDatabase.setRarityItem(UI.SelectedItem.Rarity, price)
-            ItemsDatabase.setRarityItem(UI.InfoBase.ResultGoldBase.Rarity, price)
+            ItemsDatabase.setRarityItemByPrice(UI.SelectedItem.Rarity, price)
+            ItemsDatabase.setRarityItemByPrice(UI.InfoBase.ResultGoldBase.Rarity, price)
         else
             UI.InfoBase.ResultGoldBase.Rarity:setImageSource("")
             UI.SelectedItem.Rarity:setImageSource("")
