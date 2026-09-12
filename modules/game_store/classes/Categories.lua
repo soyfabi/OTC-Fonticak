@@ -137,6 +137,17 @@ local function applyCategoryIcon(iconWidget, icon, name)
 	iconWidget:setImageClip(string.format('%d 0 13 13', 13))
 end
 
+local function getCategoryStateColor(state)
+	if state == OFFER_STATE_NEW then
+		return "$var-text-cip-color-green"
+	elseif state == OFFER_STATE_SALE then
+		return "$var-text-cip-store-sale"
+	elseif state == OFFER_STATE_TIMED then
+		return "$var-text-cip-store-timed"
+	end
+	return "$var-text-cip-color"
+end
+
 local function getCategoriesSignature(categories)
 	local parts = {}
 	for _, category in ipairs(categories or {}) do
@@ -144,7 +155,8 @@ local function getCategoriesSignature(categories)
 			tostring(category.name or ""),
 			tostring(category.icon or ""),
 			tostring(category.parent or ""),
-			tostring(category.description or "")
+			tostring(category.description or ""),
+			tostring(category.state or OFFER_STATE_NONE)
 		}, "\31")
 	end
 	return table.concat(parts, "\30")
@@ -175,7 +187,7 @@ function Categories:configure(categories)
 	Categories.selectTreeItem = nil
 
 	Categories.categoryTable = {
-		[0] = {name = "Home", icon = "/images/store/icon-store-home"},
+		[0] = {name = "Home", icon = "/images/store/icon-store-home", state = OFFER_STATE_NONE},
 	}
 
 	local createdCategories = {Home = true}
@@ -187,8 +199,9 @@ function Categories:configure(categories)
 			local existing = categoryByName[category.name]
 			if existing then
 				existing.icon = category.icon
+				existing.state = category.state
 			elseif not createdCategories[category.name] then
-				local entry = {name = category.name, icon = category.icon}
+				local entry = {name = category.name, icon = category.icon, state = category.state}
 				createdCategories[category.name] = true
 				categoryByName[category.name] = entry
 				Categories.categoryTable[#Categories.categoryTable + 1] = entry
@@ -198,7 +211,7 @@ function Categories:configure(categories)
 			if parent and not createdCategories[category.name] then
 				parent.childs = parent.childs or {}
 				createdCategories[category.name] = true
-				parent.childs[#parent.childs + 1] = {name = category.name, icon = category.icon}
+				parent.childs[#parent.childs + 1] = {name = category.name, icon = category.icon, state = category.state}
 			end
 		end
 	end
@@ -206,6 +219,7 @@ function Categories:configure(categories)
 	Categories.categoryTable[#Categories.categoryTable + 1] = {
 		name = "Search",
 		icon = "/images/store/icon-store-search-result",
+		state = OFFER_STATE_NONE,
 		disabled = true
 	}
 
@@ -222,6 +236,8 @@ function Categories:configure(categories)
 			widget:setId(id)
 			Categories.widgets[id] = widget
 			widget.mainButton.text:setText(cat.name)
+			widget.mainButton.categoryState = cat.state
+			widget.mainButton.text:setColor(getCategoryStateColor(cat.state))
 			if cat.childs and #cat.childs > 0 then
 				widget.mainButton.scroll:setVisible(true)
 			else
@@ -398,7 +414,9 @@ function Categories:expandTreeItem(thisParent, category, name)
 		end
 		newWidget:setId('TreeButton' .. tostring(index))
 		newWidget:setOpacity(0)
+		newWidget.categoryState = child.state
 		applyCategoryIcon(newWidget.icon, child.icon, child.name)
+		newWidget.text:setColor(getCategoryStateColor(child.state))
 
 		local pos = (index - 1) * Categories.buttonSize + (Categories.buttonSize / 3)
 		if not name and not printed then
@@ -414,7 +432,7 @@ function Categories:expandTreeItem(thisParent, category, name)
 			end
 			if selectedButton then
 				selectedButton:setOn(false)
-				selectedButton.text:setColor("$var-text-cip-color")
+				selectedButton.text:setColor(getCategoryStateColor(selectedButton.categoryState))
 			end
 			selectedButton = newWidget
 			selectedButton:setOn(true)
@@ -537,7 +555,7 @@ function Categories:onSelectCategory(widget, name)
 
 	if Categories.selectTreeItem and Categories.selectTreeItem ~= widget then
 		if Categories.selectTreeItem.text then
-			Categories.selectTreeItem.text:setColor("$var-text-cip-color")
+			Categories.selectTreeItem.text:setColor(getCategoryStateColor(Categories.selectTreeItem.categoryState))
 		end
 	end
 	if widget.text then
