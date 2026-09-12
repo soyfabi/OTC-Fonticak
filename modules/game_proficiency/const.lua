@@ -36,10 +36,11 @@ PERK_ATTACK_RANGE = 24
 PERK_MELEE_SKILL_FLAT_DAMAGE = 25
 PERK_SPELL_SKILL_FLAT_DAMAGE = 26
 PERK_HEALING_SKILL_FLAT_DAMAGE = 27
-PERK_ARMOR_PENETRATION = 28
-PERK_PIERCE = 29
-PERK_DAMAGE_VS_FULL_HP = 30
-PERK_DAMAGE_VS_LOW_HP = 31
+PERK_DAMAGE_VS_FULL_HP = 28
+PERK_DAMAGE_VS_LOW_HP = 29
+PERK_ARMOR_PENETRATION = 30
+PERK_PIERCE = 31
+PERK_HOMING_MISSILE = 32
 
 -- Perk Augment Types
 AUGMENT_NONE = 0
@@ -251,10 +252,11 @@ PerkVisualData = {
     [PERK_MELEE_SKILL_FLAT_DAMAGE]   = {source = "icons-4", offset = "0 0"},
     [PERK_SPELL_SKILL_FLAT_DAMAGE]   = {source = "icons-5", offset = "0 0"},
     [PERK_HEALING_SKILL_FLAT_DAMAGE] = {source = "icons-6", offset = "0 0"},
+    [PERK_DAMAGE_VS_FULL_HP]         = {source = "icons-0", offset = "1216 0"},
+    [PERK_DAMAGE_VS_LOW_HP]          = {source = "icons-0", offset = "1280 0"},
     [PERK_ARMOR_PENETRATION]         = {source = "icons-0", offset = "1344 0"},
     [PERK_PIERCE]                    = {source = "icons-weaponmastery-elementalPiercing", offset = "0 0"},
-    [PERK_DAMAGE_VS_FULL_HP]         = {source = "icons-0", offset = "1216 0"},
-    [PERK_DAMAGE_VS_LOW_HP]          = {source = "icons-0", offset = "1280 0"}
+    [PERK_HOMING_MISSILE]            = {source = "icons-0", offset = "1408 0"}
 }
 
 -- Perk Text Data (names and descriptions)
@@ -290,7 +292,8 @@ PerkTextData = {
     [PERK_ARMOR_PENETRATION]         = {name = "Armor Penetration", desc = "+%s%% armor penetration"},
     [PERK_PIERCE]                    = {name = "Elemental Pierce", desc = "+%s%% %s pierce"},
     [PERK_DAMAGE_VS_FULL_HP]         = {name = "Damage vs Full HP", desc = "+%s%% damage against targets with full hit points"},
-    [PERK_DAMAGE_VS_LOW_HP]          = {name = "Damage vs Low HP", desc = "+%s%% damage against targets below 30%% hit points"}
+    [PERK_DAMAGE_VS_LOW_HP]          = {name = "Damage vs Low HP", desc = "+%s%% damage against targets below 30%% hit points"},
+    [PERK_HOMING_MISSILE]            = {name = "Homing Missile", desc = "+%s%% chance to trigger a homing missile"}
 }
 
 -- Types that require elemental critical calculation

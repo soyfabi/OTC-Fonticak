@@ -6,6 +6,7 @@ skillsSettings = nil
 
 local ExpRating = {}
 local updateExperienceRate, lastDefenseInfo, lastForgeInfo, lastAbsorbValues, lastMagicLevelBonuses, syncSkillsMainPanelButton
+local setSkillValueWithTooltips, buildCriticalHitStatTooltip
 
 local OFFENCE_BAR_STATS_IDS = {
 	"skillId7",
@@ -19,6 +20,159 @@ local OFFENCE_BAR_STATS_IDS = {
 	"skillId15",
 	"skillId16"
 }
+
+local CORE_COMBAT_STATS = {
+	"damageHealing",
+	"attackValue",
+	"defenceValue",
+	"armorValue",
+	"mantraValue",
+	"mitigation"
+}
+
+local function supportsAdvancedSkillStats()
+	local version = g_game.getClientVersion()
+	return version >= 1412 or version == 860
+end
+
+local function ensureCoreCombatStatsVisible()
+	if not supportsAdvancedSkillStats() or not skillsWindow then
+		return
+	end
+
+	for _, id in ipairs(CORE_COMBAT_STATS) do
+		local widget = skillsWindow:recursiveGetChildById(id)
+
+		if widget then
+			widget:show()
+		end
+	end
+
+	updateDefenceSeparatorVisibility()
+end
+
+local function onWheelSkillStats(protocol, opcode, data)
+	if type(data) ~= "table" or not skillsWindow then
+		return
+	end
+
+	local damageHealing = tonumber(data.damageAndHealing) or 0
+	local attackValue = tonumber(data.attackValue) or 0
+	local attackElement = tonumber(data.attackElement) or 0
+	local defense = tonumber(data.defense) or 0
+	local armor = tonumber(data.armor) or 0
+	local mitigation = tonumber(data.mitigation) or 0
+	local convertedValue = tonumber(data.convertedValue) or 0
+	local convertedElement = tonumber(data.convertedElement) or 0
+
+	local damageHealingTooltip = "This flat bonus is the main source of your character's power, added to most of the damage and healing values you cause."
+	local attackTooltip = "This is your character's basic attack power whenever you enter a fight with a weapon or your fists. It does not apply to any spells you cast. The attack value is calculated from the weapon's attack value, the corresponding weapon skill, the bonus received from the Revelation Perks and the player's level. The value represents the average damage you would inflict on a creature which had no kind of defence or protection."
+	local defenseTooltip = "When attacked, you have a certain chance to block the attack with your weapon or shield. This holds also for attacks which damage only your mana, like many spells do."
+	local armorTooltip = "This shows how well your armor protects you from all physical attacks."
+	local mantraTooltip = "This shows how well your mantra protects you from elemental attacks."
+	local mitigationTooltip = "Mitigation reduces most of the damage you take and varies based on your shielding skill, equipped weapon, chosen combat tactics and any mitigation multipliers acquired in your Wheel of Destiny."
+
+	if not setSkillValueWithTooltips then
+		return
+	end
+
+	setSkillValueWithTooltips("damageHealing", math.floor(damageHealing + 0.5), damageHealingTooltip, false)
+	setSkillValueWithTooltips("attackValue", math.floor(attackValue + 0.5), attackTooltip, false)
+
+	local attackWidget = skillsWindow:recursiveGetChildById("attackValue")
+	if attackWidget then
+		local element = clientCombat[attackElement] or clientCombat[combatStates.CLIENT_COMBAT_PHYSICAL]
+		local icon = attackWidget:getChildById("icon")
+
+		if element and icon then
+			icon:setImageSource(element.path)
+			icon:setImageSize({ height = 9, width = 9 })
+			icon:setTooltip(getClientCombatElementName(attackElement))
+		end
+	end
+
+	setSkillValueWithTooltips("defenceValue", math.floor(defense + 0.5), defenseTooltip, false)
+	setSkillValueWithTooltips("armorValue", math.floor(armor + 0.5), armorTooltip, false)
+	setSkillValueWithTooltips("mantraValue", 0, mantraTooltip, false)
+	setSkillValueWithTooltips("mitigation", mitigation, mitigationTooltip, true)
+
+	if convertedValue > 0 then
+		setSkillValueWithTooltips("convertedDamage", convertedValue, false, true)
+
+		local convertedWidget = skillsWindow:recursiveGetChildById("convertedDamage")
+		if convertedWidget then
+			local element = clientCombat[convertedElement]
+			local icon = convertedWidget:getChildById("icon")
+
+			if element and icon then
+				icon:setImageSource(element.path)
+				icon:setImageSize({ height = 9, width = 9 })
+				icon:setTooltip(getClientCombatElementName(convertedElement))
+			end
+		end
+	else
+		local convertedWidget = skillsWindow:recursiveGetChildById("convertedDamage")
+		if convertedWidget then
+			convertedWidget:hide()
+		end
+	end
+
+	local lifeLeech = tonumber(data.lifeLeech) or 0
+	local manaLeech = tonumber(data.manaLeech) or 0
+	local critChance = tonumber(data.criticalChance) or 0
+	local critDamage = tonumber(data.criticalDamage) or 0
+
+	if math.abs(lifeLeech) > 0.0001 then
+		setSkillValueWithTooltips("lifeLeech", lifeLeech, false, true)
+	else
+		local lifeWidget = skillsWindow:recursiveGetChildById("lifeLeech")
+		if lifeWidget then
+			lifeWidget:hide()
+		end
+	end
+
+	if math.abs(manaLeech) > 0.0001 then
+		setSkillValueWithTooltips("manaLeech", manaLeech, false, true)
+	else
+		local manaWidget = skillsWindow:recursiveGetChildById("manaLeech")
+		if manaWidget then
+			manaWidget:hide()
+		end
+	end
+
+	if math.abs(critChance) > 0.0001 or math.abs(critDamage) > 0.0001 then
+		local criticalHitWidget = skillsWindow:recursiveGetChildById("criticalHit")
+		if criticalHitWidget then
+			criticalHitWidget:show()
+		end
+	else
+		local criticalHitWidget = skillsWindow:recursiveGetChildById("criticalHit")
+		if criticalHitWidget then
+			criticalHitWidget:hide()
+		end
+	end
+
+	if math.abs(critChance) > 0.0001 then
+		setSkillValueWithTooltips("criticalChance", critChance, buildCriticalHitStatTooltip(critChance, critDamage), true)
+	else
+		local chanceWidget = skillsWindow:recursiveGetChildById("criticalChance")
+		if chanceWidget then
+			chanceWidget:hide()
+		end
+	end
+
+	if math.abs(critDamage) > 0.0001 then
+		setSkillValueWithTooltips("criticalExtraDamage", critDamage, buildCriticalHitStatTooltip(critChance, critDamage), true)
+	else
+		local extraDamageWidget = skillsWindow:recursiveGetChildById("criticalExtraDamage")
+		if extraDamageWidget then
+			extraDamageWidget:hide()
+		end
+	end
+
+	ensureCoreCombatStatsVisible()
+	updateHeight()
+end
 
 local function hideOffenceStatsInSkillsBar()
 	if not skillsWindow then
@@ -35,7 +189,7 @@ local function hideOffenceStatsInSkillsBar()
 end
 
 local function syncOffenceExtraSkillRows()
-	if g_game.getClientVersion() < 1412 or not skillsWindow then
+	if not supportsAdvancedSkillStats() or not skillsWindow then
 		return
 	end
 
@@ -193,6 +347,8 @@ function init()
 	skillsButton = modules.game_mainpanel.addToggleButton("skillsButton", tr("Open Skills Window"), "/images/options/button_skills", toggle, false, 1)
 	skillsWindow = g_ui.loadUI("skills")
 
+	ProtocolGame.registerExtendedJSONOpcode(ExtendedIds.WheelSkills, onWheelSkillStats)
+
 	skillsWindow:setContentMinimumHeight(80)
 	Keybind.new("Windows", "Show/hide skills windows", "Alt+S", "")
 	Keybind.bind("Windows", "Show/hide skills windows", {
@@ -263,6 +419,9 @@ function terminate()
 		onGameEnd = offline
 	})
 	Keybind.delete("Windows", "Show/hide skills windows")
+	if ProtocolGame.unregisterExtendedJSONOpcode then
+		ProtocolGame.unregisterExtendedJSONOpcode(ExtendedIds.WheelSkills)
+	end
 	skillsWindow:destroy()
 	skillsButton:destroy()
 
@@ -283,7 +442,7 @@ function showSkillsContextMenu(widget, mousePos, mouseButton)
 		end
 	end
 
-	if g_game.getClientVersion() < 1412 then
+	if not supportsAdvancedSkillStats() then
 		local offenceStatsOption = menu:getChildById("showOffenceStats")
 
 		if offenceStatsOption then
@@ -1371,6 +1530,7 @@ function online()
 	setupHeaderButtons()
 
 	refresh()
+	ensureCoreCombatStatsVisible()
 
 	if g_game.getFeature(GameEnterGameShowAppearance) then
 		skillsWindow:recursiveGetChildById("regenerationTime"):getChildByIndex(1):setText("Food")
@@ -1439,7 +1599,7 @@ function refresh()
 	update()
 	updateHeight()
 
-	if g_game.getClientVersion() < 1412 then
+	if not supportsAdvancedSkillStats() then
 		local offenceStats = {
 			"skillId7",
 			"skillId8",
@@ -1553,7 +1713,7 @@ function refresh()
 
 	loadSkillsVisibilitySettings()
 
-	if g_game.getClientVersion() >= 1412 then
+	if supportsAdvancedSkillStats() then
 		syncOffenceExtraSkillRows()
 	end
 end
@@ -1607,7 +1767,7 @@ function loadSkillsVisibilitySettings()
 		end
 	end
 
-	if g_game.getClientVersion() >= 1412 then
+	if supportsAdvancedSkillStats() then
 		hideOffenceStatsInSkillsBar()
 
 		if settings.defenceStats_visible ~= nil then
@@ -2194,7 +2354,7 @@ function onSkillChange(localPlayer, id, level, percent)
 		toggleSkill("skillId" .. id, level > 0)
 	end
 
-	if id >= Skill.Fatal and id <= Skill.Transcendence and g_game.getClientVersion() >= 1412 then
+	if id >= Skill.Fatal and id <= Skill.Transcendence and supportsAdvancedSkillStats() then
 		syncOffenceExtraSkillRows()
 	end
 end
@@ -2418,18 +2578,18 @@ local function formatImbuementPercent(value)
 	return math.floor(n * 10000) / 100
 end
 
-local function buildCriticalHitStatTooltip(critChance, critDamage)
+buildCriticalHitStatTooltip = function(critChance, critDamage)
 	return tr("You have a +%s%% chance to cause +%s%% extra damage", formatImbuementPercent(critChance), formatImbuementPercent(critDamage))
 end
 
-local function setSkillValueWithTooltips(id, value, tooltip, showPercentage, color)
+setSkillValueWithTooltips = function(id, value, tooltip, showPercentage, color)
 	local skill = skillsWindow:recursiveGetChildById(id)
 
 	if not skill then
 		return
 	end
 
-	if g_game.getClientVersion() < 1412 then
+	if not supportsAdvancedSkillStats() then
 		local statsToHide = {
 			"skillId7",
 			"skillId8",
@@ -2473,6 +2633,7 @@ local function setSkillValueWithTooltips(id, value, tooltip, showPercentage, col
 	end
 
 	local alwaysShow = id == "attackValue" or id == "defenceValue" or id == "armorValue"
+		or id == "damageHealing" or id == "mantraValue" or id == "mitigation"
 
 	if alwaysShow or value ~= nil and value ~= 0 then
 		skill:show()
@@ -2483,9 +2644,9 @@ local function setSkillValueWithTooltips(id, value, tooltip, showPercentage, col
 			return
 		end
 
-		if color then
-			widget:setColor(color)
-		end
+		local combatGreen = "#44ad25"
+		local combatOrange = "#FF9854"
+		local combatDefault = "#c0c0c0"
 
 		if showPercentage then
 			local n = value == nil and 0 or value
@@ -2493,16 +2654,37 @@ local function setSkillValueWithTooltips(id, value, tooltip, showPercentage, col
 			local sign = percentValue > 0 and "+" or ""
 
 			widget:setText(sign .. percentValue .. "%")
-
-			if percentValue < 0 then
-				widget:setColor("#FF9854")
-			end
 		elseif alwaysShow then
 			local num = value == nil and 0 or value
 
 			widget:setText(tostring(num))
 		else
 			widget:setText(tostring(value))
+		end
+
+		if color then
+			widget:setColor(color)
+		elseif showPercentage then
+			local n = value == nil and 0 or value
+			local percentValue = math.floor(n * 10000) / 100
+
+			if percentValue < 0 then
+				widget:setColor(combatOrange)
+			elseif percentValue > 0 then
+				widget:setColor(combatGreen)
+			else
+				widget:setColor(combatDefault)
+			end
+		elseif alwaysShow then
+			local num = value == nil and 0 or value
+
+			if num > 0 then
+				widget:setColor(combatGreen)
+			else
+				widget:setColor(combatDefault)
+			end
+		else
+			widget:setColor(combatGreen)
 		end
 
 		if tooltip then
@@ -2514,7 +2696,7 @@ local function setSkillValueWithTooltips(id, value, tooltip, showPercentage, col
 end
 
 function onFlatDamageHealingChange(localPlayer, flatBonus)
-	if g_game.getClientVersion() < 1412 then
+	if not supportsAdvancedSkillStats() then
 		return
 	end
 
@@ -2525,7 +2707,7 @@ function onFlatDamageHealingChange(localPlayer, flatBonus)
 end
 
 function onAttackInfoChange(localPlayer, attackValue, attackElement)
-	if g_game.getClientVersion() < 1412 then
+	if not supportsAdvancedSkillStats() then
 		return
 	end
 
@@ -2562,7 +2744,7 @@ function onAttackInfoChange(localPlayer, attackValue, attackElement)
 end
 
 function onConvertedDamageChange(localPlayer, convertedDamage, convertedElement)
-	if g_game.getClientVersion() < 1412 then
+	if not supportsAdvancedSkillStats() then
 		return
 	end
 
@@ -2596,7 +2778,7 @@ function onConvertedDamageChange(localPlayer, convertedDamage, convertedElement)
 end
 
 function onImbuementsChange(localPlayer, lifeLeech, manaLeech, critChance, critDamage, onslaught)
-	if g_game.getClientVersion() < 1412 then
+	if not supportsAdvancedSkillStats() then
 		return
 	end
 
@@ -2643,7 +2825,7 @@ function onMagicLevelBonusesChange(localPlayer, bonuses)
 end
 
 function onCombatAbsorbValuesChange(localPlayer, absorbValues)
-	if g_game.getClientVersion() < 1412 then
+	if not supportsAdvancedSkillStats() then
 		return
 	end
 
@@ -2682,6 +2864,7 @@ function updateDefenceSeparatorVisibility()
 		"manadRainResist",
 		"defenceValue",
 		"armorValue",
+		"mantraValue",
 		"mitigation",
 		"dodge",
 		"damageReflection"
@@ -2706,7 +2889,7 @@ function updateDefenceSeparatorVisibility()
 end
 
 function onDefenseInfoChange(localPlayer, defense, armor, mitigation, dodge, damageReflection)
-	if g_game.getClientVersion() < 1412 then
+	if not supportsAdvancedSkillStats() then
 		return
 	end
 
@@ -2734,7 +2917,7 @@ function onDefenseInfoChange(localPlayer, defense, armor, mitigation, dodge, dam
 end
 
 function onForgeBonusesChange(localPlayer, momentum, transcendence, amplification)
-	if g_game.getClientVersion() < 1412 then
+	if not supportsAdvancedSkillStats() then
 		return
 	end
 

@@ -581,6 +581,20 @@ clientCombat[combatStates.CLIENT_COMBAT_DROWN] = {  path = '/game_cyclopedia/ima
 clientCombat[combatStates.CLIENT_COMBAT_LIFEDRAIN] = {  path = '/game_cyclopedia/images/bestiary/icons/monster-icon-lifedrain-resist', id = 'Lifedrain ' }
 clientCombat[combatStates.CLIENT_COMBAT_MANADRAIN] = {  path = '/game_cyclopedia/images/bestiary/icons/monster-icon-manadrain-resist', id = 'Manadrain' }
 
+function getClientCombatElementName(combatType)
+	if combatType == nil then
+		combatType = combatStates.CLIENT_COMBAT_PHYSICAL
+	end
+
+	local element = clientCombat[combatType] or clientCombat[combatStates.CLIENT_COMBAT_PHYSICAL]
+
+	if not element or not element.id then
+		return tr("Physical")
+	end
+
+	return tr(element.id:match("^%s*(.-)%s*$"))
+end
+
 InventorySlotOther = 0
 InventorySlotHead = 1
 InventorySlotNeck = 2

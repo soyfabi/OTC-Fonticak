@@ -421,6 +421,42 @@ function getButton(id)
     return optionsController.ui.onPanel.options:recursiveGetChildById(id)
 end
 
+function ensureControlButtonVisible(id)
+    if not id or not g_game.isOnline() then
+        return false
+    end
+
+    local optionsPanel = optionsController and optionsController.ui and optionsController.ui.onPanel and
+        optionsController.ui.onPanel.options
+    if not optionsPanel then
+        return false
+    end
+
+    local button = optionsPanel:getChildById(id)
+    if not button then
+        return false
+    end
+
+    if not buttonConfigs[id] then
+        buttonConfigs[id] = {
+            visible = true,
+            tooltip = getControlButtonDisplayName(id, button)
+        }
+    else
+        buttonConfigs[id].visible = true
+    end
+
+    if not table.find(buttonOrder, id) then
+        table.insert(buttonOrder, id)
+    end
+
+    button:setVisible(true)
+    reorderButtons()
+    reloadMainPanelSizes()
+    saveButtonConfig()
+    return true
+end
+
 function toggleExtendedViewButtons(extended)
     local optionsPanel = optionsController.ui.onPanel.options
     local specialsPanel = optionsController.ui.onPanel.store

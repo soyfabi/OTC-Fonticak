@@ -124,6 +124,34 @@ local function sendWeaponProficiencyApply(itemId, levels, perkPositions)
     return true
 end
 
+local function normalizePerkMap(perks)
+    if type(perks) ~= "table" then
+        return {}
+    end
+
+    if #perks > 0 and type(perks[1]) == "table" then
+        local map = {}
+        for _, perk in ipairs(perks) do
+            if type(perk) == "table" and #perk >= 2 then
+                map[perk[1]] = perk[2]
+            end
+        end
+        return map
+    end
+
+    return perks
+end
+
+local function getEffectivePerkPosition(selectedPerks, levelIndex, pendingSelections)
+    local grade = levelIndex - 1
+    if pendingSelections and pendingSelections[grade] ~= nil then
+        return pendingSelections[grade]
+    end
+
+    local perkMap = normalizePerkMap(selectedPerks)
+    return perkMap[grade]
+end
+
 local function getPlayerWheelVocation()
     local player = g_game.getLocalPlayer()
     if not player then
@@ -285,6 +313,21 @@ local function setProficiencyButtonState(state)
     end
 end
 
+local function syncProficiencyButtonVisibility()
+    if not WeaponProficiency.button or WeaponProficiency.button:isDestroyed() then
+        return
+    end
+
+    if modules.game_mainpanel and modules.game_mainpanel.ensureControlButtonVisible then
+        modules.game_mainpanel.ensureControlButtonVisible('ProficiencyButton')
+    else
+        WeaponProficiency.button:setVisible(true)
+        if modules.game_mainpanel and modules.game_mainpanel.scheduleControlButtonsSync then
+            modules.game_mainpanel.scheduleControlButtonsSync()
+        end
+    end
+end
+
 local function createProficiencyButton()
     WeaponProficiency.buttonOwned = false
 
@@ -296,20 +339,30 @@ local function createProficiencyButton()
         if button then
             button:setTooltip(tr('Open Weapon Proficiency'))
             button.onClick = toggle
+            button:setVisible(true)
             return button
         end
     end
 
     if modules.game_mainpanel and modules.game_mainpanel.addToggleButton then
         WeaponProficiency.buttonOwned = true
-        return modules.game_mainpanel.addToggleButton('ProficiencyButton', tr('Open Weapon Proficiency'),
-            '/images/options/button_proficiency', toggle, false, 21, true)
+        local button = modules.game_mainpanel.addToggleButton('ProficiencyButton', tr('Open Weapon Proficiency'),
+            '/images/options/button_proficiency', toggle, false, 21)
+        if button then
+            button:setVisible(true)
+            syncProficiencyButtonVisibility()
+        end
+        return button
     end
 
     if modules.client_topmenu and modules.client_topmenu.addRightGameToggleButton then
         WeaponProficiency.buttonOwned = true
-        return modules.client_topmenu.addRightGameToggleButton('ProficiencyButton', tr('Open Weapon Proficiency'),
+        local button = modules.client_topmenu.addRightGameToggleButton('ProficiencyButton', tr('Open Weapon Proficiency'),
             '/images/options/button_proficiency', toggle, false, 21)
+        if button then
+            button:setVisible(true)
+        end
+        return button
     end
 
     return nil
@@ -336,6 +389,9 @@ function initProficiencyButton(attempts)
     WeaponProficiency.button = createProficiencyButton()
     if WeaponProficiency.button then
         setProficiencyButtonState(false)
+        scheduleEvent(function()
+            syncProficiencyButtonVisibility()
+        end, 350)
         return
     end
 
@@ -565,8 +621,8 @@ function onGameEnd()
     WeaponProficiency:reset()
 end
 
-function onWeaponProficiencyCatalogItem(itemId, marketCategory, name)
-    WeaponProficiency:addCatalogItem(itemId, marketCategory, name)
+function onWeaponProficiencyCatalogItem(itemId, marketCategory, proficiencyId, name)
+    WeaponProficiency:addCatalogItem(itemId, marketCategory, proficiencyId, name)
 end
 
 function onWeaponProficiencyCatalogReady()
@@ -577,56 +633,25 @@ function onWeaponProficiencyCatalogReady()
 
     if WeaponProficiency.window and WeaponProficiency.window:isVisible() then
         WeaponProficiency:refreshItemList()
+        local selected = WeaponProficiency.selectedMarketItem
+        if selected then
+            local displayId = selected.displayId or selected.originalId
+            WeaponProficiency:selectItem(displayId, selected)
+        end
     end
 end
 
 -- Called when server sends proficiency info (opcode 0xC4)
-function onWeaponProficiency(itemId, experience, perks, marketCategory)
-    -- Ensure perks is a table
+function onWeaponProficiency(itemId, experience, perks, marketCategory, modifiers)
     if type(perks) ~= "table" then
         perks = {}
     end
 
-    -- IMPORTANT: Server sends perks in 0-indexed format, convert to 1-indexed for Lua
-    -- Also filter out invalid perks (values >= 200 are clearly invalid, likely from uninitialized data)
-    local convertedPerks = {}
-    for _, perk in ipairs(perks) do
-        if type(perk) == "table" and #perk >= 2 then
-            local level = perk[1]
-            local perkPos = perk[2]
-            -- Filter out invalid values (255 becomes 256 after +1, which is invalid)
-            -- Valid levels are 0-6 (0-indexed), valid perk positions are 0-2 (0-indexed)
-            if level >= 0 and level <= 10 and perkPos >= 0 and perkPos <= 10 then
-                -- Convert from 0-indexed (server) to 1-indexed (Lua)
-                table.insert(convertedPerks, {level + 1, perkPos + 1})
-            end
-        end
-    end
-
-    -- Only update cache perks if server returned non-empty perks
-    -- Otherwise, keep existing cache perks (they were just applied)
-    local existingCache = WeaponProficiency.cacheList[itemId]
-    if #convertedPerks > 0 then
-        -- Server confirmed perks, use them (now in 1-indexed format)
-        WeaponProficiency.cacheList[itemId] = {
-            exp = experience,
-            perks = convertedPerks
-        }
-    else
-        -- Server returned empty perks, but we may have just applied some
-        -- Keep existing perks in cache if they exist
-        if existingCache and existingCache.perks and #existingCache.perks > 0 then
-            WeaponProficiency.cacheList[itemId] = {
-                exp = experience,
-                perks = existingCache.perks
-            }
-        else
-            WeaponProficiency.cacheList[itemId] = {
-                exp = experience,
-                perks = {}
-            }
-        end
-    end
+    WeaponProficiency.cacheList[itemId] = {
+        exp = experience,
+        perks = perks,
+        modifiers = modifiers or {}
+    }
 
     local cachePerks = WeaponProficiency.cacheList[itemId].perks
 
@@ -1083,6 +1108,7 @@ end
 function WeaponProficiency:createItemCache()
     self.itemList = {}
     self.catalogItems = {}
+    ProficiencyData.catalogProficiencyByItem = {}
     self.itemList[MarketCategory.WeaponsAll] = {}
     self.ItemCategory = self.ItemCategory or {
         Axes = 17,
@@ -1144,12 +1170,15 @@ function WeaponProficiency:createItemCache()
             marketData.showAs = showAs
             marketData.name = name
 
+            local proficiencyId = ProficiencyData:registerCatalogItem(originalId, category, name, 0)
+
             local marketItem = {
                 displayItem = item,
                 thingType = itemType,
                 marketData = marketData,
                 originalId = originalId,
-                displayId = showAs
+                displayId = showAs,
+                proficiencyId = proficiencyId
             }
 
             table.insert(self.itemList[category], marketItem)
@@ -1176,17 +1205,35 @@ function WeaponProficiency:createItemCache()
     self._itemCacheReady = true
 end
 
-function WeaponProficiency:addCatalogItem(itemId, category, name)
+function WeaponProficiency:addCatalogItem(itemId, marketCategory, proficiencyId, name)
     if not self._itemCacheReady then
         self:createItemCache()
     end
-    if self.catalogItems[itemId] then
+
+    itemId = tonumber(itemId) or 0
+    marketCategory = tonumber(marketCategory) or MarketCategory.WeaponsAll
+    proficiencyId = ProficiencyData:registerCatalogItem(itemId, marketCategory, name, proficiencyId)
+
+    if proficiencyId == 0 then
         return
     end
 
-    category = tonumber(category) or MarketCategory.WeaponsAll
-    if not self.itemList[category] then
-        category = MarketCategory.WeaponsAll
+    if self.catalogItems[itemId] then
+        local existing = self:findMarketItem(itemId)
+        if existing then
+            existing.proficiencyId = proficiencyId
+            if existing.marketData then
+                existing.marketData.category = marketCategory
+                if name and name ~= "" then
+                    existing.marketData.name = name
+                end
+            end
+        end
+        return
+    end
+
+    if not self.itemList[marketCategory] then
+        marketCategory = MarketCategory.WeaponsAll
     end
 
     local item = Item.create(itemId)
@@ -1198,16 +1245,17 @@ function WeaponProficiency:addCatalogItem(itemId, category, name)
         displayItem = item,
         thingType = g_things.getThingType(itemId, ThingCategoryItem),
         marketData = {
-            category = category,
+            category = marketCategory,
             showAs = itemId,
             name = name or tostring(itemId)
         },
         originalId = itemId,
-        displayId = itemId
+        displayId = itemId,
+        proficiencyId = proficiencyId
     }
 
     if category ~= MarketCategory.WeaponsAll then
-        table.insert(self.itemList[category], marketItem)
+        table.insert(self.itemList[marketCategory], marketItem)
     end
     table.insert(self.itemList[MarketCategory.WeaponsAll], marketItem)
     self.catalogItems[itemId] = true
@@ -1335,7 +1383,8 @@ function WeaponProficiency:updateExperienceProgress(currentExp, displayItem)
 
     local thingType = self.selectedMarketItem and self.selectedMarketItem.thingType
     local marketData = self.selectedMarketItem and self.selectedMarketItem.marketData
-    local proficiencyId = ProficiencyData:getProficiencyIdForItem(displayItem, thingType, marketData)
+    local proficiencyId = ProficiencyData:getEntryProficiencyId(self.selectedMarketItem)
+        or ProficiencyData:getProficiencyIdForItem(displayItem, thingType, marketData)
     local perkCount = ProficiencyData:getPerkLaneCount(proficiencyId)
     local currentCeilExperience = ProficiencyData:getCurrentCeilExperience(currentExp, displayItem, thingType,
         marketData)
@@ -1673,7 +1722,8 @@ function WeaponProficiency:selectItem(itemId, marketItem)
     end
 
     -- Get proficiency ID using wrapper function, passing thingType and marketData for proper category lookup
-    local proficiencyId = ProficiencyData:getProficiencyIdForItem(displayItem, thingType, marketData)
+    local proficiencyId = ProficiencyData:getEntryProficiencyId(self.selectedMarketItem)
+        or ProficiencyData:getProficiencyIdForItem(displayItem, thingType, marketData)
     local profEntry = ProficiencyData:getContentById(proficiencyId)
 
     if profEntry then
@@ -1705,15 +1755,11 @@ function WeaponProficiency:selectItem(itemId, marketItem)
             end
         end
 
-        -- Load saved perks into pendingSelections for UI display
+        -- Load saved perks for UI state (0-indexed grade -> slot)
         self.pendingSelections = {}
-        if currentData.perks and #currentData.perks > 0 then
-            for i, perk in ipairs(currentData.perks) do
-                if type(perk) == "table" and #perk >= 2 then
-                    local level = perk[1]
-                    local perkPos = perk[2]
-                    self.pendingSelections[level] = perkPos
-                end
+        if currentData.perks then
+            for grade, slot in pairs(normalizePerkMap(currentData.perks)) do
+                self.pendingSelections[grade] = slot
             end
         end
 
@@ -1748,7 +1794,8 @@ function WeaponProficiency:displayProficiencyData(itemId, experience, perks)
 
     -- Get proficiency content using wrapper function (with thingType and marketData)
     local marketData = self.selectedMarketItem and self.selectedMarketItem.marketData
-    local proficiencyId = ProficiencyData:getProficiencyIdForItem(displayItem, thingType, marketData)
+    local proficiencyId = ProficiencyData:getEntryProficiencyId(self.selectedMarketItem)
+        or ProficiencyData:getProficiencyIdForItem(displayItem, thingType, marketData)
     local profEntry = ProficiencyData:getContentById(proficiencyId)
 
     if not profEntry then
@@ -1796,7 +1843,8 @@ function WeaponProficiency:displayPerks(itemId, perks, displayItem)
     -- Get proficiency content using wrapper function (with thingType and marketData for proper category lookup)
     local thingType = self.selectedMarketItem and self.selectedMarketItem.thingType
     local marketData = self.selectedMarketItem and self.selectedMarketItem.marketData
-    local proficiencyId = ProficiencyData:getProficiencyIdForItem(displayItem, thingType, marketData)
+    local proficiencyId = ProficiencyData:getEntryProficiencyId(self.selectedMarketItem)
+        or ProficiencyData:getProficiencyIdForItem(displayItem, thingType, marketData)
     local proficiencyContent = ProficiencyData:getContentById(proficiencyId)
 
     if not proficiencyContent then
@@ -1975,21 +2023,11 @@ function WeaponProficiency:updatePerkColumn(perkColumn, levelData, levelIndex, c
             local borderWidget = bonusIcon:getChildById('border')
             local highlightWidget = bonusIcon:getChildById('highlight')
 
-            -- Check if this perk is selected
+            -- Check if this perk is selected (server uses 0-indexed grade/slot)
             local isSelected = false
-            if selectedPerks and type(selectedPerks) == "table" then
-                -- Format 1: Array format from server/cache: {{level, perkPos}, ...} (1-indexed)
-                if #selectedPerks > 0 and type(selectedPerks[1]) == "table" then
-                    for _, perk in ipairs(selectedPerks) do
-                        if type(perk) == "table" and #perk >= 2 and perk[1] == levelIndex and perk[2] == perkIndex then
-                            isSelected = true
-                            break
-                        end
-                    end
-                    -- Format 2: Indexed format from pendingSelections: {[levelIndex] = perkIndex} (1-indexed)
-                elseif selectedPerks[levelIndex] ~= nil then
-                    isSelected = (selectedPerks[levelIndex] == perkIndex)
-                end
+            local selectedPos = getEffectivePerkPosition(selectedPerks, levelIndex, self.pendingSelections)
+            if selectedPos ~= nil then
+                isSelected = selectedPos == (perkIndex - 1)
             end
 
             -- Set icon images
@@ -2117,6 +2155,8 @@ function WeaponProficiency:updatePerkColumn(perkColumn, levelData, levelIndex, c
             bonusIcon.blocked = not isLevelUnlocked
             bonusIcon.locked = false
             bonusIcon.active = isSelected
+            bonusIcon.grade = levelIndex - 1
+            bonusIcon.slot = perkIndex - 1
             bonusIcon.levelIndex = levelIndex
             bonusIcon.perkIndex = perkIndex
 
@@ -2139,50 +2179,37 @@ function WeaponProficiency:onPerkClick(bonusIcon)
 
     local levelIndex = bonusIcon.levelIndex
     local perkIndex = bonusIcon.perkIndex
+    local grade = bonusIcon.grade or (levelIndex - 1)
+    local slot = bonusIcon.slot or (perkIndex - 1)
 
-    -- Initialize pending selections if not exists
     if not self.pendingSelections then
         self.pendingSelections = {}
     end
 
-    -- Get currently saved perk for this level from cache
     local savedPerk = nil
     if self.selectedItemId and self.cacheList[self.selectedItemId] then
-        local cachedPerks = self.cacheList[self.selectedItemId].perks or {}
-        for _, perk in ipairs(cachedPerks) do
-            if type(perk) == "table" and perk[1] == levelIndex then
-                savedPerk = perk[2]
-                break
-            end
-        end
+        local cachedPerks = normalizePerkMap(self.cacheList[self.selectedItemId].perks or {})
+        savedPerk = cachedPerks[grade]
     end
 
-    -- Determine if this click changes from saved state
-    local currentSelection = self.pendingSelections[levelIndex] or savedPerk
+    local currentSelection = self.pendingSelections[grade]
+    if currentSelection == nil then
+        currentSelection = savedPerk
+    end
 
-    if currentSelection == perkIndex then
-        -- Clicking on already selected perk - check if we should deselect or revert to saved
-        if savedPerk == perkIndex then
-            -- This is the saved perk, clicking it again does nothing (can't deselect saved perks)
+    if currentSelection == slot then
+        if savedPerk == slot then
+            -- Saved perk stays selected.
         else
-            -- This was a pending selection, deselect it (revert to saved or none)
-            self.pendingSelections[levelIndex] = nil
+            self.pendingSelections[grade] = nil
         end
+    elseif slot == savedPerk then
+        self.pendingSelections[grade] = nil
     else
-        -- Selecting a different perk for this level
-        if perkIndex == savedPerk then
-            -- Reverting to saved perk - remove from pending
-            self.pendingSelections[levelIndex] = nil
-        else
-            -- New selection different from saved
-            self.pendingSelections[levelIndex] = perkIndex
-        end
+        self.pendingSelections[grade] = slot
     end
 
-    -- Update visual state for all perks in this level column
     self:updatePerkVisualState(levelIndex)
-
-    -- Update button states
     self:updateApplyButtonState()
 end
 
@@ -2193,25 +2220,16 @@ function WeaponProficiency:updatePerkVisualState(levelIndex)
         return
     end
 
-    -- Get pending selection first, then fall back to cached perk
-    local selectedPerkIndex = self.pendingSelections and self.pendingSelections[levelIndex]
+    local selectedPos = getEffectivePerkPosition(
+        self.selectedItemId and self.cacheList[self.selectedItemId] and self.cacheList[self.selectedItemId].perks,
+        levelIndex,
+        self.pendingSelections
+    )
 
-    -- If no pending selection, check cached perks
-    if not selectedPerkIndex and self.selectedItemId and self.cacheList[self.selectedItemId] then
-        local cachedPerks = self.cacheList[self.selectedItemId].perks or {}
-        for _, perk in ipairs(cachedPerks) do
-            if type(perk) == "table" and perk[1] == levelIndex then
-                selectedPerkIndex = perk[2]
-                break
-            end
-        end
-    end
-
-    -- Update each perk icon in this column
     for perkIdx = 0, 2 do
         local bonusIcon = perkColumn.currentPerkPanel:getChildById('bonusIcon' .. perkIdx)
         if bonusIcon then
-            local isSelected = (selectedPerkIndex == (perkIdx + 1))
+            local isSelected = selectedPos == perkIdx
             local isLevelUnlocked = not bonusIcon.blocked
 
             local iconWidget = bonusIcon:getChildById('icon')
@@ -2267,13 +2285,16 @@ function WeaponProficiency:updateBonusDetailForLevel(levelIndex)
         return
     end
 
-    local selectedPerkIndex = self.pendingSelections and self.pendingSelections[levelIndex]
+    local selectedPos = getEffectivePerkPosition(
+        self.selectedItemId and self.cacheList[self.selectedItemId] and self.cacheList[self.selectedItemId].perks,
+        levelIndex,
+        self.pendingSelections
+    )
 
-    if selectedPerkIndex then
-        -- Get perk data from the perk column
+    if selectedPos ~= nil then
         local perkColumn = self.perkPanel:getChildById('perkColumn_' .. levelIndex)
         if perkColumn and perkColumn.currentPerkPanel then
-            local bonusIcon = perkColumn.currentPerkPanel:getChildById('bonusIcon' .. (selectedPerkIndex - 1))
+            local bonusIcon = perkColumn.currentPerkPanel:getChildById('bonusIcon' .. selectedPos)
             if bonusIcon and bonusIcon.perkData then
                 local _, tooltip = ProficiencyData:getBonusNameAndTooltip(bonusIcon.perkData)
                 bonusNameWidget:setText(tooltip)
@@ -2305,36 +2326,10 @@ function WeaponProficiency:updateBonusDetails(proficiencyContent, selectedPerks)
             local levelData = levels[i]
 
             if bonusNameWidget and levelData then
-                -- Find selected perk for this level
-                local selectedPerkIndex = nil
-                if selectedPerks and type(selectedPerks) == "table" then
-                    -- Check array format first: {{level, perkPos}, ...} (from cache/server)
-                    local isArrayFormat = false
-                    if #selectedPerks > 0 and type(selectedPerks[1]) == "table" then
-                        isArrayFormat = true
-                        for _, perk in ipairs(selectedPerks) do
-                            if type(perk) == "table" and #perk >= 2 and perk[1] == i then
-                                selectedPerkIndex = perk[2] -- Already 1-indexed from cache
-                                break
-                            end
-                        end
-                    end
-
-                    -- Check indexed format: {[levelIndex] = perkIndex} (from pendingSelections)
-                    if not isArrayFormat and not selectedPerkIndex then
-                        local key = i -- pendingSelections uses 1-indexed level
-                        if selectedPerks[key] ~= nil then
-                            local value = selectedPerks[key]
-                            if type(value) == "number" then
-                                selectedPerkIndex = value -- Already 1-indexed from pendingSelections
-                            end
-                        end
-                    end
-                end
-
-                if selectedPerkIndex then
+                local selectedPos = getEffectivePerkPosition(selectedPerks, i, self.pendingSelections)
+                if selectedPos ~= nil then
                     local perksData = levelData.Perks or {}
-                    local perkData = perksData[selectedPerkIndex]
+                    local perkData = perksData[selectedPos + 1]
                     if perkData then
                         local _, tooltip = ProficiencyData:getBonusNameAndTooltip(perkData)
                         bonusNameWidget:setText(tooltip)
@@ -2549,71 +2544,45 @@ function WeaponProficiency:applyPendingSelections()
         return
     end
 
-    -- Build complete perk selection list for server
-    -- Start with cached perks (already saved on server)
-    local allPerks = {} -- {[levelIndex] = perkIndex} in 1-indexed format
-
-    -- First, load existing cached perks
+    local allPerks = {}
     if self.cacheList[self.selectedItemId] and self.cacheList[self.selectedItemId].perks then
-        for _, perk in ipairs(self.cacheList[self.selectedItemId].perks) do
-            if type(perk) == "table" and #perk >= 2 then
-                allPerks[perk[1]] = perk[2] -- level -> perkIndex (1-indexed)
+        for grade, slot in pairs(normalizePerkMap(self.cacheList[self.selectedItemId].perks)) do
+            allPerks[grade] = slot
+        end
+    end
+
+    if self.pendingSelections then
+        for grade, slot in pairs(self.pendingSelections) do
+            if slot == nil then
+                allPerks[grade] = nil
+            else
+                allPerks[grade] = slot
             end
         end
     end
 
-    -- Then, merge with pending selections (these override cached perks)
-    if self.pendingSelections then
-        for levelIndex, perkIndex in pairs(self.pendingSelections) do
-            allPerks[levelIndex] = perkIndex -- level -> perkIndex (1-indexed)
-        end
+    local levels = {}
+    local perkPositions = {}
+    for grade, slot in pairs(allPerks) do
+        levels[#levels + 1] = grade
+    end
+    table.sort(levels)
+    for index, grade in ipairs(levels) do
+        perkPositions[index] = allPerks[grade]
     end
 
-    -- Convert to array format for sending: {level (0-indexed), perkPosition (0-indexed)}
-    local selections = {}
-    for levelIndex, perkIndex in pairs(allPerks) do
-        table.insert(selections, {levelIndex - 1, perkIndex - 1})
-    end
-
-    -- Sort by level for consistency
-    table.sort(selections, function(a, b)
-        return a[1] < b[1]
-    end)
-
-    if #selections == 0 then
+    if #levels == 0 then
         return
     end
 
-    -- Build two parallel arrays for C++ (levels and perkPositions)
-    local levels = {}
-    local perkPositions = {}
-
-    -- Log selection details (0-indexed in Lua, will be converted to 1-indexed in C++)
-    for i, sel in ipairs(selections) do
-        table.insert(levels, sel[1])
-        table.insert(perkPositions, sel[2])
-    end
-
-    -- Send to server using the protocol function with two parallel arrays
-    -- g_game.sendWeaponProficiencyApply(itemId, levelsArray, perkPositionsArray)
     sendWeaponProficiencyApply(self.selectedItemId, levels, perkPositions)
 
-    -- Update cache with ALL applied perks (convert back to server format: 1-indexed)
-    -- This includes both cached perks and new pending selections
     if self.cacheList[self.selectedItemId] then
-        local appliedPerks = {}
-        for _, sel in ipairs(selections) do
-            table.insert(appliedPerks, {sel[1] + 1, sel[2] + 1}) -- Convert back to 1-indexed for cache
-        end
-        self.cacheList[self.selectedItemId].perks = appliedPerks
-
-        -- Clear pendingSelections - perks are now saved in cache, no longer "pending"
+        self.cacheList[self.selectedItemId].perks = allPerks
         self.pendingSelections = {}
 
-        -- Update UI immediately with applied perks (using cache format)
-        -- This keeps the visual selection active
         if self.selectedMarketItem and self.selectedMarketItem.displayItem then
-            self:displayPerks(self.selectedItemId, appliedPerks, self.selectedMarketItem.displayItem)
+            self:displayPerks(self.selectedItemId, allPerks, self.selectedMarketItem.displayItem)
         end
 
         -- Update button states (Apply should be disabled since we just applied)
@@ -2650,8 +2619,8 @@ function WeaponProficiency:updateApplyButtonState()
     -- Check if there are applied perks in cache
     local hasAppliedPerks = false
     if self.selectedItemId and self.cacheList[self.selectedItemId] then
-        local cachedPerks = self.cacheList[self.selectedItemId].perks
-        hasAppliedPerks = cachedPerks and #cachedPerks > 0
+        local cachedPerks = normalizePerkMap(self.cacheList[self.selectedItemId].perks or {})
+        hasAppliedPerks = next(cachedPerks) ~= nil
     end
 
     -- Apply/Ok: enabled when there are pending selections (changes to apply)

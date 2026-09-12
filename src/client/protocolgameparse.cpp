@@ -6808,8 +6808,9 @@ void ProtocolGame::parseWeaponProficiencyCatalog(const InputMessagePtr& msg)
     for (uint16_t i = 0; i < count; ++i) {
         const uint16_t itemId = msg->getU16();
         const uint16_t marketCategory = msg->getU16();
+        const uint16_t proficiencyId = msg->getU16();
         const std::string name = msg->getString();
-        g_lua.callGlobalField("g_game", "onWeaponProficiencyCatalogItem", itemId, marketCategory, name);
+        g_lua.callGlobalField("g_game", "onWeaponProficiencyCatalogItem", itemId, marketCategory, proficiencyId, name);
     }
     g_lua.callGlobalField("g_game", "onWeaponProficiencyCatalogReady");
 }
@@ -6827,14 +6828,27 @@ static void parseWeaponProficiencyInfoPayload(const InputMessagePtr& msg)
     const uint16_t itemId = msg->getU16();
     const uint32_t experience = msg->getU32();
     const uint8_t perksCount = msg->getU8();
-    std::vector<std::vector<uint8_t>> perks;
+    std::map<uint8_t, uint8_t> perks;
     for (int i = 0; i < perksCount; ++i) {
         const uint8_t level = msg->getU8();
         const uint8_t perkPosition = msg->getU8();
-        perks.push_back({ level, perkPosition });
+        perks[level] = perkPosition;
     }
+
+    std::vector<std::map<std::string, uint16_t>> modifiedSlots;
+    const uint8_t modifiedCount = msg->getU8();
+    modifiedSlots.reserve(modifiedCount);
+    for (int i = 0; i < modifiedCount; ++i) {
+        modifiedSlots.push_back({
+            { "grade", msg->getU8() },
+            { "slot", msg->getU8() },
+            { "modifierEnum", msg->getU16() },
+            { "refineLevel", msg->getU8() }
+        });
+    }
+
     const uint16_t marketCategory = msg->getU16();
-    g_lua.callGlobalField("g_game", "onWeaponProficiency", itemId, experience, perks, marketCategory);
+    g_lua.callGlobalField("g_game", "onWeaponProficiency", itemId, experience, perks, marketCategory, modifiedSlots);
 }
 
 void ProtocolGame::parseWeaponProficiencyInfo(const InputMessagePtr& msg)

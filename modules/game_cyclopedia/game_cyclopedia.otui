@@ -219,7 +219,7 @@ CyclopediaWindow
 
     UIButton
       id: character
-      visible: false
+      visible: true
       anchors.top: prev.top
       anchors.left: prev.right
       margin-left: 1
