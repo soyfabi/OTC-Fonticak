@@ -122,7 +122,7 @@ UIWidget
     anchors.left: parent.left
     anchors.top: ItemsLabel.bottom
     margin-top: 6
-    size: 200 110
+    size: 200 187
     image-source: /images/ui/1pixel-down-frame
     image-border: 5
     background-color: #404040
@@ -132,7 +132,7 @@ UIWidget
       anchors.fill: ItemListBase
       focusable: false
       margin-top: 5
-      size: 200 110
+      size: 200 187
       image-border: 10
       padding-top: 1
       padding-bottom: 1
@@ -570,18 +570,6 @@ UIWidget
         else
           self:setText('Skip when Quick Looting')
         end
-
-  Button
-    id: ManageButton
-    size: 128 20
-    anchors.left: parent.left
-    anchors.bottom: parent.bottom
-    !text: tr('Manage Containers')
-    text-offset: 0 0
-    color: #c0c0c0
-    @onClick: |
-      modules.game_cyclopedia.toggle()
-      modules.game_quickloot.QuickLoot.toggle()
 
 ItemCategory < UIWidget
   font: $var-cip-font-new

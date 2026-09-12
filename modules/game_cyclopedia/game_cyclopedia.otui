@@ -264,6 +264,19 @@ CyclopediaWindow
     margin-top: -4
 
   Button
+    id: manageContainersButton
+    size: 128 20
+    anchors.left: parent.left
+    anchors.bottom: parent.bottom
+    visible: false
+    !text: tr('Manage Containers')
+    font: cipsoftFont
+    color: #c0c0c0
+    @onClick: |
+      modules.game_cyclopedia.toggle()
+      modules.game_quickloot.QuickLoot.toggle()
+
+  Button
     id: closeButton
     size: 43 20
     anchors.bottom: parent.bottom

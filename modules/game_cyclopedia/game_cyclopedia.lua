@@ -78,7 +78,31 @@ local function onCyclopediaItemDetails(itemId)
 	end
 end
 
-local window, currentType, backButton, tabStack
+local window, currentType, backButton, manageContainersButton, tabStack
+
+local DEFAULT_WINDOW_SIZE = { width = 700, height = 538 }
+local ITEMS_WINDOW_SIZE = { width = 700, height = 618 }
+local ITEMS_CONTENT_MARGIN_BOTTOM = 36
+
+local function setItemsTabLayout(active)
+	if not window or not contentContainer then
+		return
+	end
+
+	if active then
+		window:setSize(ITEMS_WINDOW_SIZE)
+		contentContainer:setMarginBottom(ITEMS_CONTENT_MARGIN_BOTTOM)
+		if manageContainersButton then
+			manageContainersButton:setVisible(true)
+		end
+	else
+		window:setSize(DEFAULT_WINDOW_SIZE)
+		contentContainer:setMarginBottom(0)
+		if manageContainersButton then
+			manageContainersButton:setVisible(false)
+		end
+	end
+end
 cyclopediaButton = nil
 bestiaryTrackerButton = nil
 local function requestMarketItemsPreload()
@@ -131,10 +155,12 @@ function init()
 			if modules.game_inspect and modules.game_inspect.hide then
 				modules.game_inspect.hide()
 			end
+			setItemsTabLayout(false)
 		end
 	end
 	contentContainer = window:recursiveGetChildById('contentContainer')
 	backButton = window:recursiveGetChildById('backButton')
+	manageContainersButton = window:recursiveGetChildById('manageContainersButton')
 	tabStack = {}
 	buttonSelection = window:recursiveGetChildById('buttonSelection')
 		items = buttonSelection:recursiveGetChildById('items')
@@ -219,6 +245,7 @@ end
 
 function toggle()
 	if window:isVisible() then
+		setItemsTabLayout(false)
 		window:hide()
 	else
 		tabStack = {}
@@ -319,11 +346,16 @@ function toggleWindow(type, isBackNavigation)
 	end
 		
 	if (type == "items") then
+		setItemsTabLayout(true)
 		activateTab(items)
 		if showItems then
 			showItems()
 		end
-	elseif (type == "bestiary") then
+	else
+		setItemsTabLayout(false)
+	end
+
+	if (type == "bestiary") then
 		activateTab(bestiary)
 
 		-- Setup the widget

@@ -41,6 +41,8 @@ local UNSORTED_CATEGORY_ID = 31
 local ITEMS_INDEX_RETRY_DELAY_MS = 1000
 local ITEMS_INDEX_MAX_RETRIES = 5
 local ITEM_LIST_ROW_HEIGHT = 36
+local ITEM_LIST_VISIBLE_ROWS = 5
+local ITEM_LIST_DEFAULT_HEIGHT = ITEM_LIST_ROW_HEIGHT * ITEM_LIST_VISIBLE_ROWS + 7
 local ITEM_SEARCH_DEBOUNCE_MS = 250
 local ITEM_SEARCH_MIN_LENGTH = 2
 local ignoreLootValueSourceCheck = false
@@ -374,10 +376,10 @@ refreshItemsListView = function(sourceEntries, options)
 			listHeight = UI.ItemListBase:getHeight() - 10
 		end
 		if listHeight <= 0 then
-			listHeight = 110
+			listHeight = ITEM_LIST_DEFAULT_HEIGHT
 		end
 
-		state.listFit = math.max(4, math.floor(listHeight / ITEM_LIST_ROW_HEIGHT) + 1)
+		state.listFit = math.max(ITEM_LIST_VISIBLE_ROWS, math.floor(listHeight / ITEM_LIST_ROW_HEIGHT) + 1)
 		local poolCount = math.min(#state.listData, state.listFit)
 		for _ = 1, poolCount do
 			table.insert(state.listPool, g_ui.createWidget("ItemsListBaseItem", itemList))
