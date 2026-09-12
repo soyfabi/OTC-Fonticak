@@ -143,6 +143,10 @@ function changePreviousType(type)
 end
 
 function toggleWindow(type)
+	if currentType == type then
+		return
+	end
+
 	if previousType then
 		previousType:enable()
 		previousType:setOn(false)

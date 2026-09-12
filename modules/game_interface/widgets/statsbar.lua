@@ -41,11 +41,19 @@ StatsBar = {}
 
 local skillsLineHeight = 20
 
-local function getStatsBarXpBoostRate()
-    if modules.game_skills and modules.game_skills.getExpRating then
-        return modules.game_skills.getExpRating(ExperienceRate.XP_BOOST) or 0
+local function hasStatsBarActiveXpBoost()
+    if modules.game_skills and modules.game_skills.hasActiveXpBoost then
+        return modules.game_skills.hasActiveXpBoost()
     end
-    return 0
+
+    if modules.game_skills and modules.game_skills.getExpRating then
+        if (modules.game_skills.getExpRating(ExperienceRate.XP_BOOST) or 0) > 0 then
+            return true
+        end
+    end
+
+    local localPlayer = g_game.getLocalPlayer()
+    return localPlayer and localPlayer.getStoreExpBoostTime and (localPlayer:getStoreExpBoostTime() or 0) > 0
 end
 
 local function applyStatsBarXpBoostSlot(widget, skillKey)
@@ -59,7 +67,7 @@ local function applyStatsBarXpBoostSlot(widget, skillKey)
         return
     end
 
-    if skillKey == 'experience' and g_game.getFeature(GameExperienceBonus) and getStatsBarXpBoostRate() <= 0 then
+    if skillKey == 'experience' and g_game.getFeature(GameExperienceBonus) and not hasStatsBarActiveXpBoost() then
         xpBtn:show()
         local buttonWidth = xpBtn:getWidth()
         xpSlot:setWidth(buttonWidth > 0 and buttonWidth or 76)

@@ -526,10 +526,6 @@ function hasBoostedCreatureSource()
         return true
     end
 
-    if Servers_init and next(Servers_init) ~= nil then
-        return true
-    end
-
     if not BoostedCreatures then
         return false
     end

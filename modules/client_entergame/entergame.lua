@@ -378,30 +378,44 @@ function EnterGame.fetchBoostedFromLoginServer()
         return
     end
 
+    local protocol = ProtocolLogin.create()
+    EnterGame.boostedLoginProtocol = protocol
+
+    local function releaseBoostedLoginProtocol()
+        if EnterGame.boostedLoginProtocol == protocol then
+            EnterGame.boostedLoginProtocol = nil
+        end
+    end
+
+    local function applyBoostedFallback()
+        if BoostedCreatures and modules.client_bottommenu.applyConfiguredBoostedCreatures then
+            modules.client_bottommenu.applyConfiguredBoostedCreatures()
+        end
+    end
+
     local clientVersion = tonumber(clientBox and clientBox:getText() or g_settings.getInteger('client-version')) or 860
     g_game.setClientVersion(clientVersion)
     g_game.setProtocolVersion(g_game.getClientProtocolVersion(clientVersion))
 
-    local protocol = ProtocolLogin.create()
-    EnterGame.boostedLoginProtocol = protocol
-
     protocol.onBoostedInfo = function()
-        EnterGame.boostedLoginProtocol = nil
+        releaseBoostedLoginProtocol()
     end
 
     protocol.onLoginError = function(_, message)
-        EnterGame.boostedLoginProtocol = nil
-        if BoostedCreatures and modules.client_bottommenu.applyConfiguredBoostedCreatures then
-            modules.client_bottommenu.applyConfiguredBoostedCreatures()
-        end
+        releaseBoostedLoginProtocol()
+        applyBoostedFallback()
         g_logger.debug(string.format('[entergame] Boosted login fetch failed: %s', tostring(message)))
     end
 
+    protocol.onCharacterList = function()
+        releaseBoostedLoginProtocol()
+        applyBoostedFallback()
+        g_logger.debug('[entergame] Boosted login fetch received character list without boosted info')
+    end
+
     if not protocol:fetchBoosted(host, port) then
-        EnterGame.boostedLoginProtocol = nil
-        if BoostedCreatures and modules.client_bottommenu.applyConfiguredBoostedCreatures then
-            modules.client_bottommenu.applyConfiguredBoostedCreatures()
-        end
+        releaseBoostedLoginProtocol()
+        applyBoostedFallback()
     end
 end
 

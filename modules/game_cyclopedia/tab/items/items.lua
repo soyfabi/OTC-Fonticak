@@ -650,8 +650,9 @@ function showItems()
     -- Load JSON data
     Cyclopedia.Items.loadJson()
     
-    -- Register inspection handler
+    -- Register inspection handler once per session
     if g_game.sendInspectionObject then
+        disconnect(g_game, { onInspectionObject = Cyclopedia.Items.onInspection })
         connect(g_game, { onInspectionObject = Cyclopedia.Items.onInspection })
     end
     
@@ -1433,5 +1434,7 @@ function Cyclopedia.Items.onChangeLootValue(self)
         Cyclopedia.Items.showItemPrice(lastSelectedItem.data)
     end
 end
+
+modules.game_cyclopedia.CyclopediaItems = Cyclopedia.Items
 
 -- End of Cyclopedia Items module
