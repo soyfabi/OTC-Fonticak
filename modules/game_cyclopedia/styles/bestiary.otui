@@ -17,6 +17,15 @@ BestiaryLootItem < UIWidget
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.verticalCenter: parent.verticalCenter
 
+  UIWidget
+    id: rarity
+    size: 32 32
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.verticalCenter: parent.verticalCenter
+    phantom: true
+    focusable: false
+    visible: false
+
   UIItem
     id: item
     size: 32 32
