@@ -446,12 +446,6 @@ function ItemsDatabase.getColorForRarity(rarity)
     return ItemsDatabase.rarityColors[rarity] or TextColors.white
 end
 
-function ItemsDatabase.applyLootRarityHighlight(widget, enabled)
-    if widget and widget.setLootRarityHighlight then
-        widget:setLootRarityHighlight(enabled == true)
-    end
-end
-
 function ItemsDatabase.setColorLootMessage(text, defaultColor)
     if type(text) ~= 'string' then
         return text

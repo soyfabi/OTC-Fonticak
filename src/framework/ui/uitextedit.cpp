@@ -112,13 +112,7 @@ void UITextEdit::drawSelf(const DrawPoolType drawPane)
                         }
                     }
                 }
-                const auto lootShader = isLootRarityHighlightEnabled() && isLootRarityHighlightColor(glyphColor)
-                    ? getLootRarityHighlightShader() : nullptr;
-                if (lootShader)
-                    g_drawPool.setShaderProgram(lootShader);
                 g_drawPool.addTexturedRect(dest, texture, src, glyphColor);
-                if (lootShader)
-                    g_drawPool.resetShaderProgram();
             }
         }
     }

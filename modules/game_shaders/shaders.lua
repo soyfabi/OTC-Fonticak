@@ -108,9 +108,6 @@ local TEXT_SHADERS = { {
 }, {
     name = 'Text - Glow',
     frag = 'shaders/fragment/text_glow.frag' -- Soft glow effect (higher GPU cost)
-}, {
-    name = 'Text - Loot Rarity',
-    frag = 'shaders/fragment/text_loot_rarity.frag' -- Crisp blue/purple loot outline
 } }
 
 local function attachShaders()

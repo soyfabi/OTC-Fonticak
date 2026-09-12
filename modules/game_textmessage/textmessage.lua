@@ -349,46 +349,32 @@ function displayMessage(mode, text)
             label:setColor(lootColor)
             local coloredText = ItemsDatabase.setColorLootMessage(text, lootColor)
             if type(coloredText) == 'string' and coloredText:find('{.-,.+}') then
-                label:setShader('')
                 label:setColoredText(coloredText)
-                ItemsDatabase.applyLootRarityHighlight(label, true)
             else
-                label:setShader('')
                 label:setText(type(coloredText) == 'string' and coloredText or text)
-                ItemsDatabase.applyLootRarityHighlight(label, false)
             end
         elseif isHotkeyMsg then
-            label:setShader('')
-            ItemsDatabase.applyLootRarityHighlight(label, false)
             label:setText(text)
             label:setColor(TextColors.green)
         elseif msgtype == MessageSettings.statusBoosted then
             if not isOptionEnabled('showBoostedMessagesInConsole', true) then
                 return
             end
-            label:setShader('')
-            ItemsDatabase.applyLootRarityHighlight(label, false)
             label:setText(text)
             label:setColor(msgtype.color)
         elseif msgtype == MessageSettings.training then
             if not isOptionEnabled('trainingProgress', true) then
                 return
             end
-            label:setShader('')
-            ItemsDatabase.applyLootRarityHighlight(label, false)
             label:setText(text)
             label:setColor(msgtype.color)
         elseif msgtype == MessageSettings.store then
             if not isOptionEnabled('storeNotification', true) then
                 return
             end
-            label:setShader('')
-            ItemsDatabase.applyLootRarityHighlight(label, false)
             label:setText(text)
             label:setColor(msgtype.color)
         else
-            label:setShader('')
-            ItemsDatabase.applyLootRarityHighlight(label, false)
             label:setText(text)
             label:setColor(msgtype.color)
         end

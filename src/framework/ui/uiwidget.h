@@ -570,12 +570,6 @@ public:
     virtual void setShader(std::string_view name);
     virtual bool hasShader() { return m_shader != nullptr; }
 
-    void setLootRarityHighlight(const bool enabled) { m_lootRarityHighlight = enabled; }
-    bool isLootRarityHighlightEnabled() const { return m_lootRarityHighlight; }
-
-    static bool isLootRarityHighlightColor(const Color& color);
-    static PainterShaderProgramPtr getLootRarityHighlightShader();
-
     void setProp(FlagProp prop, bool v, bool callEvent = false);
     bool hasProp(const FlagProp prop) { return (m_flagsProp & prop); }
 
@@ -597,7 +591,6 @@ public:
 private:
     uint64_t m_flagsProp{ 0 };
     PainterShaderProgramPtr m_shader;
-    bool m_lootRarityHighlight{ false };
 
     DrawOrder m_backgroundDrawOrder{ DrawOrder::FIRST };
     DrawOrder m_imageDrawOrder{ DrawOrder::FIRST };
