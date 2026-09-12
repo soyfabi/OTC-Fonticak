@@ -393,11 +393,14 @@ function EnterGame.fetchBoostedFromLoginServer()
         end
     end
 
+    local receivedBoostedInfo = false
+
     local clientVersion = tonumber(clientBox and clientBox:getText() or g_settings.getInteger('client-version')) or 860
     g_game.setClientVersion(clientVersion)
     g_game.setProtocolVersion(g_game.getClientProtocolVersion(clientVersion))
 
     protocol.onBoostedInfo = function()
+        receivedBoostedInfo = true
         releaseBoostedLoginProtocol()
     end
 
@@ -409,8 +412,10 @@ function EnterGame.fetchBoostedFromLoginServer()
 
     protocol.onCharacterList = function()
         releaseBoostedLoginProtocol()
-        applyBoostedFallback()
-        g_logger.debug('[entergame] Boosted login fetch received character list without boosted info')
+        if not receivedBoostedInfo then
+            applyBoostedFallback()
+            g_logger.debug('[entergame] Boosted login fetch received character list without boosted info')
+        end
     end
 
     if not protocol:fetchBoosted(host, port) then
