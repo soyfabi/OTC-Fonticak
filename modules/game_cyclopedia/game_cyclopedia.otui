@@ -247,9 +247,3 @@ CyclopediaWindow
     anchors.left: parent.left
     anchors.right: parent.right
     margin-top: 5
-
-#cyclopediaButton
-  $on:
-    image-clip: 0 20 20 20
-  $pressed:
-    image-clip: 0 20 20 20

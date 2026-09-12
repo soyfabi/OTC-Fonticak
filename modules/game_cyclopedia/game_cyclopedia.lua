@@ -23,6 +23,12 @@ function init()
 	bestiaryTrackerButton = modules.client_topmenu.addRightGameToggleButton('bestiaryTrackerButton', tr('Bestiary Tracker'), '/images/options/bestiaryTracker', toggleTracker, false, 9)
 	modules.game_cyclopedia.cyclopediaButton = cyclopediaButton
 	modules.game_cyclopedia.bestiaryTrackerButton = bestiaryTrackerButton
+
+	window.onVisibilityChange = function(widget, visible)
+		if cyclopediaButton then
+			cyclopediaButton:setOn(visible)
+		end
+	end
 	contentContainer = window:recursiveGetChildById('contentContainer')
 	buttonSelection = window:recursiveGetChildById('buttonSelection')
 		items = buttonSelection:recursiveGetChildById('items')
