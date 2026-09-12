@@ -207,6 +207,14 @@ local function showInsufficientCoinsError()
 	return true
 end
 
+function Offers:hasEnoughCoins(subOffer)
+	return hasEnoughCoins(subOffer)
+end
+
+function Offers:showInsufficientCoinsError()
+	return showInsufficientCoinsError()
+end
+
 local function setBuyButtonAvailable(button, overlayId, subOffer, onClick)
 	removeBuyTooltipOverlay(overlayId)
 
@@ -242,6 +250,14 @@ end
 
 local function findSubOfferById(offerId)
 	for _, offer in ipairs(Offers.displayOffer or {}) do
+		for _, subOffer in ipairs(offer.offers or {}) do
+			if subOffer.id == offerId then
+				return subOffer, offer
+			end
+		end
+	end
+
+	for _, offer in ipairs((HomeOffer and HomeOffer.dailyOffers) or {}) do
 		for _, subOffer in ipairs(offer.offers or {}) do
 			if subOffer.id == offerId then
 				return subOffer, offer
