@@ -17,6 +17,8 @@ showTopMenuButton = nil
 logoutButton = nil
 logOutMainButton = nil
 mouseGrabberWidget = nil
+selectedThing = nil
+selectedType = nil
 countWindow = nil
 logoutWindow = nil
 exitWindow = nil
@@ -198,6 +200,9 @@ function bindKeys()
             callback = function()
                 if lastStopAction + 50 > g_clock.millis() then return end
                 lastStopAction = g_clock.millis()
+                if cancelMouseTarget() then
+                    return
+                end
                 g_game.cancelAttackAndFollow()
             end,
         }
@@ -501,6 +506,28 @@ function updateStretchShrink()
             modules.game_actionbar.updateVisibleWidgetsExternal()
         end)
     end
+end
+
+function cancelMouseTarget()
+    local wasActive = selectedThing ~= nil or (mouseGrabberWidget and g_ui.isMouseGrabbed())
+    if not wasActive then
+        return false
+    end
+
+    selectedThing = nil
+    selectedType = nil
+
+    if mouseGrabberWidget and g_ui.isMouseGrabbed() then
+        mouseGrabberWidget:ungrabMouse()
+    end
+
+    if modules.client_options and modules.client_options.getOption('nativeCursor') then
+        g_window.restoreMouseCursor()
+    else
+        g_mouse.popCursor('target')
+    end
+
+    return true
 end
 
 function onMouseGrabberRelease(self, mousePosition, mouseButton)

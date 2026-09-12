@@ -39,6 +39,7 @@ local doNotShowWarningLargeAmounts = true
 local npcTradeSelectedEntry, npcTradeLookThing
 local npcTradeCurrentUnitPrice = 0
 local npcTradeQuantity = 0
+local npcTradePreviewItemId = nil
 local sellAllModal, sellAllButton
 local stopSellAllAutoRefresh = function() end
 local scheduleSellAllAutoRefresh = function() end
@@ -49,6 +50,7 @@ local sellAllIgnoredItems = {}
 local FilterText2 = ""
 local FilterText3 = ""
 local npcModalClosedAt = 0
+local npcModalPendingCloseEvent = nil
 
 local defaultNpcButtons = {
 	{ text = "yes", id = 7 },
@@ -456,6 +458,43 @@ local function isAnyNpcModalVisible()
 	return (mainNpcModal and mainNpcModal:isVisible()) or (sellAllModal and sellAllModal:isVisible())
 end
 
+function cancelNpcModalClose()
+	if npcModalPendingCloseEvent then
+		removeEvent(npcModalPendingCloseEvent)
+		npcModalPendingCloseEvent = nil
+	end
+end
+
+function scheduleNpcModalClose()
+	cancelNpcModalClose()
+	npcModalPendingCloseEvent = scheduleEvent(function()
+		npcModalPendingCloseEvent = nil
+		closeNpcModal()
+	end, 400)
+end
+
+local function resolveNpcForDistanceCheck()
+	if activeNpcCreature and activeNpcCreature:getPosition() then
+		return activeNpcCreature
+	end
+
+	if currentNpcId and currentNpcId > 0 then
+		local creature = g_map.getCreatureById(currentNpcId)
+		if creature and creature:getPosition() then
+			return creature
+		end
+	end
+
+	if currentTalkingToNpc and currentTalkingToNpc ~= "" then
+		local creature = findCreatureByName(currentTalkingToNpc)
+		if creature and creature:isNpc() and creature:getPosition() then
+			return creature
+		end
+	end
+
+	return findNearestNpc()
+end
+
 local function checkNpcDistance()
 	if not isAnyNpcModalVisible() then
 		return
@@ -471,7 +510,7 @@ local function checkNpcDistance()
 		return
 	end
 
-	local currentNpc = activeNpcCreature or findNearestNpc()
+	local currentNpc = resolveNpcForDistanceCheck()
 	if currentNpc then
 		local npcPos = currentNpc:getPosition()
 		if npcPos then
@@ -1027,7 +1066,7 @@ local function onGameTalk(name, level, mode, text, channelId, creaturePos)
 
 		if isNpcFarewellText(text) then
 			addNpcDialogLine(name, text, false)
-			scheduleEvent(function() closeNpcModal() end, 400)
+			scheduleNpcModalClose()
 			return
 		end
 
@@ -1036,12 +1075,13 @@ local function onGameTalk(name, level, mode, text, channelId, creaturePos)
 		if lowerText == "bye" or lowerText == "adios" or lowerText == "cya" or lowerText == "farewell" then
 			if isAnyNpcModalVisible() then
 				addNpcDialogLine(g_game.getCharacterName(), text, true)
-				scheduleEvent(function() closeNpcModal() end, 400)
+				scheduleNpcModalClose()
 				return
 			end
 		end
 
 		if lowerText == "hi" or lowerText == "hello" or lowerText == "hola" then
+			cancelNpcModalClose()
 			if not isAnyNpcModalVisible() then
 				local nearby = findNearbyNpcs(3)
 				if #nearby > 1 then
@@ -2192,6 +2232,7 @@ local function clearNpcTradeItem2Preview()
 		return
 	end
 
+	npcTradePreviewItemId = nil
 	npcTradeCurrentUnitPrice = 0
 
 	if item2 and not item2:isDestroyed() then
@@ -2227,7 +2268,13 @@ local function applyNpcTradeItem2Preview(entry, price)
 		updateNpcTradePriceLabel(nil)
 	end
 
-	if sellButton and sellButton:isOn() then
+	local itemId = entry.item:getId()
+	local preserveQuantity = npcTradePreviewItemId == itemId and (npcTradeQuantity or 0) > 0
+	npcTradePreviewItemId = itemId
+
+	if preserveQuantity then
+		applyNpcTradeQuantity(npcTradeQuantity)
+	elseif sellButton and sellButton:isOn() then
 		local _, maxV = computeNpcTradeQuantityRange()
 
 		applyNpcTradeQuantity(maxV > 0 and maxV or 1)
@@ -3083,6 +3130,8 @@ onCloseNpcTrade = function()
 end
 
 function closeNpcModal()
+	cancelNpcModalClose()
+
 	if g_tooltip then
 		g_tooltip.hide(true)
 		g_tooltip.hideSpecial(true)
@@ -3157,6 +3206,8 @@ function closeNpcModal()
 end
 
 function sendNpcModal(data)
+	cancelNpcModalClose()
+
 	if not data then data = {} end
 	if not data.npcIds or #data.npcIds == 0 then
 		local nearby = findNearbyNpcs(3)
