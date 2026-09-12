@@ -630,6 +630,34 @@ local function getCachedServerMarketItems()
 	return nil
 end
 
+local function getItemsIndexCacheToken()
+	local serverItems = getCachedServerMarketItems()
+	if serverItems then
+		return serverItems, #serverItems
+	end
+
+	return nil, 0
+end
+
+local function isItemsIndexUpToDate()
+	local source, count = getItemsIndexCacheToken()
+	if Cyclopedia.Items.indexCacheSource ~= source then
+		return false
+	end
+	if (Cyclopedia.Items.indexCacheCount or 0) ~= count then
+		return false
+	end
+	if not Cyclopedia.ItemList or not Cyclopedia.AllItemList or #Cyclopedia.AllItemList == 0 then
+		return false
+	end
+	return true
+end
+
+function Cyclopedia.invalidateItemsIndex()
+	Cyclopedia.Items.indexCacheSource = nil
+	Cyclopedia.Items.indexCacheCount = nil
+end
+
 local function isClassificationDetailKey(key)
 	key = tostring(key or ""):gsub("^%s+", ""):gsub("%s+$", ""):gsub(":%s*$", "")
 	return key == "Classification" or key == "Upgrade Classification"
@@ -923,6 +951,7 @@ function Cyclopedia.Items.terminate()
 		removeEvent(Cyclopedia.Items.listRenderEvent)
 		Cyclopedia.Items.listRenderEvent = nil
 	end
+	Cyclopedia.invalidateItemsIndex()
 	Cyclopedia.Items.saveJson()
 end
 
@@ -1459,10 +1488,15 @@ function showItems()
         ItemCat.BaseColor = CategoryColor
 
         function ItemCat:onClick()
+            local categoryId = tonumber(self:getId())
+            if UI.selectedCategory == self and Cyclopedia.Items.currentCategoryId == categoryId then
+                return
+            end
+
             Cyclopedia.ResetItemCategorySelection(UI.CategoryList)
             self:setChecked(true)
             self:setBackgroundColor("#585858")
-            Cyclopedia.selectItemCategory(tonumber(self:getId()))
+            Cyclopedia.selectItemCategory(categoryId)
             UI.selectedCategory = self
         end
 
@@ -1531,7 +1565,13 @@ function Cyclopedia.onCategoryChange(widget)
     if widget.isChecked and not widget:isChecked() then
         return
     end
-    Cyclopedia.selectItemCategory(tonumber(widget:getId()))
+
+    local categoryId = tonumber(widget:getId())
+    if UI.selectedCategory == widget and Cyclopedia.Items.currentCategoryId == categoryId then
+        return
+    end
+
+    Cyclopedia.selectItemCategory(categoryId)
     UI.selectedCategory = widget
 end
 
@@ -1671,6 +1711,17 @@ function Cyclopedia.selectItemEntry(entry, widget)
     end
 
     local itemId = entry.id or data:getId()
+    if tonumber(Cyclopedia.Items.currentItemId) == itemId then
+        if widget and UI.selectItem ~= widget then
+            if UI.selectItem then
+                UI.selectItem:setBackgroundColor("#00000000")
+            end
+            widget:setBackgroundColor("#585858")
+            UI.selectItem = widget
+        end
+        return
+    end
+
     UI.InfoBase.SellBase.List:destroyChildren()
     UI.InfoBase.BuyBase.List:destroyChildren()
 
@@ -1824,19 +1875,20 @@ end
 
 function Cyclopedia.selectItemCategory(id)
     id = tonumber(id)
-    local categoryChanged = Cyclopedia.Items.currentCategoryId ~= id
+    if Cyclopedia.Items.currentCategoryId == id then
+        return
+    end
+
     Cyclopedia.Items.currentCategoryId = id
 
-    if categoryChanged then
-        setCheckedWithoutRecursion(false, false)
-        UI.LevelButton:setChecked(false)
-        UI.VocationButton:setChecked(false)
-        Cyclopedia.Items.VocFilter = false
-        Cyclopedia.Items.LevelFilter = false
+    setCheckedWithoutRecursion(false, false)
+    UI.LevelButton:setChecked(false)
+    UI.VocationButton:setChecked(false)
+    Cyclopedia.Items.VocFilter = false
+    Cyclopedia.Items.LevelFilter = false
 
-        if UI.SearchEdit:getText() ~= "" then
-            Cyclopedia.ItemSearch("", true)
-        end
+    if UI.SearchEdit:getText() ~= "" then
+        Cyclopedia.ItemSearch("", true)
     end
 
     if Cyclopedia.hasClassificationFilter(id) then
@@ -1877,7 +1929,11 @@ local function appendItemEntry(tempItemList, entry)
     table.insert(tempItemList[category], entry)
 end
 
-function Cyclopedia.loadItemsCategories()
+function Cyclopedia.loadItemsCategories(force)
+    if not force and isItemsIndexUpToDate() then
+        return false
+    end
+
     Cyclopedia.ItemList = {}
     Cyclopedia.AllItemList = {}
 
@@ -1912,9 +1968,15 @@ function Cyclopedia.loadItemsCategories()
         Cyclopedia.ItemList[category] = itemList
     end
 
+    local source, count = getItemsIndexCacheToken()
+    Cyclopedia.Items.indexCacheSource = source
+    Cyclopedia.Items.indexCacheCount = count
+
     if getCachedServerMarketItems() then
         Cyclopedia.Items.indexRetryCount = 0
     end
+
+    return true
 end
 
 function Cyclopedia.applyItemsIndexRefresh()

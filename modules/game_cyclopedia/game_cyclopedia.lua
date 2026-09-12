@@ -238,6 +238,9 @@ function onCyclopediaGameEnd()
 	if window then
 		window:hide()
 	end
+	if Cyclopedia.invalidateItemsIndex then
+		Cyclopedia.invalidateItemsIndex()
+	end
 	if onBestiaryGameEnd then
 		onBestiaryGameEnd()
 	end
