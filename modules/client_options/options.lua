@@ -1478,6 +1478,8 @@ function removeTab(v)
     -- deprecated: options use addButton categories instead of tabs
 end
 
+local CATEGORY_BASE_HEIGHT = 22
+local SUBCATEGORY_HEIGHT = 20
 local CATEGORY_ARROW_CLOSED = "/images/ui/icon-arrow7x7-right"
 local CATEGORY_ARROW_OPEN = "/images/ui/icon-arrow7x7-down"
 local CATEGORY_ACCORDION_MS = 240
@@ -1575,8 +1577,8 @@ local function ensureCategorySizes(parent)
         baseHeight = parent.closedSize
     end
 
-    parent.closedSize = parent.closedSize or (baseHeight / (parent.subCategoriesSize + 1) + 15)
-    parent.openedSize = parent.openedSize or (baseHeight * (parent.subCategoriesSize + 1) - 6)
+    parent.closedSize = parent.closedSize or CATEGORY_BASE_HEIGHT
+    parent.openedSize = parent.openedSize or (CATEGORY_BASE_HEIGHT + parent.subCategoriesSize * SUBCATEGORY_HEIGHT)
 end
 
 local function setSubCategoriesVisible(parent, isOpen, opacity)
@@ -1718,6 +1720,10 @@ local function createSubWidget(parent, subId, subButton)
     subWidget.Button.Title:setText(subButton.text)
     subWidget.Button.Title:setFont('Verdana Bold-11px')
     subWidget.Button.Title:setHeight(15)
+    subWidget:setImageSource("")
+    subWidget:setImageBorder(0)
+    subWidget:setHeight(SUBCATEGORY_HEIGHT)
+    subWidget.Button:setChecked(false)
     subWidget:setVisible(false)
     subWidget.open = subButton.open
     subWidget.callbackFunc = subButton.callbackFunc
@@ -1758,7 +1764,7 @@ local function createSubWidget(parent, subId, subButton)
         subWidget:setMarginTop(20)
     else
         subWidget:addAnchor(AnchorTop, "prev", AnchorBottom)
-        subWidget:setMarginTop(-1)
+        subWidget:setMarginTop(1)
     end
 
     return subWidget
@@ -1814,8 +1820,8 @@ function configureCharacterCategories()
             end
 
             if parent.subCategoriesSize then
-                parent.closedSize = parent.closedSize or parent:getHeight() / (parent.subCategoriesSize + 1) + 15
-                parent.openedSize = parent.openedSize or parent:getHeight() * (parent.subCategoriesSize + 1) - 6
+                parent.closedSize = parent.closedSize or CATEGORY_BASE_HEIGHT
+                parent.openedSize = parent.openedSize or (CATEGORY_BASE_HEIGHT + parent.subCategoriesSize * SUBCATEGORY_HEIGHT)
 
                 if not parent.opened then
                     open(parent)

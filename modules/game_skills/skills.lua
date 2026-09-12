@@ -2373,6 +2373,10 @@ function updateExperienceRate(localPlayer)
 	end
 
 	updateStoreBoostDisplay(localPlayer)
+
+	if StatsBar and StatsBar.updateXpBoostDisplay then
+		StatsBar.updateXpBoostDisplay()
+	end
 end
 
 function onExperienceRateChange(localPlayer, type, value)

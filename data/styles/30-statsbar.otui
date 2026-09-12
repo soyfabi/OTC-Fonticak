@@ -312,12 +312,35 @@ TopStatsSkillElement < UIWidget
     id: bar
     anchors.verticalCenter: level.verticalCenter
     anchors.left: icon.right
-    anchors.right: parent.right
+    anchors.right: statsbarXpBoostSlot.left
     !statsbar-size: 'tiny'
     !statsbar-orientation: 'horizontal'
     statsbar-text: true
     margin-left: 5
+    margin-right: 2
     height: 7
+
+  Panel
+    id: statsbarXpBoostSlot
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    width: 0
+    margin-right: 0
+
+    UIWidget
+      id: statsbarXpBoostButton
+      size: 76 14
+      fixed-size: true
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      visible: false
+      image-source: /images/ui/button-storexp
+      !tooltip: tr('Purchase XP Boost')
+      tooltip-delayed: true
+      @onClick: modules.game_store.openPremiumBoost()
+      $pressed:
+        image-source: /images/ui/button-storexp-pressed
 
 HarmonyIcon < UIWidget
   size: 13 13
