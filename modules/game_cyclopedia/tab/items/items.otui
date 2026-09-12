@@ -60,7 +60,7 @@ UIWidget
     margin-top: 31
     margin-left: -1
     !text: tr("Level")
-    font: cipsoftFont
+    font: verdana-11px-rounded
     color: #dfdfdfff
     @onClick: modules.game_cyclopedia.Cyclopedia.onItemsFilterButtonClick(self)
 
@@ -71,7 +71,7 @@ UIWidget
     anchors.top: LevelButton.top
     margin-left: 5
     !text: tr("Voc.")
-    font: cipsoftFont
+    font: verdana-11px-rounded
     color: #dfdfdfff
     @onClick: modules.game_cyclopedia.Cyclopedia.onItemsFilterButtonClick(self)
 
@@ -80,9 +80,9 @@ UIWidget
     size: 37 20
     anchors.left: VocationButton.right
     anchors.top: LevelButton.top
-    margin-left: 12
+    margin-left: 5
     !text: tr("1H")
-    font: cipsoftFont
+    font: verdana-11px-rounded
     color: #dfdfdfff
     @onClick: modules.game_cyclopedia.Cyclopedia.onItemsFilterButtonClick(self)
 
@@ -93,17 +93,17 @@ UIWidget
     anchors.top: LevelButton.top
     margin-left: 5
     !text: tr("2H")
-    font: cipsoftFont
+    font: verdana-11px-rounded
     color: #dfdfdfff
     @onClick: modules.game_cyclopedia.Cyclopedia.onItemsFilterButtonClick(self)
 
-  QtComboBox
+  ComboBox
     id: ItemFilter
     size: 77 20
+    !text: tr('All')
     anchors.top: LevelButton.bottom
     anchors.left: parent.left
     margin-top: 5
-    color: #c0c0c0
     @onOptionChange: modules.game_cyclopedia.Cyclopedia.classificationFilter(self:getCurrentOption().data)
 
   Label

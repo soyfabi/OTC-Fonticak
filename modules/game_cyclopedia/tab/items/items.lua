@@ -2244,6 +2244,53 @@ function Cyclopedia.openItem(arg)
     end, 100)
 end
 
+local NPC_SALE_COLOR_PRICE = "#FFFF00"
+local NPC_SALE_COLOR_NAME = "#87CEEB"
+local NPC_SALE_COLOR_RESIDENCE = "#90EE90"
+local NPC_SALE_COLOR_DEFAULT = "#C0C0C0"
+
+local function sanitizeColoredText(value)
+	return tostring(value or ""):gsub("}", "")
+end
+
+local function formatNpcSaleRowColored(price, name, location)
+	local priceText = sanitizeColoredText(Cyclopedia.formatGold(price))
+	local nameText = sanitizeColoredText(name)
+	local locationText = sanitizeColoredText(location)
+
+	return {
+		priceText, NPC_SALE_COLOR_PRICE,
+		" gp, ", NPC_SALE_COLOR_DEFAULT,
+		nameText, NPC_SALE_COLOR_NAME,
+		"\n", NPC_SALE_COLOR_DEFAULT,
+		"Residence", NPC_SALE_COLOR_RESIDENCE,
+		": " .. locationText, NPC_SALE_COLOR_DEFAULT,
+	}
+end
+
+local function setNpcSaleRowText(widget, value)
+	if widget.setColoredText then
+		widget:setColoredText(value)
+	elseif type(value) == "table" then
+		local plain = {}
+		for i = 1, #value, 2 do
+			plain[#plain + 1] = tostring(value[i] or "")
+		end
+		widget:setText(table.concat(plain))
+	else
+		widget:setText(value)
+	end
+end
+
+local function setNpcSaleSectionVisible(label, panel, visible)
+	if label then
+		label:setVisible(visible)
+	end
+	if panel then
+		panel:setVisible(visible)
+	end
+end
+
 local function sortSaleRowsByLocationThenName(rows)
     table.sort(rows, function(a, b)
         local locA = string.lower(a.value.various and "Various Locations" or a.value.location or "")
@@ -2277,8 +2324,10 @@ function Cyclopedia.refreshNpcSaleLists(itemId)
     for index, value in ipairs(sell) do
         local t_widget = g_ui.createWidget("UIWidget", UI.InfoBase.SellBase.List)
         t_widget:setId(index)
-        t_widget:setText(value)
+        setNpcSaleRowText(t_widget, value)
         t_widget:setTextAlign(AlignLeft)
+        t_widget:setTextWrap(true)
+        t_widget:setHeight(40)
         t_widget:setBackgroundColor(sellColor)
         t_widget.BaseColor = sellColor
 
@@ -2296,8 +2345,10 @@ function Cyclopedia.refreshNpcSaleLists(itemId)
     for index, value in ipairs(buy) do
         local t_widget = g_ui.createWidget("UIWidget", UI.InfoBase.BuyBase.List)
         t_widget:setId(index)
-        t_widget:setText(value)
+        setNpcSaleRowText(t_widget, value)
         t_widget:setTextAlign(AlignLeft)
+        t_widget:setTextWrap(true)
+        t_widget:setHeight(40)
         t_widget:setBackgroundColor(buyColor)
         t_widget.BaseColor = buyColor
 
@@ -2309,6 +2360,9 @@ function Cyclopedia.refreshNpcSaleLists(itemId)
 
         buyColor = buyColor == "#484848" and "#414141" or "#484848"
     end
+
+    setNpcSaleSectionVisible(UI.InfoBase.SellLabel, UI.InfoBase.SellBase, #sell > 0)
+    setNpcSaleSectionVisible(UI.InfoBase.BuyLabel, UI.InfoBase.BuyBase, #buy > 0)
 end
 
 function Cyclopedia.Items.onServerItemDetails(itemId)
@@ -2382,9 +2436,9 @@ function Cyclopedia.formatSaleData(data)
         local name, value = row.name, row.value
 
         if value.various then
-            table.insert(sell, string.format("%s gp, %s\nResidence: %s", Cyclopedia.formatGold(value.price), name, "Various Locations"))
+            table.insert(sell, formatNpcSaleRowColored(value.price, name, "Various Locations"))
         else
-            table.insert(sell, string.format("%s gp, %s\nResidence: %s", Cyclopedia.formatGold(value.price), name, value.location))
+            table.insert(sell, formatNpcSaleRowColored(value.price, name, value.location))
         end
     end
 
@@ -2403,9 +2457,9 @@ function Cyclopedia.formatSaleData(data)
         local name, value = row.name, row.value
 
         if value.various then
-            table.insert(buy, string.format("%s gp, %s\nResidence: %s", Cyclopedia.formatGold(value.price), name, "Various Locations"))
+            table.insert(buy, formatNpcSaleRowColored(value.price, name, "Various Locations"))
         else
-            table.insert(buy, string.format("%s gp, %s\nResidence: %s", Cyclopedia.formatGold(value.price), name, value.location))
+            table.insert(buy, formatNpcSaleRowColored(value.price, name, value.location))
         end
     end
 
