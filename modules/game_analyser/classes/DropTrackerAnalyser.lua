@@ -81,13 +81,13 @@ local function getItemColor(itemId)
     if thingType then
         local price = thingType:getMeanPrice() or 0
         if price >= 1000000 then
-            return "#ffff00"  -- yellow
+            return TextColors.lootYellow
         elseif price >= 100000 then
-            return "#ff00ff"  -- purple/magenta
+            return TextColors.lootPurple
         elseif price >= 10000 then
-            return "#0080ff"  -- blue
+            return TextColors.lootBlue
         elseif price >= 1000 then
-            return "#00ff00"  -- green
+            return TextColors.lootGreen
         elseif price >= 50 then
             return "#808080"  -- grey
         else

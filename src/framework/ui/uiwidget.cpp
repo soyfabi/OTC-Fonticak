@@ -2212,6 +2212,18 @@ void UIWidget::move(int x, int y) {
     m_rect = { x, y, getSize() };
 }
 
+bool UIWidget::isLootRarityHighlightColor(const Color& color)
+{
+    static const Color lootBlue = Color("#20A0FF");
+    static const Color lootPurple = Color("#FF68FF");
+    return color == lootBlue || color == lootPurple;
+}
+
+PainterShaderProgramPtr UIWidget::getLootRarityHighlightShader()
+{
+    return g_shaders.getShader("Text - Loot Rarity");
+}
+
 void UIWidget::setShader(const std::string_view name) {
     if (name.empty()) {
         m_shader = nullptr;

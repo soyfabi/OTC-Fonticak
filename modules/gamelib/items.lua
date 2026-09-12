@@ -7,10 +7,10 @@ local OPCODE_ITEM_VALUES = 0xC6
 local OPCODE_ITEM_DETAILS = 0xC7
 
 ItemsDatabase.rarityColors = {
-    ["yellow"] = TextColors.yellow,
-    ["purple"] = TextColors.purple,
-    ["blue"] = TextColors.blue,
-    ["green"] = TextColors.green,
+    ["yellow"] = TextColors.lootYellow,
+    ["purple"] = TextColors.lootPurple,
+    ["blue"] = TextColors.lootBlue,
+    ["green"] = TextColors.lootGreen,
     ["grey"] = TextColors.grey,
 }
 
@@ -162,7 +162,30 @@ function ItemsDatabase.requestServerItemDetails(itemId)
     return true
 end
 
+local function getCyclopediaItemLootValue(itemId)
+    if not itemId or itemId <= 0 then
+        return 0
+    end
+
+    local itemsApi = Cyclopedia and Cyclopedia.Items
+        or (modules.game_cyclopedia and modules.game_cyclopedia.Cyclopedia and modules.game_cyclopedia.Cyclopedia.Items)
+
+    if itemsApi and itemsApi.getCurrentItemValue then
+        return tonumber(itemsApi.getCurrentItemValue(itemId)) or 0
+    end
+
+    return 0
+end
+
 function ItemsDatabase.getItemPrice(item)
+    local itemId = resolveItemId(item)
+    if itemId > 0 then
+        local cyclopediaValue = getCyclopediaItemLootValue(itemId)
+        if cyclopediaValue > 0 then
+            return cyclopediaValue
+        end
+    end
+
     local value = ItemsDatabase.getItemValue(item)
     if value > 0 then
         return value
@@ -423,13 +446,19 @@ function ItemsDatabase.getColorForRarity(rarity)
     return ItemsDatabase.rarityColors[rarity] or TextColors.white
 end
 
+function ItemsDatabase.applyLootRarityHighlight(widget, enabled)
+    if widget and widget.setLootRarityHighlight then
+        widget:setLootRarityHighlight(enabled == true)
+    end
+end
+
 function ItemsDatabase.setColorLootMessage(text, defaultColor)
     if type(text) ~= 'string' then
         return text
     end
 
     -- CIP loot messages use green as the base color; rarity only recolors item names.
-    if text:find('^Loot of ') or text:find('^Loot de ') then
+    if text:find('Loot of ') or text:find('Loot de ') then
         defaultColor = TextColors.green
     else
         defaultColor = defaultColor or TextColors.white

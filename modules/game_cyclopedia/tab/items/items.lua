@@ -526,7 +526,11 @@ local function resolveItemContext(obj)
 	end
 
 	local item, thingType, itemId
-	if obj.getMarketData then
+	if type(obj) == 'number' then
+		itemId = obj
+		thingType = g_things.getThingType(itemId, ThingCategoryItem)
+		item = Item.create(itemId)
+	elseif obj.getMarketData then
 		thingType = obj
 		itemId = thingType:getId()
 		item = Item.create(itemId)
@@ -2420,8 +2424,8 @@ function Cyclopedia.openItem(arg)
     end, 100)
 end
 
-local NPC_SALE_COLOR_PRICE = "#FFFF00"
-local NPC_SALE_COLOR_NAME = "#87CEEB"
+local NPC_SALE_COLOR_PRICE = TextColors.yellow
+local NPC_SALE_COLOR_NAME = TextColors.lootBlue
 local NPC_SALE_COLOR_RESIDENCE = "#90EE90"
 local NPC_SALE_COLOR_DEFAULT = "#C0C0C0"
 

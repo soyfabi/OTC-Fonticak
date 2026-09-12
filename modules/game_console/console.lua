@@ -1596,13 +1596,19 @@ function addTabText(text, speaktype, tab, creatureName, options)
         end
     else
         if options.coloredData then
+            label:setShader('')
             label:setColoredText(options.coloredData)
             label.coloredData = options.coloredData
+            ItemsDatabase.applyLootRarityHighlight(label, true)
         elseif speaktype.colored then
+            label:setShader('')
             label:setColoredText(text)
             label.coloredData = text
+            ItemsDatabase.applyLootRarityHighlight(label, true)
         else
             label:setText(text)
+            label:setShader('')
+            ItemsDatabase.applyLootRarityHighlight(label, false)
         end
     end
     label:setColor(speaktype.color)
@@ -1621,11 +1627,17 @@ function addTabText(text, speaktype, tab, creatureName, options)
                 onTextHoverChange = onConsoleTextHovered
             })
         elseif options.coloredData then
+            readOnlyLabel:setShader('')
             readOnlyLabel:setColoredText(options.coloredData)
+            ItemsDatabase.applyLootRarityHighlight(readOnlyLabel, true)
         elseif speaktype.colored then
+            readOnlyLabel:setShader('')
             readOnlyLabel:setColoredText(text)
+            ItemsDatabase.applyLootRarityHighlight(readOnlyLabel, true)
         else
             readOnlyLabel:setText(text)
+            readOnlyLabel:setShader('')
+            ItemsDatabase.applyLootRarityHighlight(readOnlyLabel, false)
         end
         readOnlyLabel:setColor(speaktype.color)
     end

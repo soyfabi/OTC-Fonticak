@@ -343,11 +343,25 @@ void UIWidget::drawText(const Rect& screenCoords)
     g_drawPool.scale(m_fontScale);
     g_drawPool.setDrawOrder(m_textDrawOrder);
     if (m_drawTextColors.empty() || m_colorCoordsBuffer.empty()) {
+        if (hasShader())
+            g_drawPool.setShaderProgram(m_shader);
         g_drawPool.addTexturedCoordsBuffer(m_font->getTexture(), m_coordsBuffer, m_color);
+        if (hasShader())
+            g_drawPool.resetShaderProgram();
     } else {
         const auto& texture = m_font->getTexture();
+        const auto lootShader = m_lootRarityHighlight ? getLootRarityHighlightShader() : nullptr;
         for (const auto& [color, coordsBuffer] : m_colorCoordsBuffer) {
+            const bool useLootHighlight = lootShader && isLootRarityHighlightColor(color);
+            if (useLootHighlight)
+                g_drawPool.setShaderProgram(lootShader);
+            else if (hasShader())
+                g_drawPool.setShaderProgram(m_shader);
+
             g_drawPool.addTexturedCoordsBuffer(texture, coordsBuffer, color);
+
+            if (useLootHighlight || hasShader())
+                g_drawPool.resetShaderProgram();
         }
     }
     g_drawPool.resetDrawOrder();
