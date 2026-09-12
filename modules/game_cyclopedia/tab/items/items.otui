@@ -52,62 +52,50 @@ UIWidget
     margin-bottom: 30
     margin-left: 210
  
-  fakeCheckBox
+  Button
     id: LevelButton
-    size: 49 21
+    size: 37 20
     anchors.left: parent.left
     anchors.top: CategoryList.bottom
     margin-top: 31
     margin-left: -1
     !text: tr("Level")
-    text-align: center
-    text-offset: 0 1
-    color: #ffffff
-    @onCheckChange: modules.game_cyclopedia.Cyclopedia.levelFilter(self:isChecked())
+    font: cipsoftFont
+    color: #dfdfdfff
+    @onClick: modules.game_cyclopedia.Cyclopedia.onItemsFilterButtonClick(self)
 
-  fakeCheckBox
+  Button
     id: VocationButton
-    size: 49 21
+    size: 37 20
     anchors.left: LevelButton.right
     anchors.top: LevelButton.top
-    margin-left: 4
+    margin-left: 5
     !text: tr("Voc.")
-    text-align: center
-    text-offset: 0 1
-    color: #ffffff
-    @onCheckChange: modules.game_cyclopedia.Cyclopedia.vocationFilter(self:isChecked())
+    font: cipsoftFont
+    color: #dfdfdfff
+    @onClick: modules.game_cyclopedia.Cyclopedia.onItemsFilterButtonClick(self)
 
-  fakeCheckBox
+  Button
     id: H1Button
-    size: 48 21
+    size: 37 20
     anchors.left: VocationButton.right
     anchors.top: LevelButton.top
-    margin-left: 4
+    margin-left: 12
     !text: tr("1H")
-    text-align: center
-    text-offset: 0 1
-    color: #ffffff
-    @onCheckChange: modules.game_cyclopedia.Cyclopedia.handFilter(self:isChecked(), false)
-    $disabled:
-      opacity: 1.0
-      image-color: #ffffff
-      color: #b4b4b4
+    font: cipsoftFont
+    color: #dfdfdfff
+    @onClick: modules.game_cyclopedia.Cyclopedia.onItemsFilterButtonClick(self)
 
-  fakeCheckBox
+  Button
     id: H2Button
-    size: 48 21 
+    size: 37 20
     anchors.left: H1Button.right
     anchors.top: LevelButton.top
-    margin-left: 4
+    margin-left: 5
     !text: tr("2H")
-    text-align: center
-    text-offset: 0 1
-    color: #ffffff
-    @onCheckChange: modules.game_cyclopedia.Cyclopedia.handFilter(false, self:isChecked())
-    $disabled:
-      opacity: 1.0
-      image-color: #ffffff
-      color: #b4b4b4
+    font: cipsoftFont
+    color: #dfdfdfff
+    @onClick: modules.game_cyclopedia.Cyclopedia.onItemsFilterButtonClick(self)
 
   QtComboBox
     id: ItemFilter

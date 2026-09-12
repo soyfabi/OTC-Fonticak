@@ -155,6 +155,52 @@ local function resolveThingType(entry)
 	return entry
 end
 
+local function normalizeClientVocationId(vocation)
+	vocation = tonumber(vocation) or 0
+	if vocation == 5 or vocation == 13 then
+		return 1
+	elseif vocation == 6 or vocation == 14 then
+		return 2
+	elseif vocation == 7 or vocation == 12 then
+		return 3
+	elseif vocation == 8 or vocation == 11 then
+		return 4
+	elseif vocation == 9 or vocation == 10 or vocation == 15 then
+		return 9
+	elseif vocation > 10 then
+		return vocation - 10
+	end
+	return vocation
+end
+
+local function getEntryMarketFilterData(entry, thingType)
+	local requiredLevel = entry and tonumber(entry.requiredLevel) or 0
+	local restrictVocation = entry and tonumber(entry.restrictVocation) or 0
+
+	local marketData = {}
+	if thingType and thingType.getMarketData then
+		marketData = thingType:getMarketData() or {}
+	end
+
+	if requiredLevel == 0 then
+		requiredLevel = tonumber(marketData.requiredLevel) or 0
+	end
+	if restrictVocation == 0 then
+		restrictVocation = tonumber(marketData.restrictVocation) or 0
+	end
+
+	if requiredLevel == 0 and restrictVocation == 0 and entry and entry.id then
+		local item = Item.create(entry.id)
+		if item and item.getMarketData then
+			local itemMarketData = item:getMarketData() or {}
+			requiredLevel = tonumber(itemMarketData.requiredLevel) or requiredLevel
+			restrictVocation = tonumber(itemMarketData.restrictVocation) or restrictVocation
+		end
+	end
+
+	return requiredLevel, restrictVocation
+end
+
 local function passesItemFilters(entry)
 	local data = resolveThingType(entry)
 	if not data then
@@ -169,23 +215,21 @@ local function passesItemFilters(entry)
 	local vocation = player:getVocation()
 	local level = player:getLevel()
 	local classification = (entry and entry.classification) or data:getClassification() or 0
-	local marketData = data:getMarketData() or {}
-	local hasMarket = data:isMarketable() and not table.empty(marketData)
+	local requiredLevel, restrictVocation = getEntryMarketFilterData(entry, data)
 	local vocFilter = Cyclopedia.Items.VocFilter
 	local levelFilter = Cyclopedia.Items.LevelFilter
 	local h1Filter = Cyclopedia.Items.h1Filter
 	local h2Filter = Cyclopedia.Items.h2Filter
 	local classificationFilter = Cyclopedia.Items.ClassificationFilter
 
-	if vocFilter and hasMarket and tonumber(marketData.restrictVocation or 0) > 0 then
-		local demotedVoc = vocation > 10 and (vocation - 10) or vocation
-		local vocBitMask = Bit.bit(tonumber(demotedVoc))
-		if not Bit.hasBit(marketData.restrictVocation, vocBitMask) then
+	if vocFilter and restrictVocation > 0 then
+		local vocBitMask = Bit.bit(normalizeClientVocationId(vocation))
+		if not Bit.hasBit(restrictVocation, vocBitMask) then
 			return false
 		end
 	end
 
-	if levelFilter and hasMarket and level < (marketData.requiredLevel or 0) then
+	if levelFilter and requiredLevel > 0 and level < requiredLevel then
 		return false
 	end
 
@@ -657,7 +701,7 @@ local function normalizeItemCategory(category)
 	return category
 end
 
-local function buildItemIndexEntry(thingType, id, name, category, classification)
+local function buildItemIndexEntry(thingType, id, name, category, classification, requiredLevel, restrictVocation)
 	id = tonumber(id) or (thingType and thingType:getId())
 	if not id or id <= 100 or MARKET_EXCLUDED_ITEM_IDS[id] then
 		return nil
@@ -685,7 +729,9 @@ local function buildItemIndexEntry(thingType, id, name, category, classification
 		name = name,
 		nameLower = string.lower(name or ""),
 		category = normalizeItemCategory(category),
-		classification = tonumber(classification) or 0
+		classification = tonumber(classification) or 0,
+		requiredLevel = tonumber(requiredLevel) or 0,
+		restrictVocation = tonumber(restrictVocation) or 0
 	}
 end
 
@@ -705,7 +751,9 @@ local function collectServerMarketEntries()
 			serverItem.id,
 			serverItem.name,
 			serverItem.category,
-			serverItem.classification
+			serverItem.classification,
+			serverItem.requiredLevel,
+			serverItem.restrictVocation
 		)
 		if entry and not seen[entry.id] then
 			seen[entry.id] = true
@@ -1446,6 +1494,26 @@ function Cyclopedia.levelFilter(value)
     Cyclopedia.applyFilters()
 end
 
+function Cyclopedia.onItemsFilterButtonClick(widget)
+    if not widget then
+        return
+    end
+
+    local widgetId = widget:getId()
+    local checked = not widget:isChecked()
+    widget:setChecked(checked)
+
+    if widgetId == "LevelButton" then
+        Cyclopedia.levelFilter(checked)
+    elseif widgetId == "VocationButton" then
+        Cyclopedia.vocationFilter(checked)
+    elseif widgetId == "H1Button" then
+        Cyclopedia.handFilter(checked, false)
+    elseif widgetId == "H2Button" then
+        Cyclopedia.handFilter(false, checked)
+    end
+end
+
 local ignoreRecursiveCalls = false
 local function setCheckedWithoutRecursion(h1Val, h2Val)
     ignoreRecursiveCalls = true
@@ -1496,13 +1564,23 @@ processItemsById = function(id)
 end
 
 function Cyclopedia.applyFilters()
-    local isSearching = UI.SearchEdit:getText() ~= ""
-    if not isSearching then
-        if UI.selectedCategory then
-           processItemsById(tonumber(UI.selectedCategory:getId()))
-        end
-    else
-        Cyclopedia.ItemSearch(UI.SearchEdit:getText(), false)
+    if not UI then
+        return
+    end
+
+    local searchText = UI.SearchEdit and UI.SearchEdit:getText() or ""
+    if searchText:match("%S") then
+        Cyclopedia.ItemSearch(searchText, false)
+        return
+    end
+
+    local categoryId = UI.selectedCategory and tonumber(UI.selectedCategory:getId())
+    if not categoryId then
+        categoryId = Cyclopedia.Items.currentCategoryId
+    end
+
+    if categoryId then
+        processItemsById(categoryId)
     end
 end
 
@@ -1665,15 +1743,20 @@ function Cyclopedia.ItemSearch(text, clearTextEdit)
 end
 
 function Cyclopedia.selectItemCategory(id)
-    -- Reset all filters when changing categories
-    setCheckedWithoutRecursion(false, false)
-    UI.LevelButton:setChecked(false)
-    UI.VocationButton:setChecked(false)
-    Cyclopedia.Items.VocFilter = false
-    Cyclopedia.Items.LevelFilter = false
+    id = tonumber(id)
+    local categoryChanged = Cyclopedia.Items.currentCategoryId ~= id
+    Cyclopedia.Items.currentCategoryId = id
 
-    if UI.SearchEdit:getText() ~= "" then
-        Cyclopedia.ItemSearch("", true)
+    if categoryChanged then
+        setCheckedWithoutRecursion(false, false)
+        UI.LevelButton:setChecked(false)
+        UI.VocationButton:setChecked(false)
+        Cyclopedia.Items.VocFilter = false
+        Cyclopedia.Items.LevelFilter = false
+
+        if UI.SearchEdit:getText() ~= "" then
+            Cyclopedia.ItemSearch("", true)
+        end
     end
 
     if Cyclopedia.hasClassificationFilter(id) then

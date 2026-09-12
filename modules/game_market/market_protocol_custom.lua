@@ -3,6 +3,8 @@ local CustomMarketOpcode = 0xDB
 -- Market enter item records on proto-feat servers always end with classification.
 -- Do not gate this on getUnreadSize(); multi-item chunks always have unread bytes left.
 local MARKET_ENTER_ITEM_INCLUDES_CLASSIFICATION = true
+-- Followed by requiredLevel (u16) and restrictVocation bitmask (u16) for cyclopedia filters.
+local MARKET_ENTER_ITEM_INCLUDES_FILTER_DATA = true
 
 local CustomMarketResponse = {
     Message = 0,
@@ -55,12 +57,21 @@ function parseCustomMarketMessage(protocol, msg)
                 classification = msg:getU8()
             end
 
+            local requiredLevel = 0
+            local restrictVocation = 0
+            if MARKET_ENTER_ITEM_INCLUDES_FILTER_DATA then
+                requiredLevel = msg:getU16()
+                restrictVocation = msg:getU16()
+            end
+
             table.insert(customMarketEnter.items, {
                 id = itemId,
                 category = category,
                 name = name,
                 tier = tier,
-                classification = classification
+                classification = classification,
+                requiredLevel = requiredLevel,
+                restrictVocation = restrictVocation
             })
             table.insert(customMarketEnter.depotItems, {itemId, tier, amount})
         end

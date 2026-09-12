@@ -8,6 +8,7 @@ local sellOffers = {}
 cachedMarketBalance = 0
 cachedMarketBalanceKnown = false
 cachedCustomMarketItems = nil
+local CUSTOM_MARKET_FILTER_DATA_VERSION = 2
 local silentMarketEnter = false
 
 local lastSelectedCategory = nil
@@ -501,13 +502,24 @@ function getCachedCustomMarketItems()
     return cachedCustomMarketItems
 end
 
+local function customMarketItemsHaveFilterData(customItems)
+    if not customItems or #customItems == 0 then
+        return false
+    end
+
+    return customItems._filterDataVersion == CUSTOM_MARKET_FILTER_DATA_VERSION
+end
+
 function requestMarketItemsForCyclopedia(silent)
     if not g_game.isOnline() then
         return false
     end
 
     if cachedCustomMarketItems and #cachedCustomMarketItems > 0 then
-        return true
+        if customMarketItemsHaveFilterData(cachedCustomMarketItems) then
+            return true
+        end
+        cachedCustomMarketItems = nil
     end
 
     silentMarketEnter = silent ~= false
@@ -550,6 +562,7 @@ end
 function configureList(customItems)
     marketItems = {}
     if customItems and #customItems > 0 then
+        customItems._filterDataVersion = CUSTOM_MARKET_FILTER_DATA_VERSION
         cachedCustomMarketItems = customItems
     end
     -- Initialize all categories from 1 to 31 (including Soul Cores)
@@ -579,8 +592,8 @@ function configureList(customItems)
                     displayItem = item,
                     thingType = thingType,
                     marketData = {
-                        requiredLevel = 0,
-                        restrictVocation = 0,
+                        requiredLevel = tonumber(entry.requiredLevel) or 0,
+                        restrictVocation = tonumber(entry.restrictVocation) or 0,
                         name = entry.name,
                         category = entry.category,
                         showAs = entry.id,
