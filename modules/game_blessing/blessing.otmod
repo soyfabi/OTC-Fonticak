@@ -1,9 +1,8 @@
 Module
   name: game_blessing
-  description: game_blessing
-  author: game_blessing
-  website: game_blessing
-  scripts: [ blessing.lua ]
-  sandboxed: true
-  @onLoad: BlessingController:init()
-  @onUnload: BlessingController:terminate()
+  description: Game Blessings
+  author: otclient@otclient.ovh & ZLukSrT#8740
+  sandboxed: false
+  scripts: [ blessing ]
+  @onLoad: init()
+  @onUnload: terminate()

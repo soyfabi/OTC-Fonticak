@@ -61,7 +61,7 @@ PhantomMiniWindow
     anchors.fill: parent
     phantom: true
 
-    Button
+    UIButton
       id: changeSize
       image-source: /images/inventory/min_button_small
       image-clip: 0 0 12 12
@@ -75,7 +75,7 @@ PhantomMiniWindow
       $pressed !disabled:
         image-clip: 12 0 12 12
 
-    Button
+    UIButton
       id: blessings
       image-source: /images/inventory/button_blessings_grey
       image-clip: 0 0 12 12
@@ -379,7 +379,7 @@ PhantomMiniWindow
     phantom: true
     visible: false
 
-    Button
+    UIButton
       id: changeSize
       image-source: /images/inventory/max_button_small
       image-clip: 0 0 12 12
@@ -535,7 +535,7 @@ PhantomMiniWindow
       $disabled:
         image-source: /data/images/inventory/button-expert-disabled
 
-    Button
+    UIButton
       id: blessings
       image-source: /images/inventory/button_blessings_grey
       image-clip: 0 0 12 12
