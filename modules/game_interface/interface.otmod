@@ -52,6 +52,7 @@ Module
     - game_creatureinformation
     - game_rewardwall
     - game_forge
+    - game_proficiency
     - game_inspect
     - client_profiles
     - game_bot

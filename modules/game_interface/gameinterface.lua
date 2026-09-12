@@ -1008,7 +1008,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
                 modules.game_cyclopedia.Cyclopedia.openItem(lookThing:getId())
             end, shortcut)
         end
-        if clientVersion >= 1511 and modules.game_proficiency and lookThing:getProficiencyId() > 0 then
+        if clientVersion >= 860 and modules.game_proficiency and lookThing:getProficiencyId() > 0 then
             menu:addOption(tr("Weapon Proficiency"), function()
                 modules.game_proficiency.requestOpenWindow(lookThing)
             end, shortcut)

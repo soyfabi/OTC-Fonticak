@@ -368,6 +368,7 @@ ExtendedIds = {
     NeedsUpdate = 7,
     WheelSkills = 145,
     MonkData = 146,
+    CyclopediaCharacterOffence = 147,
     MonkHarmonyOpcode = 130
 }
 

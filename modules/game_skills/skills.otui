@@ -357,7 +357,7 @@ MiniWindow
       SkillValueLabel
         margin-right: 15
       ImageAbsorb
-        margin-top: -2
+      margin-top: -2
 
     SmallSkillButton
       visible: false
@@ -367,7 +367,7 @@ MiniWindow
       SkillValueLabel
         margin-right: 15
       ImageAbsorb
-        margin-top: -2
+      margin-top: -2
 
     SmallSkillButton
       id: lifeLeech
@@ -415,20 +415,6 @@ MiniWindow
       SkillValueLabel
         margin-top: -2
       margin-right: 9
-
-    SmallSkillButton
-      id: skillId13
-      visible: false
-      SkillNameLabel
-        !text: tr('Fatal')
-      SkillValueLabel
-
-    SmallSkillButton
-      id: skillId14
-      visible: false
-      SkillNameLabel
-        !text: tr('Dodge')
-      SkillValueLabel
 
     SmallSkillButton
       id: onslaught

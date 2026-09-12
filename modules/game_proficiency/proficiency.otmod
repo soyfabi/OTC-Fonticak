@@ -3,10 +3,9 @@ Module
   description: Weapon Proficiency System
   sandboxed: true
   scripts: [ const, proficiency_data, proficiency ]
-  autoload: true
-  autoload-priority: 1200
   minClientVersion: 860
   dependencies:
     - game_interface
+    - game_mainpanel
   @onLoad: init()
   @onUnload: terminate()

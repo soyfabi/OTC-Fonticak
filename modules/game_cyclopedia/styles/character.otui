@@ -1,0 +1,996 @@
+InventoryItemCyclopedia < Item
+  virtual: true
+  show-count: false
+  size: 34 34
+
+HeadSlot < InventoryItemCyclopedia
+  id: slot1
+  &inventorySlot: 1
+
+BodySlot < InventoryItemCyclopedia
+  id: slot4
+  &inventorySlot: 4
+
+LegSlot < InventoryItemCyclopedia
+  id: slot7
+  &inventorySlot: 7
+
+FeetSlot < InventoryItemCyclopedia
+  id: slot8
+  &inventorySlot: 8
+
+NeckSlot < InventoryItemCyclopedia
+  id: slot2
+  &inventorySlot: 2
+
+LeftSlot < InventoryItemCyclopedia
+  id: slot6
+  &inventorySlot: 6
+
+FingerSlot < InventoryItemCyclopedia
+  id: slot9
+  &inventorySlot: 9
+
+BackSlot < InventoryItemCyclopedia
+  id: slot3
+  &inventorySlot: 3
+
+RightSlot < InventoryItemCyclopedia
+  id: slot5
+  &inventorySlot: 5
+
+AmmoSlot < InventoryItemCyclopedia
+  id: slot10
+  &inventorySlot: 10
+
+CharacterSkillBase < UIWidget
+  height: 14
+  margin-left: 5
+  margin-right: 5
+  margin-top: 5
+
+SkillCharacterPercentPanel < ProgressBar
+  id: percent
+  background-color: green
+  height: 5
+  margin-top: 13
+  anchors.left: parent.left
+  anchors.right: parent.right
+  anchors.top: parent.top
+  phantom: false
+
+SkillCharacterIcon < UIWidget
+  id: icon
+  size: 9 9
+  anchors.top: parent.top
+  margin-top: 13
+  image-source: /images/game/creatures/icons-skills
+
+SkillNameLabel < GameLabel
+  font: verdana-11px-antialised
+  anchors.left: parent.left
+  anchors.top: parent.top
+  anchors.bottom: parent.bottom
+  margin-right: 3
+  color: #c0c0c0
+
+SkillValueLabel < GameLabel
+  id: value
+  font: verdana-11px-antialised
+  text-align: topright
+  text-auto-resize: true
+  anchors.right: parent.right
+  anchors.top: parent.top
+  anchors.bottom: parent.bottom
+  anchors.left: prev.left
+  margin-top: 1
+  margin-right: 1
+  color: #c0c0c0
+
+CharacterCategoryItem < UIWidget
+  size: 150 22
+  background-color: alpha
+  image-source: /images/ui/1pixel-down-frame
+  image-border: 5
+
+  UIWidget
+    id: Button
+    size: 148 20
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-left: 1
+    margin-top: 1
+    image-source: /images/ui/button-grey-up
+    image-border: 5
+    opacity: 1.0
+    change-cursor-image: true
+    cursor: pointer
+    $pressed:
+      image-source: /images/ui/button-grey-down
+    $checked:
+      image-source: /images/ui/button-grey-down
+
+    UIWidget
+      id: Icon
+      size: 13 13
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+      margin-left: 6
+      margin-top: 0
+      phantom: true
+      $checked:
+        margin-left: 7
+        margin-top: 1
+      $!checked:
+        margin-left: 6
+        margin-top: 0
+
+    Label
+      id: Title
+      anchors.left: Icon.right
+      anchors.bottom: Icon.bottom
+      margin-left: 4
+      margin-bottom: 1
+      text-auto-resize: true
+      font: verdana-11px-antialised
+      color: #ffffff
+      phantom: true
+      $checked:
+        text-offset: 1 1
+      $!checked:
+        text-offset: 0 0
+
+    UIWidget
+      id: Arrow
+      size: 7 7
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 6
+      phantom: true
+      image-source: /game_cyclopedia/images/ui/arrow-down
+      visible: false
+
+CharacterCategoryGroup < CharacterCategoryItem
+
+CharacterStatNameLabel < Label
+  id: statName
+  anchors.left: parent.left
+  anchors.verticalCenter: parent.verticalCenter
+  font: verdana-11px-antialised
+  color: #c0c0c0
+  text-auto-resize: true
+
+CharacterStatValueLabel < Label
+  id: statValue
+  anchors.right: parent.right
+  anchors.verticalCenter: parent.verticalCenter
+  font: verdana-11px-antialised
+  color: #44ad25
+  text-auto-resize: true
+
+CharacterStatSubNameLabel < Label
+  id: statName
+  anchors.left: parent.left
+  anchors.verticalCenter: parent.verticalCenter
+  margin-left: 16
+  font: verdana-11px-antialised
+  color: #909090
+  text-auto-resize: true
+
+CharacterStatSubValueLabel < Label
+  id: statValue
+  anchors.right: parent.right
+  anchors.verticalCenter: parent.verticalCenter
+  font: verdana-11px-antialised
+  color: #909090
+  text-auto-resize: true
+
+CharacterOffenceRow < Panel
+  height: 16
+  margin-bottom: 2
+  CharacterStatNameLabel
+  CharacterStatValueLabel
+
+CharacterOffenceSubRow < Panel
+  height: 14
+  margin-bottom: 1
+  CharacterStatSubNameLabel
+  CharacterStatSubValueLabel
+
+UIWidget
+  id: characterDataPanel
+  size: 668 452
+  visible: false
+  UIWidget
+    id: CharacterBase
+    anchors.left: parent.left
+    anchors.top: parent.top
+    margin-top: 10
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    image-border: 20
+    size: 164 132
+    font: verdana-11px-antialised
+    color: #929292
+    text-offset: 0 2
+    text-align: top
+    !text: tr('Player Name')
+    change-cursor-image: true
+    cursor: pointer
+    @onClick: modules.game_cyclopedia.selectCharacterOverview()
+
+    Label
+      id: InfoLabel
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.bottom: parent.bottom
+      margin-bottom: 7
+      font: verdana-11px-antialised
+      !text: tr('Level 0\nVocation')
+      text-auto-resize: true
+      text-align: center
+      color: #C1C1C1
+
+    UICreature
+      id: Outfit
+      size: 64 64
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.bottom: InfoLabel.top
+      margin-bottom: 1
+      fixed-creature-size: true
+      base-scale: true
+      creature-center: true
+      ignore-displacement-shift: true
+      phantom: true
+
+    Label
+      id: worldInfoLabel
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.bottom: Outfit.top
+      font: verdana-11px-antialised
+      !text: tr('World')
+      text-auto-resize: true
+      text-align: center
+      color: #C1C1C1
+      margin-bottom: 1
+
+  UIWidget
+    id: OptionsBase
+    anchors.left: CharacterBase.left
+    anchors.top: CharacterBase.bottom
+    anchors.bottom: characterBottomSeparator.top
+    margin-top: 6
+    margin-bottom: 8
+    image-source: /images/ui/2pixel-up-frame-borderimage
+    image-size: 164 278
+    image-border: 10
+    width: 170
+
+  UIWidget
+    id: InfoBase
+    anchors.top: CharacterBase.top
+    anchors.left: CharacterBase.right
+    anchors.bottom: characterBottomSeparator.top
+    anchors.right: parent.right
+    margin-left: 11
+    margin-bottom: 8
+    visible: true
+    image-source: /images/ui/1pixel-down-frame
+    image-border: 5
+
+    Panel
+      id: outfitPanel
+      margin-left: -13
+      margin-top: 5
+      anchors.left: parent.left
+      anchors.top: parent.top
+      size: 140 140
+      visible: false
+
+      UICreature
+        id: Sprite
+        size: 128 128
+        anchors.centerIn: parent
+        fixed-creature-size: true
+        base-scale: true
+        creature-center: true
+        ignore-displacement-shift: true
+        phantom: true
+
+    Panel
+      id: inventoryPanel
+      margin-left: -12
+      margin-top: 5
+      anchors.left: parent.left
+      anchors.top: parent.top
+      size: 140 140
+
+      HeadSlot
+        anchors.top: parent.top
+        anchors.horizontalCenter: parent.horizontalCenter
+
+      BodySlot
+        anchors.top: prev.bottom
+        anchors.horizontalCenter: prev.horizontalCenter
+        margin-top: 3
+
+      LegSlot
+        anchors.top: prev.bottom
+        anchors.horizontalCenter: prev.horizontalCenter
+        margin-top: 3
+
+      FeetSlot
+        anchors.top: prev.bottom
+        anchors.horizontalCenter: prev.horizontalCenter
+        margin-top: 3
+
+      NeckSlot
+        anchors.top: slot1.top
+        anchors.right: slot1.left
+        margin-top: 18
+        margin-right: 3
+
+      LeftSlot
+        anchors.top: prev.bottom
+        anchors.horizontalCenter: prev.horizontalCenter
+        margin-top: 3
+
+      FingerSlot
+        anchors.top: prev.bottom
+        anchors.horizontalCenter: prev.horizontalCenter
+        margin-top: 3
+
+      BackSlot
+        anchors.top: slot1.top
+        anchors.left: slot1.right
+        margin-top: 18
+        margin-left: 3
+
+      RightSlot
+        anchors.top: prev.bottom
+        anchors.horizontalCenter: prev.horizontalCenter
+        margin-top: 3
+
+      AmmoSlot
+        anchors.top: prev.bottom
+        anchors.horizontalCenter: prev.horizontalCenter
+        margin-top: 3
+
+    Button
+      id: CharacterButton
+      anchors.left: inventoryPanel.right
+      anchors.top: parent.top
+      margin-top: 5
+      margin-left: -11
+      size: 33 33
+      icon-source: /game_cyclopedia/images/ui/icon/inspect-player
+      icon-clip: 0 0 33 33
+      icon-size: 33 33
+      icon-offset: 0 0
+      &state: 1
+      @onClick: modules.game_cyclopedia.onCharacterInspectButton(self)
+
+      $pressed:
+        icon-clip: 0 33 33 33
+        icon-offset: 1 1
+
+    Button
+      id: WheelButton
+      anchors.left: CharacterButton.right
+      anchors.top: CharacterButton.top
+      margin-left: 3
+      size: 33 33
+      icon-source: /game_cyclopedia/images/ui/icon/icon-skillwheel-large
+      icon-offset: 0 0
+      @onClick: modules.game_cyclopedia.onCharacterWheelButton()
+
+      $pressed:
+        icon-offset: 1 1
+
+    UIWidget
+      id: DetailsBase
+      anchors.top: inventoryPanel.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      margin-top: 26
+      margin-left: 5
+      margin-right: 5
+      margin-bottom: 5
+      height: 140
+      image-source: /images/ui/1pixel-down-frame
+      image-border: 5
+      background-color: #363636
+
+      UIScrollArea
+        id: List
+        vertical-scrollbar: ListScrollbar
+        anchors.fill: parent
+        size: 200 60
+        padding-left: 2
+        padding-top: 7
+        padding-bottom: 3
+        padding-right: 15
+        layout:
+          type: verticalBox
+          spacing: 0
+
+      VerticalScrollBar
+        id: ListScrollbar
+        anchors.top: List.top
+        anchors.right: List.right
+        anchors.bottom: List.bottom
+        margin: 1 1 1 0
+        step: 80
+        pixel-scroll: true
+
+    Label
+      id: InspectLabel
+      anchors.bottom: DetailsBase.top
+      anchors.left: DetailsBase.left
+      margin-bottom: 6
+      text-auto-resize: true
+      font: verdana-11px-antialised
+      !text: tr('You are inspecting: Player Name')
+      color: #c0c0c0
+
+  UIWidget
+    id: CharacterStats
+    size: 494 415
+    anchors.top: CharacterBase.top
+    anchors.left: CharacterBase.right
+    margin-left: 11
+    visible: false
+    image-source: /images/ui/1pixel-down-frame
+    image-border: 1
+
+    VerticalSeparator
+      id: separator
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      margin-top: 5
+      margin-bottom: 5
+
+    CharacterSkillBase
+      id: level
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-left: 4
+      margin-right: 6
+      SkillNameLabel
+        !text: tr('Level')
+        color: #C0C0C0
+      SkillValueLabel
+        color: #C0C0C0
+      SkillCharacterPercentPanel
+        background-color: #C00000
+
+    CharacterSkillBase
+      id: experience
+      anchors.top: level.bottom
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-left: 4
+      margin-right: 6
+      margin-top: 12
+      SkillNameLabel
+        !text: tr('Experience')
+        color: #C0C0C0
+      SkillValueLabel
+        color: #C0C0C0
+
+    CharacterSkillBase
+      id: expGainRate
+      anchors.top: experience.bottom
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-left: 4
+      margin-right: 6
+      SkillNameLabel
+        !text: tr('XP Gain Rate')
+        color: #C0C0C0
+      SkillValueLabel
+        color: #C0C0C0
+
+    UIWidget
+      id: xpBoostRow
+      height: 14
+      anchors.top: expGainRate.bottom
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-top: 3
+      margin-left: 5
+      margin-right: 6
+
+      HorizontalSeparator
+        id: xpBoostSeparator
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.left: parent.left
+        anchors.right: parent.right
+
+      UIWidget
+        id: xpBoostButton
+        visible: false
+        image-source: /images/ui/button-storexp
+        !tooltip: tr('Increase your experience gain with a temporary XP Boost!')
+        tooltip-delayed: true
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        @onClick: modules.game_store.openPremiumBoost()
+        $pressed:
+          image-source: /images/ui/button-storexp-pressed
+
+    CharacterSkillBase
+      id: health
+      anchors.top: xpBoostRow.bottom
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-left: 4
+      margin-right: 6
+      margin-top: 4
+      SkillNameLabel
+        !text: tr('Hit Points')
+        color: #C0C0C0
+      SkillValueLabel
+        color: #C0C0C0
+
+    CharacterSkillBase
+      id: mana
+      anchors.top: health.bottom
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-left: 4
+      margin-right: 6
+      SkillNameLabel
+        !text: tr('Mana')
+        color: #C0C0C0
+      SkillValueLabel
+        color: #C0C0C0
+
+    CharacterSkillBase
+      id: soul
+      anchors.top: mana.bottom
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-left: 4
+      margin-right: 6
+      SkillNameLabel
+        !text: tr('Soul Points')
+        color: #C0C0C0
+      SkillValueLabel
+        color: #C0C0C0
+
+    CharacterSkillBase
+      id: capacity
+      anchors.top: soul.bottom
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-left: 4
+      margin-right: 6
+      SkillNameLabel
+        !text: tr('Capacity')
+        color: #C0C0C0
+      SkillValueLabel
+        color: #C0C0C0
+
+    CharacterSkillBase
+      id: speed
+      anchors.top: capacity.bottom
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-left: 4
+      margin-right: 6
+      SkillNameLabel
+        !text: tr('Speed')
+        color: #C0C0C0
+      SkillValueLabel
+        color: #C0C0C0
+
+    CharacterSkillBase
+      id: food
+      anchors.top: speed.bottom
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-left: 4
+      margin-right: 6
+      SkillNameLabel
+        !text: tr('Food')
+        color: #C0C0C0
+      SkillValueLabel
+        color: #C0C0C0
+
+    CharacterSkillBase
+      id: stamina
+      anchors.top: food.bottom
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-left: 4
+      margin-right: 6
+      SkillNameLabel
+        !text: tr('Stamina')
+        color: #C0C0C0
+      SkillValueLabel
+        color: #C0C0C0
+      SkillCharacterPercentPanel
+        background-color: green
+
+    CharacterSkillBase
+      id: trainer
+      anchors.top: stamina.bottom
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-left: 4
+      margin-right: 6
+      margin-top: 12
+      SkillNameLabel
+        !text: tr('Offline Training')
+        color: #C0C0C0
+      SkillValueLabel
+        color: #C0C0C0
+      SkillCharacterPercentPanel
+        background-color: #C00000
+
+    HorizontalSeparator
+      id: leftSeparator2
+      visible: false
+      anchors.top: trainer.bottom
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-left: 5
+      margin-right: 6
+      margin-top: 17
+
+    CharacterSkillBase
+      id: accountStatus
+      visible: false
+      anchors.top: leftSeparator2.bottom
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-left: 4
+      margin-right: 6
+      margin-top: 11
+      SkillNameLabel
+        !text: tr('Account Status:')
+        color: #C0C0C0
+      SkillValueLabel
+        !text: tr('Premium')
+        color: #C0C0C0
+
+    CharacterSkillBase
+      id: accountOnline
+      visible: false
+      anchors.top: accountStatus.bottom
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-left: 4
+      margin-right: 6
+      SkillNameLabel
+        !text: tr('Account Online:')
+        color: #C0C0C0
+      SkillValueLabel
+        !text: tr('Online')
+        color: #C0C0C0
+
+    CharacterSkillBase
+      id: loyaltyTitle
+      visible: false
+      anchors.top: accountOnline.bottom
+      anchors.left: parent.left
+      anchors.right: separator.right
+      margin-left: 4
+      margin-right: 6
+      SkillNameLabel
+        !text: tr('Loyalty Title:')
+        color: #C0C0C0
+      SkillValueLabel
+        !text: tr('None')
+        color: #C0C0C0
+
+    Label
+      id: skillsLabel
+      !text: tr('Skills')
+      font: verdana-11px-antialised
+      color: #C0C0C0
+      anchors.top: level.top
+      anchors.horizontalCenter: parent.horizontalCenter
+      margin-left: 123
+
+    CharacterSkillBase
+      id: magiclevel
+      height: 25
+      anchors.top: skillsLabel.bottom
+      anchors.left: separator.left
+      anchors.right: parent.right
+      margin-top: 5
+      SkillNameLabel
+        !text: tr('Magic')
+        color: #C0C0C0
+      SkillValueLabel
+      SkillCharacterIcon
+        anchors.left: parent.left
+        margin-left: 1
+        image-clip: 27 0 9 9
+      SkillCharacterPercentPanel
+        anchors.left: icon.right
+        margin-top: 15
+        margin-left: 6
+        background-color: #00C000
+
+    CharacterSkillBase
+      id: skillId0
+      height: 25
+      anchors.top: magiclevel.bottom
+      anchors.left: separator.left
+      anchors.right: parent.right
+      SkillNameLabel
+        !text: tr('Fist')
+        color: #C0C0C0
+      SkillValueLabel
+      SkillCharacterIcon
+        anchors.left: parent.left
+        margin-left: 1
+        image-clip: 0 0 9 9
+      SkillCharacterPercentPanel
+        anchors.left: icon.right
+        margin-top: 15
+        margin-left: 6
+        background-color: #00C000
+
+    CharacterSkillBase
+      id: skillId1
+      height: 25
+      anchors.top: skillId0.bottom
+      anchors.left: separator.left
+      anchors.right: parent.right
+      SkillNameLabel
+        !text: tr('Club')
+        color: #C0C0C0
+      SkillValueLabel
+      SkillCharacterIcon
+        anchors.left: parent.left
+        margin-left: 1
+        image-clip: 45 0 9 9
+      SkillCharacterPercentPanel
+        anchors.left: icon.right
+        margin-top: 15
+        margin-left: 6
+        background-color: #00C000
+
+    CharacterSkillBase
+      id: skillId2
+      height: 25
+      anchors.top: skillId1.bottom
+      anchors.left: separator.left
+      anchors.right: parent.right
+      SkillNameLabel
+        !text: tr('Sword')
+        color: #C0C0C0
+      SkillValueLabel
+      SkillCharacterIcon
+        anchors.left: parent.left
+        margin-left: 1
+        image-clip: 36 0 9 9
+      SkillCharacterPercentPanel
+        anchors.left: icon.right
+        margin-top: 15
+        margin-left: 6
+        background-color: #00C000
+
+    CharacterSkillBase
+      id: skillId3
+      height: 25
+      anchors.top: skillId2.bottom
+      anchors.left: separator.left
+      anchors.right: parent.right
+      SkillNameLabel
+        !text: tr('Axe')
+        color: #C0C0C0
+      SkillValueLabel
+      SkillCharacterIcon
+        anchors.left: parent.left
+        margin-left: 1
+        image-clip: 54 0 9 9
+      SkillCharacterPercentPanel
+        anchors.left: icon.right
+        margin-top: 15
+        margin-left: 6
+        background-color: #00C000
+
+    CharacterSkillBase
+      id: skillId4
+      height: 25
+      anchors.top: skillId3.bottom
+      anchors.left: separator.left
+      anchors.right: parent.right
+      SkillNameLabel
+        !text: tr('Distance')
+        color: #C0C0C0
+      SkillValueLabel
+      SkillCharacterIcon
+        anchors.left: parent.left
+        margin-left: 1
+        image-clip: 18 0 9 9
+      SkillCharacterPercentPanel
+        anchors.left: icon.right
+        margin-top: 15
+        margin-left: 6
+        background-color: #00C000
+
+    CharacterSkillBase
+      id: skillId5
+      height: 25
+      anchors.top: skillId4.bottom
+      anchors.left: separator.left
+      anchors.right: parent.right
+      SkillNameLabel
+        !text: tr('Shielding')
+        color: #C0C0C0
+      SkillValueLabel
+      SkillCharacterIcon
+        anchors.left: parent.left
+        margin-left: 1
+        image-clip: 63 0 9 9
+      SkillCharacterPercentPanel
+        anchors.left: icon.right
+        margin-top: 15
+        margin-left: 6
+        background-color: #00C000
+
+    CharacterSkillBase
+      id: skillId6
+      height: 25
+      anchors.top: skillId5.bottom
+      anchors.left: separator.left
+      anchors.right: parent.right
+      SkillNameLabel
+        !text: tr('Fishing')
+        color: #C0C0C0
+      SkillValueLabel
+      SkillCharacterIcon
+        anchors.left: parent.left
+        margin-left: 1
+        image-clip: 72 0 9 9
+      SkillCharacterPercentPanel
+        anchors.left: icon.right
+        margin-top: 15
+        margin-left: 6
+        background-color: #00C000
+
+  Panel
+    id: offencePanel
+    size: 494 415
+    anchors.top: CharacterBase.top
+    anchors.left: CharacterBase.right
+    margin-left: 11
+    visible: false
+    image-source: /images/ui/1pixel-down-frame
+    image-border: 1
+    padding: 10
+
+    Label
+      id: offenceTitle
+      anchors.top: parent.top
+      anchors.left: parent.left
+      font: verdana-11px-antialised
+      color: #dfdfdf
+      text-auto-resize: true
+      !text: tr('Offence Stats')
+
+    HorizontalSeparator
+      id: offenceSeparator
+      anchors.top: offenceTitle.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 6
+      margin-bottom: 6
+
+    Panel
+      id: offenceRows
+      anchors.top: offenceSeparator.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      height: 360
+      margin-top: 2
+      layout:
+        type: verticalBox
+
+      CharacterOffenceRow
+        id: flatDamageRow
+        CharacterStatNameLabel
+          !text: tr('Flat Damage and Healing')
+      CharacterOffenceRow
+        id: attackValueRow
+        CharacterStatNameLabel
+          !text: tr('Attack Value')
+      CharacterOffenceRow
+        id: convertedDamageRow
+        visible: false
+        CharacterStatNameLabel
+          !text: tr('Converted Damage')
+      CharacterOffenceRow
+        id: lifeLeechRow
+        visible: false
+        CharacterStatNameLabel
+          !text: tr('Life Leech')
+      CharacterOffenceRow
+        id: manaLeechRow
+        visible: false
+        CharacterStatNameLabel
+          !text: tr('Mana Leech')
+      CharacterOffenceRow
+        id: lifeGainOnHitRow
+        visible: false
+        CharacterStatNameLabel
+          !text: tr('Life Gain on Hit')
+      CharacterOffenceRow
+        id: lifeGainOnKillRow
+        visible: false
+        CharacterStatNameLabel
+          !text: tr('Life Gain on Kill')
+      CharacterOffenceRow
+        id: manaGainOnHitRow
+        visible: false
+        CharacterStatNameLabel
+          !text: tr('Mana Gain on Hit')
+      CharacterOffenceRow
+        id: manaGainOnKillRow
+        visible: false
+        CharacterStatNameLabel
+          !text: tr('Mana Gain on Kill')
+      CharacterOffenceRow
+        id: criticalChanceRow
+        visible: false
+        CharacterStatNameLabel
+          !text: tr('Critical Hit Chance')
+      CharacterOffenceSubRow
+        id: criticalChanceProficiencyRow
+        visible: false
+        CharacterStatSubNameLabel
+          !text: tr('from Weapon Proficiency')
+      CharacterOffenceRow
+        id: criticalDamageRow
+        visible: false
+        CharacterStatNameLabel
+          !text: tr('Critical Extra Damage')
+      CharacterOffenceSubRow
+        id: criticalDamageProficiencyRow
+        visible: false
+        CharacterStatSubNameLabel
+          !text: tr('from Weapon Proficiency')
+
+  HorizontalSeparator
+    id: characterBottomSeparator
+    anchors.bottom: closeButton.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 12
+
+  Button
+    id: closeButton
+    size: 43 20
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    margin-bottom: 2
+    margin-right: 2
+    image-source: /game_cyclopedia/images/ui/close-button
+    image-clip: 0 0 43 20
+    image-border: 1
+    @onClick: modules.game_cyclopedia.toggle()
+
+    $pressed:
+      image-clip: 0 20 43 20
+
+  Button
+    id: backButton
+    size: 43 20
+    anchors.bottom: parent.bottom
+    anchors.right: closeButton.left
+    margin-bottom: 2
+    margin-right: 6
+    image-source: /game_cyclopedia/images/ui/back-button
+    image-clip: 0 0 43 20
+    image-border: 1
+    @onClick: modules.game_cyclopedia.onCharacterBack()
+
+    $pressed:
+      image-clip: 0 20 43 20

@@ -65,6 +65,10 @@ function terminate()
 		bestiaryTrackerButton = nil
 	end
 	
+	if terminateCharacterModule then
+		terminateCharacterModule()
+	end
+	
 	window:destroy()
 	
 	if buyWindow then
@@ -134,6 +138,10 @@ function changePreviousType(type)
 	previousType = type
 end
 
+function onCharacterBack()
+	toggleWindow("bestiary")
+end
+
 function toggleWindow(type)
 	if previousType then
 		previousType:enable()
@@ -177,6 +185,10 @@ function toggleWindow(type)
 		character:setOn(true)
 		character:disable()
 		changePreviousType(character)
+
+		if initCharacter then
+			initCharacter(contentContainer)
+		end
 	end
 end
 

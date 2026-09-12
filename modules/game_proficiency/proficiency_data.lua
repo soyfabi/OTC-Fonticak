@@ -5,6 +5,58 @@ if not ProficiencyData then
     ProficiencyData.__index = ProficiencyData
     ProficiencyData.content = {}
     ProficiencyData.nameIndex = {} -- Index by normalized name for quick lookup
+    ProficiencyData.catalogProficiencyByItem = {}
+    ProficiencyData.proficiencyByName = {}
+    ProficiencyData.proficiencyByWeaponItem = {}
+    ProficiencyData.proficiencyByUniqueItemName = {}
+    ProficiencyData.duplicateProficiencyItemNames = {}
+end
+
+local DEFAULT_PROFICIENCY_BY_CATEGORY = {
+    [17] = 8,  -- Axes
+    [18] = 9,  -- Clubs
+    [19] = 13, -- Distance
+    [20] = 6,  -- Swords
+    [21] = 15, -- Wands/Rods
+    [27] = 14  -- Fist
+}
+
+local PROFICIENCY_TIER_PATTERNS = {
+    "siphoning inferniarch",
+    "draining inferniarch",
+    "rending inferniarch",
+    "stellar moonsilver",
+    "gilded eldritch",
+    "grand sanguine",
+    "master umbral",
+    "crude umbral",
+    "destruction",
+    "inferniarch",
+    "moonsilver",
+    "sanguine",
+    "eldritch",
+    "umbral",
+    "jungle",
+    "falcon",
+    "glooth",
+    "crypt",
+    "amber",
+    "cobra",
+    "lion",
+    "naga",
+    "soul"
+}
+
+local function findCatalogProficiency(self, candidates)
+    for _, candidate in ipairs(candidates) do
+        local proficiencyId = self.proficiencyByName[candidate]
+            or self.proficiencyByWeaponItem[candidate]
+            or self.nameIndex[candidate]
+        if proficiencyId then
+            return proficiencyId
+        end
+    end
+    return nil
 end
 -- LuaFormatter off
 -- Item tier patterns for matching item names to proficiency entries
@@ -64,6 +116,10 @@ end
 function ProficiencyData:loadProficiencyJson(skipItemCache)
     self.content = {}
     self.nameIndex = {}
+    self.proficiencyByName = {}
+    self.proficiencyByWeaponItem = {}
+    self.proficiencyByUniqueItemName = {}
+    self.duplicateProficiencyItemNames = {}
 
     local file = resolveProficienciesFile()
     if not file then
@@ -92,6 +148,32 @@ function ProficiencyData:loadProficiencyJson(skipItemCache)
             if ProficiencyId and name then
                 local lowerName = string.lower(name)
                 self.nameIndex[lowerName] = ProficiencyId
+                self.proficiencyByName[lowerName] = ProficiencyId
+
+                local weaponType, handedness, itemName = lowerName:match("^(%a+) ([12]h) (.+)$")
+                if weaponType == "sword" or weaponType == "axe" or weaponType == "club"
+                    or weaponType == "wand" or weaponType == "rod" or weaponType == "caster"
+                    or weaponType == "distance" or weaponType == "bow" or weaponType == "crossbow"
+                    or weaponType == "fist" then
+                    self.proficiencyByWeaponItem[string.format("%s:%s:%s", weaponType, handedness, itemName)] = ProficiencyId
+                    if self.proficiencyByUniqueItemName[itemName]
+                        and self.proficiencyByUniqueItemName[itemName] ~= ProficiencyId then
+                        self.duplicateProficiencyItemNames[itemName] = true
+                    else
+                        self.proficiencyByUniqueItemName[itemName] = ProficiencyId
+                    end
+                end
+
+                local thrownItemName = lowerName:match("^throw %- (.+)$")
+                if thrownItemName then
+                    self.proficiencyByWeaponItem["throw:2h:" .. thrownItemName] = ProficiencyId
+                    if self.proficiencyByUniqueItemName[thrownItemName]
+                        and self.proficiencyByUniqueItemName[thrownItemName] ~= ProficiencyId then
+                        self.duplicateProficiencyItemNames[thrownItemName] = true
+                    else
+                        self.proficiencyByUniqueItemName[thrownItemName] = ProficiencyId
+                    end
+                end
             end
         end
     end
@@ -411,6 +493,101 @@ function ProficiencyData:getDefaultProficiencyId(weaponType)
     return defaultMap[weaponType] or 6
 end
 
+function ProficiencyData:resolveCatalogProficiency(itemId, marketCategory, itemName)
+    local normalizedName = tostring(itemName or ""):lower()
+    local itemType = g_things.getThingType(itemId, ThingCategoryItem)
+    local slotPosition = itemType and itemType.getSlotPosition and tonumber(itemType:getSlotPosition()) or 0
+    local handedness = math.floor(slotPosition / 1024) % 2 == 1 and "2h" or "1h"
+    local weaponTypes = {}
+
+    if marketCategory == MarketCategory.Axes or marketCategory == 17 then
+        weaponTypes = { "axe" }
+    elseif marketCategory == MarketCategory.Clubs or marketCategory == 18 then
+        weaponTypes = { "club" }
+    elseif marketCategory == MarketCategory.DistanceWeapons or marketCategory == 19 then
+        handedness = "2h"
+        weaponTypes = normalizedName:find("crossbow", 1, true) and { "crossbow", "distance", "bow" }
+            or { "bow", "distance", "crossbow", "throw" }
+    elseif marketCategory == MarketCategory.Swords or marketCategory == 20 then
+        weaponTypes = { "sword" }
+    elseif marketCategory == MarketCategory.WandsRods or marketCategory == 21 then
+        if normalizedName:find("rod", 1, true) then
+            weaponTypes = { "rod", "caster", "wand" }
+        elseif normalizedName:find("wand", 1, true) then
+            weaponTypes = { "wand", "caster", "rod" }
+        else
+            weaponTypes = { "caster", "wand", "rod" }
+        end
+    elseif marketCategory == MarketCategory.FistWeapons or marketCategory == 27 then
+        handedness = "2h"
+        weaponTypes = { "fist" }
+    end
+
+    local exactCandidates = { normalizedName }
+    for _, weaponType in ipairs(weaponTypes) do
+        exactCandidates[#exactCandidates + 1] = string.format("%s:%s:%s", weaponType, handedness, normalizedName)
+    end
+
+    local proficiencyId = findCatalogProficiency(self, exactCandidates)
+    if proficiencyId then
+        return proficiencyId
+    end
+
+    if not self.duplicateProficiencyItemNames[normalizedName]
+        and self.proficiencyByUniqueItemName[normalizedName] then
+        return self.proficiencyByUniqueItemName[normalizedName]
+    end
+
+    local tier
+    for _, pattern in ipairs(PROFICIENCY_TIER_PATTERNS) do
+        if normalizedName:find(pattern, 1, true) then
+            tier = pattern
+            break
+        end
+    end
+
+    if tier then
+        local tierCandidates = {}
+        for _, weaponType in ipairs(weaponTypes) do
+            tierCandidates[#tierCandidates + 1] = string.format("%s %s %s", tier, handedness, weaponType)
+        end
+        proficiencyId = findCatalogProficiency(self, tierCandidates)
+        if proficiencyId then
+            return proficiencyId
+        end
+    end
+
+    return DEFAULT_PROFICIENCY_BY_CATEGORY[marketCategory]
+end
+
+function ProficiencyData:registerCatalogItem(itemId, marketCategory, itemName, serverProficiencyId)
+    itemId = tonumber(itemId) or 0
+    marketCategory = tonumber(marketCategory) or 0
+    serverProficiencyId = tonumber(serverProficiencyId) or 0
+
+    local proficiencyId = self:isValidProficiencyId(serverProficiencyId) and serverProficiencyId
+        or self:resolveCatalogProficiency(itemId, marketCategory, itemName)
+
+    if itemId > 0 and proficiencyId and self:isValidProficiencyId(proficiencyId) then
+        self.catalogProficiencyByItem[itemId] = proficiencyId
+        return proficiencyId
+    end
+
+    return 0
+end
+
+function ProficiencyData:getEntryProficiencyId(entry)
+    if not entry then
+        return 0
+    end
+
+    if entry.proficiencyId and self:isValidProficiencyId(entry.proficiencyId) then
+        return entry.proficiencyId
+    end
+
+    return self:getProficiencyIdForItem(entry.displayItem, entry.thingType, entry.marketData)
+end
+
 -- Get proficiency ID for an item, with fallback to default
 -- Can pass either an Item, ThingType, or both via a table {item=..., thingType=...}
 -- Also accepts marketData for category-based lookup
@@ -427,7 +604,6 @@ function ProficiencyData:getProficiencyIdForItem(displayItem, thingType, marketD
         end
     end
 
-    -- Try to get proficiencyId from item if method exists
     if displayItem and displayItem.getProficiencyId then
         local id = displayItem:getProficiencyId()
         if id and id > 0 and self:isValidProficiencyId(id) then
@@ -435,113 +611,48 @@ function ProficiencyData:getProficiencyIdForItem(displayItem, thingType, marketD
         end
     end
 
-    -- Get item name and weapon type for name-based lookup
-    local itemName = nil
-    local weaponType = nil
-    local isTwoHanded = false
-
-    if marketData then
-        itemName = marketData.name
+    local itemId = 0
+    if displayItem and displayItem.getId then
+        itemId = tonumber(displayItem:getId()) or 0
+    end
+    if itemId <= 0 and thingType and thingType.getId then
+        itemId = tonumber(thingType:getId()) or 0
     end
 
-    if thingType then
-        if not itemName and thingType.getMarketData then
-            local md = thingType:getMarketData()
-            if md then
-                itemName = md.name
-            end
-        end
-        if thingType.getWeaponType then
-            weaponType = thingType:getWeaponType()
-        end
-        if thingType.isTwoHanded then
-            isTwoHanded = thingType:isTwoHanded()
+    local cached = itemId > 0 and self.catalogProficiencyByItem[itemId] or nil
+    if cached then
+        return cached
+    end
+
+    if not marketData then
+        if thingType and thingType.getMarketData then
+            marketData = thingType:getMarketData()
+        elseif displayItem and displayItem.getMarketData then
+            marketData = displayItem:getMarketData()
         end
     end
 
-    -- FORCE FIX: If item is in WandsRods category (21), override weaponType to 4 (Wand)
-    -- This fixes items like Ferumbras' staff that have incorrect weaponType in .dat
-    local marketCat = nil
-    if marketData and marketData.category then
-        marketCat = marketData.category
-    elseif thingType and thingType.getMarketData then
-        local md = thingType:getMarketData()
-        if md then
-            marketCat = md.category
+    local category = marketData and marketData.category or 0
+    local name = (marketData and marketData.name) or ""
+    if name == "" and displayItem and displayItem.getName then
+        name = displayItem:getName() or ""
+    end
+    if name == "" and thingType and thingType.getName then
+        name = thingType:getName() or ""
+    end
+
+    if itemId > 0 then
+        local proficiencyId = self:registerCatalogItem(itemId, category, name, 0)
+        if proficiencyId > 0 then
+            return proficiencyId
         end
     end
 
-    if marketCat == 21 then -- MarketCategory.WandsRods
-        weaponType = 4 -- Force to WEAPON_WANDROD
-    end
-
-    if displayItem and not itemName then
-        if displayItem.getName then
-            itemName = displayItem:getName()
+    if category > 0 then
+        local proficiencyId = self:resolveCatalogProficiency(itemId, category, name)
+        if proficiencyId and self:isValidProficiencyId(proficiencyId) then
+            return proficiencyId
         end
-        if not weaponType and displayItem.getWeaponType then
-            weaponType = displayItem:getWeaponType()
-        end
-    end
-
-    -- Get market category for debugging
-    local marketCategory = nil
-    if marketData then
-        marketCategory = marketData.category
-    elseif thingType and thingType.getMarketData then
-        local md = thingType:getMarketData()
-        if md then
-            marketCategory = md.category
-        end
-    end
-
-    -- FIRST: Try to find item-specific proficiency entry (e.g., "Throw - Assassin Star")
-    if itemName then
-        local profId = self:findItemSpecificProficiency(itemName, weaponType, isTwoHanded)
-        if profId and self:isValidProficiencyId(profId) then
-            return profId
-        end
-    end
-
-    -- SECOND: Try tier-based lookup (for tiered items like "grand sanguine bow")
-    if itemName then
-        local profId = self:getProficiencyIdByItemName(itemName, weaponType, isTwoHanded)
-        if profId and self:isValidProficiencyId(profId) then
-            return profId
-        end
-    end
-
-    -- Fallback to category-based lookup
-    if marketData and marketData.category then
-        local profId = self:getProficiencyIdFromCategory(marketData.category, itemName)
-        if profId and self:isValidProficiencyId(profId) then
-            return profId
-        end
-    end
-
-    if thingType and thingType.getMarketData then
-        local md = thingType:getMarketData()
-        if md and md.category then
-            local profId = self:getProficiencyIdFromCategory(md.category, md.name)
-            if profId and self:isValidProficiencyId(profId) then
-                return profId
-            end
-        end
-    end
-
-    -- Final fallback: weapon type default
-    weaponType = weaponType or 0
-
-    if weaponType > 0 then
-        local defaultId = self:getDefaultProficiencyId(weaponType)
-        if self:isValidProficiencyId(defaultId) then
-            return defaultId
-        end
-    end
-
-    -- Last resort: return first available proficiency ID
-    for id, _ in pairs(self.content) do
-        return id
     end
 
     return 6
@@ -745,21 +856,22 @@ function ProficiencyData:getMaxExperience(perkCount, displayItem, thingType, mar
 end
 
 -- Get level percent progress
-function ProficiencyData:getLevelPercent(currentExperience, level, displayItem, thingType, marketData)
+function ProficiencyData:getLevelXpRange(level, displayItem, thingType, marketData)
     local vocation = self:getWeaponProfessionType(displayItem, thingType, marketData)
     local prevLevel = math.max(level - 1, 0)
     local xpMin = prevLevel == 0 and 0 or (ExperienceTable[prevLevel] and ExperienceTable[prevLevel][vocation] or 0)
     local xpMax = (ExperienceTable[level] and ExperienceTable[level][vocation]) or xpMin + 1
+    return xpMin, xpMax
+end
 
-    -- If xpMax is nil or invalid, return 0 to avoid showing 100%
+function ProficiencyData:getLevelPercent(currentExperience, level, displayItem, thingType, marketData)
+    local xpMin, xpMax = self:getLevelXpRange(level, displayItem, thingType, marketData)
     if not xpMax or xpMax <= xpMin then
         return 0
     end
 
     local progress = math.max(0, math.min(1, (currentExperience - xpMin) / (xpMax - xpMin)))
-    local percent = math.floor(progress * 100)
-
-    return percent
+    return math.floor(progress * 100)
 end
 
 -- Get total progress percent
@@ -780,12 +892,29 @@ end
 function ProficiencyData:getCurrentLevelByExp(displayItem, currentExperience, includeMastery, thingType, marketData)
     local vocation = self:getWeaponProfessionType(displayItem, thingType, marketData)
     local currentLevel = 0
+    local skipLevel
+    local profId = self:getProficiencyIdForItem(displayItem, thingType, marketData)
 
-    for level, data in pairs(ExperienceTable) do
-        local requiredExp = data[vocation]
-        if requiredExp and currentExperience >= requiredExp then
-            if level > currentLevel then
-                currentLevel = level
+    if profId and self:isValidProficiencyId(profId) then
+        local perkLanes = self:getPerkLaneCount(profId)
+        if perkLanes > 0 then
+            skipLevel = perkLanes + 1
+        end
+    end
+
+    for level, data in ipairs(ExperienceTable) do
+        if skipLevel and level == skipLevel then
+            -- Skip the gap tier between perk lanes and mastery tiers.
+        else
+            local requiredExp = data[vocation]
+            if requiredExp then
+                if requiredExp <= currentExperience then
+                    if currentLevel < level then
+                        currentLevel = level
+                    end
+                else
+                    break
+                end
             end
         end
     end
