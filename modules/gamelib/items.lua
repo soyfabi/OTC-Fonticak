@@ -1,8 +1,7 @@
--- to-do
--- change to ItemsDatabase.setTier(UIitem) to UIitem:setTier()
 ItemsDatabase = {}
 
 ItemsDatabase.serverValues = ItemsDatabase.serverValues or {}
+ItemsDatabase.serverNpcSaleData = ItemsDatabase.serverNpcSaleData or {}
 
 local OPCODE_ITEM_VALUES = 0xC6
 local OPCODE_ITEM_DETAILS = 0xC7
@@ -31,6 +30,17 @@ local function resolveItemId(item)
     return 0
 end
 
+local function usesCustomItemValueProtocol()
+    if not g_game.getFeature(GameColorizedLootValue) then
+        return false
+    end
+
+    local version = g_game.getClientVersion()
+    -- 0xC6/0xC7 are custom item-value opcodes on 8.60 servers only.
+    -- On 12.x+ the same opcodes are native cyclopedia house packets.
+    return version >= 860 and version < 1200
+end
+
 function ItemsDatabase.getItemValue(item)
     local itemId = resolveItemId(item)
     if itemId <= 0 then
@@ -50,6 +60,106 @@ end
 
 function ItemsDatabase.clearServerItemValues()
     ItemsDatabase.serverValues = {}
+    ItemsDatabase.serverNpcSaleData = {}
+end
+
+function ItemsDatabase.registerServerNpcSaleData(itemId, npcSaleData)
+    itemId = tonumber(itemId) or 0
+    if itemId <= 0 or type(npcSaleData) ~= 'table' then
+        return
+    end
+    ItemsDatabase.serverNpcSaleData[itemId] = npcSaleData
+end
+
+local function getDatNpcSaleData(itemId)
+    itemId = tonumber(itemId) or 0
+    if itemId <= 0 then
+        return {}
+    end
+
+    local thingType = g_things.getThingType(itemId, ThingCategoryItem)
+    if thingType and thingType.getNpcSaleData then
+        local success, npcSaleData = pcall(function()
+            return thingType:getNpcSaleData()
+        end)
+        if success and npcSaleData then
+            return npcSaleData
+        end
+    end
+    return {}
+end
+
+local function enrichNpcSaleLocations(serverData, datData)
+    if not serverData or #serverData == 0 then
+        return serverData
+    end
+
+    local locationByName = {}
+    for _, entry in ipairs(datData or {}) do
+        if entry and entry.name and entry.location and entry.location ~= '' then
+            locationByName[entry.name:lower()] = entry.location
+        end
+    end
+
+    if not next(locationByName) then
+        return serverData
+    end
+
+    for _, entry in ipairs(serverData) do
+        if entry and entry.name then
+            local location = entry.location
+            if not location or location == '' or location == 'Unknown Location' then
+                entry.location = locationByName[entry.name:lower()] or location
+            end
+        end
+    end
+
+    return serverData
+end
+
+function ItemsDatabase.getNpcSaleData(itemOrId)
+    local itemId = resolveItemId(itemOrId)
+    if itemId <= 0 then
+        return {}
+    end
+
+    local serverData = ItemsDatabase.serverNpcSaleData[itemId]
+    if serverData and #serverData > 0 then
+        return enrichNpcSaleLocations(serverData, getDatNpcSaleData(itemId))
+    end
+
+    if type(itemOrId) ~= 'number' and itemOrId and itemOrId.getNpcSaleData then
+        local success, npcSaleData = pcall(function()
+            return itemOrId:getNpcSaleData()
+        end)
+        if success and npcSaleData and #npcSaleData > 0 then
+            return npcSaleData
+        end
+    end
+
+    return getDatNpcSaleData(itemId)
+end
+
+function ItemsDatabase.requestServerItemDetails(itemId)
+    if not usesCustomItemValueProtocol() or not g_game.isOnline() then
+        return false
+    end
+
+    itemId = tonumber(itemId) or 0
+    if itemId <= 0 then
+        return false
+    end
+
+    local protocol = g_game.getProtocolGame()
+    if not protocol then
+        return false
+    end
+
+    local msg = OutputMessage.create()
+    msg:addU8(OPCODE_ITEM_DETAILS)
+    msg:addU16(itemId)
+    protocol:send(msg)
+    return true
 end
 
 function ItemsDatabase.getItemPrice(item)
@@ -430,17 +540,6 @@ function ItemsDatabase.applyExpiryDisplay(itemWidget, optionKey)
     itemWidget:setShowCharges((g_game.getFeature(GameDisplayItemCharges) or g_game.getFeature(GameThingCounter)) and show)
 end
 
-local function usesCustomItemValueProtocol()
-    if not g_game.getFeature(GameColorizedLootValue) then
-        return false
-    end
-
-    local version = g_game.getClientVersion()
-    -- 0xC6/0xC7 are custom item-value opcodes on 8.60 servers only.
-    -- On 12.x+ the same opcodes are native cyclopedia house packets.
-    return version >= 860 and version < 1200
-end
-
 local function onItemValuesOpcode(_, msg)
     if not usesCustomItemValueProtocol() then
         return false
@@ -475,21 +574,33 @@ local function onItemDetailsOpcode(_, msg)
         msg:getString()
     end
 
+    local npcSaleData = {}
     local npcSaleDataSize = msg:getU16()
     for _ = 1, npcSaleDataSize do
-        msg:getString()
-        msg:getString()
-        msg:getU32()
-        msg:getU32()
-        msg:getString()
+        local name = msg:getString()
+        local location = msg:getString()
+        local buyPrice = msg:getU32()
+        local salePrice = msg:getU32()
+        local currencyQuestFlagDisplayName = msg:getString()
+        npcSaleData[#npcSaleData + 1] = {
+            name = name,
+            location = location,
+            buyPrice = buyPrice,
+            salePrice = salePrice,
+            currencyQuestFlagDisplayName = currencyQuestFlagDisplayName
+        }
     end
 
     if defaultValue > 0 then
         ItemsDatabase.registerServerItemValue(itemId, defaultValue)
     end
 
+    if #npcSaleData > 0 then
+        ItemsDatabase.registerServerNpcSaleData(itemId, npcSaleData)
+    end
+
     if g_game.onItemDetails then
-        g_game.onItemDetails(itemId, defaultValue)
+        g_game.onItemDetails(itemId, defaultValue, npcSaleData)
     end
     return true
 end
@@ -528,6 +639,7 @@ end
 
 connect(g_game, {
     onGameStart = onGameStart,
-    onGameEnd = onGameEnd
+    onGameEnd = onGameEnd,
+    onEnterGame = registerCustomItemOpcodes
 })
 

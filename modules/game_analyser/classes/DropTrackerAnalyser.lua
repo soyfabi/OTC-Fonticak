@@ -24,11 +24,45 @@ local function formatMoney(value, separator)
 end
 
 local function getItemServerName(itemId)
-    local thingType = g_things.getThingType(itemId, ThingCategoryItem)
-    if thingType then
-        return thingType:getName()
-    end
-    return "Unknown Item"
+	itemId = tonumber(itemId)
+	if not itemId then
+		return "Unknown Item"
+	end
+
+	if modules.game_market and modules.game_market.getMarketItemName then
+		local marketName = modules.game_market.getMarketItemName(itemId)
+		if marketName and marketName ~= "" and marketName ~= tostring(itemId) then
+			return marketName
+		end
+	end
+
+	local thingType = g_things.getThingType(itemId, ThingCategoryItem)
+	if thingType then
+		local marketData = thingType:getMarketData()
+		if marketData and marketData.name and marketData.name ~= "" then
+			return marketData.name
+		end
+
+		local name = thingType:getName()
+		if name and name ~= "" and name ~= "unnamed" then
+			return name
+		end
+	end
+
+	return "Item #" .. tostring(itemId)
+end
+
+local function resolveDropTrackerItemPanel(widget)
+	if not widget then
+		return nil
+	end
+
+	widget.itemSlot = widget.itemSlot or widget:getChildById("itemSlot")
+	widget.itemName = widget.itemName or widget:getChildById("itemName")
+	widget.drops = widget.drops or widget:getChildById("drops")
+	widget.dropMonster = widget.dropMonster or widget:getChildById("dropMonster")
+
+	return widget
 end
 
 local function short_text(text, maxLength)
@@ -215,9 +249,12 @@ function DropTrackerAnalyser:updateWindow(ignoreVisible)
 	local contentsPanel = DropTrackerAnalyser.window.contentsPanel
 	-- lets loop through all the items and flag them for removal
 	for _, widget in pairs(contentsPanel.dropItems:getChildren()) do
+		resolveDropTrackerItemPanel(widget)
 		widget.toBeRemoved = true
-		for _, monsterWidget in pairs(widget.dropMonster:getChildren()) do
-			monsterWidget.toBeRemoved = true
+		if widget.dropMonster then
+			for _, monsterWidget in pairs(widget.dropMonster:getChildren()) do
+				monsterWidget.toBeRemoved = true
+			end
 		end
 	end
 
@@ -226,32 +263,45 @@ function DropTrackerAnalyser:updateWindow(ignoreVisible)
 		if not widget then
 			-- unable to find the item, then it most likely is a
 			-- new item being tracked, so lets create it
-			widget = g_ui.createWidget('ItemPanel', contentsPanel.dropItems)
+			widget = g_ui.createWidget("DropTrackerItemPanel", contentsPanel.dropItems)
 			widget:setId("ItemPanel_" .. itemId)
-			widget.itemSlot:setItemId(itemId)
-			widget.itemName:setText(string.capitalize(short_text(getItemServerName(itemId), 13)))
-			widget.drops:setText(formatMoney(config.dropCount, ","))
+			resolveDropTrackerItemPanel(widget)
+			if not widget.itemSlot or not widget.itemName or not widget.drops or not widget.dropMonster then
+				g_logger.error("DropTrackerAnalyser: failed to create item panel for item " .. tostring(itemId))
+				widget:destroy()
+			else
+				widget.itemSlot:setItemId(itemId)
+				widget.itemName:setText(string.capitalize(short_text(getItemServerName(itemId), 13)))
+				widget.drops:setText(formatMoney(config.dropCount, ","))
 
-			-- Add right-click context menu
-			widget.onMousePress = function(self, mousePos, mouseButton)
-				if mouseButton == MouseRightButton then
-					DropTrackerAnalyser:showItemContextMenu(self, mousePos, itemId)
-					return true
+				-- Add right-click context menu
+				widget.onMousePress = function(self, mousePos, mouseButton)
+					if mouseButton == MouseRightButton then
+						DropTrackerAnalyser:showItemContextMenu(self, mousePos, itemId)
+						return true
+					end
+					return false
 				end
-				return false
-			end
 
-			for _, monsterDrop in ipairs(config.monsterDrop) do
-				local monsterWidget = g_ui.createWidget('MonsterPanel', widget.dropMonster)
-				monsterWidget.monster:setOutfit(monsterDrop.outfit)
-				local capitalizedName = string.capitalize(monsterDrop.monsterName)
-				monsterWidget.name:setText(capitalizedName)
-				monsterWidget.drops:setText("(" ..formatMoney(monsterDrop.count, ",") .. ")")
-				monsterDrop.widget = monsterWidget
-			end
+				for _, monsterDrop in ipairs(config.monsterDrop) do
+					local monsterWidget = g_ui.createWidget("DropTrackerMonsterPanel", widget.dropMonster)
+					monsterWidget.monster:setOutfit(monsterDrop.outfit)
+					local capitalizedName = string.capitalize(monsterDrop.monsterName)
+					monsterWidget.name:setText(capitalizedName)
+					monsterWidget.drops:setText("(" .. formatMoney(monsterDrop.count, ",") .. ")")
+					monsterDrop.widget = monsterWidget
+				end
 
-			widget:updateItemPanelSize()
+				widget:updateItemPanelSize()
+			end
 		else
+			resolveDropTrackerItemPanel(widget)
+			if not widget.itemSlot or not widget.itemName or not widget.drops or not widget.dropMonster then
+				widget:destroy()
+				DropTrackerAnalyser:updateWindow(ignoreVisible)
+				return
+			end
+
 			-- if we found the item, and applied updates to it, must must
 			-- check it to not be removed
 			widget.drops:setText(formatMoney(config.dropCount, ","))
@@ -273,11 +323,11 @@ function DropTrackerAnalyser:updateWindow(ignoreVisible)
 				local monsterWidget = monsterDrop.widget
 				if not monsterWidget then
 					-- if there is no monsterWidget set, then we need to create it
-					local monsterWidget = g_ui.createWidget('MonsterPanel', widget.dropMonster)
+					monsterWidget = g_ui.createWidget("DropTrackerMonsterPanel", widget.dropMonster)
 					monsterWidget.monster:setOutfit(monsterDrop.outfit)
 					local capitalizedName = string.capitalize(monsterDrop.monsterName)
 					monsterWidget.name:setText(capitalizedName)
-					monsterWidget.drops:setText("(" ..formatMoney(monsterDrop.count, ",") .. ")")
+					monsterWidget.drops:setText("(" .. formatMoney(monsterDrop.count, ",") .. ")")
 					-- we also save the reference for later on use
 					monsterDrop.widget = monsterWidget
 				else

@@ -15,7 +15,7 @@ local CustomMarketSendOpcode = {
     Accept = 0xE1,
     Detail = 0xFA,
     Leave = 0xF5,
-    Enter = 0xFC
+    Enter = 0xF4
 }
 
 local customMarketEnter = nil
@@ -46,8 +46,18 @@ function parseCustomMarketMessage(protocol, msg)
             local name = msg:getString()
             local amount = msg:getU16()
             local tier = msg:getU8()
+            local classification = 0
+            if msg:getUnreadSize() > 0 then
+                classification = msg:getU8()
+            end
 
-            table.insert(customMarketEnter.items, { id = itemId, category = category, name = name, tier = tier })
+            table.insert(customMarketEnter.items, {
+                id = itemId,
+                category = category,
+                name = name,
+                tier = tier,
+                classification = classification
+            })
             table.insert(customMarketEnter.depotItems, {itemId, tier, amount})
         end
 
@@ -94,7 +104,13 @@ function parseCustomMarketMessage(protocol, msg)
         local descriptionCount = msg:getU8()
 
         for i = 1, descriptionCount do
-            descriptions[msg:getU8()] = msg:getString()
+            local detailType = msg:getU8()
+            local detailText = msg:getString()
+            if descriptions[detailType] and #descriptions[detailType] > 0 then
+                descriptions[detailType] = descriptions[detailType] .. ", " .. detailText
+            else
+                descriptions[detailType] = detailText
+            end
         end
 
         local function readStatistics(action)

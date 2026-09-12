@@ -369,6 +369,16 @@ ThingTypeList ThingTypeManager::findThingTypeByAttr(const ThingAttr attr, const 
     return ret;
 }
 
+std::string ThingTypeManager::getCyclopediaItemName(const uint16_t id)
+{
+    const auto& type = getThingType(id, ThingCategoryItem);
+    if (type->isNull())
+        return "";
+    if (!type->getMarketData().name.empty())
+        return type->getMarketData().name;
+    return type->getName();
+}
+
 const RaceType& ThingTypeManager::getRaceData(uint32_t raceId)
 {
     for (const auto& raceData : m_monsterRaces) {

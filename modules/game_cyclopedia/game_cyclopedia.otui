@@ -106,7 +106,6 @@ CyclopediaWindow
 
     UIButton
       id: items
-      visible: false
       anchors.top: parent.top
       anchors.left: parent.left
       margin-top: 1
@@ -114,6 +113,11 @@ CyclopediaWindow
       @onClick: toggleWindow("items")
 
       $on:
+        size: 150 34
+        image-clip: 0 0 150 34
+        image-source: /images/game/cyclopedia/items_on
+
+      $on $disabled:
         size: 150 34
         image-clip: 0 0 150 34
         image-source: /images/game/cyclopedia/items_on
@@ -126,16 +130,21 @@ CyclopediaWindow
       $pressed:
         size: 34 34
         image-clip: 0 34 34 34
-        image-source: /images/game/cyclopedia/items_on
+        image-source: /images/game/cyclopedia/items_off
 
     UIButton
       id: bestiary
       anchors.top: prev.top
-      anchors.left: parent.left
+      anchors.left: prev.right
       margin-left: 1
       @onClick: toggleWindow("bestiary")
 
       $on:
+        size: 150 34
+        image-clip: 0 0 150 34
+        image-source: /images/game/cyclopedia/bestiary_on
+
+      $on $disabled:
         size: 150 34
         image-clip: 0 0 150 34
         image-source: /images/game/cyclopedia/bestiary_on
@@ -154,9 +163,15 @@ CyclopediaWindow
       id: charms
       anchors.top: prev.top
       anchors.left: prev.right
+      margin-left: 1
       @onClick: toggleWindow("charms")
 
       $on:
+        size: 150 34
+        image-clip: 0 0 150 34
+        image-source: /images/game/cyclopedia/charms_on
+
+      $on $disabled:
         size: 150 34
         image-clip: 0 0 150 34
         image-source: /images/game/cyclopedia/charms_on
@@ -246,4 +261,31 @@ CyclopediaWindow
     anchors.bottom: parent.bottom
     anchors.left: parent.left
     anchors.right: parent.right
-    margin-top: 5
+    margin-top: -4
+
+  Button
+    id: closeButton
+    size: 43 20
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    !text: tr('Close')
+    font: cipsoftFont
+    @onClick: toggle()
+
+  Button
+    id: backButton
+    size: 43 20
+    anchors.bottom: parent.bottom
+    anchors.right: closeButton.left
+    margin-right: 6
+    !text: tr('Back')
+    font: cipsoftFont
+    enabled: false
+    @onClick: toggleBack()
+
+  HorizontalSeparator
+    id: horizontalSeparator
+    anchors.bottom: closeButton.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 11

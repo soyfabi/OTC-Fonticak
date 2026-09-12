@@ -1,4 +1,4 @@
-ItemPanel < Panel
+DropTrackerItemPanel < Panel
   size: 147 34
   @updateItemPanelSize: |
     function(self)
@@ -62,7 +62,7 @@ ItemPanel < Panel
       type: verticalBox
       fit-children: true
 
-MonsterPanel < Panel
+DropTrackerMonsterPanel < Panel
   size: 147 16
   UIWidget
     id: hierarchy

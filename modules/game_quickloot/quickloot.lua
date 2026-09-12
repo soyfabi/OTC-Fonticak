@@ -18,22 +18,50 @@ local GOLD_POUCH_ITEM_ID = 23721
 local SET_OBTAIN_CONTAINER_ACTION = 4
 
 local function getQuickLootFilterItemName(itemId)
-	local thingType = g_things.getThingType(itemId, ThingCategoryItem)
-	if not thingType then
+	itemId = tonumber(itemId)
+	if not itemId or itemId <= 0 then
 		return ""
 	end
 
-	local marketData = thingType:getMarketData()
-	if marketData and marketData.name and marketData.name ~= "" then
-		return marketData.name:lower()
+	if modules.game_market and modules.game_market.getMarketItemName then
+		local marketName = modules.game_market.getMarketItemName(itemId)
+		if marketName and marketName ~= "" and marketName ~= tostring(itemId) then
+			return marketName:lower()
+		end
 	end
 
-	local name = thingType:getName()
-	if name and name ~= "" then
-		return name:lower()
+	if modules.game_market and modules.game_market.getCachedCustomMarketItems then
+		local serverItems = modules.game_market.getCachedCustomMarketItems()
+		if serverItems then
+			for i = 1, #serverItems do
+				if serverItems[i].id == itemId and serverItems[i].name and serverItems[i].name ~= "" then
+					return serverItems[i].name:lower()
+				end
+			end
+		end
 	end
 
-	return ""
+	local thingType = g_things.getThingType(itemId, ThingCategoryItem)
+	if thingType then
+		local marketData = thingType:getMarketData()
+		if marketData and marketData.name and marketData.name ~= "" then
+			return marketData.name:lower()
+		end
+
+		local name = thingType:getName()
+		if name and name ~= "" and name ~= "unnamed" then
+			return name:lower()
+		end
+	end
+
+	if g_things.getCyclopediaItemName then
+		local cyclopediaName = g_things.getCyclopediaItemName(itemId)
+		if cyclopediaName and cyclopediaName ~= "" then
+			return cyclopediaName:lower()
+		end
+	end
+
+	return ("item #" .. tostring(itemId)):lower()
 end
 
 function QuickLoot.getConfiguredLootFlags(itemId)
@@ -648,6 +676,19 @@ function QuickLoot.Define()
             applyQuickLootFilterSlotVisuals(widget.itemSlot, itemId)
 
             color = color == "#484848" and "#414141" or "#484848"
+        end
+    end
+
+    function QuickLoot.onMarketItemsUpdated()
+        if not quickLootController.ui or not quickLootController.ui:isVisible() then
+            return
+        end
+
+        local searchText = quickLootController.ui.search:getText()
+        if searchText and searchText:trim() ~= "" then
+            QuickLoot.search(searchText)
+        else
+            QuickLoot.loadFilterItems()
         end
     end
 

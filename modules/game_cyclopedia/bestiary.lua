@@ -963,7 +963,7 @@ function registerBestiaryProtocol()
 		if displayInfoBox then
 			displayInfoBox("Cyclopedia", message)
 		else
-			print(message)
+			g_logger.warning("[game_cyclopedia/bestiary] %s", message)
 		end
 	end)
 
