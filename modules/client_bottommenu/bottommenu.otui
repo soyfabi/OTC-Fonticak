@@ -154,8 +154,10 @@ Panel
       anchors.left: parent.left
       anchors.right: parent.right
       opacity: 0.5
+      phantom: true
 
     Panel
+      id: creaturePanel
       anchors.top: parent.top
       anchors.left: parent.left
       margin-left: 12
@@ -178,6 +180,13 @@ Panel
         anchors.verticalCenter: parent.verticalCenter
         visible: false
 
+      UIWidget
+        id: creatureHitArea
+        anchors.fill: parent
+        focusable: false
+        change-cursor-image: false
+        tooltip-delay: 0
+
     Label
       !text: tr('Creature')
       anchors.horizontalCenter: prev.horizontalCenter
@@ -185,6 +194,7 @@ Panel
       margin-top: 3
 
     Panel
+      id: bossPanel
       anchors.top: parent.top
       anchors.right: parent.right
       margin-right: 12
@@ -206,6 +216,13 @@ Panel
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
         visible: false
+
+      UIWidget
+        id: bossHitArea
+        anchors.fill: parent
+        focusable: false
+        change-cursor-image: false
+        tooltip-delay: 0
 
     Label
       !text: tr('Boss')

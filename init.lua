@@ -4,11 +4,19 @@
 -- updater
 Services = {
     --updater = "http://localhost/api/updater.php", --./updater
-    --status = "http://localhost/login.php", --./client_entergame | ./client_topmenu
+    --status = "http://localhost/tools/api/status.php", -- login panel: boosted creature/boss, online count, events
     --websites = "http://localhost/?subtopic=accountmanagement", --./client_entergame "Forgot password and/or email"
     --createAccount = "http://localhost/clientcreateaccount.php", --./client_entergame -- createAccount.lua
     --getCoinsUrl = "http://localhost/?subtopic=shop&step=terms", --./game_market
 }
+
+-- Fallback boosted panel when the login server cannot be reached.
+-- Normally OTC-Fonticak reads boosted creature/boss from the game server login port.
+BoostedCreatures = nil
+-- BoostedCreatures = {
+--     creatureLookType = 55,
+--     bossLookType = 291,
+-- }
 
 --- Enables or disables the entire server configuration block.
 -- Set to `false` to disable all configuration below.

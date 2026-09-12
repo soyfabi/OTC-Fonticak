@@ -137,14 +137,18 @@ elseif ($requestType === 'showoff') {
 
     //  EnterGame.postShowCreatureBoost()
 } elseif ($requestType === 'boostedcreature') {
-
+    // Look types for 8.60; use creatureraceid/bossraceid when staticdata is available.
+    $creatureLookType = 55;
+    $bossLookType = 291;
 
     $response = array(
+        "creaturelooktype" => $creatureLookType,
+        "bosslooktype" => $bossLookType,
         "creature" => array(
-            "type" => 222
+            "type" => $creatureLookType
         ),
         "boss" => array(
-            "type" => 232
+            "type" => $bossLookType
         )
     );
     echo json_encode($response);

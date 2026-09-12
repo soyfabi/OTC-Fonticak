@@ -10,10 +10,27 @@ LoginServerUpdateNeeded = 30
 LoginServerSessionKey = 40
 LoginServerCharacterList = 100
 LoginServerExtendedCharacterList = 101
+LoginServerBoostedInfo = 0xA1
+
+FONTICAK_LOGIN_BOOSTED_REQUEST = '__fonticak_boosted_v1__'
 
 -- Since 10.76
 LoginServerRetry = 10
 LoginServerErrorNew = 11
+
+function ProtocolLogin:fetchBoosted(host, port)
+    if string.len(host) == 0 or port == nil or port == 0 then
+        return false
+    end
+
+    self.accountName = ''
+    self.accountPassword = FONTICAK_LOGIN_BOOSTED_REQUEST
+    self.authenticatorToken = nil
+    self.stayLogged = false
+    self.connectCallback = self.sendLoginPacket
+    self:connect(host, port)
+    return true
+end
 
 function ProtocolLogin:login(host, port, accountName, accountPassword, authenticatorToken, stayLogged)
     if string.len(host) == 0 or port == nil or port == 0 then
@@ -184,6 +201,8 @@ function ProtocolLogin:onRecv(msg)
             signalcall(self.onUpdateNeeded, self, signature)
         elseif opcode == LoginServerSessionKey then
             self:parseSessionKey(msg)
+        elseif opcode == LoginServerBoostedInfo then
+            self:parseBoostedLoginInfo(msg)
         else
             self:parseOpcode(opcode, msg)
         end
@@ -204,6 +223,38 @@ end
 function ProtocolLogin:parseSessionKey(msg)
     local sessionKey = msg:getString()
     signalcall(self.onSessionKey, self, sessionKey)
+end
+
+function ProtocolLogin:parseBoostedLoginEntry(msg)
+    if msg:getU8() == 0 then
+        return nil
+    end
+
+    return {
+        raceId = msg:getU32(),
+        name = msg:getString(),
+        outfit = {
+            type = msg:getU16(),
+            head = msg:getU8(),
+            body = msg:getU8(),
+            legs = msg:getU8(),
+            feet = msg:getU8(),
+            addons = msg:getU8()
+        }
+    }
+end
+
+function ProtocolLogin:parseBoostedLoginInfo(msg)
+    local data = {
+        creature = self:parseBoostedLoginEntry(msg),
+        boss = self:parseBoostedLoginEntry(msg)
+    }
+
+    if modules.client_bottommenu and modules.client_bottommenu.setBoostedCreatureAndBoss then
+        modules.client_bottommenu.setBoostedCreatureAndBoss(data)
+    end
+
+    signalcall(self.onBoostedInfo, self, data)
 end
 
 function ProtocolLogin:parseCharacterList(msg)
@@ -265,6 +316,10 @@ function ProtocolLogin:parseCharacterList(msg)
         account.status = AccountStatus.Ok
         account.premDays = msg:getU16()
         account.subStatus = account.premDays > 0 and SubscriptionStatus.Premium or SubscriptionStatus.Free
+    end
+
+    if not msg:eof() and msg:getU8() == LoginServerBoostedInfo then
+        self:parseBoostedLoginInfo(msg)
     end
 
     signalcall(self.onCharacterList, self, characters, account)

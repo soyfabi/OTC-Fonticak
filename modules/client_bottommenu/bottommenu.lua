@@ -15,10 +15,16 @@ local eventSchedulerCalendarYearIndex
 local eventSchedulerCalendarMonth
 
 local boostedWindow
+local creaturePanel
+local bossPanel
+local creatureHitArea
+local bossHitArea
 local monsterOutfit
 local monsterImage
 local bossOutfit
 local bossImage
+local pendingBoostedData
+local BOOSTED_WALK_SPEED = 1000
 
 local default_info = {
     -- hint 1
@@ -52,11 +58,18 @@ function init()
     eventSchedulerCalendarMonth = tonumber(os.date("%m"))
 
     boostedWindow = bottomMenu:recursiveGetChildById('boostedWindow')
+    creaturePanel = boostedWindow:recursiveGetChildById('creaturePanel')
+    bossPanel = boostedWindow:recursiveGetChildById('bossPanel')
+    creatureHitArea = boostedWindow:recursiveGetChildById('creatureHitArea')
+    bossHitArea = boostedWindow:recursiveGetChildById('bossHitArea')
     monsterOutfit = boostedWindow:recursiveGetChildById('creature')
     bossOutfit = boostedWindow:recursiveGetChildById('boss')
 
---  if not Services.status and default_info then
-    if default_info then
+    monsterImage = boostedWindow:recursiveGetChildById('monsterImage')
+    bossImage = boostedWindow:recursiveGetChildById('bossImage')
+
+    local hasBoostedSource = hasBoostedCreatureSource()
+    if not hasBoostedSource and default_info then
         local scrollable = showOffWindow:recursiveGetChildById('contentsPanel')
         local widget = g_ui.createWidget('ShowOffWidget', scrollable)
         local description = widget:recursiveGetChildById('description')
@@ -72,13 +85,13 @@ function init()
         bossOutfit:setVisible(false)
         widget:resize(widget:getWidth(), description:getHeight())
 
-        monsterImage = boostedWindow:recursiveGetChildById('monsterImage')
-        bossImage = boostedWindow:recursiveGetChildById('bossImage')
-
         monsterImage:setImageSource("images/icon-questionmark")
         monsterImage:setVisible(true)
         bossImage:setImageSource("images/icon-questionmark")
         bossImage:setVisible(true)
+    elseif monsterImage and bossImage then
+        monsterImage:setVisible(false)
+        bossImage:setVisible(false)
     end
     if g_game.isOnline() then
         hide()
@@ -508,45 +521,215 @@ function onClickOnNextCalendar()
     reloadEventsSchedulerCurrentPage()
 end
 
--- (internal)
--- set creature/boss to boosted slot
-local function applyToBoostedSlot(raceId, outfitWidget, imageWidget, fileName)
-    -- check if raceId was provided in the JSON response
-    if not raceId then
+function hasBoostedCreatureSource()
+    if Services and Services.status and Services.status ~= '' then
+        return true
+    end
+
+    if Servers_init and next(Servers_init) ~= nil then
+        return true
+    end
+
+    if not BoostedCreatures then
+        return false
+    end
+
+    return (BoostedCreatures.creatureraceid or BoostedCreatures.raceid or BoostedCreatures.creatureLookType or BoostedCreatures.creaturelooktype)
+        or (BoostedCreatures.bossraceid or BoostedCreatures.bossLookType or BoostedCreatures.bosslooktype)
+end
+
+local function normalizeBoostedData(data)
+    if not data then
+        return nil
+    end
+
+    local creature = data.creature
+    local boss = data.boss
+
+    return {
+        creatureRaceId = data.creatureraceid or data.raceid or (creature and (creature.raceId or creature.raceid)),
+        bossRaceId = data.bossraceid or (boss and (boss.raceId or boss.raceid)),
+        creatureLookType = data.creaturelooktype or data.creatureLookType or (creature and creature.type),
+        bossLookType = data.bosslooktype or data.bossLookType or (boss and boss.type),
+        creatureOutfit = creature and creature.outfit,
+        bossOutfit = boss and boss.outfit,
+    }
+end
+
+local function resolveBoostedOutfit(raceId, lookType)
+    if raceId and raceId > 0 then
+        local raceData = g_things.getRaceData(raceId)
+        if raceData and raceData.raceId ~= 0 and raceData.outfit and raceData.outfit.type and raceData.outfit.type > 0 then
+            return raceData.outfit
+        end
+    end
+
+    if lookType and lookType > 0 then
+        return { type = lookType }
+    end
+
+    return nil
+end
+
+local function clearBoostedTooltip(panel)
+    if not panel then
         return
     end
 
-    -- fetch race data
-    local raceData = g_things.getRaceData(raceId)
+    if panel.removeTooltip then
+        panel:removeTooltip()
+    else
+        panel:setTooltip('')
+    end
+end
 
-    -- check if race id is present in the staticdata
-    if raceData.raceId == 0 then
-        local msg = string.format("[%s] Creature with race id %s was not found.", fileName, data.creatureraceid)
-        g_logger.warning(msg)
+local function resolveBoostedName(entry, raceId, lookType)
+    if entry and entry.name and entry.name ~= '' then
+        return entry.name
+    end
+
+    if raceId and raceId > 0 then
+        local raceData = g_things.getRaceData(raceId)
+        if raceData and raceData.name and raceData.name ~= '' then
+            return raceData.name
+        end
+    end
+
+    return nil
+end
+
+local function applyBoostedTooltip(hitArea, titleLine, bodyLine)
+    if not hitArea then
         return
     end
 
-    -- apply to selected widget
-    outfitWidget:setOutfit(raceData.outfit)
-    outfitWidget:getCreature():setStaticWalking(1000)
+    if titleLine and bodyLine and titleLine ~= '' and bodyLine ~= '' then
+        hitArea:setSpecialToolTip({
+            { header = titleLine, info = bodyLine }
+        })
+        hitArea:setTooltipDelay(0)
+    else
+        clearBoostedTooltip(hitArea)
+    end
+end
+
+local function setBoostedCreatureTooltip(name)
+    if name and name ~= '' then
+        applyBoostedTooltip(
+            creatureHitArea,
+            tr("Today's boosted creature: %s", name),
+            tr('Boosted creatures yield more experience points, carry more loot than usual and respawn at a faster rate.')
+        )
+    else
+        applyBoostedTooltip(creatureHitArea, nil, nil)
+    end
+end
+
+local function setBoostedBossTooltip(name)
+    if name and name ~= '' then
+        applyBoostedTooltip(
+            bossHitArea,
+            tr("Today's boosted boss: %s", name),
+            tr('Boosted boss contain more loot and count more kills for your bosstiary.')
+        )
+    else
+        applyBoostedTooltip(bossHitArea, nil, nil)
+    end
+end
+
+local function updateBoostedTooltips(data)
+    if not data then
+        setBoostedCreatureTooltip(nil)
+        setBoostedBossTooltip(nil)
+        return
+    end
+
+    local creature = data.creature
+    local boss = data.boss
+    local normalized = normalizeBoostedData(data)
+
+    setBoostedCreatureTooltip(resolveBoostedName(creature, normalized and normalized.creatureRaceId, normalized and normalized.creatureLookType))
+    setBoostedBossTooltip(resolveBoostedName(boss, normalized and normalized.bossRaceId, normalized and normalized.bossLookType))
+end
+
+local function startBoostedAnimation(outfitWidget)
+    local creature = outfitWidget and outfitWidget.getCreature and outfitWidget:getCreature()
+    if not creature then
+        return
+    end
+
+    creature:setAnimate(true)
+    creature:setStaticWalking(BOOSTED_WALK_SPEED)
+end
+
+-- (internal) set creature/boss to boosted slot
+local function applyToBoostedSlot(raceId, lookType, outfitData, outfitWidget, imageWidget, label)
+    if not outfitWidget or not imageWidget then
+        return false
+    end
+
+    local outfit = outfitData
+    if not outfit or not outfit.type or outfit.type <= 0 then
+        outfit = resolveBoostedOutfit(raceId, lookType)
+    end
+    if not outfit then
+        if raceId or lookType then
+            g_logger.warning(string.format('[bottommenu] Boosted %s not found (raceId=%s, lookType=%s).',
+                label or 'creature', tostring(raceId), tostring(lookType)))
+        end
+        return false
+    end
+
+    outfitWidget:setOutfit(outfit)
     outfitWidget:setVisible(true)
     imageWidget:setVisible(false)
+    startBoostedAnimation(outfitWidget)
+
+    local hitArea = outfitWidget == monsterOutfit and creatureHitArea or (outfitWidget == bossOutfit and bossHitArea or nil)
+    if hitArea and hitArea.raise then
+        hitArea:raise()
+    end
+
+    return true
+end
+
+local function tryApplyBoostedData(data)
+    if not data or not monsterOutfit or not bossOutfit then
+        return false
+    end
+
+    if not modules.game_things or not modules.game_things.isLoaded or not modules.game_things.isLoaded() then
+        return false
+    end
+
+    local normalized = normalizeBoostedData(data)
+    if not normalized then
+        return false
+    end
+
+    applyToBoostedSlot(normalized.creatureRaceId, normalized.creatureLookType, normalized.creatureOutfit, monsterOutfit, monsterImage, 'creature')
+    applyToBoostedSlot(normalized.bossRaceId, normalized.bossLookType, normalized.bossOutfit, bossOutfit, bossImage, 'boss')
+    return true
+end
+
+function onThingsLoaded()
+    if pendingBoostedData then
+        tryApplyBoostedData(pendingBoostedData)
+    end
 end
 
 function setBoostedCreatureAndBoss(data)
-    if not modules.game_things.isLoaded() then
-        return
+    pendingBoostedData = data
+    updateBoostedTooltips(data)
+    if not tryApplyBoostedData(data) then
+        scheduleEvent(function()
+            tryApplyBoostedData(pendingBoostedData)
+        end, 250)
     end
+end
 
-    -- file name for error reporting
-    local fileName = debug.getinfo(1, "S").source -- current file name - bottommenu.lua
-
-    -- boosted creature
-    -- before bosstiary was introduced, the webservice was sending creature race in 'raceid' field
-    -- after bosstiary was added, it was changed to 'creatureraceid'
-    -- this 'or' statement ensures backwards compatibility
-    applyToBoostedSlot(data.creatureraceid or data.raceid, monsterOutfit, monsterImage, fileName)
-
-    -- boosted boss
-    applyToBoostedSlot(data.bossraceid, bossOutfit, bossImage, fileName)
+function applyConfiguredBoostedCreatures()
+    if BoostedCreatures then
+        setBoostedCreatureAndBoss(BoostedCreatures)
+    end
 end
