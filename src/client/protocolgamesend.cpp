@@ -37,6 +37,10 @@
 #include <algorithm>
 #endif
 
+namespace {
+constexpr auto FONTICAK_STORE_HIGHLIGHTS_MARKER = "FonticakStoreHighlights";
+}
+
 void ProtocolGame::onSend() {}
 void ProtocolGame::sendExtendedOpcode(const uint8_t opcode, const std::string& buffer)
 {
@@ -138,6 +142,10 @@ void ProtocolGame::sendLoginPacket(const uint32_t challengeTimestamp, const uint
             challengeTimestamp, challengeRandom
         );
         msg->addU32(signature);
+        // The marker commits this connection to the highlighted catalog layout.
+        // Enable its parser before the server can answer with a Store packet.
+        g_game.enableFeature(Otc::GameIngameStoreHighlights);
+        msg->addString(FONTICAK_STORE_HIGHLIGHTS_MARKER);
     }
 
     // complete the bytes for rsa encryption with zeros
