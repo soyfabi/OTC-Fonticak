@@ -13,13 +13,17 @@ if not HomeOffer then
 	HomeOffer.renderEvent = nil
 	HomeOffer.renderGeneration = 0
 	HomeOffer.dailyRefreshPending = false
+	HomeOffer.dailyRefreshEvent = nil
 	HomeOffer.bannerAnimating = false
 	HomeOffer.savedBannerId = 0
 end
 
 function HomeOffer:cancelRender()
 	removeEvent(HomeOffer.renderEvent)
+	removeEvent(HomeOffer.dailyRefreshEvent)
 	HomeOffer.renderEvent = nil
+	HomeOffer.dailyRefreshEvent = nil
+	HomeOffer.dailyRefreshPending = false
 	HomeOffer.renderGeneration = HomeOffer.renderGeneration + 1
 end
 
@@ -49,10 +53,13 @@ local function refreshExpiredDailyOffer(offerId)
 		return
 	end
 	HomeOffer.dailyRefreshPending = true
-	scheduleEvent(function()
+	HomeOffer.dailyRefreshEvent = scheduleEvent(function()
+		HomeOffer.dailyRefreshEvent = nil
 		HomeOffer.dailyRefreshPending = false
-		if g_game.isOnline() then
-			g_game.requestStoreOffers(OPEN_HOME, "", 0)
+		if g_game.isOnline() and StoreWindow and StoreWindow:isVisible() and
+			Offers.displayPanel and not Offers.displayPanel:isDestroyed() and
+			Offers.displayPanel:getId() == "Home" then
+			g_game.forceRefreshStore(OPEN_HOME, "", 0)
 		end
 	end, 1)
 end
