@@ -124,6 +124,14 @@ function init()
 		if cyclopediaButton then
 			cyclopediaButton:setOn(visible)
 		end
+		if not visible then
+			if Cyclopedia.onItemsTabHidden then
+				Cyclopedia.onItemsTabHidden()
+			end
+			if modules.game_inspect and modules.game_inspect.hide then
+				modules.game_inspect.hide()
+			end
+		end
 	end
 	contentContainer = window:recursiveGetChildById('contentContainer')
 	backButton = window:recursiveGetChildById('backButton')

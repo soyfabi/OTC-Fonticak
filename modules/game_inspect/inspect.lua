@@ -802,8 +802,23 @@ local function tryDeliverItemDetailToCyclopedia(data)
     return false
 end
 
+local function isCyclopediaInspection(data)
+    local inspectType = tonumber(data and data.inspectionType) or 0
+    -- Server 0x76 item responses remap context to wire bytes: 1=cyclopedia, 2=proficiency.
+    if inspectType == 1 or inspectType == 2 then
+        return true
+    end
+    local cyclopediaType = InspectObjectTypes and InspectObjectTypes.INSPECT_CYCLOPEDIA or 3
+    local proficiencyType = InspectObjectTypes and InspectObjectTypes.INSPECT_PROFICIENCY or 4
+    return inspectType == cyclopediaType or inspectType == proficiencyType
+end
+
 local function onParseItemDetailHandler(data)
     if type(data) ~= "table" then return end
+    if isCyclopediaInspection(data) then
+        tryDeliverItemDetailToCyclopedia(data)
+        return
+    end
     if tryDeliverItemDetailToCyclopedia(data) then
         return
     end

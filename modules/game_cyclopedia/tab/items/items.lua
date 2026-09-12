@@ -66,6 +66,13 @@ local function cancelItemSearchEvent()
 	end
 end
 
+local function cancelItemDetailFallback()
+	if Cyclopedia.Items.detailFallbackEvent then
+		removeEvent(Cyclopedia.Items.detailFallbackEvent)
+		Cyclopedia.Items.detailFallbackEvent = nil
+	end
+end
+
 local function getItemsListScrollbar()
 	if not UI or not UI.ItemListBase then
 		return nil
@@ -621,6 +628,69 @@ local function getCachedServerMarketItems()
 	return nil
 end
 
+local function isClassificationDetailKey(key)
+	key = tostring(key or ""):gsub("^%s+", ""):gsub("%s+$", ""):gsub(":%s*$", "")
+	return key == "Classification" or key == "Upgrade Classification"
+end
+
+local function resolveItemClassification(itemId)
+	itemId = tonumber(itemId)
+	if not itemId then
+		return 0
+	end
+
+	local serverItems = getCachedServerMarketItems()
+	if serverItems then
+		for i = 1, #serverItems do
+			if serverItems[i].id == itemId then
+				local classification = tonumber(serverItems[i].classification) or 0
+				if classification > 0 then
+					return classification
+				end
+				break
+			end
+		end
+	end
+
+	if Cyclopedia.ItemList then
+		for _, itemList in pairs(Cyclopedia.ItemList) do
+			for j = 1, #itemList do
+				local entry = itemList[j]
+				if entry.id == itemId then
+					local classification = tonumber(entry.classification) or 0
+					if classification > 0 then
+						return classification
+					end
+				end
+			end
+		end
+	end
+
+	local thingType = g_things.getThingType(itemId, ThingCategoryItem)
+	if thingType and thingType.getClassification then
+		return tonumber(thingType:getClassification()) or 0
+	end
+
+	return 0
+end
+
+local function ensureClassificationDescription(itemId, descriptions)
+	descriptions = descriptions or {}
+	for _, description in ipairs(descriptions) do
+		local key = description.key or description[1]
+		if key and isClassificationDetailKey(key) then
+			return descriptions
+		end
+	end
+
+	local classification = resolveItemClassification(itemId)
+	if classification > 0 then
+		descriptions[#descriptions + 1] = { key = "Classification", value = tostring(classification) }
+	end
+
+	return descriptions
+end
+
 local function getServerMarketItemName(itemId)
 	itemId = tonumber(itemId)
 	if not itemId then
@@ -846,11 +916,19 @@ end
 function Cyclopedia.Items.terminate()
 	cancelItemsIndexRetry()
 	cancelItemSearchEvent()
+	cancelItemDetailFallback()
 	if Cyclopedia.Items.listRenderEvent then
 		removeEvent(Cyclopedia.Items.listRenderEvent)
 		Cyclopedia.Items.listRenderEvent = nil
 	end
 	Cyclopedia.Items.saveJson()
+end
+
+function Cyclopedia.onItemsTabHidden()
+	cancelItemSearchEvent()
+	cancelItemDetailFallback()
+	clearPendingItemOpen()
+	Cyclopedia.Items.currentItemId = nil
 end
 
 function Cyclopedia.Items.loadJson()
@@ -1900,12 +1978,7 @@ function Cyclopedia.buildLocalItemDescriptions(itemId)
         descriptions[#descriptions + 1] = { key = "Description", value = description }
     end
 
-    local classification = thingType:getClassification()
-    if classification and classification > 0 then
-        descriptions[#descriptions + 1] = { key = "Classification", value = tostring(classification) }
-    end
-
-    return descriptions
+    return ensureClassificationDescription(itemId, descriptions)
 end
 
 function Cyclopedia.isItemsTabActive()
@@ -1943,6 +2016,7 @@ function Cyclopedia.receiveItemDetail(data)
     end
 
     Cyclopedia.loadItemDetail(itemId, descriptions)
+    cancelItemDetailFallback()
     return true
 end
 
@@ -1952,8 +2026,14 @@ function Cyclopedia.scheduleItemDetailFallback(itemId)
         return
     end
 
-    scheduleEvent(function()
+    cancelItemDetailFallback()
+    Cyclopedia.Items.detailFallbackEvent = scheduleEvent(function()
+        Cyclopedia.Items.detailFallbackEvent = nil
         if tonumber(Cyclopedia.Items.currentItemId) ~= itemId then
+            return
+        end
+
+        if not Cyclopedia.isItemsTabActive() then
             return
         end
 
@@ -1986,6 +2066,8 @@ function Cyclopedia.loadItemDetail(itemId, descriptions)
 
     if #descriptions == 0 and itemId then
         descriptions = Cyclopedia.buildLocalItemDescriptions(itemId)
+    elseif itemId then
+        descriptions = ensureClassificationDescription(itemId, descriptions)
     end
 
     local list = UI.InfoBase.DetailsBase.List
