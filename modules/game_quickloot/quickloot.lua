@@ -14,6 +14,8 @@ end
 
 local CLEAR_ICON = "/images/ui/button-clear-20x20-up.png"
 local CHAINED_CLEAR_ICON = "/modules/game_quickloot/images/button-chain-clear-20x20-up.png"
+local GOLD_POUCH_ITEM_ID = 23721
+local SET_OBTAIN_CONTAINER_ACTION = 4
 
 local function getQuickLootFilterItemName(itemId)
 	local thingType = g_things.getThingType(itemId, ThingCategoryItem)
@@ -182,9 +184,6 @@ local function applyQuickLootFilterSlotVisuals(slotWidget, itemOrId)
         ItemsDatabase.applyContainerRarityStackOrder(slotWidget)
     end
 end
-
-local GOLD_POUCH_ITEM_ID = 23721
-local SET_OBTAIN_CONTAINER_ACTION = 4
 
 local function getFilter(id)
     local filter = {

@@ -46,11 +46,6 @@ function ItemsDatabase.registerServerItemValue(itemId, value)
         return
     end
     ItemsDatabase.serverValues[itemId] = value
-
-    local cyclopediaData = modules.game_cyclopedia and modules.game_cyclopedia.itemsData
-    if cyclopediaData and cyclopediaData.serverValues then
-        cyclopediaData.serverValues[tostring(itemId)] = value
-    end
 end
 
 function ItemsDatabase.clearServerItemValues()
