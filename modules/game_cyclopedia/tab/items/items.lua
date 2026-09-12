@@ -1,6 +1,7 @@
 Cyclopedia = Cyclopedia or {}
 Cyclopedia.Items = Cyclopedia.Items or {}
 Cyclopedia.Items.currentItemId = nil
+Cyclopedia.Items.currentItemDescriptions = nil
 
 -- Additional variables for new features
 local itemsData = {}
@@ -39,11 +40,13 @@ Cyclopedia.CategoryItems = {
 local UI = nil
 local UNSORTED_CATEGORY_ID = 31
 local ITEMS_INDEX_RETRY_DELAY_MS = 1000
+local ITEMS_PENDING_SEARCH_RETRY_DELAY_MS = 400
 local ITEMS_INDEX_MAX_RETRIES = 5
 local ITEM_LIST_ROW_HEIGHT = 36
 local ITEM_LIST_VISIBLE_ROWS = 5
 local ITEM_LIST_DEFAULT_HEIGHT = ITEM_LIST_ROW_HEIGHT * ITEM_LIST_VISIBLE_ROWS + 7
-local ITEM_SEARCH_DEBOUNCE_MS = 250
+local ITEM_SEARCH_DEBOUNCE_MS = 120
+local ITEM_SEARCH_SELECT_DELAY_MS = 80
 local ITEM_SEARCH_MIN_LENGTH = 2
 local ignoreLootValueSourceCheck = false
 
@@ -403,8 +406,23 @@ refreshItemsListView = function(sourceEntries, options)
 		if autoSelectId then
 			selectItemInList(autoSelectId)
 		elseif options.selectSingle and #state.listData == 1 then
-			selectItemInList(state.listData[1].id)
+			local selectDelay = tonumber(options.selectDelay) or 0
+			if selectDelay > 0 then
+				scheduleEvent(function()
+					if not UI or UI:isDestroyed() then
+						return
+					end
+					selectItemInList(state.listData[1].id)
+				end, selectDelay)
+			else
+				selectItemInList(state.listData[1].id)
+			end
 		end
+	end
+
+	if options.immediate then
+		buildListPool()
+		return
 	end
 
 	if Cyclopedia.Items.listRenderEvent then
@@ -907,7 +925,7 @@ local function scheduleItemsIndexRetry()
 
 		requestServerMarketItems()
 		scheduleItemsIndexRetry()
-	end, ITEMS_INDEX_RETRY_DELAY_MS)
+	end, Cyclopedia.Items.pendingSearchText and ITEMS_PENDING_SEARCH_RETRY_DELAY_MS or ITEMS_INDEX_RETRY_DELAY_MS)
 end
 
 local processItemsById
@@ -1180,6 +1198,15 @@ function Cyclopedia.Items.resolveItemLootValues(itemOrThingType)
 	}
 end
 
+local function updateOwnValuePlaceholder()
+	if not (UI and UI.InfoBase and UI.InfoBase.OwnValueEdit and UI.InfoBase.OwnValuePlaceholder) then
+		return
+	end
+
+	local text = UI.InfoBase.OwnValueEdit:getText() or ""
+	UI.InfoBase.OwnValuePlaceholder:setVisible(text:gsub("%s+", "") == "")
+end
+
 function Cyclopedia.Items.showItemPrice(obj)
 	local resolved = Cyclopedia.Items.resolveItemLootValues(obj)
 	if not resolved.itemId then
@@ -1195,6 +1222,8 @@ function Cyclopedia.Items.showItemPrice(obj)
 	elseif UI.InfoBase.OwnValueEdit then
 		UI.InfoBase.OwnValueEdit:clearText(true)
 	end
+
+	updateOwnValuePlaceholder()
 
 	local finalValue = Cyclopedia.Items.updateResultGoldValue(resolved)
 
@@ -1329,6 +1358,8 @@ function Cyclopedia.Items.onSourceValueChange(checked, npcSource)
 end
 
 function Cyclopedia.Items.onChangeCustomPrice(widget)
+	updateOwnValuePlaceholder()
+
 	local itemId = getSelectedCyclopediaItemId()
 	if not itemId then
 		return
@@ -1760,19 +1791,10 @@ function Cyclopedia.selectItemEntry(entry, widget)
 
     repaintItemsListPool(itemId)
 
-    if modules.game_quickloot.QuickLoot.data.filter == 2 then
-        UI.InfoBase.quickLootCheck:setText("Loot when Quick Looting")
-    else
-        UI.InfoBase.quickLootCheck:setText('Skip when Quick Looting')
+    UI.InfoBase.quickLootCheck.onCheckChange = function(widget, checked)
+        Cyclopedia.Items.manageQuickloot(widget, checked)
     end
-    UI.InfoBase.quickLootCheck.onCheckChange = function(self, checked)
-        if checked then
-            modules.game_quickloot.QuickLoot.addLootList(itemId, modules.game_quickloot.QuickLoot.data.filter)
-        else
-            modules.game_quickloot.QuickLoot.removeLootList(itemId, modules.game_quickloot.QuickLoot.data.filter)
-        end
-    end
-    UI.InfoBase.quickLootCheck:setChecked(modules.game_quickloot.QuickLoot.lootExists(itemId, modules.game_quickloot.QuickLoot.data.filter))
+    Cyclopedia.refreshQuickLootCheck()
 
     if UI.InfoBase.TrackCheck then
         local originalCallback = UI.InfoBase.TrackCheck.onCheckChange
@@ -1843,11 +1865,7 @@ function Cyclopedia.ItemSearch(text, clearTextEdit)
 
     for i = 1, totalItems do
         local entry = Cyclopedia.AllItemList[i]
-        local itemNameLower = entry.nameLower
-        if not itemNameLower then
-            local thingType = resolveThingType(entry)
-            itemNameLower = string.lower(Cyclopedia.getItemDisplayName(thingType))
-        end
+        local itemNameLower = entry.nameLower or string.lower(entry.name or "")
 
         if (searchById and entry.id == searchById) or itemNameLower:find(searchTermLower, 1, true) then
             if passesItemFilters(entry) then
@@ -1859,7 +1877,9 @@ function Cyclopedia.ItemSearch(text, clearTextEdit)
     table.sort(searchedItems, Cyclopedia.compareItems)
     refreshItemsListView(searchedItems, {
         autoSelectId = Cyclopedia.Items.pendingOpenItemId,
-        selectSingle = true
+        selectSingle = true,
+        immediate = true,
+        selectDelay = ITEM_SEARCH_SELECT_DELAY_MS
     })
 
     if #searchedItems == 0 and not getCachedServerMarketItems() and g_game.isOnline() then
@@ -1992,13 +2012,18 @@ function Cyclopedia.showItemDetailLoading()
         return
     end
 
+    Cyclopedia.Items.currentItemDescriptions = nil
+
     local list = UI.InfoBase.DetailsBase.List
     list:destroyChildren()
 
-    local label = g_ui.createWidget("UIWidget", list)
+    local label = g_ui.createWidget("Label", list)
     label:setText(tr("Status: Loading, please wait..."))
     label:setColor("#C0C0C0")
     label:setFont("Verdana Bold-11px")
+    label:setTextAlign(AlignCenter)
+    label:setTextWrap(true)
+    label:setTextAutoResize(true)
 end
 
 local function resolveInspectionItem(data)
@@ -2119,6 +2144,143 @@ function Cyclopedia.scheduleItemDetailFallback(itemId)
     end, 750)
 end
 
+local function getDescriptionPair(data)
+    if type(data) ~= "table" then
+        return nil, nil
+    end
+
+    local key = data.key or data[1]
+    local value = data.value or data[2]
+    if key == nil or value == nil then
+        return nil, nil
+    end
+
+    key = tostring(key):gsub("^%s+", ""):gsub("%s+$", "")
+    value = tostring(value)
+    if key == "" or value == "" then
+        return nil, nil
+    end
+
+    return key, value
+end
+
+local function resolveCyclopediaItemName(itemId)
+    itemId = tonumber(itemId)
+    if not itemId then
+        return ""
+    end
+
+    if UI and UI.selectItem and UI.selectItem.Name then
+        local selectedName = UI.selectItem.Name:getText()
+        if selectedName and selectedName ~= "" then
+            return selectedName
+        end
+    end
+
+    local itemName = getServerMarketItemName(itemId)
+    if itemName and itemName ~= "" then
+        return itemName
+    end
+
+    local thingType = g_things.getThingType(itemId, ThingCategoryItem)
+    return thingType and Cyclopedia.getItemDisplayName(thingType) or ""
+end
+
+local function collectDetailRowsFromDescriptions(descriptions)
+    local rows = {}
+    if type(descriptions) ~= "table" then
+        return rows
+    end
+
+    for i = 1, #descriptions do
+        local key, value = getDescriptionPair(descriptions[i])
+        if key and value then
+            rows[#rows + 1] = { key = key, value = value }
+        end
+    end
+
+    if #rows == 0 then
+        for _, data in pairs(descriptions) do
+            local key, value = getDescriptionPair(data)
+            if key and value then
+                rows[#rows + 1] = { key = key, value = value }
+            end
+        end
+    end
+
+    return rows
+end
+
+local function collectDetailRowsFromList(list)
+    local rows = {}
+    if not list then
+        return rows
+    end
+
+    for _, row in ipairs(list:getChildren()) do
+        local children = row:getChildren()
+        if #children == 1 and children[1].getText then
+            local text = children[1]:getText() or ""
+            local key, value = text:match("^([^:]+):%s*(.+)$")
+            if key and value and not key:find("Status", 1, true) then
+                rows[#rows + 1] = { key = key, value = value }
+            end
+        elseif #children >= 2 and children[1].getText and children[2].getText then
+            local key = (children[1]:getText() or ""):gsub(":%s*$", "")
+            local value = children[2]:getText() or ""
+            if key ~= "" and value ~= "" and not key:find("Status", 1, true) then
+                rows[#rows + 1] = { key = key, value = value }
+            end
+        elseif row.getText then
+            local text = row:getText() or ""
+            if text ~= "" and not text:find("Loading", 1, true) and not text:find("No details available", 1, true) then
+                local key, value = text:match("^([^:]+):%s*(.+)$")
+                if key and value then
+                    rows[#rows + 1] = { key = key, value = value }
+                end
+            end
+        end
+    end
+
+    return rows
+end
+
+local function buildItemDetailsCopyText()
+    local rows = {}
+    local list = UI and UI.InfoBase and UI.InfoBase.DetailsBase and UI.InfoBase.DetailsBase.List
+
+    if list and list:getChildCount() > 0 then
+        rows = collectDetailRowsFromList(list)
+    end
+
+    if #rows == 0 then
+        rows = collectDetailRowsFromDescriptions(Cyclopedia.Items.currentItemDescriptions)
+    end
+
+    local lines = {}
+    local itemName = resolveCyclopediaItemName(Cyclopedia.Items.currentItemId)
+    if itemName ~= "" then
+        lines[#lines + 1] = string.format("You are inspecting: %s", itemName)
+    end
+
+    for i = 1, #rows do
+        lines[#lines + 1] = string.format("%s: %s", rows[i].key, rows[i].value)
+    end
+
+    return table.concat(lines, "\n")
+end
+
+function Cyclopedia.copyItemDetailsToClipboard()
+    if not g_window or not g_window.setClipboardText then
+        return
+    end
+
+    local text = buildItemDetailsCopyText()
+    if text and text ~= "" then
+        g_window.setClipboardText(text)
+    end
+end
+
 function Cyclopedia.loadItemDetail(itemId, descriptions)
     if not (UI and UI.InfoBase and UI.InfoBase.DetailsBase) then
         return
@@ -2135,16 +2297,30 @@ function Cyclopedia.loadItemDetail(itemId, descriptions)
     end
 
     local list = UI.InfoBase.DetailsBase.List
+    local renderedDescriptions = {}
+
     for _, description in ipairs(descriptions) do
-        local key = description.key or description[1]
-        local value = description.value or description[2]
-        if key and value and value ~= "" then
-            Cyclopedia.appendDetailKeyValueRow(list, tostring(key), tostring(value))
+        local key, value = getDescriptionPair(description)
+        if key and value then
+            Cyclopedia.appendDetailCenteredRow(list, key, value)
+            renderedDescriptions[#renderedDescriptions + 1] = { key = key, value = value }
         end
     end
 
+    if #renderedDescriptions == 0 then
+        for _, description in pairs(descriptions) do
+            local key, value = getDescriptionPair(description)
+            if key and value then
+                Cyclopedia.appendDetailCenteredRow(list, key, value)
+                renderedDescriptions[#renderedDescriptions + 1] = { key = key, value = value }
+            end
+        end
+    end
+
+    Cyclopedia.Items.currentItemDescriptions = renderedDescriptions
+
     if list:getChildCount() == 0 then
-        Cyclopedia.appendDetailKeyValueRow(list, tr("Status"), tr("No details available."))
+        Cyclopedia.appendDetailCenteredRow(list, tr("Status"), tr("No details available."))
     end
 
     local layout = list:getLayout()
@@ -2572,6 +2748,34 @@ end
 
 local function getQuickLootModule()
     return modules.game_quickloot and modules.game_quickloot.QuickLoot
+end
+
+function Cyclopedia.refreshQuickLootCheck()
+    if not Cyclopedia.isItemsTabActive() or not (UI and UI.InfoBase and UI.InfoBase.quickLootCheck) then
+        return
+    end
+
+    local quickLoot = getQuickLootModule()
+    local check = UI.InfoBase.quickLootCheck
+    if not quickLoot or not quickLoot.data then
+        return
+    end
+
+    if quickLoot.data.filter == 2 then
+        check:setText(tr("Loot when Quick Looting"))
+    else
+        check:setText(tr("Skip when Quick Looting"))
+    end
+
+    local itemId = tonumber(Cyclopedia.Items.currentItemId)
+    local callback = check.onCheckChange
+    check.onCheckChange = nil
+    if itemId then
+        check:setChecked(quickLoot.lootExists(itemId, quickLoot.data.filter))
+    else
+        check:setChecked(false)
+    end
+    check.onCheckChange = callback
 end
 
 function Cyclopedia.Items.manageQuickloot(widget, checked)

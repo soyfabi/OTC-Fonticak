@@ -102,6 +102,71 @@ local function setStringColor(textTable, text, color)
     table.insert(textTable, "{" .. text .. ", " .. color .. "}")
 end
 
+local function normalizeMonsterName(monsterName)
+    return (monsterName or ""):lower()
+end
+
+local function findMonsterDropEntry(monsterDropList, monsterName)
+    local normalizedName = normalizeMonsterName(monsterName)
+    for _, entry in ipairs(monsterDropList) do
+        if normalizeMonsterName(entry.monsterName) == normalizedName then
+            return entry
+        end
+    end
+    return nil
+end
+
+local function addOrMergeMonsterDrop(tracker, monsterName, monsterOutfit, count)
+    local existing = findMonsterDropEntry(tracker.monsterDrop, monsterName)
+    if existing then
+        existing.count = existing.count + count
+        existing.time = os.time()
+        if monsterOutfit then
+            existing.outfit = monsterOutfit
+        end
+        return existing
+    end
+
+    local entry = {
+        monsterName = monsterName,
+        outfit = monsterOutfit,
+        time = os.time(),
+        count = count
+    }
+    tracker.monsterDrop[#tracker.monsterDrop + 1] = entry
+    return entry
+end
+
+local function consolidateMonsterDrops(monsterDropList)
+    local merged = {}
+    local order = {}
+
+    for _, entry in ipairs(monsterDropList) do
+        local key = normalizeMonsterName(entry.monsterName)
+        if merged[key] then
+            merged[key].count = merged[key].count + entry.count
+            merged[key].time = math.max(merged[key].time, entry.time)
+            if entry.outfit then
+                merged[key].outfit = entry.outfit
+            end
+        else
+            merged[key] = {
+                monsterName = entry.monsterName,
+                outfit = entry.outfit,
+                time = entry.time,
+                count = entry.count
+            }
+            order[#order + 1] = key
+        end
+    end
+
+    local result = {}
+    for _, key in ipairs(order) do
+        result[#result + 1] = merged[key]
+    end
+    return result
+end
+
 if not DropTrackerAnalyser then
 	DropTrackerAnalyser = {
 		launchTime = 0,
@@ -259,6 +324,13 @@ function DropTrackerAnalyser:updateWindow(ignoreVisible)
 	end
 
 	for itemId, config in pairs(DropTrackerAnalyser.trackedItems) do
+		if config.monsterDrop and #config.monsterDrop > 1 then
+			config.monsterDrop = consolidateMonsterDrops(config.monsterDrop)
+			for _, monsterDrop in ipairs(config.monsterDrop) do
+				monsterDrop.widget = nil
+			end
+		end
+
 		local widget = contentsPanel.dropItems:getChildById("ItemPanel_" .. itemId)
 		if not widget then
 			-- unable to find the item, then it most likely is a
@@ -344,6 +416,9 @@ function DropTrackerAnalyser:updateWindow(ignoreVisible)
 						table.insert(toBeRemoved, id)
 					else
 						monsterWidget.toBeRemoved = nil
+						local capitalizedName = string.capitalize(monsterDrop.monsterName)
+						monsterWidget.name:setText(capitalizedName)
+						monsterWidget.drops:setText("(" .. formatMoney(monsterDrop.count, ",") .. ")")
 					end
 				end
 			end
@@ -404,7 +479,7 @@ function DropTrackerAnalyser:tryAddingMonsterDrop(item, monsterName, monsterOutf
 		dropedItems[#dropedItems + 1] = itemId
 		tracker.dropCount = tracker.dropCount + item:getCount()
 		tracker.recordStartTimestamp = os.time()
-		tracker.monsterDrop[#tracker.monsterDrop + 1] = {monsterName = monsterName, outfit = monsterOutfit, time = os.time(), count = item:getCount()}
+		addOrMergeMonsterDrop(tracker, monsterName, monsterOutfit, item:getCount())
 		return
 	end
 	
@@ -417,7 +492,7 @@ function DropTrackerAnalyser:tryAddingMonsterDrop(item, monsterName, monsterOutf
 		dropedItems[#dropedItems + 1] = itemId
 		tracker.dropCount = tracker.dropCount + item:getCount()
 		tracker.recordStartTimestamp = os.time()
-		tracker.monsterDrop[#tracker.monsterDrop + 1] = {monsterName = monsterName, outfit = monsterOutfit, time = os.time(), count = item:getCount()}
+		addOrMergeMonsterDrop(tracker, monsterName, monsterOutfit, item:getCount())
 	end
 end
 

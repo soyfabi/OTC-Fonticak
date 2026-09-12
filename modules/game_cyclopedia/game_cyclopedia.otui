@@ -270,7 +270,7 @@ CyclopediaWindow
     anchors.bottom: parent.bottom
     visible: false
     !text: tr('Manage Containers')
-    font: cipsoftFont
+    font: verdana-11px-antialised
     color: #c0c0c0
     @onClick: |
       modules.game_cyclopedia.toggle()
@@ -282,7 +282,7 @@ CyclopediaWindow
     anchors.bottom: parent.bottom
     anchors.right: parent.right
     !text: tr('Close')
-    font: cipsoftFont
+    font: verdana-11px-antialised
     @onClick: toggle()
 
   Button
@@ -292,7 +292,7 @@ CyclopediaWindow
     anchors.right: closeButton.left
     margin-right: 6
     !text: tr('Back')
-    font: cipsoftFont
+    font: verdana-11px-antialised
     enabled: false
     @onClick: toggleBack()
 

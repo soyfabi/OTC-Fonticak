@@ -197,13 +197,14 @@ UIWidget
 
   UIWidget
     id: SearchClearButton
+    size: 12 12
     anchors.right: SearchEdit.right
-    anchors.top: SearchEdit.top
-    margin-top: 1
-    margin-right: 1
+    anchors.verticalCenter: SearchEdit.verticalCenter
+    margin-right: 2
     image-source: /images/ui/button-erase-18x18-up
     image-color: white
     opacity: 0.8
+    !tooltip: tr('Clear all text from the search field')
     @onClick: modules.game_cyclopedia.Cyclopedia.onSearchClearButtonClick()
     $hover:
       image-source: /images/ui/button-erase-18x18-up
@@ -308,13 +309,13 @@ UIWidget
         vertical-scrollbar: ListScrollbar
         anchors.fill: parent
         size: 200 60
-        padding-left: 2
+        padding-left: 6
         padding-top: 4
         padding-bottom: 3
-        padding-right: 2
+        padding-right: 18
         layout:
           type: verticalBox
-          spacing: 2
+          spacing: 1
 
         UIWidget
           !text: tr('Status: Loading, please wait...')
@@ -329,6 +330,22 @@ UIWidget
         margin-bottom: 1
         step: 80
         pixels-scroll: true
+
+      UIButton
+        id: copyItemDetails
+        size: 20 20
+        anchors.bottom: parent.bottom
+        anchors.right: ListScrollbar.left
+        margin-bottom: 3
+        margin-right: 2
+        image-source: /images/game/wheel/change_preset_icon
+        image-clip: 0 0 20 20
+        !tooltip: tr('Copy information to clipboard')
+        $pressed:
+          image-clip: 0 20 20 20
+        $!pressed:
+          image-clip: 0 0 20 20
+        @onClick: modules.game_cyclopedia.Cyclopedia.copyItemDetailsToClipboard()
 
     Panel
       id: SellBase
@@ -476,17 +493,21 @@ UIWidget
       font: $var-cip-font-new
       text-align: right
       text-offset: 0 2
+      clipping: true
 
     Label
       id: OwnValuePlaceholder
       anchors.left: OwnValueEdit.left
+      anchors.right: OwnValueEdit.right
       anchors.verticalCenter: OwnValueEdit.verticalCenter
-      margin-left: 23
+      margin-left: 4
+      margin-right: 13
       phantom: true
       !text: tr('Type to set')
-      text-auto-resize: true
+      text-align: left
       color: #6E706F
- 
+      clipping: true
+
     Label
       id: OwnLootLabel
       anchors.left: SellBase.left

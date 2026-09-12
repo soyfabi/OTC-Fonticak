@@ -12,6 +12,13 @@ local function hideModal(widget)
     end
 end
 
+local function refreshCyclopediaQuickLootCheck()
+    local cyclopedia = modules.game_cyclopedia and modules.game_cyclopedia.Cyclopedia
+    if cyclopedia and cyclopedia.refreshQuickLootCheck then
+        cyclopedia.refreshQuickLootCheck()
+    end
+end
+
 local CLEAR_ICON = "/images/ui/button-clear-20x20-up.png"
 local CHAINED_CLEAR_ICON = "/modules/game_quickloot/images/button-chain-clear-20x20-up.png"
 local GOLD_POUCH_ITEM_ID = 23721
@@ -438,6 +445,7 @@ function QuickLoot.Define()
 
         g_game.requestQuickLootBlackWhiteList(getFilter(QuickLoot.data.filter), #QuickLoot.data.loots[QuickLoot.data.filter], QuickLoot.data.loots[QuickLoot.data.filter])
         QuickLoot.loadFilterItems()
+        refreshCyclopediaQuickLootCheck()
     end
 
     function QuickLoot.lootExists(itemId, filter)
@@ -459,6 +467,8 @@ function QuickLoot.Define()
         if quickLootController.ui:isVisible() then
             QuickLoot.loadFilterItems()
         end
+
+        refreshCyclopediaQuickLootCheck()
     end
 
     function QuickLoot.clearFilterItems()
@@ -466,6 +476,7 @@ function QuickLoot.Define()
 
         g_game.requestQuickLootBlackWhiteList(getFilter(QuickLoot.data.filter), #QuickLoot.data.loots[QuickLoot.data.filter], QuickLoot.data.loots[QuickLoot.data.filter])
         QuickLoot.loadFilterItems()
+        refreshCyclopediaQuickLootCheck()
     end
 
     function QuickLoot.removeLootList(itemId, filter)
@@ -481,6 +492,8 @@ function QuickLoot.Define()
         if quickLootController.ui:isVisible() then
             QuickLoot.loadFilterItems()
         end
+
+        refreshCyclopediaQuickLootCheck()
     end
 
     function QuickLoot.load()

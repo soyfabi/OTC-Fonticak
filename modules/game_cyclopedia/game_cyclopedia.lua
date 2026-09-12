@@ -66,6 +66,40 @@ function Cyclopedia.appendDetailKeyValueRow(parent, key, value)
 	valueLabel:setMarginLeft(DETAIL_LABEL_COLUMN_WIDTH + 8)
 end
 
+function Cyclopedia.appendDetailCenteredRow(parent, key, value)
+	local row = g_ui.createWidget("UIWidget", parent)
+	row:setPhantom(true)
+
+	local parentWidth = parent:getWidth() - parent:getPaddingLeft() - parent:getPaddingRight()
+	if parentWidth <= 0 and parent.getParent then
+		local scrollArea = parent:getParent()
+		if scrollArea then
+			parentWidth = scrollArea:getWidth() - parent:getPaddingLeft() - parent:getPaddingRight() - 16
+		end
+	end
+	if parentWidth <= 0 then
+		parentWidth = 425
+	end
+
+	local text = string.format("%s: %s", key, value)
+	local rowHeight = measureDetailRowHeight(text, parentWidth - 8)
+
+	row:setWidth(parentWidth)
+	row:setHeight(rowHeight)
+
+	local label = g_ui.createWidget("Label", row)
+	label:setText(text)
+	label:setColor("#C0C0C0")
+	label:setFont("Verdana Bold-11px")
+	label:setTextAlign(AlignCenter)
+	label:setTextAutoResize(false)
+	label:setTextWrap(true)
+	label:setWidth(parentWidth)
+	label:setHeight(rowHeight)
+	label:addAnchor(AnchorLeft, "parent", AnchorLeft)
+	label:addAnchor(AnchorTop, "parent", AnchorTop)
+end
+
 local function onCyclopediaItemDetail(data)
 	if Cyclopedia and Cyclopedia.receiveItemDetail and Cyclopedia.receiveItemDetail(data) then
 		return
