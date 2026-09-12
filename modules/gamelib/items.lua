@@ -2,6 +2,10 @@
 -- change to ItemsDatabase.setTier(UIitem) to UIitem:setTier()
 ItemsDatabase = {}
 
+ItemsDatabase.serverValues = ItemsDatabase.serverValues or {}
+
+local OPCODE_ITEM_VALUES = 0xC6
+
 ItemsDatabase.rarityColors = {
     ["yellow"] = TextColors.yellow,
     ["purple"] = TextColors.purple,
@@ -9,6 +13,69 @@ ItemsDatabase.rarityColors = {
     ["green"] = TextColors.green,
     ["grey"] = TextColors.grey,
 }
+
+local function resolveItemId(item)
+    if type(item) == 'number' then
+        return item
+    end
+    if not item then
+        return 0
+    end
+    if item.getId then
+        return item:getId() or 0
+    end
+    if item.getServerId then
+        return item:getServerId() or 0
+    end
+    return 0
+end
+
+function ItemsDatabase.getItemValue(item)
+    local itemId = resolveItemId(item)
+    if itemId <= 0 then
+        return 0
+    end
+    return tonumber(ItemsDatabase.serverValues[itemId]) or 0
+end
+
+function ItemsDatabase.registerServerItemValue(itemId, value)
+    itemId = tonumber(itemId) or 0
+    value = tonumber(value) or 0
+    if itemId <= 0 or value <= 0 then
+        return
+    end
+    ItemsDatabase.serverValues[itemId] = value
+
+    local cyclopediaData = modules.game_cyclopedia and modules.game_cyclopedia.itemsData
+    if cyclopediaData and cyclopediaData.serverValues then
+        cyclopediaData.serverValues[tostring(itemId)] = value
+    end
+end
+
+function ItemsDatabase.clearServerItemValues()
+    ItemsDatabase.serverValues = {}
+end
+
+function ItemsDatabase.getItemPrice(item)
+    local value = ItemsDatabase.getItemValue(item)
+    if value > 0 then
+        return value
+    end
+
+    if type(item) == 'number' then
+        local thingType = g_things.getThingType(item, ThingCategoryItem)
+        if thingType and thingType.getMeanPrice then
+            return thingType:getMeanPrice() or 0
+        end
+        return 0
+    end
+
+    if item and item.getMeanPrice then
+        return item:getMeanPrice() or 0
+    end
+
+    return 0
+end
 
 local function getColorForValue(value)
     if value >= 1000000 then
@@ -62,7 +129,7 @@ function ItemsDatabase.getClipAndImagePath(item)
     end
 
     if item then
-        local price = type(item) == "number" and item or (item and item:getMeanPrice()) or 0
+        local price = ItemsDatabase.getItemPrice(item)
         local itemRarity = getColorForValue(price)
         if itemRarity then
             clip = clipfunction(price)
@@ -136,32 +203,41 @@ function ItemsDatabase.setColorLootMessage(text, defaultColor)
     end
 
     local function coloringLootName(match)
-        local id, itemName = match:match("(%d+)|(.+)")
-        if not id or not itemName then
-            -- If pattern doesn't match itemId|itemName format, return the original match with braces
+        -- Server formats: {itemId:value|name} (TFS/Astra) or {itemId|name} (CrystalServer)
+        local itemId, inlineValue, itemName = match:match('^(%d+):(%d+)|(.+)$')
+        if not itemId then
+            itemId, itemName = match:match('^(%d+)|(.+)$')
+        end
+        if not itemId or not itemName then
             return "{" .. match .. "}"
         end
 
-        local itemId = tonumber(id)
+        itemId = tonumber(itemId)
         if not itemId then
             return "{" .. (itemName or match) .. ", " .. defaultColor .. "}"
         end
 
-        local thingType = g_things.getThingType(itemId, ThingCategoryItem)
-        if not thingType then
-            return "{" .. itemName .. ", " .. defaultColor .. "}"
+        local itemValue = tonumber(inlineValue) or 0
+        if itemValue <= 0 then
+            itemValue = ItemsDatabase.getItemPrice(itemId)
         end
 
-        local itemInfo = thingType:getMeanPrice()
-        if itemInfo then
-            local color = ItemsDatabase.getColorForRarity(getColorForValue(itemInfo))
+        if itemValue > 0 then
+            local color = ItemsDatabase.getColorForRarity(getColorForValue(itemValue))
             return "{" .. itemName .. ", " .. color .. "}"
-        else
-            return "{" .. itemName .. ", " .. defaultColor .. "}"
         end
+
+        return "{" .. itemName .. ", " .. defaultColor .. "}"
     end
 
     local colored = text:gsub("{(.-)}", coloringLootName)
+    local firstBrace = colored:find('{', 1, true)
+    if firstBrace and firstBrace > 1 then
+        local prefix = colored:sub(1, firstBrace - 1)
+        if prefix ~= '' and not prefix:find('{', 1, true) then
+            colored = string.format('{%s, %s}%s', prefix, defaultColor, colored:sub(firstBrace))
+        end
+    end
     return colored
 end
 
@@ -230,4 +306,44 @@ function ItemsDatabase.applyExpiryDisplay(itemWidget, optionKey)
     itemWidget:setShowDuration((g_game.getFeature(GameDisplayItemDuration) or g_game.getFeature(GameThingClock)) and show)
     itemWidget:setShowCharges((g_game.getFeature(GameDisplayItemCharges) or g_game.getFeature(GameThingCounter)) and show)
 end
+
+local function onItemValuesOpcode(_, msg)
+    if not g_game.getFeature(GameColorizedLootValue) then
+        if msg and msg.getMessageSize and msg.setReadPos then
+            msg:setReadPos(msg:getMessageSize())
+        end
+        return
+    end
+
+    local count = msg:getU16()
+    for _ = 1, count do
+        local itemId = msg:getU16()
+        local value = msg:getU32()
+        ItemsDatabase.registerServerItemValue(itemId, value)
+    end
+end
+
+local function registerItemValuesOpcode()
+    if not ProtocolGame or not ProtocolGame.registerOpcode then
+        return
+    end
+    pcall(function()
+        ProtocolGame.unregisterOpcode(OPCODE_ITEM_VALUES)
+    end)
+    ProtocolGame.registerOpcode(OPCODE_ITEM_VALUES, onItemValuesOpcode)
+end
+
+local function onGameStart()
+    ItemsDatabase.clearServerItemValues()
+end
+
+local function onGameEnd()
+    ItemsDatabase.clearServerItemValues()
+end
+
+registerItemValuesOpcode()
+connect(g_game, {
+    onGameStart = onGameStart,
+    onGameEnd = onGameEnd
+})
 
