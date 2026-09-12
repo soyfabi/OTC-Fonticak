@@ -2,6 +2,10 @@ function g_game.getRsa()
     return G.currentRsa
 end
 
+function g_game.isQuickLootEnabled()
+    return g_game.getFeature(GameThingQuickLoot) or g_game.getFeature(GameQuickLootFlags)
+end
+
 function g_game.useCustomForgeProtocol()
     return g_game.getClientVersion() >= 860
 end

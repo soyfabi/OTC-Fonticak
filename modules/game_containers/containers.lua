@@ -35,6 +35,52 @@ local function getItemStackSortValue(item)
     return item:getCount() or 1
 end
 
+local function refreshContainerSlotQuickLootIcon(slotWidget, item)
+    if not slotWidget then
+        return
+    end
+
+    local icon = slotWidget.quickloot or slotWidget:getChildById('quickloot')
+    if not icon then
+        return
+    end
+
+    local show = false
+    local tooltip = ''
+
+    if item and item:isContainer() then
+        local quickLoot = modules.game_quickloot and modules.game_quickloot.QuickLoot
+        if quickLoot and quickLoot.getConfiguredLootFlags then
+            local lootFlags, obtainFlags = quickLoot.getConfiguredLootFlags(item:getId())
+            show = lootFlags ~= 0 or obtainFlags ~= 0
+
+            if show and quickLoot.getQuickLootIconTooltip then
+                tooltip = quickLoot.getQuickLootIconTooltip(lootFlags, obtainFlags)
+            end
+        end
+    end
+
+    icon:setVisible(show)
+    icon:setTooltip(tooltip)
+end
+
+function refreshAllContainerQuickLootIcons()
+    if not g_game.getContainers then
+        return
+    end
+
+    for _, container in pairs(g_game.getContainers()) do
+        if container.itemsPanel then
+            for slot = 0, container:getCapacity() - 1 do
+                local itemWidget = container.itemsPanel:getChildById('item' .. slot)
+                if itemWidget then
+                    refreshContainerSlotQuickLootIcon(itemWidget, container:getItem(slot))
+                end
+            end
+        end
+    end
+end
+
 local function withPreservedContainerScroll(container, fn)
     local panel = container and container.itemsPanel
     local scrollbar = panel and (panel.verticalScrollBar or (container.window and container.window:getChildById('miniwindowScrollBar')))
@@ -529,6 +575,7 @@ function sortContainerItems(container, sortMode)
                 ItemsDatabase.setRarityItem(itemWidget, itemData.item)
                 ItemsDatabase.setTier(itemWidget, itemData.item)
                 ItemsDatabase.applyExpiryDisplay(itemWidget, 'showExpiryInContainers')
+                refreshContainerSlotQuickLootIcon(itemWidget, itemData.item)
             end
         end
     end
@@ -654,6 +701,7 @@ function refreshContainerItems(container)
                 ItemsDatabase.setRarityItem(itemWidget, container:getItem(slot))
                 ItemsDatabase.setTier(itemWidget, container:getItem(slot))
                 ItemsDatabase.applyExpiryDisplay(itemWidget, 'showExpiryInContainers')
+                refreshContainerSlotQuickLootIcon(itemWidget, container:getItem(slot))
             end
         end
 
@@ -998,6 +1046,7 @@ function onContainerOpen(container, previousContainer)
         ItemsDatabase.setRarityItem(itemWidget, container:getItem(slot))
         ItemsDatabase.setTier(itemWidget, container:getItem(slot))
         ItemsDatabase.applyExpiryDisplay(itemWidget, 'showExpiryInContainers')
+        refreshContainerSlotQuickLootIcon(itemWidget, container:getItem(slot))
         itemWidget:setMargin(0)
         itemWidget.position = container:getSlotPosition(slot)
 
@@ -1128,6 +1177,7 @@ function onContainerUpdateItem(container, slot, item, oldItem)
             ItemsDatabase.setRarityItem(itemWidget, item)
             ItemsDatabase.setTier(itemWidget, item)
             ItemsDatabase.applyExpiryDisplay(itemWidget, 'showExpiryInContainers')
+            refreshContainerSlotQuickLootIcon(itemWidget, item)
         end
     end)
     

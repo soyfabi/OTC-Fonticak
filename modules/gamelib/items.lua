@@ -212,6 +212,95 @@ local function applyRarityToWidget(widget, price, style)
     end
 end
 
+function ItemsDatabase.syncRarityWidgetVisibility(rarityWidget)
+    if not rarityWidget then
+        return
+    end
+
+    local imageSource = rarityWidget:getImageSource()
+
+    rarityWidget:setVisible(imageSource and imageSource ~= "" and imageSource ~= "/images/ui/item")
+end
+
+local function resolveSlotRarityWidget(slotWidget)
+    if slotWidget.rarity and slotWidget.rarity.getClassName then
+        return slotWidget.rarity
+    end
+
+    return slotWidget:getChildById("rarity")
+end
+
+local function resolveSlotItemWidget(slotWidget)
+    local itemUi = slotWidget:getChildById("item")
+
+    if itemUi then
+        return itemUi
+    end
+
+    if slotWidget.item and slotWidget.item.getClassName then
+        return slotWidget.item
+    end
+
+    return nil
+end
+
+function ItemsDatabase.applyContainerRarityStackOrder(slotWidget, extraOverlayIds)
+    if not slotWidget then
+        return
+    end
+
+    local rarity = resolveSlotRarityWidget(slotWidget)
+    local itemUi = resolveSlotItemWidget(slotWidget)
+
+    if not rarity or not itemUi or itemUi:getClassName() ~= "UIItem" then
+        return
+    end
+
+    local frameOption = modules.client_options and modules.client_options.getOption("framesRarity") or "frames"
+    local hasItemSlot = slotWidget.itemSlot ~= nil
+    local rarityIndex = hasItemSlot and 2 or 1
+    local itemIndex = hasItemSlot and 3 or 2
+
+    if frameOption == "corners" then
+        rarityIndex = hasItemSlot and 3 or 2
+        itemIndex = hasItemSlot and 2 or 1
+    end
+
+    if slotWidget.itemSlot then
+        slotWidget:moveChildToIndex(slotWidget.itemSlot, 1)
+    end
+
+    slotWidget:moveChildToIndex(rarity, rarityIndex)
+    slotWidget:moveChildToIndex(itemUi, itemIndex)
+
+    local overlayIds = {
+        "tier",
+        "amount",
+        "charges",
+        "duration",
+        "quickloot",
+        "boxed"
+    }
+
+    if extraOverlayIds then
+        for _, id in ipairs(extraOverlayIds) do
+            table.insert(overlayIds, id)
+        end
+    end
+
+    local overlayIndex = itemIndex + 1
+
+    for _, id in ipairs(overlayIds) do
+        local overlay = slotWidget[id]
+
+        if overlay then
+            slotWidget:moveChildToIndex(overlay, overlayIndex)
+
+            overlayIndex = overlayIndex + 1
+        end
+    end
+end
+
 function ItemsDatabase.setRarityItem(widget, item, style)
     if not item then
         applyRarityToWidget(widget, 0, style)
