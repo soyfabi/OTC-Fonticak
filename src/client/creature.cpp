@@ -806,6 +806,18 @@ void Creature::updateWalkAnimation()
             footAnimDelay /= 1.5;
     }
 
+    // Walk phases tied to step progress: one full frame cycle lands exactly on one tile.
+    const uint16_t stepDurationMs = getStepDuration(false);
+    const float stepProgress = stepDurationMs > 0
+        ? m_walkTimer.ticksElapsed() / static_cast<float>(stepDurationMs)
+        : -1.f;
+
+    if (std::isfinite(stepProgress) && stepProgress >= 0.f) {
+        const float progress = std::min(stepProgress, 0.999f);
+        m_walkAnimationPhase = static_cast<uint8_t>(1 + static_cast<int>(progress * footAnimPhases));
+        return;
+    }
+
     const auto walkSpeed = m_walkingAnimationSpeed > 0 ? m_walkingAnimationSpeed : m_stepCache.getDuration(m_lastStepDirection);
     const int footDelay = std::clamp<int>(walkSpeed / footAnimDelay, minFootDelay, maxFootDelay);
 
@@ -888,18 +900,16 @@ void Creature::nextWalkUpdate()
 
     // do the update
     updateWalk();
-    if (isCameraFollowing()) {
-        g_map.notificateCameraMove(m_walkOffset);
-    }
 
     if (!m_walking) return;
 
     // schedules next update
-    auto self = static_self_cast<Creature>();
-    m_walkUpdateEvent = g_dispatcher.scheduleEvent([self] {
+    auto action = [self = static_self_cast<Creature>()] {
         self->m_walkUpdateEvent = nullptr;
         self->nextWalkUpdate();
-    }, m_stepCache.walkDuration);
+    };
+
+    m_walkUpdateEvent = g_dispatcher.scheduleEvent(action, m_stepCache.walkDuration);
 }
 
 void Creature::updateWalk(const bool isPreWalking)
@@ -913,9 +923,15 @@ void Creature::updateWalk(const bool isPreWalking)
     // needed for paralyze effect
     m_walkedPixels = std::max<int>(m_walkedPixels, totalPixelsWalked);
 
+    const auto oldWalkOffset = m_walkOffset;
+
     updateWalkAnimation();
     updateWalkOffset(m_walkedPixels);
     updateWalkingTile();
+
+    if (isCameraFollowing() && oldWalkOffset != m_walkOffset) {
+        g_map.notificateCameraMove(m_walkOffset);
+    }
 
     if (m_walkedPixels == g_gameConfig.getSpriteSize()) {
         if (isPreWalking) {
