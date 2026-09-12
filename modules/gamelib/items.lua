@@ -347,7 +347,14 @@ function ItemsDatabase.applyExpiryDisplay(itemWidget, optionKey)
 end
 
 local function usesCustomItemValueProtocol()
-    return g_game.getFeature(GameColorizedLootValue)
+    if not g_game.getFeature(GameColorizedLootValue) then
+        return false
+    end
+
+    local version = g_game.getClientVersion()
+    -- 0xC6/0xC7 are custom item-value opcodes on 8.60 servers only.
+    -- On 12.x+ the same opcodes are native cyclopedia house packets.
+    return version >= 860 and version < 1200
 end
 
 local function onItemValuesOpcode(_, msg)

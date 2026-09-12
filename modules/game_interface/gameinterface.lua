@@ -200,9 +200,7 @@ function bindKeys()
             callback = function()
                 if lastStopAction + 50 > g_clock.millis() then return end
                 lastStopAction = g_clock.millis()
-                if cancelMouseTarget() then
-                    return
-                end
+                cancelMouseTarget()
                 g_game.cancelAttackAndFollow()
             end,
         }

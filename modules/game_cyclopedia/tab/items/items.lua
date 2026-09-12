@@ -617,6 +617,11 @@ function Cyclopedia.Items.onChangeCustomPrice(widget)
 end
 
 function showItems()
+    if UI and not UI:isDestroyed() then
+        UI:show()
+        return
+    end
+
     UI = g_ui.loadUI("styles/items", contentContainer)
     UI:show()
     Cyclopedia.Items.VocFilter = false

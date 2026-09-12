@@ -183,9 +183,6 @@ local function getDatabaseValue(item)
 end
 
 local function getDefaultValue(item)
-  local itemId = getItemId(item)
-  local serverValue = asNumber(itemsData.serverValues[tostring(itemId)] or itemsData.serverValues[itemId])
-  if serverValue > 0 then return serverValue end
   local defaultValue = asNumber(call(item, 'getDefaultValue'))
   if defaultValue > 0 then return defaultValue end
   local value = getNpcValue(item)
