@@ -339,13 +339,88 @@ function EnterGame.firstShow()
         end)
     end
 
-    if Services and Services.status then
-        if g_modules.getModule("client_bottommenu"):isLoaded()  then
-            EnterGame.postCacheInfo()
-            EnterGame.postEventScheduler()
-            -- EnterGame.postShowOff() -- myacc/znote no send login.php
-            EnterGame.postShowCreatureBoost()
+    EnterGame.refreshBoostedPanel()
+end
+
+function EnterGame.refreshBoostedPanel()
+    if not g_modules.getModule("client_bottommenu") or not g_modules.getModule("client_bottommenu"):isLoaded() then
+        return
+    end
+
+    if Services and Services.status and Services.status ~= '' then
+        EnterGame.postCacheInfo()
+        EnterGame.postEventScheduler()
+        -- EnterGame.postShowOff() -- myacc/znote no send login.php
+        EnterGame.postShowCreatureBoost()
+    else
+        EnterGame.fetchBoostedFromLoginServer()
+    end
+end
+
+function EnterGame.fetchBoostedFromLoginServer()
+    if not enterGame or EnterGame.boostedLoginProtocol then
+        return
+    end
+
+    local host = enterGame:getChildById('serverHostTextEdit'):getText()
+    local port = tonumber(enterGame:getChildById('serverPortTextEdit'):getText())
+    if (not host or host == '') and Servers_init then
+        host, port = next(Servers_init)
+        if type(port) == 'table' then
+            port = port.port
         end
+    end
+
+    if not host or host == '' or not port or port == 0 then
+        if BoostedCreatures and modules.client_bottommenu.applyConfiguredBoostedCreatures then
+            modules.client_bottommenu.applyConfiguredBoostedCreatures()
+        end
+        return
+    end
+
+    local protocol = ProtocolLogin.create()
+    EnterGame.boostedLoginProtocol = protocol
+
+    local function releaseBoostedLoginProtocol()
+        if EnterGame.boostedLoginProtocol == protocol then
+            EnterGame.boostedLoginProtocol = nil
+        end
+    end
+
+    local function applyBoostedFallback()
+        if BoostedCreatures and modules.client_bottommenu.applyConfiguredBoostedCreatures then
+            modules.client_bottommenu.applyConfiguredBoostedCreatures()
+        end
+    end
+
+    local receivedBoostedInfo = false
+
+    local clientVersion = tonumber(clientBox and clientBox:getText() or g_settings.getInteger('client-version')) or 860
+    g_game.setClientVersion(clientVersion)
+    g_game.setProtocolVersion(g_game.getClientProtocolVersion(clientVersion))
+
+    protocol.onBoostedInfo = function()
+        receivedBoostedInfo = true
+        releaseBoostedLoginProtocol()
+    end
+
+    protocol.onLoginError = function(_, message)
+        releaseBoostedLoginProtocol()
+        applyBoostedFallback()
+        g_logger.debug(string.format('[entergame] Boosted login fetch failed: %s', tostring(message)))
+    end
+
+    protocol.onCharacterList = function()
+        releaseBoostedLoginProtocol()
+        if not receivedBoostedInfo then
+            applyBoostedFallback()
+            g_logger.debug('[entergame] Boosted login fetch received character list without boosted info')
+        end
+    end
+
+    if not protocol:fetchBoosted(host, port) then
+        releaseBoostedLoginProtocol()
+        applyBoostedFallback()
     end
 end
 

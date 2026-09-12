@@ -11,6 +11,18 @@ Item < UIItem
     color: #646464
 
   UIWidget
+    id: quickloot
+    visible: false
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    image-source: /modules/game_quickloot/images/icon-loot-container.png
+    margin-bottom: 1
+    margin-right: 1
+    image-size: 7 9
+    phantom: true
+    focusable: false
+
+  UIWidget
     id: tier
     size: 10 9
     image-source: /images/inventory/tiers-strip
@@ -219,6 +231,18 @@ MainInventoryItem < UIWidget
       focusable: false
       visible: false
       image-smooth: true
+
+  UIWidget
+    id: quickloot
+    visible: false
+    anchors.bottom: item.bottom
+    anchors.right: item.right
+    image-source: /modules/game_quickloot/images/icon-loot-container.png
+    margin-bottom: 1
+    margin-right: 1
+    image-size: 7 9
+    phantom: true
+    focusable: false
 
 UIDragIcon < UIItem
   size: 34 34

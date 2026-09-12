@@ -1421,17 +1421,20 @@ function sendNpcModalReply(message)
         return
     end
 
+    local lowerMsg = message:lower()
+    if lowerMsg == "hi" or lowerMsg == "hello" or lowerMsg == "hola" then
+        if modules.game_npcmodal and modules.game_npcmodal.cancelNpcModalClose then
+            modules.game_npcmodal.cancelNpcModalClose()
+        end
+    end
+
     if modules.game_npcmodal and modules.game_npcmodal.addNpcDialogLine and g_game.isOnline() then
         modules.game_npcmodal.addNpcDialogLine(g_game.getCharacterName(), message, true)
     end
 
-    local lowerMsg = message:lower()
-    if (lowerMsg == "bye" or lowerMsg == "adios" or lowerMsg == "farewell" or lowerMsg == "cya") and modules.game_npcmodal and modules.game_npcmodal.closeNpcModal then
-        scheduleEvent(function()
-            if modules.game_npcmodal and modules.game_npcmodal.closeNpcModal then
-                modules.game_npcmodal.closeNpcModal()
-            end
-        end, 400)
+    if (lowerMsg == "bye" or lowerMsg == "adios" or lowerMsg == "farewell" or lowerMsg == "cya")
+        and modules.game_npcmodal and modules.game_npcmodal.scheduleNpcModalClose then
+        modules.game_npcmodal.scheduleNpcModalClose()
     end
 
     local npcTab = getTab("NPCs")
@@ -2085,6 +2088,21 @@ function navigateMessageHistory(step)
     end
 end
 
+local function isLootChannelMessage(message)
+    if type(message) ~= 'string' then
+        return false
+    end
+    local lower = message:lower()
+    return lower:find('^loot of') ~= nil or lower:find('^loot de') ~= nil
+end
+
+local function getColoredLootSpeaktype(speaktype)
+    return {
+        color = (speaktype and speaktype.color) or TextColors.green,
+        colored = true
+    }
+end
+
 function applyMessagePrefixies(name, level, message)
     if name and #name > 0 then
         if modules.client_options.getOption('showLevelsInConsole') and level > 0 then
@@ -2277,7 +2295,13 @@ function onTalk(name, level, mode, message, channelId, creaturePos)
         end
 
         if channel then
-            addText(composedMessage, speaktype, channel, name)
+            local displayMessage = composedMessage
+            local displaySpeaktype = speaktype
+            if isLootChannelMessage(message) and ItemsDatabase and ItemsDatabase.setColorLootMessage then
+                displayMessage = ItemsDatabase.setColorLootMessage(composedMessage)
+                displaySpeaktype = getColoredLootSpeaktype(speaktype)
+            end
+            addText(displayMessage, displaySpeaktype, channel, name)
         else
             -- server sent a message on a channel that is not open
             pwarning('message in channel id ' .. channelId ..

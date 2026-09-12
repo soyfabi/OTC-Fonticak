@@ -664,7 +664,8 @@ void MapView::onMouseMove(const Position& mousePos, const bool /*isVirtualMove*/
                         if (thing->getDefaultAction() == PLAYER_ACTION_OPEN || thing->isContainer() || thing->isLyingCorpse()) {
                             // Use quicklootcursor for dead creatures when quickloot is active
                             const bool isDeadCreature = thing->isLyingCorpse();
-                            const bool quickLootActive = g_game.getFeature(Otc::GameThingQuickLoot);
+                            const bool quickLootActive = g_game.getFeature(Otc::GameThingQuickLoot)
+                                || g_game.getFeature(Otc::GameQuickLootFlags);
                             int id = -1;
                             if (isDeadCreature && quickLootActive)
                                 id = getFirstCursorId({ "quickloot", "quicklootcursor" });

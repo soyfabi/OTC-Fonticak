@@ -1,0 +1,650 @@
+&var-cip-font: verdana-11px-antialised
+&var-cip-font-new: Verdana Bold-11px
+
+UIWidget
+  id: Cat1
+  anchors.fill: parent
+  visible: false
+
+  UILabel
+    id: Categorylabel
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 10
+    margin-left: -1
+    !text: tr('Categories') .. ':' 
+    font: $var-cip-font-new
+    text-auto-resize: true
+    color: #c0c0c0
+
+  TextList
+    id: CategoryList
+    vertical-scrollbar: CategoryScrollbar
+    anchors.left: parent.left
+    anchors.top: parent.top
+    margin-top: 28
+    image-source: /images/ui/1pixel-down-frame
+    image-border: 5
+    background-color: #363636
+    border-width: 0
+    size: 200 60
+    padding-left: 1
+    padding-top: 1
+    padding-bottom: 1
+    focusable: false
+ 
+  VerticalQtScrollBar 
+    id: CategoryScrollbar
+    anchors.top: CategoryList.top
+    anchors.right: CategoryList.right
+    anchors.bottom: CategoryList.bottom
+    margin-top: 1
+    margin-right: 1
+    margin-bottom: 1
+    step: 10
+    pixels-scroll: true
+
+  VerticalSeparator
+    id: MidSep
+    anchors.left: parent.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom 
+    margin-top: 10
+    margin-bottom:30
+    margin-left: 210
+ 
+  fakeCheckBox
+    id: LevelButton
+    size: 49 21
+    anchors.left: parent.left
+    anchors.top: CategoryList.bottom
+    margin-top: 31
+    margin-left: -1
+    !text: tr("Level")
+    text-align: center
+    text-offset: 0 1
+    color: #ffffff
+    @onCheckChange: modules.game_cyclopedia.Cyclopedia.levelFilter(self:isChecked())
+
+  fakeCheckBox
+    id: VocationButton
+    size: 49 21
+    anchors.left: LevelButton.right
+    anchors.top: LevelButton.top
+    margin-left: 4
+    !text: tr("Voc.")
+    text-align: center
+    text-offset: 0 1
+    color: #ffffff
+    @onCheckChange: modules.game_cyclopedia.Cyclopedia.vocationFilter(self:isChecked())
+
+  fakeCheckBox
+    id: H1Button
+    size: 48 21
+    anchors.left: VocationButton.right
+    anchors.top: LevelButton.top
+    margin-left: 4
+    !text: tr("1H")
+    text-align: center
+    text-offset: 0 1
+    color: #ffffff
+    @onCheckChange: modules.game_cyclopedia.Cyclopedia.handFilter(self:isChecked(), false)
+    $disabled:
+      opacity: 1.0
+      image-color: #ffffff
+      color: #b4b4b4
+
+  fakeCheckBox
+    id: H2Button
+    size: 48 21 
+    anchors.left: H1Button.right
+    anchors.top: LevelButton.top
+    margin-left: 4
+    !text: tr("2H")
+    text-align: center
+    text-offset: 0 1
+    color: #ffffff
+    @onCheckChange: modules.game_cyclopedia.Cyclopedia.handFilter(false, self:isChecked())
+    $disabled:
+      opacity: 1.0
+      image-color: #ffffff
+      color: #b4b4b4
+
+  ComboBox
+    id: ItemFilter
+    size: 77 20
+    anchors.top: LevelButton.bottom
+    anchors.left: parent.left
+    margin-top: 5
+    padding-right: 5
+    text-offset: -12 1
+    color: #c0c0c0
+    @onOptionChange: modules.game_cyclopedia.Cyclopedia.classificationFilter(self:getCurrentOption().data)
+
+  Label
+    id: ItemsLabel
+    anchors.top: ItemFilter.bottom
+    anchors.left: parent.left
+    margin-top: 9
+    margin-left: -1
+    !text: tr("Items") .. ':'
+    font: $var-cip-font-new
+    text-auto-resize: true
+    color: #c0c0c0
+
+  Panel
+    id: ItemListBase
+    anchors.left: parent.left
+    anchors.top: ItemsLabel.bottom
+    margin-top: 6
+    size: 200 132
+    image-source: /images/ui/1pixel-down-frame
+    image-border: 5
+    background-color: #404040
+
+    UIScrollArea
+      id: List
+      anchors.fill: ItemListBase
+      focusable: false
+      vertical-scrollbar: ListScrollbar
+      margin-top: 5
+      size: 200 132
+      image-border: 10
+      padding-top: 1
+      padding-bottom: 1
+      layout:
+        type: grid
+        cell-size: 200 35
+        cell-spacing: 1
+        flow: true
+
+    VerticalQtScrollBar
+      id: ListScrollbar
+      anchors.top: List.top
+      anchors.right: List.right
+      anchors.bottom: List.bottom
+      margin-top: 1
+      margin-right: 1
+      margin-bottom: 1
+      step: 36
+      pixels-scroll: true
+
+  UIWidget
+    size: 34 34
+    id: SelectedItem
+    anchors.left: parent.left
+    anchors.top: ItemListBase.bottom
+    image-source: /images/ui/item
+    margin-top: 6
+ 
+    UIWidget
+      id: Rarity
+      size: 32 32
+      anchors.centerIn: parent
+      phantom: true
+
+    UIItem
+      id: Sprite
+      anchors.fill: parent
+
+  Label
+    id: SearchLabel
+    anchors.left: SelectedItem.right
+    anchors.top: SelectedItem.top
+    margin-left: 5
+    !text: tr('Search') .. ':'
+    text-auto-resize: true
+    font: $var-cip-font-new
+    color: #c0c0c0
+
+  TextEdit
+    id: SearchEdit
+    anchors.bottom: SelectedItem.bottom
+    anchors.left: SelectedItem.right
+    anchors.right: ItemListBase.right
+    focusable: true
+    //font: verdana-10px-antialiased
+    padding-top: 0
+    padding-right: 15
+    margin-left: 6 
+    height: 16
+    placeholder: Type to search
+    placeholder-color: #6E706F
+    @onTextChange: modules.game_cyclopedia.Cyclopedia.onItemSearchTextChange(self:getText())
+
+  UIWidget
+    id: SearchClearButton
+    anchors.right: SearchEdit.right
+    anchors.top: SearchEdit.top
+    margin-top: 1
+    margin-right: 1
+    image-source: /images/ui/button-erase-18x18-up
+    image-color: white
+    opacity: 0.8
+    @onClick: modules.game_cyclopedia.Cyclopedia.onSearchClearButtonClick()
+    $hover:
+      image-source: /images/ui/button-erase-18x18-up
+    $pressed:
+      image-source: /images/ui/button-erase-18x18-down
+
+  UIWidget
+    id: LootValue
+    height: 64
+    anchors.left: parent.left
+    anchors.right: SearchClearButton.right
+    anchors.top: SelectedItem.bottom
+
+    Label
+      id: LootValueLabel
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-top: 11
+      margin-left: 19
+      !text: tr('Loot Value Source') .. ':'
+      font: $var-cip-font-new
+      text-auto-resize: true
+      color: #c0c0c0
+
+    CheckBoxCircle
+      id: NpcBuyCheck
+      anchors.top: LootValueLabel.bottom
+      anchors.left: LootValueLabel.left
+      margin-top: 6
+      margin-left: 1
+
+      !text: tr('NPC Buy Value')
+      font: $var-cip-font-new
+      color: #c0c0c0
+      text-offset: 15 -1
+      width: 130
+      checked: true
+      $hover !disabled:
+        text-offset: 15 -1
+        color: #c0c0c0
+
+    CheckBoxCircle
+      id: MarketCheck
+      anchors.top: NpcBuyCheck.bottom
+      anchors.left: LootValueLabel.left
+      margin-top: 3
+      margin-left: 1
+      !text: tr('Market Average Value')
+      font: $var-cip-font-new
+      color: #c0c0c0
+      text-offset: 15 -1
+      width: 150
+      $hover !disabled:
+        text-offset: 15 -1
+        color: #c0c0c0
+
+  Label
+    id: EmptyLabel
+    anchors.top: parent.top
+    anchors.left: MidSep.right
+    margin-top: 10
+    margin-left: 10
+    !text: tr('Please select an item from the list to see its details here.')
+    font: $var-cip-font-new 
+    color: #C0C0C0 
+    text-auto-resize: true
+
+  UIWidget
+    id: InfoBase
+    anchors.left: MidSep.right
+    anchors.top: parent.top
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    visible: false
+
+    Label
+      id: BasicDetailsLabel
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 10
+      margin-top: 10
+      !text: tr('Basic Item Details') .. ':'
+      font: $var-cip-font-new
+      text-auto-resize: true
+      color: #c0c0c0
+
+    Panel
+      id: DetailsBase
+      anchors.left: BasicDetailsLabel.left
+      anchors.top: BasicDetailsLabel.bottom
+      anchors.right: parent.right
+      image-source: /images/ui/1pixel-down-frame
+      image-border: 5
+      margin-top: 6
+      margin-left: 1
+      height: 150
+      background-color: #363636
+
+      UIScrollArea
+        id: List
+        vertical-scrollbar: ListScrollbar
+        anchors.fill: parent
+        size: 200 60
+        padding-left: 2
+        padding-top: 4
+        padding-bottom: 3
+        layout:
+          type: grid
+          cell-size: 425 20
+          cell-spacing: 0
+          flow: true
+
+        UIWidget
+          !text: tr('Status: Loading, please wait...')
+
+      VerticalQtScrollBar
+        id: ListScrollbar
+        anchors.top: List.top
+        anchors.right: List.right
+        anchors.bottom: List.bottom
+        margin-top: 1
+        margin-right: 1
+        margin-bottom: 1
+        step: 80
+        pixels-scroll: true
+
+    Panel
+      id: SellBase
+      anchors.left: DetailsBase.left
+      anchors.top: DetailsBase.bottom
+      anchors.right: parent.horizontalCenter
+      image-source: /images/ui/1pixel-down-frame
+      image-border: 5
+      margin-top: 29
+      margin-right: -3
+      height: 100
+      background-color: #404040
+
+      UIScrollArea
+        id: List
+        vertical-scrollbar: ListScrollbar
+        anchors.fill: parent
+        size: 200 60
+        padding-left: 1
+        padding-top: 1
+        padding-bottom: 1
+        margin-left: 1
+        layout:
+          type: grid
+          cell-size: 210 28
+          cell-spacing: 0
+          flow: true
+
+      VerticalQtScrollBar
+        id: ListScrollbar
+        anchors.top: List.top
+        anchors.right: List.right
+        anchors.bottom: List.bottom
+        margin-top: 1
+        margin-right: 1
+        margin-bottom: 1
+        step: 80
+        pixels-scroll: true
+
+    Label
+      id: SellLabel
+      anchors.bottom: SellBase.top
+      anchors.left: SellBase.left
+      margin-bottom: 6
+      margin-left: -1
+      !text: tr('Sell To') .. ':'
+      font: $var-cip-font-new
+      text-auto-resize: true
+      color: #c0c0c0
+
+    Panel
+      id: BuyBase
+      anchors.left: parent.horizontalCenter
+      anchors.top: SellBase.top
+      anchors.right: parent.right
+      image-source: /images/ui/1pixel-down-frame
+      image-border: 5
+      margin-left: 9
+      height: 100
+      background-color: #404040
+
+      UIScrollArea
+        id: List
+        vertical-scrollbar: ListScrollbar
+        anchors.fill: parent
+        size: 200 60
+        padding-left: 1
+        padding-top: 1
+        padding-bottom: 1
+        margin-left: 1
+        layout:
+          type: grid
+          cell-size: 210 28
+          cell-spacing: 0
+          flow: true
+
+      VerticalQtScrollBar
+        id: ListScrollbar
+        anchors.top: List.top
+        anchors.right: List.right
+        anchors.bottom: List.bottom
+        margin-top: 1
+        margin-right: 1
+        margin-bottom: 1
+        step: 80
+        pixels-scroll: true
+
+    Label
+      id: BuyLabel
+      anchors.bottom: BuyBase.top
+      anchors.left: BuyBase.left
+      margin-bottom: 6
+      margin-left: -1
+      !text: tr('Buy From') .. ':'
+      font: $var-cip-font-new
+      text-auto-resize: true
+      color: #c0c0c0
+
+    UIWidget
+      id: MarketGoldPriceBase
+      anchors.top: BuyBase.bottom 
+      anchors.right: parent.right
+      margin-top: 21
+      image-source: /images/ui/item66
+      image-border: 10
+      size: 104 20
+
+      UIWidget
+        id: Icon
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 3
+        margin-top: 1
+        image-source: /images/icons/icon-goldcoin
+
+      Label
+        id: Value
+        anchors.right: Icon.left
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 2
+        text-offset: 0 1
+        !text: tr('0')
+        font: $var-cip-font-new
+        text-auto-resize: true
+        color: #c0c0c0
+
+    Label
+      id: MarketPriceLabel
+      anchors.left: SellBase.left
+      anchors.bottom: MarketGoldPriceBase.bottom
+      !text: tr('Average Market Price') .. ':'
+      font: $var-cip-font-new
+      margin-bottom: 3
+      margin-left: -1
+      text-auto-resize: true
+      color: #c0c0c0
+
+    TextEdit
+      id: OwnValueEdit
+      anchors.top: MarketGoldPriceBase.bottom
+      anchors.right: parent.right
+      anchors.left: MarketGoldPriceBase.left
+      margin-top: 1
+      padding-right: 13
+      font: $var-cip-font-new
+      text-align: right
+      text-offset: 0 2
+
+    Label
+      id: OwnValuePlaceholder
+      anchors.left: OwnValueEdit.left
+      anchors.verticalCenter: OwnValueEdit.verticalCenter
+      margin-left: 23
+      phantom: true
+      !text: tr('Type to set')
+      text-auto-resize: true
+      color: #6E706F
+ 
+    Label
+      id: OwnLootLabel
+      anchors.left: SellBase.left
+      anchors.bottom: OwnValueEdit.bottom
+      !text: tr('Prefer Own Loot Value') .. ':'
+      font: $var-cip-font-new
+      margin-bottom: 3
+      margin-left: -1
+      text-auto-resize: true
+      color: #c0c0c0
+
+    UIWidget
+      id: ResultGoldBase 
+      anchors.top: OwnValueEdit.bottom
+      anchors.right: parent.right
+      margin-top: 1
+      image-source: /images/ui/item66
+      image-border: 10
+      size: 104 20
+
+      UIWidget
+        id: Rarity
+        anchors.fill: parent
+        image-border: 8
+        margin: 1
+
+      UIWidget
+        id: Icon
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 3
+        margin-top: 1
+        image-source: /images/icons/icon-goldcoin
+
+      Label
+        id: Value
+        anchors.right: Icon.left
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 2
+        text-offset: 0 1
+        !text: tr('0')
+        font: $var-cip-font-new
+        text-auto-resize: true
+        color: #c0c0c0
+
+    Label
+      id: ResultLabel
+      anchors.left: SellBase.left
+      anchors.bottom: ResultGoldBase.bottom
+      !text: tr('Resulting Value') .. ':'
+      font: $var-cip-font-new
+      margin-bottom: 3
+      margin-left: -1
+      text-auto-resize: true
+      color: #c0c0c0
+
+    CheckBox
+      id: TrackCheck
+      anchors.left: SellBase.left
+      anchors.bottom: parent.bottom
+      margin-bottom: 43
+      !text: tr('Track drops of this item')
+      text-offset: 15 0
+      font: $var-cip-font-new
+      text-auto-resize: true
+      color: #c0c0c0
+
+    CheckBox
+      id: quickLootCheck
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      margin-bottom: 43
+      margin-right: 0
+      text-offset: 15 0
+      font: $var-cip-font-new
+      color: #c0c0c0
+      text-auto-resize: true
+      @onSetup: |
+        if modules.game_quickloot.QuickLoot.data.filter == 2 then
+          self:setText("Loot when Quick Looting")
+        else
+          self:setText('Skip when Quick Looting')
+        end
+
+  Button
+    id: ManageButton
+    size: 128 20
+    anchors.left: parent.left
+    anchors.bottom: parent.bottom
+    !text: tr('Manage Containers')
+    //font: verdana-bold-8px-antialiased
+    text-offset: 0 0 
+    color: #c0c0c0
+    @onClick: |
+      modules.game_cyclopedia.toggle()
+      modules.game_quickloot.QuickLoot.toggle()
+
+ItemCategory < UIWidget
+  font: $var-cip-font-new
+  height: 16
+  color: #C0C0C0
+  text-align: left
+  text-offset: 1 -1
+  @onCheckChange: modules.game_cyclopedia.Cyclopedia.onCategoryChange(self)
+  $checked:
+    color: #F6F6F6
+
+ItemsListBaseItem < UIWidget
+  background-color: alpha
+  UIWidget
+    id: SelectionFill
+    phantom: true
+    anchors.fill: parent
+    margin-left: 1
+    margin-bottom: -1
+    background-color: #00000000
+  UIWidget
+    size: 34 34
+    id: ItemBackground
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    image-source: /images/ui/item
+    margin-left: 2
+  UIWidget
+    id: Rarity
+    size: 32 32
+    anchors.centerIn: ItemBackground
+    phantom: true
+  UIItem
+    id: Sprite
+    anchors.fill: ItemBackground
+    virtual: true
+    draggable: false
+  Label
+    id: Name
+    size: 143 32
+    anchors.left: ItemBackground.right
+    anchors.verticalCenter: ItemBackground.verticalCenter
+    margin-left: 3
+    text-wrap: true
+    text-align: left
+    !text: tr('Item Name')
+    font: $var-cip-font-new
+    color: #c0c0c0

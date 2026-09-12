@@ -17,6 +17,8 @@ showTopMenuButton = nil
 logoutButton = nil
 logOutMainButton = nil
 mouseGrabberWidget = nil
+selectedThing = nil
+selectedType = nil
 countWindow = nil
 logoutWindow = nil
 exitWindow = nil
@@ -198,6 +200,7 @@ function bindKeys()
             callback = function()
                 if lastStopAction + 50 > g_clock.millis() then return end
                 lastStopAction = g_clock.millis()
+                cancelMouseTarget()
                 g_game.cancelAttackAndFollow()
             end,
         }
@@ -501,6 +504,28 @@ function updateStretchShrink()
             modules.game_actionbar.updateVisibleWidgetsExternal()
         end)
     end
+end
+
+function cancelMouseTarget()
+    local wasActive = selectedThing ~= nil or (mouseGrabberWidget and g_ui.isMouseGrabbed())
+    if not wasActive then
+        return false
+    end
+
+    selectedThing = nil
+    selectedType = nil
+
+    if mouseGrabberWidget and g_ui.isMouseGrabbed() then
+        mouseGrabberWidget:ungrabMouse()
+    end
+
+    if modules.client_options and modules.client_options.getOption('nativeCursor') then
+        g_window.restoreMouseCursor()
+    else
+        g_mouse.popCursor('target')
+    end
+
+    return true
 end
 
 function onMouseGrabberRelease(self, mousePosition, mouseButton)
@@ -1067,7 +1092,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
                 g_game.browseField(useThing:getPosition())
             end)
         end
-        if useThing:isLyingCorpse() and g_game.getFeature(GameThingQuickLoot) and modules.game_quickloot and useThing:getPosition().x ~= 0xffff then
+        if useThing:isLyingCorpse() and g_game.isQuickLootEnabled() and modules.game_quickloot and useThing:getPosition().x ~= 0xffff then
             menu.addOption(menu, tr("Loot corpse"), function()
                 g_game.sendQuickLoot(getQuickLootVariant(), useThing)
             end)
@@ -1234,7 +1259,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
         menu:addOption("ID: " .. useThingId, function() g_window.setClipboardText(useThingId) end)
     end
 
-    if g_game.getFeature(GameThingQuickLoot) and modules.game_quickloot and lookThing and not lookThing:isCreature() and lookThing:isPickupable() then
+    if g_game.isQuickLootEnabled() and modules.game_quickloot and lookThing and not lookThing:isCreature() and lookThing:isPickupable() then
         local quickLoot = modules.game_quickloot.QuickLoot
         menu.addSeparator(menu)
 
@@ -1494,7 +1519,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                         -- For pickupable containers like quivers, backpacks, etc., open them instead of quicklooting
                         g_game.open(useThing)
                         return true
-                    elseif g_game.getFeature(GameThingQuickLoot) and modules.game_quickloot then
+                    elseif g_game.isQuickLootEnabled() and modules.game_quickloot then
                         -- For containers in the world (not inside another container), quickloot
                         g_game.sendQuickLoot(getQuickLootVariant(), useThing)
                         return true
@@ -1654,7 +1679,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                             -- For depot chests, lockers, depot boxes, inbox, etc., always open them
                             g_game.open(useThing)
                             return true
-                        elseif g_game.getFeature(GameThingQuickLoot) and modules.game_quickloot then
+                        elseif g_game.isQuickLootEnabled() and modules.game_quickloot then
                             -- For containers in the world, quickloot
                             g_game.sendQuickLoot(getQuickLootVariant(), useThing)
                             return true
@@ -1746,7 +1771,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
             -- SHIFT+Right click: quickloot on containers
             if mouseButton == MouseRightButton and keyboardModifiers == KeyboardShiftModifier then
                 if useThing and (useThing:isContainer() or useThing:isLyingCorpse()) then
-                    if g_game.getFeature(GameThingQuickLoot) and modules.game_quickloot then
+                    if g_game.isQuickLootEnabled() and modules.game_quickloot then
                         g_game.sendQuickLoot(getQuickLootVariant(), useThing)
                         return true
                     end
@@ -1774,7 +1799,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                             -- For depot chests, lockers, depot boxes, inbox, etc., always open them
                             g_game.open(useThing)
                             return true
-                        elseif g_game.getFeature(GameThingQuickLoot) and modules.game_quickloot then
+                        elseif g_game.isQuickLootEnabled() and modules.game_quickloot then
                             g_game.sendQuickLoot(getQuickLootVariant(), useThing)
                             return true
                         else

@@ -2285,6 +2285,15 @@ function getExpRating(type)
 	end
 end
 
+function hasActiveXpBoost()
+	if (ExpRating[ExperienceRate.XP_BOOST] or 0) > 0 then
+		return true
+	end
+
+	local localPlayer = g_game.getLocalPlayer()
+	return localPlayer and localPlayer.getStoreExpBoostTime and (localPlayer:getStoreExpBoostTime() or 0) > 0
+end
+
 -- Function to calculate the total experience rate multiplier (decimal for analyzers, e.g. 1.5 for 150%)
 function getTotalExpRateMultiplier()
 	local localPlayer = g_game.getLocalPlayer()
@@ -2373,6 +2382,10 @@ function updateExperienceRate(localPlayer)
 	end
 
 	updateStoreBoostDisplay(localPlayer)
+
+	if StatsBar and StatsBar.updateXpBoostDisplay then
+		StatsBar.updateXpBoostDisplay()
+	end
 end
 
 function onExperienceRateChange(localPlayer, type, value)

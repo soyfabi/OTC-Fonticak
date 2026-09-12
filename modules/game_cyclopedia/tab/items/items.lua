@@ -1,4 +1,5 @@
-Cyclopedia.Items = {}
+Cyclopedia = Cyclopedia or {}
+Cyclopedia.Items = Cyclopedia.Items or {}
 Cyclopedia.Items.currentItemId = nil
 
 -- Additional variables for new features
@@ -148,6 +149,49 @@ function Cyclopedia.ResetItemCategorySelection(list)
     end
 end
 
+local function getItemSortName(item)
+    if not item then
+        return ""
+    end
+
+    if item.nameLower then
+        return item.nameLower
+    end
+
+    if item.name then
+        return item.name:lower()
+    end
+
+    if item.getMarketData then
+        local marketData = item:getMarketData()
+        if marketData and marketData.name then
+            return marketData.name:lower()
+        end
+    end
+
+    if item.getName then
+        return item:getName():lower()
+    end
+
+    return ""
+end
+
+function Cyclopedia.compareItems(item1, item2)
+    return getItemSortName(item1) < getItemSortName(item2)
+end
+
+function Cyclopedia.hasHandedFilter(categoryId)
+    return categoryId >= 17 and categoryId <= 21 or categoryId == 1000
+end
+
+function Cyclopedia.hasClassificationFilter(categoryId)
+    local ids = {
+        1, 24, 7, 15, 17, 18, 19, 20, 21, 1000
+    }
+
+    return table.contains(ids, categoryId)
+end
+
 -- Get NPC buy value for a ThingType or Item
 -- @param itemOrThingType: The Item or ThingType object (both have getNpcSaleData method)
 -- @param useBuyPrice: true for buyPrice (what NPCs pay us), false for salePrice (what NPCs charge us)
@@ -244,7 +288,12 @@ function Cyclopedia.Items.showItemPrice(obj)
 
 	-- Get NPC value (use thingType if available, fallback to item)
 	local npcValue = Cyclopedia.Items.getNpcValue(thingType or item, true)
-	
+	local serverValue = ItemsDatabase and ItemsDatabase.getItemValue and ItemsDatabase.getItemValue(itemId) or 0
+
+	if npcValue == 0 and serverValue > 0 then
+		npcValue = serverValue
+	end
+
 	-- If no NPC buy price found, fallback to market average price
 	if npcValue == 0 then
 		npcValue = avgMarket
@@ -307,7 +356,12 @@ function Cyclopedia.Items.getCurrentItemValue(item)
 
 	-- Get NPC value
 	local npcValue = Cyclopedia.Items.getNpcValue(item, true)
-	
+	local serverValue = ItemsDatabase and ItemsDatabase.getItemValue and ItemsDatabase.getItemValue(itemId) or 0
+
+	if npcValue == 0 and serverValue > 0 then
+		npcValue = serverValue
+	end
+
 	-- If no NPC buy price found, fallback to market average price
 	if npcValue == 0 then
 		npcValue = avgMarket
@@ -390,7 +444,7 @@ function Cyclopedia.Items.updateResultGoldValue(itemId, customValue, avgMarket, 
 	
 	-- Update rarity visual indicator based on final value
 	if finalValue > 0 and UI.InfoBase.ResultGoldBase.Rarity then
-		ItemsDatabase.setRarityItem(UI.InfoBase.ResultGoldBase.Rarity, finalValue)
+		ItemsDatabase.setRarityItemByPrice(UI.InfoBase.ResultGoldBase.Rarity, finalValue)
 	elseif UI.InfoBase.ResultGoldBase.Rarity then
 		UI.InfoBase.ResultGoldBase.Rarity:setImageSource("")
 	end
@@ -606,7 +660,23 @@ function Cyclopedia.Items.onChangeCustomPrice(widget)
 end
 
 function showItems()
-    UI = g_ui.loadUI("items", contentContainer)
+    if UI and not UI:isDestroyed() then
+        UI:show()
+        return
+    end
+
+    local container = modules.game_cyclopedia.getContentContainer()
+    if not container then
+        g_logger.error("cyclopedia items: content container is not available")
+        return
+    end
+
+    UI = g_ui.loadUI("items", container)
+    if not UI then
+        g_logger.error("cyclopedia items: failed to load items UI")
+        return
+    end
+
     UI:show()
     Cyclopedia.Items.VocFilter = false
     Cyclopedia.Items.LevelFilter = false
@@ -634,16 +704,25 @@ function showItems()
     -- Load JSON data
     Cyclopedia.Items.loadJson()
     
-    -- Register inspection handler
+    -- Register inspection handler once per session
     if g_game.sendInspectionObject then
+        disconnect(g_game, { onInspectionObject = Cyclopedia.Items.onInspection })
         connect(g_game, { onInspectionObject = Cyclopedia.Items.onInspection })
     end
     
-    controllerCyclopedia.ui.CharmsBase:setVisible(false)
-    controllerCyclopedia.ui.GoldBase:setVisible(false)
-    controllerCyclopedia.ui.BestiaryTrackerButton:setVisible(false)
-    if g_game.getClientVersion() >= 1410 then
-        controllerCyclopedia.ui.CharmsBase1410:setVisible(false)
+    if controllerCyclopedia and controllerCyclopedia.ui then
+        if controllerCyclopedia.ui.CharmsBase then
+            controllerCyclopedia.ui.CharmsBase:setVisible(false)
+        end
+        if controllerCyclopedia.ui.GoldBase then
+            controllerCyclopedia.ui.GoldBase:setVisible(false)
+        end
+        if controllerCyclopedia.ui.BestiaryTrackerButton then
+            controllerCyclopedia.ui.BestiaryTrackerButton:setVisible(false)
+        end
+        if g_game.getClientVersion() >= 1410 and controllerCyclopedia.ui.CharmsBase1410 then
+            controllerCyclopedia.ui.CharmsBase1410:setVisible(false)
+        end
     end
     local CategoryColor = "#484848"
 
@@ -878,8 +957,8 @@ function Cyclopedia.internalCreateItem(data)
         end
 
         if price > 0 then
-            ItemsDatabase.setRarityItem(UI.SelectedItem.Rarity, price)
-            ItemsDatabase.setRarityItem(UI.InfoBase.ResultGoldBase.Rarity, price)
+            ItemsDatabase.setRarityItemByPrice(UI.SelectedItem.Rarity, price)
+            ItemsDatabase.setRarityItemByPrice(UI.InfoBase.ResultGoldBase.Rarity, price)
         else
             UI.InfoBase.ResultGoldBase.Rarity:setImageSource("")
             UI.SelectedItem.Rarity:setImageSource("")
@@ -1049,6 +1128,7 @@ function Cyclopedia.selectItemCategory(id)
     else
         UI.ItemFilter:clearOptions()
         Cyclopedia.Items.ClassificationFilter = 0
+        UI.ItemFilter:disable()
     end
 
     processItemsById(id)
@@ -1068,15 +1148,14 @@ function Cyclopedia.loadItemsCategories()
 
     for _, data in pairs(types) do
         local marketData = data:getMarketData()
-        if not tempItemList[marketData.category] then
-            tempItemList[marketData.category] = {}
-        end
+        if marketData and not table.empty(marketData) and marketData.category then
+            if not tempItemList[marketData.category] then
+                tempItemList[marketData.category] = {}
+            end
 
-        if marketData then
             table.insert(Cyclopedia.AllItemList, data)
+            table.insert(tempItemList[marketData.category], data)
         end
-
-        table.insert(tempItemList[marketData.category], data)
     end
 
     for category, itemList in pairs(tempItemList) do
@@ -1176,6 +1255,107 @@ function comma_value(amount)
         end
     end
     return formatted
+end
+
+local function sortSaleRowsByLocationThenName(rows)
+    table.sort(rows, function(a, b)
+        local locA = string.lower(a.value.various and "Various Locations" or a.value.location or "")
+        local locB = string.lower(b.value.various and "Various Locations" or b.value.location or "")
+
+        if locA ~= locB then
+            return locA < locB
+        end
+
+        return string.lower(a.name) < string.lower(b.name)
+    end)
+end
+
+function Cyclopedia.formatSaleData(data)
+    local sell, buy = {}, {}
+
+    if not data or #data == 0 then
+        return buy, sell
+    end
+
+    local s, b = {}, {}
+
+    for i = 1, #data do
+        local value = data[i]
+
+        if value then
+            if value.salePrice > 0 then
+                if s[value.name] and value.name == "Rashid" then
+                    s[value.name].various = true
+                end
+
+                if not s[value.name] then
+                    s[value.name] = {
+                        various = false,
+                        price = value.salePrice,
+                        location = value.location
+                    }
+                end
+            end
+
+            if value.buyPrice > 0 then
+                if b[value.name] and value.name == "Rashid" then
+                    b[value.name].various = true
+                end
+
+                if not b[value.name] then
+                    b[value.name] = {
+                        various = false,
+                        price = value.buyPrice,
+                        location = value.location
+                    }
+                end
+            end
+        end
+    end
+
+    local sellRows = {}
+
+    for name, value in pairs(s) do
+        table.insert(sellRows, {
+            name = name,
+            value = value
+        })
+    end
+
+    sortSaleRowsByLocationThenName(sellRows)
+
+    for _, row in ipairs(sellRows) do
+        local name, value = row.name, row.value
+
+        if value.various then
+            table.insert(sell, string.format("%s gp, %s\nResidence: %s", Cyclopedia.formatGold(value.price), name, "Various Locations"))
+        else
+            table.insert(sell, string.format("%s gp, %s\nResidence: %s", Cyclopedia.formatGold(value.price), name, value.location))
+        end
+    end
+
+    local buyRows = {}
+
+    for name, value in pairs(b) do
+        table.insert(buyRows, {
+            name = name,
+            value = value
+        })
+    end
+
+    sortSaleRowsByLocationThenName(buyRows)
+
+    for _, row in ipairs(buyRows) do
+        local name, value = row.name, row.value
+
+        if value.various then
+            table.insert(buy, string.format("%s gp, %s\nResidence: %s", Cyclopedia.formatGold(value.price), name, "Various Locations"))
+        else
+            table.insert(buy, string.format("%s gp, %s\nResidence: %s", Cyclopedia.formatGold(value.price), name, value.location))
+        end
+    end
+
+    return buy, sell
 end
 
 -- Enhanced formatGold function that uses comma formatting
@@ -1409,5 +1589,82 @@ function Cyclopedia.Items.onChangeLootValue(self)
         Cyclopedia.Items.showItemPrice(lastSelectedItem.data)
     end
 end
+
+local function getQuickLootModule()
+    return modules.game_quickloot and modules.game_quickloot.QuickLoot
+end
+
+local function getSelectedCyclopediaItemId()
+    if lastSelectedItem and lastSelectedItem.Sprite and lastSelectedItem.Sprite.getItem then
+        local item = lastSelectedItem.Sprite:getItem()
+        if item then
+            return item:getId()
+        end
+    end
+
+    return Cyclopedia.Items.currentItemId
+end
+
+function Cyclopedia.Items.manageQuickloot(widget, checked)
+    local quickLoot = getQuickLootModule()
+    local itemId = getSelectedCyclopediaItemId()
+    if not quickLoot or not itemId then
+        if widget then
+            widget:setChecked(false)
+        end
+        return
+    end
+
+    if checked then
+        quickLoot.addLootList(itemId, quickLoot.data.filter)
+    else
+        quickLoot.removeLootList(itemId, quickLoot.data.filter)
+    end
+end
+
+function Cyclopedia.Items.manageQuickSellWhitelist(widget, checked)
+    local itemId = getSelectedCyclopediaItemId()
+    if not itemId then
+        if widget then
+            widget:setChecked(false)
+        end
+        return
+    end
+
+    if modules.game_npctrade and modules.game_npctrade.addToWhitelist and modules.game_npctrade.removeItemInList then
+        if checked then
+            modules.game_npctrade.addToWhitelist(itemId)
+        else
+            modules.game_npctrade.removeItemInList(itemId)
+        end
+    elseif widget then
+        widget:setChecked(false)
+    end
+end
+
+function Cyclopedia.Items.onClickLootContainers()
+    local quickLoot = getQuickLootModule()
+    if quickLoot and quickLoot.toggle then
+        quickLoot.toggle()
+    end
+end
+
+function Cyclopedia.onSearchClearButtonClick()
+    if not UI then
+        return
+    end
+
+    Cyclopedia.ItemSearch("", true)
+end
+
+function Cyclopedia.onItemSearchTextChange(text)
+    if not UI then
+        return
+    end
+
+    Cyclopedia.ItemSearch(text, false)
+end
+
+modules.game_cyclopedia.CyclopediaItems = Cyclopedia.Items
 
 -- End of Cyclopedia Items module

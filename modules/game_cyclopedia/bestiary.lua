@@ -100,6 +100,31 @@ lootRarityLevel = {
 	[4] = "Very Rare:"
 }
 
+local function applyBestiaryLootRarityOverlay(slot)
+	if not slot or not slot.rarity then
+		return
+	end
+
+	local itemUi = slot.item
+	local item = itemUi and itemUi.getItem and itemUi:getItem()
+	local frameOption = modules.client_options and modules.client_options.getOption
+	    and modules.client_options.getOption('framesRarity') or 'none'
+
+	if not g_game.getFeature(GameColorizedLootValue) or frameOption == 'none' or not item or item:getId() <= 0 then
+		slot.rarity:setVisible(false)
+		return
+	end
+
+	ItemsDatabase.setRarityItem(slot.rarity, item)
+
+	local imageSource = slot.rarity:getImageSource()
+	if imageSource and imageSource ~= '' and imageSource ~= '/images/ui/item' then
+		slot.rarity:setVisible(true)
+	else
+		slot.rarity:setVisible(false)
+	end
+end
+
 local function firstToUpper(str)
     return (str:gsub("^%l", string.upper))
 end
@@ -814,6 +839,7 @@ function registerBestiaryProtocol()
 						slot.item:setTooltip(firstToUpper(difficultyList[i].name))
 						slot.countLabel:setText(difficultyList[i].countMax > 1 and "1+" or "1")
 						slot.countLabel:show()
+						applyBestiaryLootRarityOverlay(slot)
 					else
 						if slot.image then
 							slot.image:setImageSource("/images/ui/unkown-button")
@@ -821,6 +847,7 @@ function registerBestiaryProtocol()
 						end
 						slot.item:setItemId(0)
 						slot.countLabel:hide()
+						applyBestiaryLootRarityOverlay(slot)
 					end
 				else
 					if slot.image then
@@ -829,6 +856,7 @@ function registerBestiaryProtocol()
 					end
 					slot.item:setItemId(0)
 					slot.countLabel:hide()
+					applyBestiaryLootRarityOverlay(slot)
 					slot:disable()
 				end
 			end

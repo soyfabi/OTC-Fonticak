@@ -37,7 +37,55 @@ local currentStats = {
     placement = "hide"
 }
 
+StatsBar = {}
+
 local skillsLineHeight = 20
+
+local function hasStatsBarActiveXpBoost()
+    if modules.game_skills and modules.game_skills.hasActiveXpBoost then
+        return modules.game_skills.hasActiveXpBoost()
+    end
+
+    if modules.game_skills and modules.game_skills.getExpRating then
+        if (modules.game_skills.getExpRating(ExperienceRate.XP_BOOST) or 0) > 0 then
+            return true
+        end
+    end
+
+    local localPlayer = g_game.getLocalPlayer()
+    return localPlayer and localPlayer.getStoreExpBoostTime and (localPlayer:getStoreExpBoostTime() or 0) > 0
+end
+
+local function applyStatsBarXpBoostSlot(widget, skillKey)
+    if not widget then
+        return
+    end
+
+    local xpSlot = widget:recursiveGetChildById('statsbarXpBoostSlot')
+    local xpBtn = widget:recursiveGetChildById('statsbarXpBoostButton')
+    if not xpSlot or not xpBtn then
+        return
+    end
+
+    if skillKey == 'experience' and g_game.getFeature(GameExperienceBonus) and not hasStatsBarActiveXpBoost() then
+        xpBtn:show()
+        local buttonWidth = xpBtn:getWidth()
+        xpSlot:setWidth(buttonWidth > 0 and buttonWidth or 76)
+    else
+        xpSlot:setWidth(0)
+        xpBtn:hide()
+    end
+end
+
+function StatsBar.updateXpBoostDisplay()
+    for _, barElement in ipairs(StatsBar.getAllStatsBarWithPosition()) do
+        local widget = barElement:recursiveGetChildById('statsbar_skill_experience')
+        if widget then
+            applyStatsBarXpBoostSlot(widget, 'experience')
+        end
+    end
+end
+
 local skillsTuples = {
     { skill = nil,             key = 'experience', icon = '/images/icons/icon_experience', placement = 'center', order = 0, name = "Level" },
     { skill = nil,             key = 'magic',      icon = '/images/icons/icon_magic',      placement = 'left',   order = 1, name = "Magic Level" },
@@ -49,8 +97,6 @@ local skillsTuples = {
     { skill = Skill.Sword,     key = 'sword',      icon = '/images/icons/icon_sword',      placement = 'left',   order = 4, name = "Sword Fighting Skill" },
     { skill = Skill.Fishing,   key = 'fishing',    icon = '/images/icons/icon_fishing',    placement = 'right',  order = 4, name = "Fishing Fighting Skill" },
 }
-
-StatsBar = {}
 
 function getConfigurations()
     -- This method will return all the stats bar configurations.
@@ -110,6 +156,16 @@ local function reloadSkillsTab(skills, parent)
         widget.icon = widget:getChildById('icon')
         widget.bar = widget:getChildById('bar')
 
+        applyStatsBarXpBoostSlot(widget, skillTuple.key)
+
+        if skillTuple.key == 'experience' then
+            local marginRight = widget.bar:getMarginRight()
+            widget.bar:setMarginRight((marginRight and marginRight > 0 and marginRight or 2) + 4)
+        else
+            local marginRight = widget.bar:getMarginRight()
+            widget.bar:setMarginRight((marginRight and marginRight > 0 and marginRight or 2) - 1)
+        end
+
         widget.icon:setImageSource(skillTuple.icon)
         widget.icon:setTooltip(skillTuple.name)
 
@@ -154,6 +210,7 @@ local function reloadSkillsTab(skills, parent)
     skills:setHeight((lines * skillsLineHeight) + 5)
     parent:setHeight(40 + skills:getHeight())
     statsBar:setHeight(statsBar:getHeight() + skills:getHeight())
+    StatsBar.updateXpBoostDisplay()
 end
 
 function StatsBar.getAllStatsBarWithPosition()
@@ -780,7 +837,9 @@ function StatsBar.init()
         onStatesChange = StatsBar.reloadCurrentStatsBarQuickInfo_state,
         onHarmonyChange = StatsBar.onHarmonyChange,
         onSereneChange = StatsBar.onSereneChange,
-        onVocationChange = StatsBar.onVocationChange
+        onVocationChange = StatsBar.onVocationChange,
+        onExpBoostChange = StatsBar.updateXpBoostDisplay,
+        onExperienceRateChange = StatsBar.updateXpBoostDisplay
     }
 
     StatsBar.hideAll()

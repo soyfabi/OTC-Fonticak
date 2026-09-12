@@ -571,7 +571,7 @@ namespace Otc
         GameAllowCustomBotScripts = 120,
         GameColorizedLootValue = 121,
         GameAllowPreWalk = 122,
-        // 123 reserved (Astra GameQuickLootFlags) — do not reuse
+        GameQuickLootFlags = 123,
         GameTileAddThingWithStackpos = 124,
         GameMapCache = 125,
         GameForgeSkillStats = 126,

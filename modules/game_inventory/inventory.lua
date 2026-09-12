@@ -112,6 +112,50 @@ local function combatEvent()
     end
 end
 
+local function refreshInventorySlotQuickLootIcon(slotPanel, item)
+    if not slotPanel then
+        return
+    end
+
+    local icon = slotPanel.quickloot or slotPanel:getChildById('quickloot')
+    if not icon then
+        return
+    end
+
+    local show = false
+    local tooltip = ''
+
+    if item and item:isContainer() then
+        local quickLoot = modules.game_quickloot and modules.game_quickloot.QuickLoot
+        if quickLoot and quickLoot.getConfiguredLootFlags then
+            local lootFlags, obtainFlags = quickLoot.getConfiguredLootFlags(item:getId())
+            show = lootFlags ~= 0 or obtainFlags ~= 0
+
+            if show and quickLoot.getQuickLootIconTooltip then
+                tooltip = quickLoot.getQuickLootIconTooltip(lootFlags, obtainFlags)
+            end
+        end
+    end
+
+    icon:setVisible(show)
+    icon:setTooltip(tooltip)
+end
+
+function refreshInventoryQuickLootIcons()
+    local player = g_game.getLocalPlayer()
+    if not player or inventoryShrink then
+        return
+    end
+
+    local ui = getInventoryUi()
+    for slot, slotInfo in pairs(getSlotPanelBySlot) do
+        local slotPanel = slotInfo(ui)
+        if slotPanel then
+            refreshInventorySlotQuickLootIcon(slotPanel, player:getInventoryItem(slot))
+        end
+    end
+end
+
 local function inventoryEvent(player, slot, item, oldItem)
     if inventoryShrink then
         return
@@ -145,6 +189,7 @@ local function inventoryEvent(player, slot, item, oldItem)
     
     ItemsDatabase.applyExpiryDisplay(slotPanel.item, 'showExpiryInInvetory')
     ItemsDatabase.setTier(slotPanel.item, item)
+    refreshInventorySlotQuickLootIcon(slotPanel, item)
 
     if slot == InventorySlotLeft then
         updateMonkMirrorItem(item)

@@ -257,6 +257,18 @@ local function isHotkeyUsageText(text)
         or lower:find('^using the last') ~= nil
 end
 
+local function getLootConsoleSpeaktype(msgtype)
+    if msgtype and msgtype.colored then
+        return msgtype
+    end
+    return {
+        color = (msgtype and msgtype.color) or TextColors.green,
+        consoleTab = msgtype and msgtype.consoleTab,
+        consoleOption = msgtype and msgtype.consoleOption,
+        colored = true
+    }
+end
+
 local function isLootMessageText(text)
     if type(text) ~= 'string' then
         return false
@@ -309,8 +321,9 @@ function displayMessage(mode, text)
         (msgtype.consoleOption == nil or isOptionEnabled(msgtype.consoleOption, true)) then
         if isLootMsg then
             local lootColoredText = ItemsDatabase.setColorLootMessage(text)
-            modules.game_console.addText(lootColoredText, msgtype, tr("Server Log"))
-            modules.game_console.addText(lootColoredText, msgtype, tr(msgtype.consoleTab or 'Loot'))
+            local lootSpeaktype = getLootConsoleSpeaktype(msgtype)
+            modules.game_console.addText(lootColoredText, lootSpeaktype, tr("Server Log"))
+            modules.game_console.addText(lootColoredText, lootSpeaktype, tr(msgtype.consoleTab or 'Loot'))
         else
             modules.game_console.addText(text, msgtype, tr(msgtype.consoleTab))
         end
