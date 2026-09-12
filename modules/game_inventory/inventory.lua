@@ -323,8 +323,7 @@ end
 
 function inventoryController:onGameStart()
     connect(g_game, {
-        onItemStateFeatures = onItemStateFeatures,
-        onBlessingsChange = onBlessingsChange
+        onItemStateFeatures = onItemStateFeatures
     })
 
     local player = g_game.getLocalPlayer()
@@ -395,8 +394,7 @@ end
 
 function inventoryController:onGameEnd()
     disconnect(g_game, {
-        onItemStateFeatures = onItemStateFeatures,
-        onBlessingsChange = onBlessingsChange
+        onItemStateFeatures = onItemStateFeatures
     })
 
     monkMirrorItem = nil
@@ -601,9 +599,9 @@ function toggleAdventurerStyle(hasBlessing)
 end
 
 local BLESSING_BUTTON_IMAGES = {
-    [1] = '/images/game/blessings/button-blessings-grey-idle',
-    [2] = '/images/game/blessings/button-blessings-gold-idle',
-    [3] = '/images/game/blessings/button-blessings-green-idle'
+    [1] = '/images/inventory/button_blessings_grey',
+    [2] = '/images/inventory/button_blessings_gold',
+    [3] = '/images/inventory/button_blessings_green'
 }
 
 local lastBlessVisualState = 1
@@ -618,7 +616,6 @@ local function applyBlessingsIcon(blessVisualState)
     for _, button in ipairs(buttons) do
         if button then
             button:setImageSource(image)
-            button:setImageClip('0 0 12 12')
         end
     end
 end

@@ -77,13 +77,15 @@ PhantomMiniWindow
 
     UIButton
       id: blessings
-      image-source: /images/game/blessings/button-blessings-grey-idle
+      image-source: /images/inventory/button_blessings_grey
       image-clip: 0 0 12 12
       anchors.top: changeSize.top
       anchors.left: changeSize.right
       margin-left: 3
       size: 12 12
       @onClick: modules.game_blessing.toggle()
+      $pressed !disabled:
+        image-clip: 12 0 12 12
 
     UIButton
       id: purseButton
@@ -535,13 +537,15 @@ PhantomMiniWindow
 
     UIButton
       id: blessings
-      image-source: /images/game/blessings/button-blessings-grey-idle
+      image-source: /images/inventory/button_blessings_grey
       image-clip: 0 0 12 12
       anchors.top: expert.bottom
       anchors.left: changeSize.left
       margin-top: 3
       size: 12 12
       @onClick: modules.game_blessing.toggle()
+      $pressed !disabled:
+        image-clip: 12 0 12 12
 
     Panel
       id: icons
