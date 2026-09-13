@@ -885,7 +885,6 @@ function EnterGame.saveRememberedCredentials(clearFieldsWhenUnchecked, persistCh
 		if clearFieldsWhenUnchecked and accountEdit then
 			accountEdit:clearText()
 			accountEdit:focus()
-			G.account = ""
 		end
 	end
 
@@ -902,7 +901,6 @@ function EnterGame.saveRememberedCredentials(clearFieldsWhenUnchecked, persistCh
 			if accountEdit then
 				accountEdit:focus()
 			end
-			G.password = ""
 		end
 	end
 
