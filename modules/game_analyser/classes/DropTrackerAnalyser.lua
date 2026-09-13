@@ -101,21 +101,28 @@ local function buildTrackedItemEntry(itemId, entry)
 	}
 end
 
-local function mergeTrackedItemsFromConfig(trackedItems, config)
+local function mergeTrackedItemsFromConfig(trackedItems, config, preserveSession)
 	for _, entry in ipairs((config and config.trackedItems) or {}) do
 		local itemId = tonumber(entry.objectType) or entry.objectType
 		if itemId then
-			trackedItems[itemId] = buildTrackedItemEntry(itemId, entry)
+			local existing = trackedItems[itemId]
+			if preserveSession and existing then
+				existing.persistent = true
+			else
+				trackedItems[itemId] = buildTrackedItemEntry(itemId, entry)
+			end
 		end
 	end
 end
 
-local function mergeTrackedItemsFromDropTrackerMap(trackedItems, dropTrackerItems)
+local function mergeTrackedItemsFromDropTrackerMap(trackedItems, dropTrackerItems, preserveSession)
 	for itemIdStr, isTracked in pairs(dropTrackerItems or {}) do
 		if isTracked then
 			local itemId = tonumber(itemIdStr)
-			if itemId and not trackedItems[itemId] then
+			if itemId and (not preserveSession or not trackedItems[itemId]) then
 				trackedItems[itemId] = buildTrackedItemEntry(itemId)
+			elseif itemId and trackedItems[itemId] then
+				trackedItems[itemId].persistent = true
 			end
 		end
 	end
@@ -292,12 +299,12 @@ function DropTrackerAnalyser:create()
 	DropTrackerAnalyser.session = 0
 
 	DropTrackerAnalyser.window.onOpen = function()
-		DropTrackerAnalyser:loadConfigJson()
+		DropTrackerAnalyser:loadConfigJson(true)
 	end
 end
 
 function DropTrackerAnalyser:refreshFromDisk()
-	self:loadConfigJson()
+	self:loadConfigJson(true)
 end
 
 function DropTrackerAnalyser:managerDropItem(itemId, shouldTrack)
@@ -701,7 +708,7 @@ function onDropTrackerExtra(mousePosition)
 end
 
 
-function DropTrackerAnalyser:loadConfigJson()
+function DropTrackerAnalyser:loadConfigJson(preserveSession)
 	local characterDir = getCharacterDir()
 	if not characterDir then
 		return false
@@ -713,13 +720,26 @@ function DropTrackerAnalyser:loadConfigJson()
 	}
 	local prices = readDropTrackerJsonFile(characterDir .. "/itemprices.json")
 
-	table.clear(DropTrackerAnalyser.trackedItems)
-	mergeTrackedItemsFromConfig(DropTrackerAnalyser.trackedItems, config)
-	if prices and prices.dropTrackerItems then
-		mergeTrackedItemsFromDropTrackerMap(DropTrackerAnalyser.trackedItems, prices.dropTrackerItems)
+	if preserveSession then
+		mergeTrackedItemsFromConfig(DropTrackerAnalyser.trackedItems, config, true)
+		if prices and prices.dropTrackerItems then
+			mergeTrackedItemsFromDropTrackerMap(DropTrackerAnalyser.trackedItems, prices.dropTrackerItems, true)
+		end
+	else
+		table.clear(DropTrackerAnalyser.trackedItems)
+		mergeTrackedItemsFromConfig(DropTrackerAnalyser.trackedItems, config, false)
+		if prices and prices.dropTrackerItems then
+			mergeTrackedItemsFromDropTrackerMap(DropTrackerAnalyser.trackedItems, prices.dropTrackerItems, false)
+		end
 	end
 
-	DropTrackerAnalyser.autoTrackAboveValue = config.autoTrackAboveValue or 0
+	if preserveSession then
+		DropTrackerAnalyser.autoTrackAboveValue = config.autoTrackAboveValue
+			or DropTrackerAnalyser.autoTrackAboveValue
+			or 0
+	else
+		DropTrackerAnalyser.autoTrackAboveValue = config.autoTrackAboveValue or 0
+	end
 	DropTrackerAnalyser:updateWindow(true)
 
 	if Cyclopedia and Cyclopedia.Items and Cyclopedia.Items.refreshCurrentItem then

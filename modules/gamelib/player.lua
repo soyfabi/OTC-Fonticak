@@ -810,26 +810,6 @@ function LoadedPlayer:ensureCharacterDir()
   return characterDir
 end
 
-function LoadedPlayer:findLatestLegacyCharacterDataFile(fileName)
-  if not g_resources.directoryExists("/characterdata") then
-    return nil
-  end
-
-  local bestFile, bestId = nil, 0
-  for _, entry in ipairs(g_resources.listDirectoryFiles("/characterdata", false, true)) do
-    local folderId = tonumber(entry)
-    if folderId and folderId > bestId then
-      local candidate = "/characterdata/" .. entry .. "/" .. fileName
-      if g_resources.fileExists(candidate) then
-        bestId = folderId
-        bestFile = candidate
-      end
-    end
-  end
-
-  return bestFile
-end
-
 function LoadedPlayer:getCharacterDataFile(fileName)
   local characterDir = self:ensureCharacterDir()
   if not characterDir or not fileName or fileName == "" then
@@ -847,11 +827,6 @@ function LoadedPlayer:getCharacterDataFile(fileName)
     if g_resources.fileExists(legacyFile) then
       return legacyFile
     end
-  end
-
-  local latestLegacyFile = self:findLatestLegacyCharacterDataFile(fileName)
-  if latestLegacyFile then
-    return latestLegacyFile
   end
 
   return preferredFile
