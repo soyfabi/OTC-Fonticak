@@ -50,6 +50,11 @@ local ITEM_SEARCH_SELECT_DELAY_MS = 80
 local ITEM_SEARCH_MIN_LENGTH = 2
 local ignoreLootValueSourceCheck = false
 
+local VOCATION_MASK_ENCODING = {
+	SERVER = "server", -- OTC ids: 1=sorc, 2=druid, 3=pally, 4=knight, 9=monk
+	DAT = "dat", -- CIP PLAYER_PROFESSION: 1=knight, 2=paladin, 3=sorc, 4=druid, 5=monk
+}
+
 Cyclopedia.Items.listScroll = Cyclopedia.Items.listScroll or {
 	listData = {},
 	listPool = {},
@@ -185,9 +190,42 @@ local function normalizeClientVocationId(vocation)
 	return vocation
 end
 
+local function clientVocationToCipProfession(vocation)
+	vocation = normalizeClientVocationId(vocation)
+	if vocation == 1 then
+		return 3 -- sorcerer
+	elseif vocation == 2 then
+		return 4 -- druid
+	elseif vocation == 3 then
+		return 2 -- paladin
+	elseif vocation == 4 then
+		return 1 -- knight
+	elseif vocation == 9 or vocation == 10 then
+		return 5 -- monk
+	end
+	return vocation
+end
+
+local function getVocationFilterBitMask(vocation, encoding)
+	if encoding == VOCATION_MASK_ENCODING.DAT then
+		local profession = clientVocationToCipProfession(vocation)
+		if profession <= 0 then
+			return 0
+		end
+		return Bit.bit(profession)
+	end
+
+	local normalized = normalizeClientVocationId(vocation)
+	if normalized <= 0 then
+		return 0
+	end
+	return Bit.bit(normalized)
+end
+
 local function getEntryMarketFilterData(entry, thingType)
 	local requiredLevel = entry and tonumber(entry.requiredLevel) or 0
 	local restrictVocation = entry and tonumber(entry.restrictVocation) or 0
+	local vocationEncoding = nil
 
 	local marketData = {}
 	if thingType and thingType.getMarketData then
@@ -197,8 +235,12 @@ local function getEntryMarketFilterData(entry, thingType)
 	if requiredLevel == 0 then
 		requiredLevel = tonumber(marketData.requiredLevel) or 0
 	end
-	if restrictVocation == 0 then
-		restrictVocation = tonumber(marketData.restrictVocation) or 0
+
+	if restrictVocation > 0 then
+		vocationEncoding = VOCATION_MASK_ENCODING.SERVER
+	elseif tonumber(marketData.restrictVocation) > 0 then
+		restrictVocation = tonumber(marketData.restrictVocation)
+		vocationEncoding = VOCATION_MASK_ENCODING.DAT
 	end
 
 	if requiredLevel == 0 and restrictVocation == 0 and entry and entry.id then
@@ -206,11 +248,14 @@ local function getEntryMarketFilterData(entry, thingType)
 		if item and item.getMarketData then
 			local itemMarketData = item:getMarketData() or {}
 			requiredLevel = tonumber(itemMarketData.requiredLevel) or requiredLevel
-			restrictVocation = tonumber(itemMarketData.restrictVocation) or restrictVocation
+			if tonumber(itemMarketData.restrictVocation) > 0 then
+				restrictVocation = tonumber(itemMarketData.restrictVocation)
+				vocationEncoding = VOCATION_MASK_ENCODING.DAT
+			end
 		end
 	end
 
-	return requiredLevel, restrictVocation
+	return requiredLevel, restrictVocation, vocationEncoding
 end
 
 local function passesItemFilters(entry)
@@ -227,7 +272,7 @@ local function passesItemFilters(entry)
 	local vocation = player:getVocation()
 	local level = player:getLevel()
 	local classification = (entry and entry.classification) or data:getClassification() or 0
-	local requiredLevel, restrictVocation = getEntryMarketFilterData(entry, data)
+	local requiredLevel, restrictVocation, vocationEncoding = getEntryMarketFilterData(entry, data)
 	local vocFilter = Cyclopedia.Items.VocFilter
 	local levelFilter = Cyclopedia.Items.LevelFilter
 	local h1Filter = Cyclopedia.Items.h1Filter
@@ -235,8 +280,8 @@ local function passesItemFilters(entry)
 	local classificationFilter = Cyclopedia.Items.ClassificationFilter
 
 	if vocFilter and restrictVocation > 0 then
-		local vocBitMask = Bit.bit(normalizeClientVocationId(vocation))
-		if not Bit.hasBit(restrictVocation, vocBitMask) then
+		local vocBitMask = getVocationFilterBitMask(vocation, vocationEncoding or VOCATION_MASK_ENCODING.SERVER)
+		if vocBitMask <= 0 or not Bit.hasBit(restrictVocation, vocBitMask) then
 			return false
 		end
 	end
@@ -317,6 +362,13 @@ function Cyclopedia.renderItemsListWidget(widget, entry, selectedItemId)
 	end
 end
 
+local function cancelPendingSingleSelect()
+	if Cyclopedia.Items.pendingSingleSelectEvent then
+		removeEvent(Cyclopedia.Items.pendingSingleSelectEvent)
+		Cyclopedia.Items.pendingSingleSelectEvent = nil
+	end
+end
+
 onCyclopediaItemsListScroll = function(scroll, value)
 	local scrollState = Cyclopedia.Items.listScroll
 	if not UI or not scrollState.listPool or #scrollState.listPool == 0 or #scrollState.listData == 0 then
@@ -350,6 +402,9 @@ refreshItemsListView = function(sourceEntries, options)
 	if not UI or UI:isDestroyed() or not UI.ItemListBase or not UI.ItemListBase.List then
 		return
 	end
+
+	cancelPendingSingleSelect()
+	Cyclopedia.Items.listSelectGeneration = (tonumber(Cyclopedia.Items.listSelectGeneration) or 0) + 1
 
 	options = options or {}
 	local list = UI.ItemListBase.List
@@ -406,16 +461,26 @@ refreshItemsListView = function(sourceEntries, options)
 		if autoSelectId then
 			selectItemInList(autoSelectId)
 		elseif options.selectSingle and #state.listData == 1 then
+			local targetItemId = state.listData[1].id
 			local selectDelay = tonumber(options.selectDelay) or 0
+			local listGeneration = Cyclopedia.Items.listSelectGeneration
 			if selectDelay > 0 then
-				scheduleEvent(function()
+				Cyclopedia.Items.pendingSingleSelectEvent = scheduleEvent(function()
+					Cyclopedia.Items.pendingSingleSelectEvent = nil
 					if not UI or UI:isDestroyed() then
 						return
 					end
-					selectItemInList(state.listData[1].id)
+					if listGeneration ~= Cyclopedia.Items.listSelectGeneration then
+						return
+					end
+					local firstEntry = state.listData[1]
+					if not firstEntry or firstEntry.id ~= targetItemId then
+						return
+					end
+					selectItemInList(targetItemId)
 				end, selectDelay)
 			else
-				selectItemInList(state.listData[1].id)
+				selectItemInList(targetItemId)
 			end
 		end
 	end
@@ -973,6 +1038,7 @@ function Cyclopedia.Items.terminate()
 		removeEvent(Cyclopedia.Items.listRenderEvent)
 		Cyclopedia.Items.listRenderEvent = nil
 	end
+	cancelPendingSingleSelect()
 	Cyclopedia.invalidateItemsIndex()
 	Cyclopedia.Items.saveJson()
 end
@@ -980,6 +1046,7 @@ end
 function Cyclopedia.onItemsTabHidden()
 	cancelItemSearchEvent()
 	cancelItemDetailFallback()
+	cancelPendingSingleSelect()
 	clearPendingItemOpen()
 	Cyclopedia.Items.currentItemId = nil
 end
