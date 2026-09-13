@@ -1028,10 +1028,13 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
                 end
             end, '(Ctrl+I)')
         end
-        if clientVersion >= 1310 and canInspect and modules.game_cyclopedia and lookThing:getCyclopediaType() > 0 then
+        if lookThing:isItem() and modules.game_cyclopedia
+            and modules.game_cyclopedia.Cyclopedia
+            and modules.game_cyclopedia.Cyclopedia.canShowInItemsTab
+            and modules.game_cyclopedia.Cyclopedia.canShowInItemsTab(lookThing) then
             menu:addOption(tr('Cyclopedia'), function()
                 modules.game_cyclopedia.Cyclopedia.openItem(lookThing:getId())
-            end, shortcut)
+            end)
         end
         if clientVersion >= 1511 and modules.game_proficiency and lookThing:getProficiencyId() > 0 then
             menu:addOption(tr("Weapon Proficiency"), function()

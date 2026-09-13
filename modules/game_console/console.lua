@@ -2246,6 +2246,13 @@ function onTalk(name, level, mode, message, channelId, creaturePos)
         end
 
         if allowStaticText then
+            local staticMode = modeNum
+            if modeNum == MessageModes.Spell then
+                staticMode = MessageModes.Say
+            elseif modeNum == MessageModes.Potion then
+                staticMode = MessageModes.MonsterSay
+            end
+
             local staticText = StaticText.create()
             local staticMessage = message
             if isNpcMode then
@@ -2253,7 +2260,7 @@ function onTalk(name, level, mode, message, channelId, creaturePos)
                 staticText:setColor(speaktype.color)
             end
 
-            staticText:addMessage(name, modeNum, staticMessage)
+            staticText:addMessage(name, staticMode, staticMessage)
             g_map.addStaticText(staticText, creaturePos)
         end
     end

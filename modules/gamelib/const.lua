@@ -236,11 +236,16 @@ TextColors = {
     red = '#f55e5e',    -- '#c83200'
     orange = '#f36500', -- '#c87832'
     yellow = '#ffff00', -- '#e6c832'
+    purple = '#FF68FF', -- loot 100k+ (DeusOT/Rubinot)
     green = '#00EB00',  -- '#3fbe32'
     lightblue = '#5ff7f7',
     blue = '#9f9dfd',
+    -- Loot rarity palette (DeusOT / Rubinot)
+    lootYellow = '#F0F000',
+    lootPurple = '#FF68FF',
+    lootBlue = '#20A0FF',
+    lootGreen = '#00F000',
     -- blue1     = '#6e50dc',
-    -- blue2     = '#3264c8',
     -- blue3     = '#0096c8',
     white = '#ffffff', -- '#bebebe'
     grey = '#AAAAAA'

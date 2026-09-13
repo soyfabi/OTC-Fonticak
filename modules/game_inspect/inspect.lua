@@ -1,57 +1,10 @@
-local DETAIL_LABEL_COLUMN_WIDTH = 150
-local DETAIL_VALUE_COLUMN_GAP = 7
-local DETAIL_ROW_HEIGHT = 20
-local detailMeasureLabel
-
-local function measureDetailRowHeight(value, valueWidth)
-    if not detailMeasureLabel then
-        detailMeasureLabel = g_ui.createWidget("Label", g_ui.getRootWidget())
-        detailMeasureLabel:setVisible(false)
-        detailMeasureLabel:setPhantom(true)
-    end
-    detailMeasureLabel:setFont("Verdana Bold-11px")
-    detailMeasureLabel:setTextAutoResize(false)
-    detailMeasureLabel:setTextWrap(true)
-    detailMeasureLabel:setWidth(valueWidth)
-    detailMeasureLabel:setText(value or "")
-    return math.max(DETAIL_ROW_HEIGHT, detailMeasureLabel:getTextSize().height + 2)
-end
-
 local function appendDetailRow(parent, key, value)
     local cyclopedia = modules.game_cyclopedia and modules.game_cyclopedia.Cyclopedia
     if cyclopedia and cyclopedia.appendDetailKeyValueRow then
         cyclopedia.appendDetailKeyValueRow(parent, key, value)
         return
     end
-    local row = g_ui.createWidget("UIWidget", parent)
-    row:setPhantom(true)
-    local parentWidth = parent:getWidth() > 0 and parent:getWidth() or 425
-    local valueWidth = parentWidth - DETAIL_LABEL_COLUMN_WIDTH - 8
-    local rowHeight = measureDetailRowHeight(value, valueWidth)
-    row:setWidth(parentWidth)
-    row:setHeight(rowHeight)
-    local keyLabel = g_ui.createWidget("Label", row)
-    keyLabel:setText(key .. ":")
-    keyLabel:setColor("#C0C0C0")
-    keyLabel:setFont("Verdana Bold-11px")
-    keyLabel:setTextAlign(AlignTopRight)
-    keyLabel:setTextAutoResize(false)
-    keyLabel:setWidth(DETAIL_LABEL_COLUMN_WIDTH)
-    keyLabel:setHeight(rowHeight)
-    keyLabel:addAnchor(AnchorLeft, "parent", AnchorLeft)
-    keyLabel:addAnchor(AnchorTop, "parent", AnchorTop)
-    local valueLabel = g_ui.createWidget("Label", row)
-    valueLabel:setColor("#C0C0C0")
-    valueLabel:setFont("Verdana Bold-11px")
-    valueLabel:setTextAlign(AlignTopLeft)
-    valueLabel:setTextAutoResize(false)
-    valueLabel:setWidth(valueWidth)
-    valueLabel:setHeight(rowHeight)
-    valueLabel:setTextWrap(true)
-    valueLabel:setText(value)
-    valueLabel:addAnchor(AnchorLeft, "parent", AnchorLeft)
-    valueLabel:addAnchor(AnchorTop, "parent", AnchorTop)
-    valueLabel:setMarginLeft(DETAIL_LABEL_COLUMN_WIDTH + 8)
+    g_logger.warning("[game_inspect] cyclopedia detail row helper unavailable")
 end
 
 local function getDescriptionPair(data)
@@ -106,7 +59,7 @@ local function isInspectDescriptionCategory(text)
     if lower == "max hit points" or lower == "max mana points" or lower == "soul" or lower == "capacity" then
         return true
     end
-    if lower:find("leech", 1, true) or lower:find("critical", 1, true) or lower == "skill bonus" then
+    if lower:find("leech", 1, true) or lower:find("critical", 1, true) or lower == "skill bonus" or lower == "augments" then
         return true
     end
     if lower:match("^protection ") or lower:match("^elemental ") or lower:match("^skill ") or lower:match("^mana ") then
@@ -294,9 +247,6 @@ local function buildPlayerDescriptionRows(descriptions)
         end
     end
     table.sort(preyRows, function(a, b) return a.order < b.order end)
-    if cyclopedia and cyclopedia.buildCharacterDescriptionRowsFromParts then
-        return cyclopedia.buildCharacterDescriptionRowsFromParts(level, vocation, preyRows, outfit)
-    end
     local rows = {}
     if level and level ~= "" then
         rows[#rows + 1] = { tr("Level"), level }
@@ -844,8 +794,34 @@ local function normalizeItem(item)
     return type(item) == "number" and Item and Item.create and Item.create(item) or item
 end
 
+local function tryDeliverItemDetailToCyclopedia(data)
+    local cyclopedia = modules.game_cyclopedia and modules.game_cyclopedia.Cyclopedia
+    if cyclopedia and cyclopedia.receiveItemDetail then
+        return cyclopedia.receiveItemDetail(data)
+    end
+    return false
+end
+
+local function isCyclopediaInspection(data)
+    local inspectType = tonumber(data and data.inspectionType) or 0
+    -- Server 0x76 item responses remap context to wire bytes: 1=cyclopedia, 2=proficiency.
+    if inspectType == 1 or inspectType == 2 then
+        return true
+    end
+    local cyclopediaType = InspectObjectTypes and InspectObjectTypes.INSPECT_CYCLOPEDIA or 3
+    local proficiencyType = InspectObjectTypes and InspectObjectTypes.INSPECT_PROFICIENCY or 4
+    return inspectType == cyclopediaType or inspectType == proficiencyType
+end
+
 local function onParseItemDetailHandler(data)
     if type(data) ~= "table" then return end
+    if isCyclopediaInspection(data) then
+        tryDeliverItemDetailToCyclopedia(data)
+        return
+    end
+    if tryDeliverItemDetailToCyclopedia(data) then
+        return
+    end
     local item = normalizeItem(data.item or data.itemId)
     onInspection(data.inspectionType or 0, data.itemName or data.name or "", item,
         data.descriptions or {}, data.imbuements or {})
@@ -902,14 +878,6 @@ function terminate()
         onGameStart = hideAll,
         onGameEnd = hideAll
     })
-end
-
-function toggle()
-    if tibiaInspect:isVisible() then
-        hide()
-    else
-        show()
-    end
 end
 
 function hide()

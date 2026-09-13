@@ -1,5 +1,11 @@
 local CustomMarketOpcode = 0xDB
 
+-- Market enter item records on proto-feat servers always end with classification.
+-- Do not gate this on getUnreadSize(); multi-item chunks always have unread bytes left.
+local MARKET_ENTER_ITEM_INCLUDES_CLASSIFICATION = true
+-- Followed by requiredLevel (u16) and restrictVocation bitmask (u16) for cyclopedia filters.
+local MARKET_ENTER_ITEM_INCLUDES_FILTER_DATA = true
+
 local CustomMarketResponse = {
     Message = 0,
     Enter = 1,
@@ -15,7 +21,7 @@ local CustomMarketSendOpcode = {
     Accept = 0xE1,
     Detail = 0xFA,
     Leave = 0xF5,
-    Enter = 0xFC
+    Enter = 0xF4
 }
 
 local customMarketEnter = nil
@@ -46,8 +52,27 @@ function parseCustomMarketMessage(protocol, msg)
             local name = msg:getString()
             local amount = msg:getU16()
             local tier = msg:getU8()
+            local classification = 0
+            if MARKET_ENTER_ITEM_INCLUDES_CLASSIFICATION then
+                classification = msg:getU8()
+            end
 
-            table.insert(customMarketEnter.items, { id = itemId, category = category, name = name, tier = tier })
+            local requiredLevel = 0
+            local restrictVocation = 0
+            if MARKET_ENTER_ITEM_INCLUDES_FILTER_DATA then
+                requiredLevel = msg:getU16()
+                restrictVocation = msg:getU16()
+            end
+
+            table.insert(customMarketEnter.items, {
+                id = itemId,
+                category = category,
+                name = name,
+                tier = tier,
+                classification = classification,
+                requiredLevel = requiredLevel,
+                restrictVocation = restrictVocation
+            })
             table.insert(customMarketEnter.depotItems, {itemId, tier, amount})
         end
 
@@ -94,7 +119,13 @@ function parseCustomMarketMessage(protocol, msg)
         local descriptionCount = msg:getU8()
 
         for i = 1, descriptionCount do
-            descriptions[msg:getU8()] = msg:getString()
+            local detailType = msg:getU8()
+            local detailText = msg:getString()
+            if descriptions[detailType] and #descriptions[detailType] > 0 then
+                descriptions[detailType] = descriptions[detailType] .. ", " .. detailText
+            else
+                descriptions[detailType] = detailText
+            end
         end
 
         local function readStatistics(action)

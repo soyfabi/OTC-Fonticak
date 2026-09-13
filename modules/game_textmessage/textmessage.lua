@@ -130,9 +130,9 @@ MessageSettings = {
         colored = true
     },
     valuableLoot = {
-        color = TextColors.green,
+        color = '#f0b400',
         consoleTab = 'Loot',
-        screenTarget = 'statusLabel',
+        screenTarget = 'middleCenterLabel',
         consoleOption = 'showInfoMessagesInConsole',
         colored = true
     },
@@ -213,6 +213,150 @@ MessageTypes = {
 
 messagesPanel = nil
 
+local CENTER_LABEL_SLOTS = { 'highCenterLabel', 'middleCenterLabel', 'lowCenterLabel' }
+local labelMessageSequence = 0
+
+local function isUiWidgetValid(widget)
+    if not widget then
+        return false
+    end
+    if widget.isDestroyed then
+        return not widget:isDestroyed()
+    end
+    return true
+end
+
+local function isCenterScreenTarget(targetId)
+    for _, slotId in ipairs(CENTER_LABEL_SLOTS) do
+        if slotId == targetId then
+            return true
+        end
+    end
+    return false
+end
+
+local function hideLabelMessage(label)
+    if not isUiWidgetValid(label) then
+        return
+    end
+    label:hide()
+    removeEvent(label.hideEvent)
+    label.hideEvent = nil
+    label.gameMessageSeq = nil
+end
+
+local function raiseMessagesPanel()
+    if isUiWidgetValid(messagesPanel) then
+        messagesPanel:raise()
+    end
+end
+
+local function getCenterLabelById(labelId)
+    if not messagesPanel or not labelId then
+        return nil
+    end
+    return messagesPanel:recursiveGetChildById(labelId)
+end
+
+local function findOldestVisibleCenterLabel()
+    local oldestLabel, oldestSeq
+    for _, slotId in ipairs(CENTER_LABEL_SLOTS) do
+        local label = getCenterLabelById(slotId)
+        if label and label:isVisible() and label.gameMessageSeq then
+            if not oldestSeq or label.gameMessageSeq < oldestSeq then
+                oldestLabel = label
+                oldestSeq = label.gameMessageSeq
+            end
+        end
+    end
+    return oldestLabel
+end
+
+local function allocateCenterLabel(preferredOrder)
+    preferredOrder = preferredOrder or CENTER_LABEL_SLOTS
+    for _, slotId in ipairs(preferredOrder) do
+        local label = getCenterLabelById(slotId)
+        if label and not label:isVisible() then
+            return label
+        end
+    end
+
+    local oldestLabel = findOldestVisibleCenterLabel()
+    if oldestLabel then
+        hideLabelMessage(oldestLabel)
+        return oldestLabel
+    end
+
+    return getCenterLabelById(preferredOrder[1])
+end
+
+local function showScreenMessage(label, text, color, useColoredLoot)
+    if not isUiWidgetValid(label) then
+        return
+    end
+
+    label:setColor(color or TextColors.white)
+    if useColoredLoot then
+        local coloredText = ItemsDatabase.setColorLootMessage(text, color or TextColors.green)
+        if type(coloredText) == 'string' and coloredText:find('{.-,.+}') then
+            label:setColoredText(coloredText)
+        else
+            label:setText(type(coloredText) == 'string' and coloredText or text)
+        end
+    else
+        label:setText(text)
+    end
+
+    label:setVisible(true)
+    raiseMessagesPanel()
+    removeEvent(label.hideEvent)
+
+    labelMessageSequence = labelMessageSequence + 1
+    label.gameMessageSeq = labelMessageSequence
+
+    label.hideEvent = scheduleEvent(function()
+        hideLabelMessage(label)
+    end, calculateVisibleTime(text))
+end
+
+local function isHotkeyUsageText(text)
+    if type(text) ~= 'string' then
+        return false
+    end
+    local lower = text:lower()
+    return lower:find('^using one of') ~= nil
+        or lower:find('^using the last') ~= nil
+end
+
+local function showCenterScreenMessage(modeNum, text, msgtype, isLootMsg)
+    local displayColor = msgtype.color
+    local useColoredLoot = false
+
+    if isLootMsg then
+        displayColor = msgtype.color or TextColors.green
+        useColoredLoot = true
+    elseif modeNum == MessageModes.HotkeyUse
+        or msgtype == MessageSettings.centerHKGreen
+        or isHotkeyUsageText(text) then
+        displayColor = TextColors.green
+    end
+
+    local label
+    if modeNum == MessageModes.ValuableLoot then
+        label = getCenterLabelById('middleCenterLabel')
+    elseif isLootMsg then
+        label = getCenterLabelById('highCenterLabel')
+    else
+        label = allocateCenterLabel(CENTER_LABEL_SLOTS)
+    end
+
+    if not label then
+        return
+    end
+
+    showScreenMessage(label, text, displayColor, useColoredLoot)
+end
+
 function init()
     for messageMode, _ in pairs(MessageTypes) do
         registerMessageMode(messageMode, displayMessage)
@@ -246,15 +390,6 @@ local function isOptionEnabled(key, defaultValue)
         return g_settings.getBoolean(key)
     end
     return defaultValue and true or false
-end
-
-local function isHotkeyUsageText(text)
-    if type(text) ~= 'string' then
-        return false
-    end
-    local lower = text:lower()
-    return lower:find('^using one of') ~= nil
-        or lower:find('^using the last') ~= nil
 end
 
 local function getLootConsoleSpeaktype(msgtype)
@@ -322,68 +457,59 @@ function displayMessage(mode, text)
         if isLootMsg then
             local lootColoredText = ItemsDatabase.setColorLootMessage(text)
             local lootSpeaktype = getLootConsoleSpeaktype(msgtype)
-            modules.game_console.addText(lootColoredText, lootSpeaktype, tr("Server Log"))
-            modules.game_console.addText(lootColoredText, lootSpeaktype, tr(msgtype.consoleTab or 'Loot'))
+            local serverLogTab = tr("Server Log")
+            local lootTab = tr(msgtype.consoleTab or 'Loot')
+            modules.game_console.addText(lootColoredText, lootSpeaktype, serverLogTab)
+            if lootTab ~= serverLogTab then
+                modules.game_console.addText(lootColoredText, lootSpeaktype, lootTab)
+            end
         else
             modules.game_console.addText(text, msgtype, tr(msgtype.consoleTab))
         end
     end
 
-    if msgtype.screenTarget then
+    local screenTargetId = msgtype.screenTarget
+    if isLootMsg and not screenTargetId then
+        screenTargetId = CENTER_LABEL_SLOTS[1]
+    end
+
+    if screenTargetId then
         -- Master switch for on-screen messages (Game Window → Show Messages).
         if not isOptionEnabled('showMessages', true) then
             return
         end
 
-        local label = messagesPanel:recursiveGetChildById(msgtype.screenTarget)
-        if not label then
+        if isLootMsg and not isOptionEnabled('showLootMessagesOnScreen', true) then
+            return
+        end
+        if msgtype == MessageSettings.statusBoosted
+            and not isOptionEnabled('showBoostedMessagesInConsole', true) then
+            return
+        end
+        if msgtype == MessageSettings.training
+            and not isOptionEnabled('trainingProgress', true) then
+            return
+        end
+        if msgtype == MessageSettings.store
+            and not isOptionEnabled('storeNotification', true) then
             return
         end
 
-        if isLootMsg then
-            if not isOptionEnabled('showLootMessagesOnScreen', true) then
-                return
-            end
-            -- setColoredText uses the widget color as base for unmarked text.
-            local lootColor = (msgtype.color) or TextColors.green
-            label:setColor(lootColor)
-            local coloredText = ItemsDatabase.setColorLootMessage(text, lootColor)
-            if type(coloredText) == 'string' and coloredText:find('{.-,.+}') then
-                label:setColoredText(coloredText)
-            else
-                label:setText(type(coloredText) == 'string' and coloredText or text)
-            end
-        elseif isHotkeyMsg then
-            label:setText(text)
-            label:setColor(TextColors.green)
-        elseif msgtype == MessageSettings.statusBoosted then
-            if not isOptionEnabled('showBoostedMessagesInConsole', true) then
-                return
-            end
-            label:setText(text)
-            label:setColor(msgtype.color)
-        elseif msgtype == MessageSettings.training then
-            if not isOptionEnabled('trainingProgress', true) then
-                return
-            end
-            label:setText(text)
-            label:setColor(msgtype.color)
-        elseif msgtype == MessageSettings.store then
-            if not isOptionEnabled('storeNotification', true) then
-                return
-            end
-            label:setText(text)
-            label:setColor(msgtype.color)
+        if isLootMsg or isCenterScreenTarget(screenTargetId) then
+            showCenterScreenMessage(modeNum, text, msgtype, isLootMsg)
         else
-            label:setText(text)
-            label:setColor(msgtype.color)
-        end
+            local label = messagesPanel:recursiveGetChildById(screenTargetId)
+            if not label then
+                return
+            end
 
-        label:setVisible(true)
-        removeEvent(label.hideEvent)
-        label.hideEvent = scheduleEvent(function()
-            label:setVisible(false)
-        end, calculateVisibleTime(text))
+            local displayColor = msgtype.color
+            if isHotkeyMsg then
+                displayColor = TextColors.green
+            end
+
+            showScreenMessage(label, text, displayColor, false)
+        end
     end
 end
 
@@ -409,13 +535,7 @@ function displayPrivateMessage(text)
         return
     end
     
-    label:setText(text)
-    label:setColor(msgtype.color)
-    label:setVisible(true)
-    removeEvent(label.hideEvent)
-    label.hideEvent = scheduleEvent(function()
-        label:setVisible(false)
-    end, calculateVisibleTime(text))
+    showScreenMessage(label, text, msgtype.color, false)
 end
 
 function displayStatusMessage(text)
@@ -435,10 +555,18 @@ function displayBroadcastMessage(text)
 end
 
 function clearMessages()
+    labelMessageSequence = 0
+
+    if not messagesPanel then
+        return
+    end
+
     for _i, child in pairs(messagesPanel:recursiveGetChildren()) do
         if child:getId():match('Label') then
             child:hide()
             removeEvent(child.hideEvent)
+            child.hideEvent = nil
+            child.gameMessageSeq = nil
         end
     end
 end

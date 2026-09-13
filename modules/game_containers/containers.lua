@@ -918,13 +918,19 @@ end
 
 function onContainerOpen(container, previousContainer)
     local containerWindow
-    if previousContainer then
+    if previousContainer and previousContainer.window then
         containerWindow = previousContainer.window
         previousContainer.window = nil
         previousContainer.itemsPanel = nil
     else
         containerWindow = g_ui.createWidget('ContainerWindow')
     end
+
+    if not containerWindow then
+        g_logger.error('Failed to open container window for container ' .. tostring(container:getId()))
+        return
+    end
+
     containerWindow:setId('container' .. container:getId())
     local containerPanel = containerWindow:getChildById('contentsPanel')
     local containerItemWidget = containerWindow:getChildById('containerItemWidget')

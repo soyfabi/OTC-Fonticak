@@ -1,4 +1,4 @@
-ItemPanel < Panel
+DropTrackerItemPanel < Panel
   size: 147 34
   @updateItemPanelSize: |
     function(self)
@@ -21,7 +21,7 @@ ItemPanel < Panel
     phantom: true
     virtual: true
 
-  Label
+  UILabel
     id: itemName
     !text: tr('Item Name')
     anchors.top: parent.top
@@ -29,7 +29,7 @@ ItemPanel < Panel
     margin-top: 5
     margin-left: 5
     text-auto-resize: true
-    color: #c0c0c0
+    color: #F6F6F6
     font: Verdana Bold-11px
 
   Label
@@ -62,7 +62,7 @@ ItemPanel < Panel
       type: verticalBox
       fit-children: true
 
-MonsterPanel < Panel
+DropTrackerMonsterPanel < Panel
   size: 147 16
   UIWidget
     id: hierarchy

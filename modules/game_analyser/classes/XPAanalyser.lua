@@ -561,9 +561,15 @@ function XPAnalyser:loadConfigJson()
 		showBaseXp = false,
 	}
 
-	local player = g_game.getLocalPlayer()
-	local file = "/characterdata/" .. player:getId() .. "/xpanalyser.json"
-	if g_resources.fileExists(file) then
+	if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
+		LoadedPlayer:cacheFromLocalPlayer()
+	end
+	if not LoadedPlayer or not LoadedPlayer:isLoaded() then
+		return
+	end
+
+	local file = LoadedPlayer:getCharacterDataFile("xpanalyser.json")
+	if file and g_resources.fileExists(file) then
 		local status, result = pcall(function()
 			return json.decode(g_resources.readFileContents(file))
 		end)
@@ -590,15 +596,13 @@ function XPAnalyser:saveConfigJson()
 		showBaseXp = XPAnalyser:rawXPIsVisible(),
 	}
 
-	local player = g_game.getLocalPlayer()
-	if not player then return end
-	
-	-- Ensure the characterdata directory exists
-	local characterDir = "/characterdata/" .. player:getId()
-	pcall(function() g_resources.makeDir("/characterdata") end)
-	pcall(function() g_resources.makeDir(characterDir) end)
-	
-	local file = "/characterdata/" .. player:getId() .. "/xpanalyser.json"
+	if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
+		LoadedPlayer:cacheFromLocalPlayer()
+	end
+	if not LoadedPlayer or not LoadedPlayer:isLoaded() then return end
+
+	local file = LoadedPlayer:getCharacterDataSaveFile("xpanalyser.json")
+	if not file then return end
 	local status, result = pcall(function() return json.encode(config, 2) end)
 	if not status then
 		return g_logger.error("Error while saving profile XP Analyzer data. Data won't be saved. Details: " .. result)

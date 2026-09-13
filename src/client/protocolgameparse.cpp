@@ -1833,7 +1833,13 @@ static CyclopediaCharacterInspection readCyclopediaCharacterInspectionData(Proto
 void ProtocolGame::parseCyclopediaItemDetail(const InputMessagePtr& msg)
 {
     const uint8_t windowsType = msg->getU8(); // 1 = character, 0 = item
-    const uint8_t inspectionType = msg->getU8();  // InspectObjectTypes
+    const uint8_t wireInspectionType = msg->getU8();
+    uint8_t inspectionType = Otc::INSPECT_NORMALOBJECT;
+    if (wireInspectionType == 1) {
+        inspectionType = Otc::INSPECT_CYCLOPEDIA;
+    } else if (wireInspectionType == 2) {
+        inspectionType = Otc::INSPECT_PROFICIENCY;
+    }
     const uint32_t creatureId = msg->getU32();
 
     if (std::cmp_equal(windowsType, 1)) {

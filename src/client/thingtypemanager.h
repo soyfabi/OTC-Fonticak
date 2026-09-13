@@ -62,6 +62,7 @@ public:
 #endif
 
     ThingTypeList findThingTypeByAttr(ThingAttr attr, ThingCategory category);
+    std::string getCyclopediaItemName(uint16_t id);
 
     const RaceType& getRaceData(uint32_t raceId);
     RaceList getRacesByName(const std::string& searchString);

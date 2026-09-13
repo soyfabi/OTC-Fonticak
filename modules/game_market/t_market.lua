@@ -7,6 +7,9 @@ local buyOffers = {}
 local sellOffers = {}
 cachedMarketBalance = 0
 cachedMarketBalanceKnown = false
+cachedCustomMarketItems = nil
+local CUSTOM_MARKET_FILTER_DATA_VERSION = 2
+local silentMarketEnter = false
 
 local lastSelectedCategory = nil
 local lastSelectedItem = {}
@@ -89,7 +92,7 @@ function init()
     mainMarket.createOfferSell:setChecked(true)
     connect(g_game, {
         onResourcesBalanceChange = onResourcesBalanceChange,
-        onGameEnd = hide,
+        onGameEnd = onMarketGameEnd,
         onGameStart = hide,
         onMarketEnter = onMarketEnter,
         onMarketBrowse = onMarketBrowse,
@@ -107,7 +110,7 @@ function terminate()
     disconnect(g_game, {
         onResourcesBalanceChange = onResourcesBalanceChange,
         onGameStart = hide,
-        onGameEnd = hide,
+        onGameEnd = onMarketGameEnd,
         onMarketEnter = onMarketEnter,
         onMarketBrowse = onMarketBrowse,
         onMarketDetail = onMarketDetail,
@@ -137,11 +140,15 @@ function toggle()
     end
 end
 
+function onMarketGameEnd()
+    cachedCustomMarketItems = nil
+    hide()
+end
+
 function hide()
     if not marketWindow then
         return
     end
-    local benchmark = g_clock.millis()
     local mainMarket = marketWindow.contentPanel:getChildById('mainMarket')
     local detailsMarket = marketWindow.contentPanel:getChildById('detailsMarket')
     local closeButton = marketWindow.contentPanel:getChildById('closeButton')
@@ -491,8 +498,73 @@ function onResourcesBalanceChange(value, oldBalance, resourceType)
     marketWindow.MarketHistory.currentOffers.coinPanel.gold:setText(comma_value(playerCoins))
 end
 
+function getCachedCustomMarketItems()
+    return cachedCustomMarketItems
+end
+
+local function customMarketItemsHaveFilterData(customItems)
+    if not customItems or #customItems == 0 then
+        return false
+    end
+
+    return customItems._filterDataVersion == CUSTOM_MARKET_FILTER_DATA_VERSION
+end
+
+function requestMarketItemsForCyclopedia(silent)
+    if not g_game.isOnline() then
+        return false
+    end
+
+    if cachedCustomMarketItems and #cachedCustomMarketItems > 0 then
+        if customMarketItemsHaveFilterData(cachedCustomMarketItems) then
+            return true
+        end
+        cachedCustomMarketItems = nil
+    end
+
+    silentMarketEnter = silent ~= false
+    if sendMarketEnter then
+        sendMarketEnter()
+    end
+    return false
+end
+
+local function getMarketItemClassification(itemData)
+    if not itemData then
+        return 0
+    end
+
+    if itemData.marketData and itemData.marketData.classification then
+        return itemData.marketData.classification
+    end
+
+    if itemData.thingType and itemData.thingType.getClassification then
+        return itemData.thingType:getClassification() or 0
+    end
+
+    return 0
+end
+
+function isCustomMarketItem(itemId)
+    if not cachedCustomMarketItems then
+        return false
+    end
+
+    for i = 1, #cachedCustomMarketItems do
+        if cachedCustomMarketItems[i].id == itemId then
+            return true
+        end
+    end
+
+    return false
+end
+
 function configureList(customItems)
     marketItems = {}
+    if customItems and #customItems > 0 then
+        customItems._filterDataVersion = CUSTOM_MARKET_FILTER_DATA_VERSION
+        cachedCustomMarketItems = customItems
+    end
     -- Initialize all categories from 1 to 31 (including Soul Cores)
     for c = 1, 31 do
         marketItems[c] = {}
@@ -515,16 +587,18 @@ function configureList(customItems)
             local thingType = g_things.getThingType(entry.id, ThingCategoryItem)
             
             if item and thingType and not marketItemNames[entry.id] then
+                local classification = tonumber(entry.classification) or thingType:getClassification() or 0
                 local marketItem = {
                     displayItem = item,
                     thingType = thingType,
                     marketData = {
-                        requiredLevel = 0,
-                        restrictVocation = 0,
+                        requiredLevel = tonumber(entry.requiredLevel) or 0,
+                        restrictVocation = tonumber(entry.restrictVocation) or 0,
                         name = entry.name,
                         category = entry.category,
                         showAs = entry.id,
-                        tradeAs = entry.id
+                        tradeAs = entry.id,
+                        classification = classification
                     }
                 }
                 
@@ -664,6 +738,23 @@ end
 function onMarketEnter(items, offerCount, balance, vocation, customItems)
     configureList(customItems)
     depotLockerItems = items
+
+    if modules.game_cyclopedia and modules.game_cyclopedia.Cyclopedia and modules.game_cyclopedia.Cyclopedia.onMarketItemsUpdated then
+        modules.game_cyclopedia.Cyclopedia.onMarketItemsUpdated(customItems)
+    end
+
+    if modules.game_quickloot and modules.game_quickloot.QuickLoot and modules.game_quickloot.QuickLoot.onMarketItemsUpdated then
+        modules.game_quickloot.QuickLoot.onMarketItemsUpdated()
+    end
+
+    if silentMarketEnter then
+        silentMarketEnter = false
+        if balance and balance >= 0 then
+            cachedMarketBalance = balance
+            cachedMarketBalanceKnown = true
+        end
+        return
+    end
 
     if marketWindow:isVisible() then
         -- Update balance and items even if already visible
@@ -1411,7 +1502,6 @@ function onClearMainMarket(cleanList)
     cache.SCROLL_BUY_OFFERS.listMin = 0
     cache.SCROLL_BUY_OFFERS.listMax = 0
     cache.SCROLL_BUY_OFFERS.listFit = 0
-    cache.SCROLL_BUY_OFFERS.listMin = 0
     cache.SCROLL_BUY_OFFERS.listPool = {}
     cache.SCROLL_BUY_OFFERS.listData = {}
     cache.SCROLL_BUY_OFFERS.lastSelected = 0
@@ -1419,7 +1509,6 @@ function onClearMainMarket(cleanList)
     cache.SCROLL_SELL_OFFERS.listMin = 0
     cache.SCROLL_SELL_OFFERS.listMax = 0
     cache.SCROLL_SELL_OFFERS.listFit = 0
-    cache.SCROLL_SELL_OFFERS.listMin = 0
     cache.SCROLL_SELL_OFFERS.listPool = {}
     cache.SCROLL_SELL_OFFERS.listData = {}
     cache.SCROLL_SELL_OFFERS.lastSelected = 0
@@ -2317,13 +2406,15 @@ function checkSortMarketOptions(itemData)
         end
     end
 
+    local itemClassification = getMarketItemClassification(itemData)
+
     if sortButtons["classFilter"] ~= -1 then
-        if itemData.thingType:getClassification() ~= sortButtons["classFilter"] then
+        if itemClassification ~= sortButtons["classFilter"] then
             return false
         end
     end
 
-    if sortButtons["tierFilter"] > 0 and itemData.thingType:getClassification() == 0 then
+    if sortButtons["tierFilter"] > 0 and itemClassification == 0 then
         return false
     end
 
@@ -2342,8 +2433,14 @@ function onSortMarketFields(widget, checked)
             sortButtons["oneButton"] = false
         end
     elseif table.contains({'classFilter', 'tierFilter'}, widget:getId()) then
-        if checked > 1 and widget:getId() == "classFilter" then
-            sortButtons["classFilter"] = (checked - 2)
+        if widget:getId() == "classFilter" then
+            if checked == 1 then
+                sortButtons["classFilter"] = -1
+            elseif checked == 2 then
+                sortButtons["classFilter"] = 0
+            else
+                sortButtons["classFilter"] = checked - 2
+            end
         elseif widget:getId() == "tierFilter" then
             sortButtons["tierFilter"] = checked - 1
         end
@@ -2459,10 +2556,6 @@ function getMarketItemName(itemId)
     end
 
     return tostring(itemId)
-end
-
-function getItemNameById(itemId)
-    return getMarketItemName(itemId)
 end
 
 function onRedirect(item)

@@ -189,8 +189,6 @@ WindowHigh
 
     QtButton
       id: add
-      visible: false
-      enabled: false
       size: 130 21
       !text: tr('Add to Skipped Loot List')
       color: #ffffff
@@ -198,6 +196,9 @@ WindowHigh
       anchors.left: parent.left
       margin-top: 5
       margin-left: -1
+      @onClick: |
+        QuickLoot.hide()
+        modules.game_cyclopedia.show("items")
 
   Panel
     id: information

@@ -125,6 +125,29 @@ local function applyBestiaryLootRarityOverlay(slot)
 	end
 end
 
+local function openBestiaryLootInCyclopedia(itemId)
+	itemId = tonumber(itemId) or 0
+	if itemId <= 0 then
+		return false
+	end
+
+	if Cyclopedia and Cyclopedia.openItem then
+		Cyclopedia.openItem(itemId)
+		return true
+	end
+
+	return false
+end
+
+local function onBestiaryLootClick(widget, mousePosition, mouseButton)
+	if mouseButton ~= MouseLeftButton then
+		return false
+	end
+
+	local itemWidget = widget and widget.item
+	return openBestiaryLootInCyclopedia(itemWidget and itemWidget:getItemId())
+end
+
 local function firstToUpper(str)
     return (str:gsub("^%l", string.upper))
 end
@@ -839,6 +862,7 @@ function registerBestiaryProtocol()
 						slot.item:setTooltip(firstToUpper(difficultyList[i].name))
 						slot.countLabel:setText(difficultyList[i].countMax > 1 and "1+" or "1")
 						slot.countLabel:show()
+						slot.onMouseRelease = onBestiaryLootClick
 						applyBestiaryLootRarityOverlay(slot)
 					else
 						if slot.image then
@@ -847,6 +871,7 @@ function registerBestiaryProtocol()
 						end
 						slot.item:setItemId(0)
 						slot.countLabel:hide()
+						slot.onMouseRelease = nil
 						applyBestiaryLootRarityOverlay(slot)
 					end
 				else
@@ -856,6 +881,7 @@ function registerBestiaryProtocol()
 					end
 					slot.item:setItemId(0)
 					slot.countLabel:hide()
+					slot.onMouseRelease = nil
 					applyBestiaryLootRarityOverlay(slot)
 					slot:disable()
 				end
@@ -963,7 +989,7 @@ function registerBestiaryProtocol()
 		if displayInfoBox then
 			displayInfoBox("Cyclopedia", message)
 		else
-			print(message)
+			g_logger.warning("[game_cyclopedia/bestiary] %s", message)
 		end
 	end)
 
@@ -1600,19 +1626,8 @@ function initBestiary(contentContainer)
 			end, 300)
 		end
 	end
-		
-	--- Extras
-	connect(g_game, {
-		onEnterGame = registerBestiaryProtocol, 
-		onPendingGame = registerBestiaryProtocol
-	})
-	
-	if g_game.isOnline() then
-        registerBestiaryProtocol()
-    end
 
-	-- Protocolling request
-	requestBestiaryData() -- We request the bestiary data
+	requestBestiaryData()
 end
 local function requestBestiaryInfo()
 	local protocolGame = g_game.getProtocolGame()
