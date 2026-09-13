@@ -24,66 +24,32 @@ MultilineTextEdit < TextEdit
   multiline: true
 
 TextQtEdit < UITextEdit
-  font: verdana-11px-antialised
+  font: Verdana Bold-11px
   color: #c0c0c0ff
-  size: 86 22
+  size: 97 20
   text-offset: 0 4
   opacity: 1
-  padding: 4
-  background-color: #363636ff
+  padding: 0 0 0 4
+  padding-bottom: 1
+  image-source: /images/ui/textedit
+  image-border: 1
   selection-color: #ffffffff
   selection-background-color: #808080ff
   change-cursor-image: false
 
-  UIWidget
-    image-source: /images/ui/vertical_line_dark
-    anchors.top: parent.top
-    anchors.bottom: parent.bottom
-    anchors.left: parent.left
-    margin-top: -4
-    margin-bottom: -4
-    margin-left: -4
-    phantom: true
-    width: 1
-
-  UIWidget
-    image-source: /images/ui/horizontal_line_dark
-    anchors.top: parent.top
-    anchors.left: parent.left
-    anchors.right: parent.right
-    margin-top: -4
-    margin-left: -4
-    margin-right: -4
-    phantom: true
-    height: 1
-
-  UIWidget
-    image-source: /images/ui/vertical_line_bright
-    anchors.top: parent.top
-    anchors.bottom: parent.bottom
-    anchors.right: parent.right
-    margin-top: -4
-    margin-bottom: -4
-    margin-right: -4
-    phantom: true
-    width: 1
-
-  UIWidget
-    image-source: /images/ui/horizontal_line_bright
-    anchors.bottom: parent.bottom
-    anchors.left: parent.left
-    anchors.right: parent.right
-    margin-bottom: -4
-    margin-left: -4
-    margin-right: -4
-    phantom: true
-    height: 1
+TextQtHideToggleBox < TextQtEdit
+  editable: false
+  selectable: false
+  focusable: false
+  cursor-visible: false
+  width: 22
+  height: 20
+  max-length: 0
 
 HiddenTextQtEdit < TextQtEdit
   text-hidden: true
 
-HiddenTextQtToggleEdit < TextQtEdit
-  text-hidden: true
+HiddenTextQtToggleEdit < HiddenTextQtEdit
 
   UICheckBox
     size: 19 20

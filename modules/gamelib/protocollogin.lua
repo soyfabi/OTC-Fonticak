@@ -326,6 +326,46 @@ function ProtocolLogin:parseCharacterList(msg)
 end
 
 function ProtocolLogin:parseExtendedCharacterList(msg)
+    if g_game.getProtocolVersion() <= 1010 then
+        local characters = {}
+        local charactersCount = msg:getU8()
+
+        for i = 1, charactersCount do
+            local character = {}
+            character.name = msg:getString()
+            character.worldName = msg:getString()
+            character.worldIp = iptostring(msg:getU32())
+            character.worldHost = character.worldIp
+            character.worldPort = msg:getU16()
+            character.worldId = 0
+            character.pvpType = 0
+            character.outfit = {
+                type = msg:getU16(),
+                head = msg:getU8(),
+                body = msg:getU8(),
+                legs = msg:getU8(),
+                feet = msg:getU8(),
+                addons = msg:getU8()
+            }
+            character.level = msg:getU32()
+            character.vocation = msg:getString()
+            character.dailyreward = msg:getU8()
+            characters[i] = character
+        end
+
+        local account = {}
+        account.status = AccountStatus.Ok
+        account.premDays = msg:getU16()
+        account.subStatus = account.premDays > 0 and SubscriptionStatus.Premium or SubscriptionStatus.Free
+
+        if not msg:eof() and msg:getU8() == LoginServerBoostedInfo then
+            self:parseBoostedLoginInfo(msg)
+        end
+
+        signalcall(self.onCharacterList, self, characters, account)
+        return
+    end
+
     local characters = msg:getTable()
     local account = msg:getTable()
     local otui = msg:getString()

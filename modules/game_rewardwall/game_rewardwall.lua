@@ -63,6 +63,7 @@ local REWARD_CONTAINER_INACTIVE = "/game_rewardwall/images/container-bonus-inact
 local bonusShrine = 0
 local DAILY_REWARD_CYCLE = 86400
 local dailyRewardSlotTimerEvent, dailyRewardSlotTimerData, restingAreaTimerEvent, restingAreaTimerData
+local updateDailyRewards
 local claimPending = false
 local claimCloseResetEvent
 local COLORS = {
@@ -692,7 +693,7 @@ local function initRewardGoldSlots()
 	end
 end
 
-local function updateDailyRewards(dayStreakDay, wasDailyRewardTaken, nextRewardTime, canGetReward, timeLeft)
+function updateDailyRewards(dayStreakDay, wasDailyRewardTaken, nextRewardTime, canGetReward, timeLeft)
 	stopDailyRewardSlotTimer()
 	stopRestingAreaTimer()
 
@@ -1885,10 +1886,7 @@ function onClickBtnOk()
 		end
 	end
 
-	g_logger.info(string.format("[rewardwall] OK: totalSelected=%d itemsCount=%d claimPending=%s bonusShrine=%s", totalSelected, table.size(itemsToSend), tostring(claimPending), tostring(bonusShrine)))
-
 	if totalSelected == 0 or claimPending then
-		g_logger.info("[rewardwall] OK aborted: nothing selected or a previous claim is in progress")
 		return
 	end
 

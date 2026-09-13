@@ -1,1036 +1,1252 @@
+-- chunkname: @/client_entergame/entergame.lua
+
 EnterGame = {}
 
-function safeDecrypt(text)
-    if not text or text == '' then
-        return ''
-    end
-    local success, result = pcall(g_crypt.decrypt, text)
-    return success and result or ''
+local loadBox, enterGame, motdWindow, enterGameButton, clientBox
+local motdEnabled = true
+local twoFactorWindow, hostInfos
+local protocolLogin
+
+local function safeDecrypt(text)
+	if not text or text == "" then
+		return ""
+	end
+	local ok, res = pcall(g_crypt.decrypt, text)
+	return ok and res or text
 end
 
--- private variables
-local loadBox
-local enterGame
-local motdWindow
-local enterGameButton
-local clientBox
-local protocolLogin
-local motdEnabled = true
-local tokenWindow
-local authErrorBox
-local hasAttemptedAuthenticator = false
+local user32 = nil
+local okFfi, ffiMod = pcall(require, "ffi")
+if okFfi and ffiMod then
+	pcall(function()
+		ffiMod.cdef[[
+			short GetKeyState(int nVirtKey);
+		]]
+		user32 = ffiMod.load("user32")
+	end)
+end
 
--- private functions
+local capsLockActive = false
+local REMEMBER_EMAIL_MARGIN = 10
+local REMEMBER_EMAIL_MARGIN_CAPS = 28
+local CAPS_LOCK_EXTRA_HEIGHT = REMEMBER_EMAIL_MARGIN_CAPS - REMEMBER_EMAIL_MARGIN
+
+local function isSystemCapsLockActive()
+	if user32 and user32.GetKeyState then
+		local success, state = pcall(user32.GetKeyState, 0x14)
+		if success and state then
+			return bit.band(state, 1) ~= 0
+		end
+	end
+	return nil
+end
+
+local function updateCapsLockWarning(forceState)
+	if not enterGame then
+		return
+	end
+
+	local warning = enterGame:getChildById("capsLockWarning")
+	local rememberEmailBox = enterGame:getChildById("rememberEmailBox")
+	if not warning then
+		return
+	end
+
+	local passwordEdit = enterGame:getChildById("accountPasswordTextEdit")
+	local showWarning = false
+
+	if passwordEdit and passwordEdit:isFocused() then
+		local sys = isSystemCapsLockActive()
+		if forceState ~= nil then
+			capsLockActive = forceState
+		elseif sys ~= nil then
+			capsLockActive = sys
+		end
+		showWarning = capsLockActive
+	end
+
+	warning:setVisible(showWarning)
+
+	if rememberEmailBox then
+		rememberEmailBox:setMarginTop(showWarning and REMEMBER_EMAIL_MARGIN_CAPS or REMEMBER_EMAIL_MARGIN)
+	end
+
+	local baseHeight = enterGame.baseHeight or 246
+	enterGame:setHeight(showWarning and (baseHeight + CAPS_LOCK_EXTRA_HEIGHT) or baseHeight)
+end
+
+
+local function buildLoginBody(token)
+	local body = {
+		stayloggedin = true,
+		type = "login",
+		email = G.account,
+		password = G.password
+	}
+
+	if token and token:len() > 0 then
+		body.token = token
+	end
+
+	return body
+end
+
+local function buildLoginUrl(useHttps)
+	local scheme = useHttps and "https" or "http"
+
+	return string.format("%s://%s:%d%s", scheme, G.loginHost, G.port, G.loginPath)
+end
+
+local function sendHttpLoginRequest(httpLogin, token, useHttps)
+	local requestId = G.requestId
+	local url = buildLoginUrl(useHttps)
+
+	G.httpOperationId = HTTP.postJSON(url, buildLoginBody(token), function(data, err)
+		if G.requestId ~= requestId then
+			return
+		end
+
+		if err and useHttps and httpLogin then
+			sendHttpLoginRequest(httpLogin, token, false)
+
+			return
+		end
+
+		EnterGame.handleHttpLoginResponse(data, err, requestId)
+	end)
+end
+
 local function onError(protocol, message, errorCode)
-    if loadBox then
-        loadBox:destroy()
-        loadBox = nil
-    end
+	if loadBox then
+		loadBox:destroy()
 
-    if errorCode == 6 then
-        if hasAttemptedAuthenticator then
-            if authErrorBox then
-              authErrorBox:destroy()
-            end
-            authErrorBox = displayErrorBox(tr('Authentication Failed'), tr('The token you entered is incorrect.'))
-            connect(authErrorBox, {
-              onOk = function()
-                authErrorBox = nil
-                EnterGame.showAuthenticatorInput()
-              end
-            })
-        else
-            EnterGame.showAuthenticatorInput()
-        end
+		loadBox = nil
+	end
 
-        return
-    end
+	if not errorCode then
+		EnterGame.clearAccountFields()
+	end
 
-    local errorBox = displayErrorBox(tr('Login Error'), message)
-    connect(errorBox, {
-        onOk = EnterGame.show
-    })
+	local errorBox = displayErrorBox(tr("Sorry"), message)
+
+	connect(errorBox, {
+		onOk = EnterGame.show
+	})
 end
 
 local function onMotd(protocol, motd)
-    G.motdNumber = tonumber(motd:sub(0, motd:find('\n')))
-    G.motdMessage = motd:sub(motd:find('\n') + 1, #motd)
+	G.motdNumber = tonumber(motd:sub(0, motd:find("\n")))
+	G.motdMessage = motd:sub(motd:find("\n") + 1, #motd)
 end
 
 local function onSessionKey(protocol, sessionKey)
-    G.sessionKey = sessionKey
+	G.sessionKey = sessionKey
 end
 
 local function onCharacterList(protocol, characters, account, otui)
-    local httpLogin = false
+	local httpLogin = false
+	if Servers_init and next(Servers_init) ~= nil then
+		local hostInit, valuesInit = next(Servers_init)
+		httpLogin = valuesInit and valuesInit.httpLogin or false
+	end
 
-    -- Try add server to the server list
-    ServerList.add(G.host, G.port, g_game.getClientVersion(), httpLogin)
+	g_settings.set("httpLogin", httpLogin)
 
-    -- Save 'Stay logged in' setting
-    local stayLoggedChecked = enterGame:getChildById('stayLoggedBox'):isChecked()
-    g_settings.set('staylogged', stayLoggedChecked)
-    if modules.client_options and modules.client_options.setOption then
-        modules.client_options.setOption('stayLoggedInforSession', stayLoggedChecked)
-    end
-    g_settings.set('httpLogin', httpLogin)
+	if enterGame:getChildById("rememberEmailBox"):isChecked() then
+		local enc = g_crypt.encrypt(G.account)
+		g_settings.set("account", enc)
+		g_settings.set("rememberEmail", true)
+	else
+		EnterGame.clearAccountNameFields()
+		g_settings.set("rememberEmail", false)
+	end
 
-    if enterGame:getChildById('rememberEmailBox'):isChecked() then
-        local account = g_crypt.encrypt(G.account)
-        local password = g_crypt.encrypt(G.password)
+	if enterGame:getChildById("rememberPasswordBox"):isChecked() then
+		local enc = g_crypt.encrypt(G.password)
+		g_settings.set("password", enc)
+		g_settings.set("rememberPassword", true)
+	else
+		EnterGame.clearPasswordNameFields()
+		g_settings.set("rememberPassword", false)
+	end
+	g_settings.save()
 
-        g_settings.set('account', account)
-        g_settings.set('password', password)
+	if loadBox then
+		loadBox:destroy()
 
-        ServerList.setServerAccount(G.host, G.account)
-        ServerList.setServerPassword(G.host, G.password)
-        ServerList.setServerAutologin(G.host, enterGame:getChildById('autoLoginBox'):isChecked())
+		loadBox = nil
+	end
 
-        g_settings.set('autologin', enterGame:getChildById('autoLoginBox'):isChecked())
-        ServerList.save()
-    else
-        -- reset server list account/password
-        ServerList.setServerAccount(G.host, '')
-        ServerList.setServerPassword(G.host, '')
+	for _, characterInfo in pairs(characters) do
+		if characterInfo.previewState and characterInfo.previewState ~= PreviewState.Default then
+			characterInfo.worldName = characterInfo.worldName .. ", Preview"
+		end
+	end
 
-        EnterGame.clearAccountFields()
-    end
+	CharacterList.create(characters, account, otui)
+	CharacterList.show()
 
-    if loadBox then
-        loadBox:destroy()
-        loadBox = nil
-    end
+	if motdEnabled then
+		local lastMotdNumber = g_settings.getNumber("motd")
 
-    for _, characterInfo in pairs(characters) do
-        if characterInfo.previewState and characterInfo.previewState ~= PreviewState.Default then
-            characterInfo.worldName = characterInfo.worldName .. ', Preview'
-        end
-    end
+		if G.motdNumber and G.motdNumber ~= lastMotdNumber then
+			g_settings.set("motd", G.motdNumber)
 
-    CharacterList.create(characters, account, otui)
-    CharacterList.show()
+			motdWindow = displayInfoBox(tr("Message of the day"), G.motdMessage)
 
-    if motdEnabled then
-        local lastMotdNumber = g_settings.getNumber('motd')
-        if G.motdNumber and G.motdNumber ~= lastMotdNumber then
-            g_settings.set('motd', G.motdNumber)
-            motdWindow = displayInfoBox(tr('Message of the day'), G.motdMessage)
-            connect(motdWindow, {
-                onOk = function()
-                    CharacterList.show()
-                    motdWindow = nil
-                end
-            })
-            CharacterList.hide()
-        end
-    end
+			connect(motdWindow, {
+				onOk = function()
+					CharacterList.show()
+
+					motdWindow = nil
+				end
+			})
+			CharacterList.hide()
+		end
+	end
 end
 
 local function onUpdateNeeded(protocol, signature)
-    if loadBox then
-        loadBox:destroy()
-        loadBox = nil
-    end
+	if loadBox then
+		loadBox:destroy()
 
-    if EnterGame.updateFunc then
-        local continueFunc = EnterGame.show
-        local cancelFunc = EnterGame.show
-        EnterGame.updateFunc(signature, continueFunc, cancelFunc)
-    else
-        local errorBox = displayErrorBox(tr('Update needed'), tr('Your client needs updating, try redownloading it.'))
-        connect(errorBox, {
-            onOk = EnterGame.show
-        })
-    end
+		loadBox = nil
+	end
+
+	if EnterGame.updateFunc then
+		local continueFunc = EnterGame.show
+		local cancelFunc = EnterGame.show
+
+		EnterGame.updateFunc(signature, continueFunc, cancelFunc)
+	else
+		local errorBox = displayErrorBox(tr("Update needed"), tr("Your client needs updating, try redownloading it."))
+
+		connect(errorBox, {
+			onOk = EnterGame.show
+		})
+	end
+end
+
+local ENTER_GAME_LABEL_COLOR = "#c0c0c0"
+local ENTER_GAME_LABEL_HIGHLIGHT = "#ffffff"
+
+local function setEnterGameTextHighlight(widget, highlight)
+	if widget and not widget:isDestroyed() then
+		widget:setColor(highlight and ENTER_GAME_LABEL_HIGHLIGHT or ENTER_GAME_LABEL_COLOR)
+	end
+end
+
+local function setupEnterGameHighlights()
+	if not enterGame then
+		return
+	end
+
+	local function bindLabelHighlight(label, triggers)
+		if not label then
+			return
+		end
+
+		local hoverCount = 0
+		local focusCount = 0
+
+		local function refresh()
+			setEnterGameTextHighlight(label, hoverCount > 0 or focusCount > 0)
+		end
+
+		for _, widget in ipairs(triggers) do
+			if widget then
+				local originalHover = widget.onHoverChange
+				widget.onHoverChange = function(w, hovered)
+					if originalHover then
+						originalHover(w, hovered)
+					end
+					if hovered then
+						hoverCount = hoverCount + 1
+					else
+						hoverCount = math.max(0, hoverCount - 1)
+					end
+					refresh()
+				end
+
+				local originalFocus = widget.onFocusChange
+				widget.onFocusChange = function(w, focused)
+					if originalFocus then
+						originalFocus(w, focused)
+					end
+					if focused then
+						focusCount = focusCount + 1
+					else
+						focusCount = math.max(0, focusCount - 1)
+					end
+					refresh()
+				end
+			end
+		end
+	end
+
+	local function bindWidgetHighlight(widget, label)
+		label = label or widget
+		if not widget then
+			return
+		end
+
+		local originalHover = widget.onHoverChange
+		widget.onHoverChange = function(w, hovered)
+			if originalHover then
+				originalHover(w, hovered)
+			end
+			setEnterGameTextHighlight(label, hovered)
+		end
+	end
+
+	bindLabelHighlight(enterGame:getChildById("emailLabel"), {
+		enterGame:getChildById("accountNameTextEdit"),
+		enterGame:getChildById("accountEmailVisibilityBox")
+	})
+
+	bindLabelHighlight(enterGame:getChildById("passwordLabel"), {
+		enterGame:getChildById("accountPasswordTextEdit"),
+		enterGame:getChildById("accountPasswordVisibilityBox")
+	})
+
+	bindWidgetHighlight(enterGame:getChildById("rememberEmailBox"))
+	bindWidgetHighlight(enterGame:getChildById("rememberPasswordBox"))
+
+	local forgotPassword = enterGame:getChildById("Forgot_password_email")
+	if forgotPassword then
+		bindWidgetHighlight(forgotPassword, forgotPassword:getChildById("forgotPasswordLabel"))
+	end
+
+	local loginWithGoogle = enterGame:getChildById("btnLoginWithGoogle")
+	if loginWithGoogle then
+		local googleLoginLabel = loginWithGoogle:recursiveGetChildById("googleLoginLabel")
+		local googleLoginIcon = loginWithGoogle:recursiveGetChildById("googleLoginIcon")
+		bindLabelHighlight(googleLoginLabel, {
+			loginWithGoogle,
+			googleLoginIcon,
+			googleLoginLabel
+		})
+	end
 end
 
 local function updateLabelText()
-    if enterGame:getChildById('clientComboBox') and tonumber(enterGame:getChildById('clientComboBox'):getText()) > 1080 then
-        enterGame:setText("Journey Onwards")
-        enterGame:getChildById('emailLabel'):setText("Email:")
-        enterGame:getChildById('rememberEmailBox'):setText("Remember Email:")
-    else
-        enterGame:setText("Enter Game")
-        enterGame:getChildById('emailLabel'):setText("Acc Name:")
-        enterGame:getChildById('rememberEmailBox'):setText("Remember password:")
-    end
+	enterGame:setText("Journey Onwards")
+	enterGame:getChildById("emailLabel"):setText(tr("Email/Acc. Name:"))
+	enterGame:getChildById("rememberEmailBox"):setText(tr("Remember Email/Acc. Name"))
 end
 
-local function loadServerListModule()
-    local module = g_modules.getModule('client_serverlist')
-
-    if module and not module:isLoaded() then
-        module:load()
-    end
-end
-
--- public functions
 function EnterGame.init()
-    enterGame = g_ui.displayUI('entergame')
-    Keybind.new("Misc.", "Change Character", "Ctrl+G", "")
-    Keybind.bind("Misc.", "Change Character", {
-      {
-        type = KEY_DOWN,
-        callback = EnterGame.openWindow,
-      }
-    })
+	enterGame = g_ui.displayUI("entergame")
+	enterGame.baseHeight = enterGame:getHeight()
 
-    local host = g_settings.get('host')
-    local port = g_settings.get('port')
-    local stayLogged = g_settings.getBoolean('staylogged')
-    if modules.client_options and modules.client_options.getOption then
-        local stayFromOptions = modules.client_options.getOption('stayLoggedInforSession')
-        if stayFromOptions ~= nil then
-            stayLogged = stayFromOptions and true or false
-        end
-    end
-    local autologin = g_settings.getBoolean('autologin')
-    local httpLogin = g_settings.getBoolean('httpLogin')
-    local clientVersion = g_settings.getInteger('client-version')
+	Keybind.new("Misc.", "Change Character", "Ctrl+G", "")
+	Keybind.bind("Misc.", "Change Character", {
+		{
+			type = KEY_DOWN,
+			callback = EnterGame.openWindow
+		}
+	})
 
-    if not clientVersion or clientVersion == 0 then
-        clientVersion = 860
-    end
+	local account = g_settings.get("account")
+	local password = g_settings.get("password")
+	local clientVersion = g_settings.getInteger("client-version")
 
-    if not port or port == 0 then
-        port = 7171
-    end
+	EnterGame.setAccountName(account)
+	EnterGame.setPassword(password)
 
-    local servers = g_settings.getNode("ServerList") or {}
-    local serverData = servers[host] or {}
-    if serverData and serverData.account then
-        EnterGame.setAccountName(serverData.account)
-        EnterGame.setPassword(serverData.password)
-        enterGame:getChildById('rememberEmailBox'):setChecked(true)
-    else
-        EnterGame.setAccountName('')
-        EnterGame.setPassword('')
-        enterGame:getChildById('rememberEmailBox'):setChecked(false)
-    end
-    
-    enterGame:getChildById('autoLoginBox'):setChecked(serverData.autologin == true)
-    enterGame:getChildById('serverHostTextEdit'):setText(host)
-    enterGame:getChildById('serverPortTextEdit'):setText(port)
-    enterGame:getChildById('stayLoggedBox'):setChecked(stayLogged)
+	if Servers_init and table.size(Servers_init) == 1 then
+		local hostInit, valuesInit = next(Servers_init)
 
-    local installedClients = {}
-    local amountInstalledClients = 0
-    for _, dirItem in ipairs(g_resources.listDirectoryFiles('/data/things/')) do
-        if tonumber(dirItem) then
-            installedClients[dirItem] = true
-            amountInstalledClients = amountInstalledClients + 1
-        end
-    end
+		EnterGame.setUniqueServer(hostInit, valuesInit.port, valuesInit.protocol)
+	end
 
-    clientBox = enterGame:getChildById('clientComboBox')
+	updateLabelText()
 
-    for _, proto in pairs(g_game.getSupportedClients()) do
-        local protoStr = tostring(proto)
-        if installedClients[protoStr] or amountInstalledClients == 0 then
-            installedClients[protoStr] = nil
-            clientBox:addOption(proto)
-        end
-    end
+	local emailEdit = enterGame:getChildById("accountNameTextEdit")
+	local passwordEdit = enterGame:getChildById("accountPasswordTextEdit")
+	local editsToFix = {
+		"accountNameTextEdit",
+		"accountPasswordTextEdit"
+	}
 
-    for protoStr, status in pairs(installedClients) do
-        if status then
-            print(string.format('Warning: %s recognized as an installed client, but not supported.', protoStr))
-        end
-    end
+	for _, editId in ipairs(editsToFix) do
+		local editWidget = enterGame:getChildById(editId)
 
-    clientBox:setCurrentOption(clientVersion)
+		if editWidget and not editWidget.keyPressEventFixed then
+			local originalOnKeyPress = editWidget.onKeyPress
 
-    connect(clientBox, {
-        onOptionChange = EnterGame.onClientVersionChange
-    })
+			function editWidget:onKeyPress(keyCode, keyboardModifiers, autoRepeatTicks)
+				if keyCode == KeyTab and (self == emailEdit or self == passwordEdit) then
+					local target = self == emailEdit and passwordEdit or emailEdit
 
-    connect(enterGame:getChildById('rememberEmailBox'), {
-        onCheckChange = function(self, checked)
-            local host = enterGame:getChildById('serverHostTextEdit'):getText()
-            local account = enterGame:getChildById('accountNameTextEdit'):getText()
-            local password = enterGame:getChildById('accountPasswordTextEdit'):getText()
+					if target and not target:isDestroyed() then
+						target:focus()
+					end
 
-            if checked and #account > 0 then
-                ServerList.setServerAccount(host, account)
-                ServerList.setServerPassword(host, password)
-                ServerList.setServerAutologin(host, enterGame:getChildById('autoLoginBox'):isChecked() or false)
-                g_settings.set('host', host)
-            else
-                ServerList.setServerAccount(host, '')
-                ServerList.setServerPassword(host, '')
-                ServerList.setServerAutologin(host, false)
-            end
+					return true
+				end
 
-            ServerList.save()
-            g_configs.saveSettings()
-        end
-    })
+				if self == passwordEdit and (keyCode == KeyCapsLock or keyCode == 20) then
+					addEvent(function()
+						local sys = isSystemCapsLockActive()
+						if sys ~= nil then
+							capsLockActive = sys
+						else
+							capsLockActive = not capsLockActive
+						end
+						updateCapsLockWarning(capsLockActive)
+					end)
+				end
 
-    if Servers_init and next(Servers_init) ~= nil then
-        local server = Servers_init[host]
-        enterGame.disableToken = not (server and server.useAuthenticator)
-        if table.size(Servers_init) == 1 then
-            local hostInit, valuesInit = next(Servers_init)
-            EnterGame.setUniqueServer(hostInit, valuesInit.port, valuesInit.protocol)
-            EnterGame.setHttpLogin(valuesInit.httpLogin)
-        elseif not host or host == "" then
-            local hostInit, valuesInit = next(Servers_init)
-            EnterGame.setDefaultServer(hostInit, valuesInit.port, valuesInit.protocol)
-            EnterGame.setHttpLogin(valuesInit.httpLogin)
-        end
-    else
-        EnterGame.toggleStayLoggedBox(clientVersion, true)
-    end
+				local cursorPos = self:getCursorPos()
+				local textLen = self:getText():len()
 
-    updateLabelText()
+				if keyCode == KeyRight and cursorPos == textLen then
+					return true
+				end
 
-    enterGame:hide()
+				if keyCode == KeyLeft and cursorPos == 0 then
+					return true
+				end
 
-    connect(g_game, {
-        onGameStart = EnterGame.hidePanels
-    })
+				if originalOnKeyPress then
+					return originalOnKeyPress(self, keyCode, keyboardModifiers, autoRepeatTicks)
+				end
 
-    connect(g_game, {
-        onGameEnd = EnterGame.showPanels
-    })
+				return false
+			end
 
-    if g_app.isRunning() and not g_game.isOnline() then
-        enterGame:show()
-    end
+			editWidget.keyPressEventFixed = true
+		end
+	end
+
+	if passwordEdit then
+		local originalFocusChange = passwordEdit.onFocusChange
+		passwordEdit.onFocusChange = function(widget, focused)
+			if originalFocusChange then
+				originalFocusChange(widget, focused)
+			end
+			if focused then
+				addEvent(function()
+					updateCapsLockWarning()
+				end)
+			else
+				updateCapsLockWarning(false)
+			end
+		end
+
+		local originalOnTextChange = passwordEdit.onTextChange
+		passwordEdit.onTextChange = function(widget, text, oldText)
+			if originalOnTextChange then
+				originalOnTextChange(widget, text, oldText)
+			end
+			if oldText and #text > #oldText then
+				local added = text:sub(#oldText + 1)
+				for i = 1, #added do
+					local c = added:sub(i, i)
+					if c:match("%a") then
+						local isUpper = c:match("%u") ~= nil
+						local shift = g_keyboard.isShiftPressed()
+						if isUpper and not shift then
+							capsLockActive = true
+						elseif not isUpper and not shift then
+							capsLockActive = false
+						elseif isUpper and shift then
+							capsLockActive = false
+						elseif not isUpper and shift then
+							capsLockActive = true
+						end
+					end
+				end
+			end
+			updateCapsLockWarning()
+		end
+	end
+
+	g_keyboard.bindKeyDown("CapsLock", function()
+		if passwordEdit and passwordEdit:isFocused() then
+			addEvent(function()
+				local sys = isSystemCapsLockActive()
+				if sys ~= nil then
+					capsLockActive = sys
+				else
+					capsLockActive = not capsLockActive
+				end
+				updateCapsLockWarning(capsLockActive)
+			end)
+		end
+	end, enterGame)
+
+	setupEnterGameHighlights()
+
+	enterGame:hide()
+	connect(g_game, {
+		onGameStart = EnterGame.hidePanels
+	})
+	connect(g_game, {
+		onGameEnd = EnterGame.showPanels
+	})
+
+	if g_app.isRunning() and not g_game.isOnline() then
+		EnterGame.firstShow()
+	end
 end
 
-function EnterGame.hidePanels()
-    if g_modules.getModule("client_bottommenu"):isLoaded()  then
-        modules.client_bottommenu.hide()
-    end
-    modules.client_topmenu.hide()
+function EnterGame.hidePanels(force)
+	if loadBox then
+		loadBox:destroy()
+		loadBox = nil
+	end
+
+	if enterGame then
+		enterGame:hide()
+	end
+
+	if g_modules.getModule("client_bottommenu"):isLoaded() then
+		modules.client_bottommenu.hide()
+	end
+
+	modules.client_topmenu.hide()
 end
 
 function EnterGame.showPanels()
-    if g_modules.getModule("client_bottommenu"):isLoaded()  then
-        modules.client_bottommenu.show()
-    end
-    modules.client_topmenu.show()
+	if g_modules.getModule("client_bottommenu"):isLoaded() then
+		modules.client_bottommenu.show()
+	end
+
+	modules.client_topmenu.show()
 end
 
-function EnterGame.showServerList()
-    loadServerListModule()
-
-    if ServerList then
-        ServerList.show()
-    end
+function EnterGame.loadStartupData()
+	if Services and Services.status and g_modules.getModule("client_bottommenu"):isLoaded() then
+		EnterGame.postCacheInfo()
+		EnterGame.postEventScheduler()
+		EnterGame.postShowCreatureBoost()
+	end
 end
 
 function EnterGame.firstShow()
-    EnterGame.show()
-
-    local host = g_settings.get('host')
-    local servers = g_settings.getNode('ServerList') or {}
-    local serverData = servers[host] or {}
-    local account = safeDecrypt(serverData.account)
-    local password = safeDecrypt(serverData.password)
-    local autologin = serverData.autologin == true
-    if #host > 0 and #password > 0 and #account > 0 and autologin then
-        addEvent(function()
-            if not g_settings.getBoolean('autologin') then
-                return
-            end
-            EnterGame.doLogin()
-        end)
-    end
-
-    EnterGame.refreshBoostedPanel()
-end
-
-function EnterGame.refreshBoostedPanel()
-    if not g_modules.getModule("client_bottommenu") or not g_modules.getModule("client_bottommenu"):isLoaded() then
-        return
-    end
-
-    if Services and Services.status and Services.status ~= '' then
-        EnterGame.postCacheInfo()
-        EnterGame.postEventScheduler()
-        -- EnterGame.postShowOff() -- myacc/znote no send login.php
-        EnterGame.postShowCreatureBoost()
-    else
-        EnterGame.fetchBoostedFromLoginServer()
-    end
-end
-
-function EnterGame.fetchBoostedFromLoginServer()
-    if not enterGame or EnterGame.boostedLoginProtocol then
-        return
-    end
-
-    local host = enterGame:getChildById('serverHostTextEdit'):getText()
-    local port = tonumber(enterGame:getChildById('serverPortTextEdit'):getText())
-    if (not host or host == '') and Servers_init then
-        host, port = next(Servers_init)
-        if type(port) == 'table' then
-            port = port.port
-        end
-    end
-
-    if not host or host == '' or not port or port == 0 then
-        if BoostedCreatures and modules.client_bottommenu.applyConfiguredBoostedCreatures then
-            modules.client_bottommenu.applyConfiguredBoostedCreatures()
-        end
-        return
-    end
-
-    local protocol = ProtocolLogin.create()
-    EnterGame.boostedLoginProtocol = protocol
-
-    local function releaseBoostedLoginProtocol()
-        if EnterGame.boostedLoginProtocol == protocol then
-            EnterGame.boostedLoginProtocol = nil
-        end
-    end
-
-    local function applyBoostedFallback()
-        if BoostedCreatures and modules.client_bottommenu.applyConfiguredBoostedCreatures then
-            modules.client_bottommenu.applyConfiguredBoostedCreatures()
-        end
-    end
-
-    local receivedBoostedInfo = false
-
-    local clientVersion = tonumber(clientBox and clientBox:getText() or g_settings.getInteger('client-version')) or 860
-    g_game.setClientVersion(clientVersion)
-    g_game.setProtocolVersion(g_game.getClientProtocolVersion(clientVersion))
-
-    protocol.onBoostedInfo = function()
-        receivedBoostedInfo = true
-        releaseBoostedLoginProtocol()
-    end
-
-    protocol.onLoginError = function(_, message)
-        releaseBoostedLoginProtocol()
-        applyBoostedFallback()
-        g_logger.debug(string.format('[entergame] Boosted login fetch failed: %s', tostring(message)))
-    end
-
-    protocol.onCharacterList = function()
-        releaseBoostedLoginProtocol()
-        if not receivedBoostedInfo then
-            applyBoostedFallback()
-            g_logger.debug('[entergame] Boosted login fetch received character list without boosted info')
-        end
-    end
-
-    if not protocol:fetchBoosted(host, port) then
-        releaseBoostedLoginProtocol()
-        applyBoostedFallback()
-    end
+	EnterGame.show()
+	EnterGame.loadStartupData()
 end
 
 function EnterGame.terminate()
-    Keybind.delete("Misc.", "Change Character")
+	Keybind.delete("Misc.", "Change Character")
 
-    disconnect(clientBox, {
-        onOptionChange = EnterGame.onClientVersionChange
-    })
-    disconnect(g_game, {
-        onGameStart = EnterGame.hidePanels
-    })
-    disconnect(g_game, {
-        onGameEnd = EnterGame.showPanels
-    })
+	if clientBox then
+		disconnect(clientBox, {
+			onOptionChange = EnterGame.onClientVersionChange
+		})
 
-    if enterGame then
-        enterGame:destroy()
-        enterGame = nil
-    end
+		clientBox = nil
+	end
 
-    if clientBox then
-        clientBox = nil
-    end
+	disconnect(g_game, {
+		onGameStart = EnterGame.hidePanels
+	})
+	disconnect(g_game, {
+		onGameEnd = EnterGame.showPanels
+	})
 
-    if motdWindow then
-        motdWindow:destroy()
-        motdWindow = nil
-    end
+	if enterGame then
+		enterGame:destroy()
 
-    if loadBox then
-        loadBox:destroy()
-        loadBox = nil
-    end
+		enterGame = nil
+	end
 
-    if protocolLogin then
-        protocolLogin:cancelLogin()
-        protocolLogin = nil
-    end
+	if motdWindow then
+		motdWindow:destroy()
 
-    EnterGame = nil
+		motdWindow = nil
+	end
+
+	EnterGame.destroyTwoFactorWindow()
+
+	if loadBox then
+		loadBox:destroy()
+
+		loadBox = nil
+	end
+
+	EnterGame = nil
 end
 
 local function reportRequestWarning(requestType, msg, errorCode)
-    g_logger.warning(("[Webscraping - %s] %s"):format(requestType, msg), errorCode)
+	g_logger.warning(("[Webscraping - %s] %s"):format(requestType, msg), errorCode)
+end
+
+function dump(o)
+	if type(o) == "table" then
+		local s = "{ "
+
+		for k, v in pairs(o) do
+			if type(k) ~= "number" then
+				k = "\"" .. k .. "\""
+			end
+
+			s = s .. "[" .. k .. "] = " .. dump(v) .. ","
+		end
+
+		return s .. "} "
+	else
+		return tostring(o)
+	end
 end
 
 function EnterGame.postCacheInfo()
-    local requestType = 'cacheinfo'
+	local requestType = "cacheinfo"
 
-    local onRecvInfo = function(message, err)
+	local function onRecvInfo(message, err)
+		if err then
+			reportRequestWarning(requestType, "Bad Request. Game_entergame postCacheInfo1")
 
-        if err then
-            -- onError(nil, 'Bad Request. Game_entergame postCacheInfo1 ', 400)
-            reportRequestWarning(requestType, "Bad Request. Game_entergame postCacheInfo1")
-            return
-        end
+			return
+		end
 
-        local jsonString = message:match("{.*}")
-        if not jsonString then
-            reportRequestWarning(requestType, "Invalid JSON response format")
-            return
-        end
+		local jsonString = message:match("{.*}")
 
-        local success, response = pcall(function() return json.decode(jsonString) end)
-        if not success or not response then
-            reportRequestWarning(requestType, "Failed to parse JSON response")
-            return
-        end
+		if not jsonString then
+			reportRequestWarning(requestType, "Invalid JSON response format")
 
-        if response.errorMessage then
-            reportRequestWarning(requestType, response.errorMessage, response.errorCode)
-            return
-        end
+			return
+		end
 
-        modules.client_topmenu.setPlayersOnline(response.playersonline)
-        modules.client_topmenu.setDiscordStreams(response.discord_online)
-        modules.client_topmenu.setYoutubeStreams(response.gamingyoutubestreams)
-        modules.client_topmenu.setYoutubeViewers(response.gamingyoutubeviewer)
-        modules.client_topmenu.setLinkYoutube(response.youtube_link)
-        modules.client_topmenu.setLinkDiscord(response.discord_link)
+		local success, response = pcall(function()
+			return json.decode(jsonString)
+		end)
 
-    end
+		if not success or not response then
+			reportRequestWarning(requestType, "Failed to parse JSON response")
 
-    HTTP.post(Services.status, json.encode({
-        type = requestType
-    }), onRecvInfo, false)
+			return
+		end
+
+		if response.errorMessage then
+			reportRequestWarning(requestType, response.errorMessage, response.errorCode)
+
+			return
+		end
+
+		modules.client_topmenu.setPlayersOnline(response.playersonline)
+	end
+
+	HTTP.post(Services.status, json.encode({
+		type = requestType
+	}), onRecvInfo, false)
 end
 
 function EnterGame.postEventScheduler()
-    local requestType = 'eventschedule'
-    local onRecvInfo = function(message, err)
-        if err then
-            reportRequestWarning(requestType, "Bad Request.Game_entergame postEventScheduler1")
-            return
-        end
+	local requestType = "eventschedule"
 
-        local jsonString = message:match("{.*}")
-        if not jsonString then
-            reportRequestWarning(requestType, "Invalid JSON response format")
-            return
-        end
+	local function onRecvInfo(message, err)
+		if err then
+			reportRequestWarning(requestType, "Bad Request.Game_entergame postEventScheduler1")
 
-        local success, response = pcall(function() return json.decode(jsonString) end)
-        if not success or not response then
-            reportRequestWarning(requestType, "Failed to parse JSON response")
-            return
-        end
+			return
+		end
 
-        if response.errorMessage then
-            reportRequestWarning(requestType, response.errorMessage, response.errorCode)
-            return
-        end
-        modules.client_bottommenu.setEventsSchedulerTimestamp(response.lastupdatetimestamp)
-        modules.client_bottommenu.setEventsSchedulerCalender(response.eventlist)
-    end
+		local jsonString = message:match("{.*}")
 
-    HTTP.post(Services.status, json.encode({
-        type = requestType
-    }), onRecvInfo, false)
+		if not jsonString then
+			reportRequestWarning(requestType, "Invalid JSON response format")
+
+			return
+		end
+
+		local success, response = pcall(function()
+			return json.decode(jsonString)
+		end)
+
+		if not success or not response then
+			reportRequestWarning(requestType, "Failed to parse JSON response")
+
+			return
+		end
+
+		if response.errorMessage then
+			reportRequestWarning(requestType, response.errorMessage, response.errorCode)
+
+			return
+		end
+
+		modules.client_bottommenu.setEventsSchedulerTimestamp(response.lastupdatetimestamp)
+		modules.client_bottommenu.setEventsSchedulerCalender(response.eventlist)
+	end
+
+	HTTP.post(Services.status, json.encode({
+		type = requestType
+	}), onRecvInfo, false)
 end
 
 function EnterGame.postShowOff()
-    local requestType = 'showoff'
-    local onRecvInfo = function(message, err)
-        if err then
-            reportRequestWarning(requestType, "Bad Request.Game_entergame postShowOff")
-            return
-        end
+	local requestType = "showoff"
 
-        local jsonString = message:match("{.*}")
-        if not jsonString then
-            reportRequestWarning(requestType, "Invalid JSON response format")
-            return
-        end
+	local function onRecvInfo(message, err)
+		if err then
+			reportRequestWarning(requestType, "Bad Request.Game_entergame postShowOff")
 
-        local success, response = pcall(function() return json.decode(jsonString) end)
-        if not success or not response then
-            reportRequestWarning(requestType, "Failed to parse JSON response")
-            return
-        end
+			return
+		end
 
-        if response.errorMessage then
-            reportRequestWarning(requestType, response.errorMessage, response.errorCode)
-            return
-        end
+		local jsonString = message:match("{.*}")
 
-        modules.client_bottommenu.setShowOffData(response)
-    end
+		if not jsonString then
+			reportRequestWarning(requestType, "Invalid JSON response format")
 
-    HTTP.post(Services.status, json.encode({
-        type = requestType
-    }), onRecvInfo, false)
+			return
+		end
+
+		local success, response = pcall(function()
+			return json.decode(jsonString)
+		end)
+
+		if not success or not response then
+			reportRequestWarning(requestType, "Failed to parse JSON response")
+
+			return
+		end
+
+		if response.errorMessage then
+			reportRequestWarning(requestType, response.errorMessage, response.errorCode)
+
+			return
+		end
+
+		modules.client_bottommenu.setShowOffData(response)
+	end
+
+	HTTP.post(Services.status, json.encode({
+		type = requestType
+	}), onRecvInfo, false)
 end
 
 function EnterGame.postShowCreatureBoost()
-    local requestType = 'boostedcreature'
-    local onRecvInfo = function(message, err)
-        if err then
-            -- onError(nil, 'Bad Request. 1 Game_entergame postShowCreatureBoost', 400)
-            reportRequestWarning(requestType, "Bad Request.Game_entergame postShowCreatureBoost1")
-            return
-        end
+	local requestType = "boostedcreature"
 
-        local jsonString = message:match("{.*}")
-        if not jsonString then
-            reportRequestWarning(requestType, "Invalid JSON response format")
-            return
-        end
+	local function onRecvInfo(message, err)
+		if err then
+			reportRequestWarning(requestType, "Bad Request.Game_entergame postShowCreatureBoost1")
 
-        local success, response = pcall(function() return json.decode(jsonString) end)
-        if not success or not response then
-            reportRequestWarning(requestType, "Failed to parse JSON response")
-            return
-        end
+			return
+		end
 
-        if response.errorMessage then
-            reportRequestWarning(requestType, response.errorMessage, response.errorCode)
-            return
-        end
+		local jsonString = message:match("{.*}")
 
-        modules.client_bottommenu.setBoostedCreatureAndBoss(response)
-    end
+		if not jsonString then
+			reportRequestWarning(requestType, "Invalid JSON response format")
 
-    HTTP.post(Services.status, json.encode({
-        type = requestType
-    }), onRecvInfo, false)
+			return
+		end
+
+		local success, response = pcall(function()
+			return json.decode(jsonString)
+		end)
+
+		if not success or not response then
+			reportRequestWarning(requestType, "Failed to parse JSON response")
+
+			return
+		end
+
+		if response.errorMessage then
+			reportRequestWarning(requestType, response.errorMessage, response.errorCode)
+
+			return
+		end
+
+		modules.client_bottommenu.setBoostedCreatureAndBoss(response)
+	end
+
+	HTTP.post(Services.status, json.encode({
+		type = requestType
+	}), onRecvInfo, false)
 end
 
 function EnterGame.show()
-    if g_game.isOnline() or CharacterList.isVisible() then -- fix login quickly error (http post)
-        return
-    end
+	if g_game.isOnline() or CharacterList.isVisible() then
+		return
+	end
 
-    if loadBox then
-        return
-    end
+	if loadBox then
+		return
+	end
 
-    enterGame:show()
-    enterGame:raise()
-    enterGame:focus()
-    hasAttemptedAuthenticator = false
+	local background = modules.client_background.getBackground()
+
+	-- serverLogo (the ported client logo) removed from background.otui at the user's request - the guard
+	-- stays in case our own logo returns in this spot
+	if background and background.serverLogo then
+		background.serverLogo:show()
+	end
+
+	-- Fade the window in (appear effect on launch and whenever we return to the login screen).
+	-- Hiding stays synchronous so the login<->character-list transitions (e.g. ESC) are not blocked
+	-- by a window that is still "visible" mid-fade.
+	enterGame:show()
+	enterGame:raise()
+	enterGame:focus()
+	g_effects.fadeIn(enterGame, 80)
 end
 
 function EnterGame.hide()
-    enterGame:hide()
+	g_effects.cancelFade(enterGame)
+	enterGame:hide()
+	enterGame:setOpacity(1)
+
+	updateCapsLockWarning(false)
+
+	local background = modules.client_background.getBackground()
+
+	if background and background.serverLogo then
+		background.serverLogo:hide()
+	end
 end
 
 function EnterGame.openWindow()
-    if g_game.isOnline() then
-        CharacterList.show()
-    elseif not g_game.isLogging() and not CharacterList.isVisible() then
-        EnterGame.show()
-    end
+	if g_game.isOnline() then
+		CharacterList.show()
+	elseif not g_game.isLogging() and not CharacterList.isVisible() then
+		EnterGame.show()
+	end
 end
 
 function EnterGame.setAccountName(account)
-    local decrypted = safeDecrypt(account or '')
-    enterGame:getChildById('accountNameTextEdit'):setText(decrypted)
-    enterGame:getChildById('accountNameTextEdit'):setCursorPos(-1)
-    enterGame:getChildById('rememberEmailBox'):setChecked(#decrypted > 0)
+	local account = safeDecrypt(account)
+
+	local widget = enterGame:getChildById("accountNameTextEdit")
+	if widget then
+		widget:setText(account)
+		widget:setCursorPos(-1)
+	end
+
+	local rem = g_settings.getBoolean("rememberEmail")
+	if rem == nil then
+		rem = (#account > 0)
+	end
+	local box = enterGame:getChildById("rememberEmailBox")
+	if box then
+		box:setChecked(rem)
+	end
 end
 
 function EnterGame.setPassword(password)
-    enterGame:getChildById('accountPasswordTextEdit'):setText(safeDecrypt(password or ''))
-end
+	local password = safeDecrypt(password)
 
-function EnterGame.setHttpLogin(httpLogin)
+	local widget = enterGame:getChildById("accountPasswordTextEdit")
+	if widget then
+		widget:setText(password)
+	end
+
+	local rem = g_settings.getBoolean("rememberPassword")
+	if rem == nil then
+		rem = (#password > 0)
+	end
+	local box = enterGame:getChildById("rememberPasswordBox")
+	if box then
+		box:setChecked(rem)
+	end
 end
 
 function EnterGame.clearAccountFields()
-    enterGame:getChildById('accountNameTextEdit'):clearText()
-    enterGame:getChildById('accountPasswordTextEdit'):clearText()
-    enterGame:getChildById('accountNameTextEdit'):focus()
-    g_settings.remove('account')
-    g_settings.remove('password')
+	enterGame:getChildById("accountNameTextEdit"):clearText()
+	enterGame:getChildById("accountPasswordTextEdit"):clearText()
+	enterGame:getChildById("accountNameTextEdit"):focus()
+	g_settings.remove("account")
+	g_settings.remove("password")
 end
 
-function EnterGame.toggleStayLoggedBox(clientVersion, init)
-    local enabled = (clientVersion >= 1074)
-    if enabled == enterGame.stayLoggedBoxEnabled then
-        return
-    end
+function EnterGame.clearPasswordNameFields()
+	enterGame:getChildById("accountPasswordTextEdit"):clearText()
+	enterGame:getChildById("accountNameTextEdit"):focus()
+	g_settings.remove("password")
+end
 
-    enterGame:getChildById('stayLoggedBox'):setOn(enabled)
-
-    local newHeight = enterGame:getHeight()
-    local newY = enterGame:getY()
-    if enabled then
-        newY = newY - enterGame.stayLoggedBoxHeight
-        newHeight = newHeight + enterGame.stayLoggedBoxHeight
-    else
-        newY = newY + enterGame.stayLoggedBoxHeight
-        newHeight = newHeight - enterGame.stayLoggedBoxHeight
-    end
-
-    if not init then
-        enterGame:breakAnchors()
-        enterGame:setY(newY)
-        enterGame:bindRectToParent()
-    end
-
-    enterGame:setHeight(newHeight)
-    enterGame.stayLoggedBoxEnabled = enabled
+function EnterGame.clearAccountNameFields()
+	enterGame:getChildById("accountNameTextEdit"):clearText()
+	enterGame:getChildById("accountNameTextEdit"):focus()
+	g_settings.remove("account")
 end
 
 function EnterGame.onClientVersionChange(comboBox, text, data)
-    local clientVersion = tonumber(text)
-    EnterGame.toggleStayLoggedBox(clientVersion)
-    updateLabelText()
+	updateLabelText()
 end
 
+function EnterGame.tryHttpLogin(clientVersion, httpLogin, token)
+	G.pendingClientVersion = clientVersion
+	G.pendingHttpLogin = httpLogin
 
-function printTable(t)
-    for k, v in pairs(t) do
-        if type(v) == "table" then
-            print(string.format("%q: {", k))
-            printTable(v)
-            print("}")
-        else
-            print(string.format("%q:", k) .. tostring(v) .. ",")
-        end
-    end
+	g_game.setClientVersion(clientVersion)
+	g_game.setProtocolVersion(g_game.getClientProtocolVersion(clientVersion))
+	g_game.chooseRsa(G.host)
+
+	if not modules.game_things.isLoaded() then
+		if loadBox then
+			loadBox:destroy()
+
+			loadBox = nil
+		end
+
+		local errorBox = displayErrorBox(tr("Sorry"), "Things are not loaded, please put assets in things/assets/.")
+
+		connect(errorBox, {
+			onOk = EnterGame.show
+		})
+
+		return
+	end
+
+	local host, path = G.host:match("([^/]+)/([^/].*)")
+
+	if not G.port then
+		local isHttps, _ = string.find(host, "https")
+
+		if not isHttps then
+			G.port = 443
+		else
+			G.port = 80
+		end
+	end
+
+	path = not path and "" or "/" .. path
+	G.loginHost = host
+	G.loginPath = path
+
+	if not host then
+		loadBox = displayCancelBox(tr("Please wait"), tr("ERROR , try adding \n- ip/login.php \n- Enable HTTP login"))
+	else
+		loadBox = displayCancelBox(tr("Connecting"), tr("Your character list is being loaded. Please wait."))
+	end
+
+	connect(loadBox, {
+		onCancel = function(msgbox)
+			if G.httpOperationId then
+				HTTP.cancel(G.httpOperationId)
+
+				G.httpOperationId = nil
+			end
+
+			loadBox = nil
+			G.requestId = 0
+
+			EnterGame.show()
+		end
+	})
+	math.randomseed(os.time())
+
+	G.requestId = math.random(1)
+
+	sendHttpLoginRequest(httpLogin, token or "", true)
 end
 
+function EnterGame.destroyTwoFactorWindow()
+	if twoFactorWindow then
+		twoFactorWindow:destroy()
 
-function EnterGame.setStayLoggedChecked(checked)
-    if not enterGame then
-        return
-    end
-    local stayLoggedBox = enterGame:getChildById('stayLoggedBox')
-    if stayLoggedBox then
-        stayLoggedBox:setChecked(checked and true or false)
-    end
-    g_settings.set('staylogged', checked and true or false)
-    G.stayLogged = checked and true or false
+		twoFactorWindow = nil
+	end
+end
+
+function EnterGame.showTwoFactorWindow()
+	EnterGame.destroyTwoFactorWindow()
+
+	twoFactorWindow = g_ui.displayUI("twofactor")
+
+	local tokenTextEdit = twoFactorWindow:getChildById("tokenTextEdit")
+
+	tokenTextEdit:clearText()
+	tokenTextEdit:focus()
+end
+
+function EnterGame.submitTwoFactor()
+	if not twoFactorWindow then
+		return
+	end
+
+	local token = twoFactorWindow:getChildById("tokenTextEdit"):getText()
+
+	if token:len() == 0 then
+		return
+	end
+
+	G.authenticatorToken = token
+
+	EnterGame.destroyTwoFactorWindow()
+	EnterGame.tryHttpLogin(G.pendingClientVersion, G.pendingHttpLogin, token)
+end
+
+function EnterGame.cancelTwoFactor()
+	EnterGame.destroyTwoFactorWindow()
+	EnterGame.show()
+end
+
+function EnterGame.handleHttpLoginResponse(data, err, requestId)
+	if G.requestId ~= requestId then
+		return
+	end
+
+	if loadBox then
+		loadBox:destroy()
+
+		loadBox = nil
+	end
+
+	G.httpOperationId = nil
+
+	if err then
+		onError(nil, err, nil)
+
+		return
+	end
+
+	if not data then
+		onError(nil, tr("Unexpected JSON format."), nil)
+
+		return
+	end
+
+	if data.errorCode == 6 then
+		EnterGame.showTwoFactorWindow()
+
+		return
+	end
+
+	if data.errorMessage then
+		onError(nil, data.errorMessage, data.errorCode)
+
+		return
+	end
+
+	if not data.session then
+		onError(nil, tr("No session data"), nil)
+
+		return
+	end
+
+	EnterGame.destroyTwoFactorWindow()
+
+	local characters = {}
+	local worlds = {}
+
+	if data.playdata then
+		characters = data.playdata.characters or {}
+		worlds = data.playdata.worlds or {}
+	end
+
+	EnterGame.loginSuccess(requestId, json.encode(data.session), json.encode(worlds), json.encode(characters))
+end
+
+function EnterGame.loginSuccess(requestId, jsonSession, jsonWorlds, jsonCharacters)
+	if G.requestId ~= requestId then
+		return
+	end
+
+	EnterGame.destroyTwoFactorWindow()
+
+	local worlds = {}
+
+	for _, world in ipairs(json.decode(jsonWorlds)) do
+		if world.id then
+			worlds[world.id] = {
+				name = world.name,
+				ip = world.externaladdressprotected,
+				port = world.externalportprotected,
+				previewState = world.previewstate == 1,
+				pvptype = world.pvptype
+			}
+		end
+	end
+
+	local characters = {}
+
+	for index, character in ipairs(json.decode(jsonCharacters)) do
+		local world = worlds[character.worldid]
+
+		characters[index] = {
+			name = character.name,
+			level = character.level,
+			main = character.ismaincharacter,
+			dailyreward = character.dailyrewardstate,
+			hidden = character.ishidden,
+			vocation = character.vocation,
+			outfitid = character.outfitid,
+			headcolor = character.headcolor,
+			torsocolor = character.torsocolor,
+			legscolor = character.legscolor,
+			detailcolor = character.detailcolor,
+			addonsflags = character.addonsflags,
+			worldName = world.name,
+			worldIp = world.ip,
+			worldPort = world.port,
+			previewState = world.previewstate,
+			worldPvpType = world.pvptype
+		}
+	end
+
+	local session = json.decode(jsonSession)
+	local premiumUntil = tonumber(session.premiumuntil)
+	local account = {
+		status = "",
+		premDays = math.floor((premiumUntil - os.time()) / 86400),
+		subStatus = premiumUntil > os.time() and SubscriptionStatus.Premium or SubscriptionStatus.Free,
+		recoverySetupComplete = session.recoverysetupcomplete
+	}
+
+	G.sessionKey = session.sessionkey
+
+	onCharacterList(nil, characters, account)
+end
+
+function EnterGame.loginFailed(requestId, msg, result)
+	if G.requestId ~= requestId then
+		return
+	end
+
+	onError(nil, msg, result)
+end
+
+function EnterGame.tryProtocolLogin(clientVersion)
+	protocolLogin = ProtocolLogin.create()
+	protocolLogin.onLoginError = onError
+	protocolLogin.onMotd = onMotd
+	protocolLogin.onSessionKey = onSessionKey
+	protocolLogin.onCharacterList = onCharacterList
+	protocolLogin.onUpdateNeeded = onUpdateNeeded
+
+	loadBox = displayCancelBox(tr("Please wait"), tr("Connecting to login server..."))
+
+	connect(loadBox, {
+		onCancel = function(msgbox)
+			loadBox = nil
+			protocolLogin:cancelLogin()
+			EnterGame.show()
+		end
+	})
+
+	g_game.setClientVersion(clientVersion)
+	g_game.setProtocolVersion(g_game.getClientProtocolVersion(clientVersion))
+	g_game.chooseRsa(G.host)
+
+	if modules.game_things.isLoaded() then
+		protocolLogin:login(G.host, G.port, G.account, G.password, G.authenticatorToken or "", false)
+	else
+		if loadBox then
+			loadBox:destroy()
+			loadBox = nil
+		end
+
+		local errorBox = displayErrorBox(tr("Login Error"), string.format("Things are not loaded, please put spr and dat in things/%d/<here>.", clientVersion))
+
+		connect(errorBox, {
+			onOk = EnterGame.show
+		})
+
+		return
+	end
+end
+
+function EnterGame.onGoogleLoginClick()
+	-- Placeholder: click is handled but Google login is not implemented yet.
+	return true
 end
 
 function EnterGame.doLogin()
-    G.account = enterGame:getChildById('accountNameTextEdit'):getText()
-    G.password = enterGame:getChildById('accountPasswordTextEdit'):getText()
-    if modules.client_options and modules.client_options.getOption then
-        local stayFromOptions = modules.client_options.getOption('stayLoggedInforSession')
-        if stayFromOptions ~= nil then
-            enterGame:getChildById('stayLoggedBox'):setChecked(stayFromOptions and true or false)
-        end
-    end
-    G.stayLogged = enterGame:getChildById('stayLoggedBox'):isChecked()
-    G.host = enterGame:getChildById('serverHostTextEdit'):getText()
-    G.port = tonumber(enterGame:getChildById('serverPortTextEdit'):getText())
-    local clientVersion = tonumber(clientBox:getText())
-    G.clientVersion = clientVersion
-    EnterGame.hide()
+	G.account = enterGame:getChildById("accountNameTextEdit"):getText()
+	G.password = enterGame:getChildById("accountPasswordTextEdit"):getText()
+	G.authenticatorToken = ""
 
-    if g_game.isOnline() then
-        local errorBox = displayErrorBox(tr('Login Error'), tr('Cannot login while already in game.'))
-        connect(errorBox, {
-            onOk = EnterGame.show
-        })
-        return
-    end
+	local hostInit = "127.0.0.1"
+	local portInit = 7171
+	local protocolInit = 860
+	local httpLogin = false
 
-    g_settings.set('host', G.host)
-    g_settings.set('port', G.port)
-    g_settings.set('client-version', clientVersion)
+	if Servers_init and next(Servers_init) ~= nil then
+		local host, values = next(Servers_init)
+		hostInit = host
+		portInit = values.port or portInit
+		protocolInit = tonumber(values.protocol) or protocolInit
+		httpLogin = values.httpLogin or false
+	end
 
-    protocolLogin = ProtocolLogin.create()
-    protocolLogin.onLoginError = onError
-    protocolLogin.onMotd = onMotd
-    protocolLogin.onSessionKey = onSessionKey
-    protocolLogin.onCharacterList = onCharacterList
-    protocolLogin.onUpdateNeeded = onUpdateNeeded
+	G.host = hostInit
+	G.port = portInit
 
-    loadBox = displayCancelBox(tr('Please wait'), tr('Connecting to login server...'))
+	local clientVersion = protocolInit
 
-    connect(loadBox, {
-        onCancel = function(msgbox)
-            loadBox = nil
-            protocolLogin:cancelLogin()
-            EnterGame.show()
-        end
-    })
+	EnterGame.hide()
 
-    g_game.setClientVersion(clientVersion)
-    g_game.setProtocolVersion(g_game.getClientProtocolVersion(clientVersion))
-    g_game.chooseRsa(G.host)
+	if g_game.isOnline() then
+		local errorBox = displayErrorBox(tr("Sorry"), tr("Cannot login while already in game."))
 
-    if modules.game_things.isLoaded() then
-        protocolLogin:login(G.host, G.port, G.account, G.password, G.authenticatorToken, G.stayLogged)
-    else
-        if loadBox then
-            loadBox:destroy()
-            loadBox = nil
-        end
+		connect(errorBox, {
+			onOk = EnterGame.show
+		})
 
-        local errorBox = displayErrorBox(tr("Login Error"), string.format("Things are not loaded, please put spr and dat in things/%d/<here>.", clientVersion))
-        connect(errorBox, {
-           onOk = EnterGame.show
-        })
-        return
-    end
+		return
+	end
+
+	g_settings.set("host", G.host)
+	g_settings.set("port", G.port)
+	g_settings.set("client-version", clientVersion)
+
+	if httpLogin then
+		EnterGame.tryHttpLogin(clientVersion, httpLogin)
+	else
+		EnterGame.tryProtocolLogin(clientVersion)
+	end
 end
 
 function EnterGame.displayMotd()
-    if not motdWindow then
-        motdWindow = displayInfoBox(tr('Message of the day'), G.motdMessage)
-        motdWindow.onOk = function()
-            motdWindow = nil
-        end
-    end
+	if not motdWindow then
+		motdWindow = displayInfoBox(tr("Message of the day"), G.motdMessage)
+
+		function motdWindow.onOk()
+			motdWindow = nil
+		end
+	end
 end
 
 function EnterGame.setDefaultServer(host, port, protocol)
-    local hostTextEdit = enterGame:getChildById('serverHostTextEdit')
-    local portTextEdit = enterGame:getChildById('serverPortTextEdit')
-    local clientLabel = enterGame:getChildById('clientLabel')
-    local accountTextEdit = enterGame:getChildById('accountNameTextEdit')
-    local passwordTextEdit = enterGame:getChildById('accountPasswordTextEdit')
+	local hostTextEdit = enterGame:getChildById("serverHostTextEdit")
+	local portTextEdit = enterGame:getChildById("serverPortTextEdit")
+	local clientLabel = enterGame:getChildById("clientLabel")
+	local accountTextEdit = enterGame:getChildById("accountNameTextEdit")
+	local passwordTextEdit = enterGame:getChildById("accountPasswordTextEdit")
 
-    if hostTextEdit:getText() ~= host then
-        hostTextEdit:setText(host)
-        portTextEdit:setText(port)
-        clientBox:setCurrentOption(protocol)
-        accountTextEdit:setText('')
-        passwordTextEdit:setText('')
-    end
+	if hostTextEdit:getText() ~= host then
+		hostTextEdit:setText(host)
+		portTextEdit:setText(port)
+		clientBox:setCurrentOption(protocol)
+		accountTextEdit:setText("")
+		passwordTextEdit:setText("")
+	end
 end
 
 function EnterGame.setUniqueServer(host, port, protocol, windowWidth, windowHeight)
-    local hostTextEdit = enterGame:getChildById('serverHostTextEdit')
-    hostTextEdit:setText(host)
-    hostTextEdit:setVisible(false)
-    hostTextEdit:setHeight(0)
+	local clientVersion = tonumber(protocol)
+	local rememberEmailBox = enterGame:getChildById("rememberEmailBox")
 
-    local portTextEdit = enterGame:getChildById('serverPortTextEdit')
-    portTextEdit:setText(port)
-    portTextEdit:setVisible(false)
-    portTextEdit:setHeight(0)
+	windowWidth = windowWidth or 280
 
-    local stayLoggedBox = enterGame:getChildById('stayLoggedBox')
-    stayLoggedBox:setChecked(false)
-    stayLoggedBox:setOn(false)
+	enterGame:setWidth(windowWidth)
 
-    local clientVersion = tonumber(protocol)
-    clientBox:setCurrentOption(clientVersion)
-    clientBox:setVisible(false)
-    clientBox:setHeight(0)
+	windowHeight = windowHeight or 244
 
-    local serverLabel = enterGame:getChildById('serverLabel')
-    serverLabel:setVisible(false)
-    serverLabel:setHeight(0)
-
-    local portLabel = enterGame:getChildById('portLabel')
-    portLabel:setVisible(false)
-    portLabel:setHeight(0)
-
-    local clientLabel = enterGame:getChildById('clientLabel')
-    clientLabel:setVisible(false)
-    clientLabel:setHeight(0)
-
-    local serverListButton = enterGame:getChildById('serverListButton')
-    serverListButton:setVisible(false)
-    serverListButton:setHeight(0)
-    serverListButton:setWidth(0)
-
-    local rememberEmailBox = enterGame:getChildById('rememberEmailBox')
-    rememberEmailBox:setMarginTop(5)
-
-    if not windowWidth then
-        windowWidth = 380
-    end
-    enterGame:setWidth(windowWidth)
-    if not windowHeight then
-        windowHeight = 210
-    end
-
-    enterGame:setHeight(windowHeight)
-    enterGame.disableToken = true
-    local server = Servers_init[host]
-    enterGame.disableToken = not (server and server.useAuthenticator)
-
-    -- preload the assets
-    -- this is for the client_bottommenu module
-    -- it needs images of outfits
-    -- so it can display the boosted creature
-    g_game.setClientVersion(clientVersion)
-    g_game.setProtocolVersion(g_game.getClientProtocolVersion(clientVersion))
+	enterGame.baseHeight = windowHeight
+	enterGame:setHeight(windowHeight)
+	g_game.setClientVersion(clientVersion)
+	g_game.setProtocolVersion(g_game.getClientProtocolVersion(clientVersion))
 end
 
 function EnterGame.setServerInfo(message)
-    local label = enterGame:getChildById('serverInfoLabel')
-    label:setText(message)
+	local label = enterGame:getChildById("serverInfoLabel")
+
+	label:setText(message)
 end
 
 function EnterGame.disableMotd()
-    motdEnabled = false
-end
-
-function EnterGame.showAuthenticatorInput()
-    if tokenWindow then
-        tokenWindow:destroy()
-        tokenWindow = nil
-    end
-    
-    -- Create a custom message box with embedded text edit
-    tokenWindow = g_ui.createWidget('MessageBoxWindow', rootWidget)
-    tokenWindow.title = tokenWindow:getChildById('title')
-    tokenWindow.title:setText(tr('Two-Factor Authentication'))
-    
-    tokenWindow.content = tokenWindow:getChildById('content')
-    tokenWindow.content:setText(tr('Please enter a new, valid token:'))
-    tokenWindow.content:setColor('#c0c0c0')
-    tokenWindow.content:resizeToText()
-    -- Align content to the left instead of center
-    tokenWindow.content:breakAnchors()
-    tokenWindow.content:addAnchor(AnchorLeft, 'parent', AnchorLeft)
-    tokenWindow.content:addAnchor(AnchorTop, 'parent', AnchorTop)
-    tokenWindow.content:setMarginLeft(15)
-    tokenWindow.content:setMarginTop(32)
-    
-    -- Add text edit field for token input
-    local tokenEdit = g_ui.createWidget('TextEdit', tokenWindow)
-    tokenEdit:setId('tokenEdit')
-    tokenEdit:addAnchor(AnchorHorizontalCenter, 'parent', AnchorHorizontalCenter)
-    tokenEdit:addAnchor(AnchorTop, 'content', AnchorBottom)
-    tokenEdit:setMarginTop(10)
-    tokenEdit:setMaxLength(8)
-    tokenEdit:setWidth(320)
-    tokenEdit:setHeight(16)
-    tokenEdit:setMarginLeft(15)
-    tokenEdit:setMarginRight(15)
-    tokenEdit:focus()
-    
-    -- Add horizontal separator
-    local separator = g_ui.createWidget('HorizontalSeparator', tokenWindow)
-    separator:setId('customSeparator')
-    separator:addAnchor(AnchorLeft, 'parent', AnchorLeft)
-    separator:addAnchor(AnchorRight, 'parent', AnchorRight)
-    separator:addAnchor(AnchorTop, 'tokenEdit', AnchorBottom)
-    separator:setMarginTop(10)
-    separator:setMarginLeft(15)
-    separator:setMarginRight(15)
-    
-    -- Reposition the holder to be below our custom separator
-    tokenWindow.holder = tokenWindow:getChildById('holder')
-    tokenWindow.holder:breakAnchors()
-    tokenWindow.holder:addAnchor(AnchorRight, 'customSeparator', AnchorRight)
-    tokenWindow.holder:addAnchor(AnchorLeft, 'customSeparator', AnchorLeft)
-    tokenWindow.holder:addAnchor(AnchorTop, 'customSeparator', AnchorBottom)
-    tokenWindow.holder:addAnchor(AnchorBottom, 'parent', AnchorBottom)
-    tokenWindow.holder:setMarginTop(12)
-    
-    local okCallback = function()
-        local token = tokenEdit:getText()
-        if not token or token:len() == 0 then
-            if authErrorBox then
-              authErrorBox:destroy()
-            end
-            authErrorBox = displayErrorBox(tr('Error'), tr('Token is required.'))
-            connect(authErrorBox, {
-              onOk = function()
-                authErrorBox = nil
-                if tokenWindow then
-                    tokenWindow:raise()
-                    tokenWindow:focus()
-                    tokenEdit:focus()
-                end
-              end
-            })
-            return
-        end
-        
-        hasAttemptedAuthenticator = true
-        
-        G.authenticatorToken = token
-        
-        if tokenWindow then
-            tokenWindow:destroy()
-            tokenWindow = nil
-        end
-        
-        EnterGame.doLogin()
-    end
-    
-    local cancelCallback = function()
-        hasAttemptedAuthenticator = false
-        G.authenticatorToken = nil
-        if tokenWindow then
-            tokenWindow:destroy()
-            tokenWindow = nil
-        end
-        EnterGame.show()
-    end
-        
-    -- Add Cancel button (to the left of OK button)
-    local cancelButton = tokenWindow:addButton(tr('Cancel'), cancelCallback)
-    cancelButton:breakAnchors()
-    cancelButton:addAnchor(AnchorTop, 'parent', AnchorTop)
-    cancelButton:addAnchor(AnchorRight, 'parent', AnchorRight)
-    cancelButton:setWidth(45)
-
-    -- Add OK button (right side, added first)
-    local okButton = tokenWindow:addButton(tr('Ok'), okCallback)
-    okButton:breakAnchors()
-    okButton:addAnchor(AnchorTop, 'prev', AnchorTop)
-    okButton:addAnchor(AnchorRight, 'prev', AnchorLeft)
-    okButton:setMarginRight(10)
-    okButton:setWidth(40)
-    
-    -- Calculate window size based on content
-    local windowWidth = 350
-    local windowHeight = 28 + tokenWindow.content:getHeight() + 10 + tokenEdit:getHeight() + 10 + 2 + 12 + okButton:getHeight() + 12
-    
-    tokenWindow:setWidth(windowWidth)
-    tokenWindow:setHeight(windowHeight)
-    
-    -- Connect Enter and Escape keys
-    connect(tokenWindow, {
-        onEnter = okCallback,
-        onEscape = cancelCallback
-    })
-    
-    -- Connect text edit Enter key
-    connect(tokenEdit, {
-        onEnter = okCallback
-    })
-end
-
-function EnterGame.doLoginWithToken()
-    local servers = Servers_init or {}
-    local serverData = servers[G.host]
-    if not (serverData and serverData.useAuthenticator) then
-        print('Authenticator token is disabled for this server.')
-        return
-    end
-    
-    EnterGame.showAuthenticatorInput()
-end
-
-function EnterGame.destroyToken()
-    if tokenWindow then
-      if tokenWindow.destroy then
-        tokenWindow:destroy()
-      end
-      tokenWindow = nil
-      hasAttemptedAuthenticator = false
-      G.authenticatorToken = nil
-    end
+	motdEnabled = false
 end
 
 function ensableBtnCreateNewAccount()
-    enterGame.btnCreateNewAccount:enable()
+	enterGame.btnCreateNewAccount:enable()
 end
