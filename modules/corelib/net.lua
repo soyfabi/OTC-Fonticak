@@ -1,3 +1,12 @@
+function isRecoverableConnectionError(errcode)
+    errcode = tonumber(errcode) or 0
+    -- Invalid server address is not worth auto-reconnecting.
+    if errcode == 1 then
+        return false
+    end
+    return true
+end
+
 function translateNetworkError(errcode, connecting, errdesc)
     local text
     if errcode == 111 then

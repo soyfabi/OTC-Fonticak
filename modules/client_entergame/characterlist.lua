@@ -160,13 +160,16 @@ local function loadPinnedCharacters()
 
 	for index, key in ipairs(decoded) do
 		if type(key) == "string" and key ~= "" then
-			data.map[key] = true
+			local migratedKey = migrateLegacyPinKey(key)
+			if migratedKey and not data.map[migratedKey] then
+				data.map[migratedKey] = true
 
-			table.insert(data.order, key)
+				table.insert(data.order, migratedKey)
 
-			data.orderIndex[key] = index
+				data.orderIndex[migratedKey] = #data.order
 
-			table.insert(migratedOrder, key)
+				table.insert(migratedOrder, migratedKey)
+			end
 		end
 	end
 
@@ -256,28 +259,7 @@ local function isCharacterPinned(key, pinnedData)
 		return false
 	end
 
-	if pinnedData.map[key] then
-		return true
-	end
-
-	local parts = {}
-	for part in string.gmatch(key or "", "([^|]+)") do
-		table.insert(parts, part)
-	end
-
-	if #parts >= 3 then
-		local legacyWorldKey = string.format("%s|%s", parts[2], parts[3])
-
-		if pinnedData.map[legacyWorldKey] then
-			return true
-		end
-
-		if pinnedData.map[parts[2]] then
-			return true
-		end
-	end
-
-	return false
+	return pinnedData.map[key] == true
 end
 
 local function isFirstPinnedCharacter(key)
@@ -1000,8 +982,18 @@ end
 function CharacterList.create(characters, account, otui)
 	otui = otui or "characterlist"
 
+	cancelRestoreCharacterListEvent()
+	removeAutoReconnectEvent()
+
+	if loginEvent then
+		removeEvent(loginEvent)
+
+		loginEvent = nil
+	end
+
 	if charactersWindow then
 		if isWidgetAlive(charactersWindow) then
+			g_effects.cancelFade(charactersWindow)
 			charactersWindow:destroy()
 		end
 
@@ -1222,15 +1214,33 @@ function CharacterList.create(characters, account, otui)
 
 	if focusLabel and focusLabel:isVisible() then
 		characterList:focusChild(focusLabel, KeyboardFocusReason)
+		local scrollToKey = focusLabel.characterKey
 		addEvent(function()
-			characterList:ensureChildVisible(focusLabel)
+			if not isWidgetAlive(characterList) then
+				return
+			end
+			for _, child in ipairs(characterList:getChildren()) do
+				if child.characterKey == scrollToKey then
+					characterList:ensureChildVisible(child)
+					break
+				end
+			end
 		end)
 	else
 		for _, child in ipairs(characterList:getChildren()) do
 			if child:isVisible() then
 				characterList:focusChild(child, KeyboardFocusReason)
+				local scrollToKey = child.characterKey
 				addEvent(function()
-					characterList:ensureChildVisible(child)
+					if not isWidgetAlive(characterList) then
+						return
+					end
+					for _, visibleChild in ipairs(characterList:getChildren()) do
+						if visibleChild.characterKey == scrollToKey then
+							characterList:ensureChildVisible(visibleChild)
+							break
+						end
+					end
 				end)
 				break
 			end
@@ -1484,6 +1494,7 @@ function CharacterList.show()
 end
 
 function CharacterList.hide(showLogin)
+	cancelRestoreCharacterListEvent()
 	removeAutoReconnectEvent()
 	flushSaveSettings()
 
@@ -1535,6 +1546,10 @@ end
 
 function CharacterList.doLogin(fromAutoReconnect)
 	if loadBox or g_game.isLogging() then
+		return
+	end
+
+	if not isWidgetAlive(characterList) then
 		return
 	end
 
@@ -1645,6 +1660,7 @@ function onLogout()
 
 	manualLogoutPending = true
 	lastLogout = g_clock.millis()
+	removeAutoReconnectEvent()
 end
 
 function scheduleAutoReconnect()
@@ -1671,6 +1687,14 @@ end
 
 function executeAutoReconnect()
 	if not g_settings.getBoolean("autoReconnect") then
+		return
+	end
+
+	if manualLogoutPending or lastLogout + 2000 > g_clock.millis() then
+		return
+	end
+
+	if not isWidgetAlive(characterList) then
 		return
 	end
 

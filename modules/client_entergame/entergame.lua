@@ -102,6 +102,8 @@ local function parseHttpLoginHost(hostString)
 		return nil, nil
 	end
 
+	hostString = hostString:gsub("^%a+://", "")
+
 	local host, pathPart = hostString:match("^([^/]+)(.*)$")
 	if not host or host == "" then
 		return nil, nil
@@ -787,11 +789,11 @@ function EnterGame.show()
 	-- Fade the window in (appear effect on launch and whenever we return to the login screen).
 	-- Hiding stays synchronous so the login<->character-list transitions (e.g. ESC) are not blocked
 	-- by a window that is still "visible" mid-fade.
-	if G.account and G.account ~= "" then
+	if enterGame:getChildById("rememberEmailBox"):isChecked() and G.account and G.account ~= "" then
 		enterGame:getChildById("accountNameTextEdit"):setText(G.account)
 	end
 
-	if G.password and G.password ~= "" then
+	if enterGame:getChildById("rememberPasswordBox"):isChecked() and G.password and G.password ~= "" then
 		enterGame:getChildById("accountPasswordTextEdit"):setText(G.password)
 	end
 
@@ -860,29 +862,38 @@ function EnterGame.setPassword(password)
 	end
 end
 
-function EnterGame.saveRememberedCredentials(clearFieldsWhenUnchecked)
+function EnterGame.saveRememberedCredentials(clearFieldsWhenUnchecked, persistChecked)
 	if not enterGame then
 		return
+	end
+
+	if persistChecked == nil then
+		persistChecked = true
 	end
 
 	local accountEdit = enterGame:getChildById("accountNameTextEdit")
 	local passwordEdit = enterGame:getChildById("accountPasswordTextEdit")
 
 	if enterGame:getChildById("rememberEmailBox"):isChecked() then
-		g_settings.set("account", g_crypt.encrypt(G.account or ""))
-		g_settings.set("rememberEmail", true)
+		if persistChecked then
+			g_settings.set("account", g_crypt.encrypt(G.account or ""))
+			g_settings.set("rememberEmail", true)
+		end
 	else
 		g_settings.set("rememberEmail", false)
 		g_settings.remove("account")
 		if clearFieldsWhenUnchecked and accountEdit then
 			accountEdit:clearText()
 			accountEdit:focus()
+			G.account = ""
 		end
 	end
 
 	if enterGame:getChildById("rememberPasswordBox"):isChecked() then
-		g_settings.set("password", g_crypt.encrypt(G.password or ""))
-		g_settings.set("rememberPassword", true)
+		if persistChecked then
+			g_settings.set("password", g_crypt.encrypt(G.password or ""))
+			g_settings.set("rememberPassword", true)
+		end
 	else
 		g_settings.set("rememberPassword", false)
 		g_settings.remove("password")
@@ -891,6 +902,7 @@ function EnterGame.saveRememberedCredentials(clearFieldsWhenUnchecked)
 			if accountEdit then
 				accountEdit:focus()
 			end
+			G.password = ""
 		end
 	end
 
@@ -1192,9 +1204,17 @@ function EnterGame.onGoogleLoginClick()
 	local url = Services and Services.googleLogin
 	if url and url ~= "" then
 		g_platform.openUrl(url)
+
+		return true
 	end
 
+	displayInfoBox(tr("Information"), tr("Google login URL not configured. Please contact the server administrator."))
+
 	return true
+end
+
+function EnterGame.setHttpLogin(httpLogin)
+	g_settings.set("httpLogin", httpLogin == true)
 end
 
 function EnterGame.doLogin()
@@ -1202,7 +1222,7 @@ function EnterGame.doLogin()
 	G.password = enterGame:getChildById("accountPasswordTextEdit"):getText()
 	G.authenticatorToken = ""
 
-	EnterGame.saveRememberedCredentials(false)
+	EnterGame.saveRememberedCredentials(false, false)
 
 	local hostInit = "127.0.0.1"
 	local portInit = 7171
