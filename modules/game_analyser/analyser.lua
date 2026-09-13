@@ -11,6 +11,17 @@ cancelNextRelease = nil
 partyMemberCheckEvent = nil
 local lastPartyMembers = {}
 
+-- Drop Tracker deferred load retry (single chain per login)
+local dropTrackerLoadRetryEvent = nil
+local dropTrackerLoadRetrySession = 0
+
+local function cancelDropTrackerLoadRetry()
+  if dropTrackerLoadRetryEvent then
+    dropTrackerLoadRetryEvent:cancel()
+    dropTrackerLoadRetryEvent = nil
+  end
+end
+
 local analyserWindows = {
   huntingButton = 'styles/hunting',
   lootButton = 'styles/loot',
@@ -276,6 +287,9 @@ function terminate()
     partyMemberCheckEvent = nil
   end
 
+  cancelDropTrackerLoadRetry()
+  dropTrackerLoadRetrySession = dropTrackerLoadRetrySession + 1
+
 end
 
 function startNewSession(login)
@@ -355,7 +369,46 @@ function onlineAnalyser()
   end
   partyMemberCheckEvent = cycleEvent(checkPartyMembersChange, 5000)
 
-  local function retryDropTrackerLoad(attempt)
+  cancelDropTrackerLoadRetry()
+  dropTrackerLoadRetrySession = dropTrackerLoadRetrySession + 1
+  local retrySession = dropTrackerLoadRetrySession
+  local retryCharacterKey = LoadedPlayer and LoadedPlayer:getCharacterDataKey()
+
+  local function isDropTrackerRetryValid()
+    if retrySession ~= dropTrackerLoadRetrySession then
+      return false
+    end
+    if not g_game.isOnline() then
+      return false
+    end
+    if not LoadedPlayer or not LoadedPlayer:isLoaded() then
+      return false
+    end
+    if retryCharacterKey and LoadedPlayer:getCharacterDataKey() ~= retryCharacterKey then
+      return false
+    end
+    return true
+  end
+
+  local retryDropTrackerLoad
+  local scheduleDropTrackerRetry
+
+  scheduleDropTrackerRetry = function(attempt, delay)
+    cancelDropTrackerLoadRetry()
+    dropTrackerLoadRetryEvent = scheduleEvent(function()
+      dropTrackerLoadRetryEvent = nil
+      if not isDropTrackerRetryValid() then
+        return
+      end
+      retryDropTrackerLoad(attempt)
+    end, delay)
+  end
+
+  retryDropTrackerLoad = function(attempt)
+    if not isDropTrackerRetryValid() then
+      return
+    end
+
     attempt = attempt or 1
 
     if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
@@ -366,17 +419,20 @@ function onlineAnalyser()
       return
     end
 
+    if not isDropTrackerRetryValid() then
+      return
+    end
+
     if Cyclopedia and Cyclopedia.Items and Cyclopedia.Items.syncDropTrackerItemsToAnalyser then
       Cyclopedia.Items.syncDropTrackerItemsToAnalyser()
     end
 
     if table.empty(DropTrackerAnalyser.trackedItems) and attempt < 30 then
-      scheduleEvent(function() retryDropTrackerLoad(attempt + 1) end, 100)
+      scheduleDropTrackerRetry(attempt + 1, 100)
     end
   end
 
-  scheduleEvent(function() retryDropTrackerLoad(1) end, 100)
-  scheduleEvent(function() retryDropTrackerLoad(1) end, 1000)
+  scheduleDropTrackerRetry(1, 100)
 end
 
 function offlineAnalyser()
@@ -390,6 +446,9 @@ function offlineAnalyser()
     partyMemberCheckEvent:cancel()
     partyMemberCheckEvent = nil
   end
+
+  cancelDropTrackerLoadRetry()
+  dropTrackerLoadRetrySession = dropTrackerLoadRetrySession + 1
 
   if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
     LoadedPlayer:cacheFromLocalPlayer()
