@@ -149,10 +149,6 @@ local function onError(protocol, message, errorCode)
 		loadBox = nil
 	end
 
-	if not errorCode then
-		EnterGame.clearAccountFields()
-	end
-
 	local errorBox = displayErrorBox(tr("Sorry"), message)
 
 	connect(errorBox, {
@@ -178,24 +174,7 @@ local function onCharacterList(protocol, characters, account, otui)
 
 	g_settings.set("httpLogin", httpLogin)
 
-	if enterGame:getChildById("rememberEmailBox"):isChecked() then
-		local enc = g_crypt.encrypt(G.account)
-		g_settings.set("account", enc)
-		g_settings.set("rememberEmail", true)
-	else
-		EnterGame.clearAccountNameFields()
-		g_settings.set("rememberEmail", false)
-	end
-
-	if enterGame:getChildById("rememberPasswordBox"):isChecked() then
-		local enc = g_crypt.encrypt(G.password)
-		g_settings.set("password", enc)
-		g_settings.set("rememberPassword", true)
-	else
-		EnterGame.clearPasswordNameFields()
-		g_settings.set("rememberPassword", false)
-	end
-	g_settings.save()
+	EnterGame.saveRememberedCredentials(true)
 
 	if loadBox then
 		loadBox:destroy()
@@ -808,6 +787,14 @@ function EnterGame.show()
 	-- Fade the window in (appear effect on launch and whenever we return to the login screen).
 	-- Hiding stays synchronous so the login<->character-list transitions (e.g. ESC) are not blocked
 	-- by a window that is still "visible" mid-fade.
+	if G.account and G.account ~= "" then
+		enterGame:getChildById("accountNameTextEdit"):setText(G.account)
+	end
+
+	if G.password and G.password ~= "" then
+		enterGame:getChildById("accountPasswordTextEdit"):setText(G.password)
+	end
+
 	enterGame:show()
 	enterGame:raise()
 	enterGame:focus()
@@ -871,6 +858,30 @@ function EnterGame.setPassword(password)
 	if box then
 		box:setChecked(rem)
 	end
+end
+
+function EnterGame.saveRememberedCredentials(clearWhenUnchecked)
+	if not enterGame then
+		return
+	end
+
+	if enterGame:getChildById("rememberEmailBox"):isChecked() then
+		g_settings.set("account", g_crypt.encrypt(G.account or ""))
+		g_settings.set("rememberEmail", true)
+	elseif clearWhenUnchecked then
+		EnterGame.clearAccountNameFields()
+		g_settings.set("rememberEmail", false)
+	end
+
+	if enterGame:getChildById("rememberPasswordBox"):isChecked() then
+		g_settings.set("password", g_crypt.encrypt(G.password or ""))
+		g_settings.set("rememberPassword", true)
+	elseif clearWhenUnchecked then
+		EnterGame.clearPasswordNameFields()
+		g_settings.set("rememberPassword", false)
+	end
+
+	g_settings.save()
 end
 
 function EnterGame.clearAccountFields()
@@ -1177,6 +1188,8 @@ function EnterGame.doLogin()
 	G.account = enterGame:getChildById("accountNameTextEdit"):getText()
 	G.password = enterGame:getChildById("accountPasswordTextEdit"):getText()
 	G.authenticatorToken = ""
+
+	EnterGame.saveRememberedCredentials(false)
 
 	local hostInit = "127.0.0.1"
 	local portInit = 7171
