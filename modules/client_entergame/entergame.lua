@@ -345,25 +345,13 @@ local function setupEnterGameHighlights()
 
 	local loginWithGoogle = enterGame:getChildById("btnLoginWithGoogle")
 	if loginWithGoogle then
-		local googleUrl = Services and Services.googleLogin
-		local googleEnabled = googleUrl and googleUrl ~= ""
-
-		loginWithGoogle:setVisible(googleEnabled)
-
-		if not googleEnabled then
-			loginWithGoogle:setHeight(0)
-			loginWithGoogle:setMarginTop(0)
-		end
-
-		if googleEnabled then
-			local googleLoginLabel = loginWithGoogle:recursiveGetChildById("googleLoginLabel")
-			local googleLoginIcon = loginWithGoogle:recursiveGetChildById("googleLoginIcon")
-			bindLabelHighlight(googleLoginLabel, {
-				loginWithGoogle,
-				googleLoginIcon,
-				googleLoginLabel
-			})
-		end
+		local googleLoginLabel = loginWithGoogle:recursiveGetChildById("googleLoginLabel")
+		local googleLoginIcon = loginWithGoogle:recursiveGetChildById("googleLoginIcon")
+		bindLabelHighlight(googleLoginLabel, {
+			loginWithGoogle,
+			googleLoginIcon,
+			googleLoginLabel
+		})
 	end
 end
 
@@ -1176,6 +1164,7 @@ function EnterGame.tryProtocolLogin(clientVersion)
 end
 
 function EnterGame.onGoogleLoginClick()
+	-- Placeholder: visible in UI; opens Services.googleLogin only when configured.
 	local url = Services and Services.googleLogin
 	if url and url ~= "" then
 		g_platform.openUrl(url)
