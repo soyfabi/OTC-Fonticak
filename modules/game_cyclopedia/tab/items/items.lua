@@ -49,6 +49,46 @@ local ITEM_SEARCH_DEBOUNCE_MS = 120
 local ITEM_SEARCH_SELECT_DELAY_MS = 80
 local ITEM_SEARCH_MIN_LENGTH = 2
 local ignoreLootValueSourceCheck = false
+local ITEM_LIST_NAME_COLOR = "#F6F6F6"
+local ITEM_LIST_NAME_COLOR_TRACKED = "#FF9854"
+
+local function setItemListNameColor(nameWidget, itemId, displayName)
+	if not nameWidget then
+		return
+	end
+
+	local color = Cyclopedia.Items.isInDropTracker(itemId) and ITEM_LIST_NAME_COLOR_TRACKED or ITEM_LIST_NAME_COLOR
+	local text = displayName or nameWidget:getText() or ""
+
+	if nameWidget.setColoredText then
+		nameWidget:setColoredText({ text, color })
+	else
+		nameWidget:setText(text)
+		nameWidget:setColor(color)
+	end
+end
+
+local function getDropTrackerItemsFromDisk()
+	if not LoadedPlayer then
+		return nil
+	end
+
+	LoadedPlayer:cacheFromLocalPlayer()
+	local file = LoadedPlayer:getCharacterDataFile("itemprices.json")
+	if not file or not g_resources.fileExists(file) then
+		return nil
+	end
+
+	local status, result = pcall(function()
+		return json.decode(g_resources.readFileContents(file))
+	end)
+
+	if status and type(result) == "table" and type(result.dropTrackerItems) == "table" then
+		return result.dropTrackerItems
+	end
+
+	return nil
+end
 
 local VOCATION_MASK_ENCODING = {
 	SERVER = "server", -- OTC ids: 1=sorc, 2=druid, 3=pally, 4=knight, 9=monk
@@ -338,15 +378,9 @@ function Cyclopedia.renderItemsListWidget(widget, entry, selectedItemId)
 	widget.cyclopediaEntry = entry
 	widget.cyclopediaItemId = entry.id
 	widget.Sprite:setItemId(entry.id)
-	widget.Name:setText(displayName)
 	widget.Value = data:getMeanPrice()
 	ItemsDatabase.setRarityItem(widget.Sprite, widget.Sprite:getItem())
-
-	if Cyclopedia.Items.isInDropTracker(entry.id) then
-		widget.Name:setColor("#FF9854")
-	else
-		widget.Name:setColor("#c0c0c0")
-	end
+	setItemListNameColor(widget.Name, entry.id, displayName)
 
 	if selectedItemId and selectedItemId == entry.id then
 		widget:setBackgroundColor("#585858")
@@ -1052,12 +1086,18 @@ function Cyclopedia.onItemsTabHidden()
 end
 
 function Cyclopedia.Items.loadJson()
+	if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
+		LoadedPlayer:cacheFromLocalPlayer()
+	end
+
 	if not LoadedPlayer or not LoadedPlayer:isLoaded() then
 		return true
 	end
 
-	local file = "/characterdata/" .. LoadedPlayer:getId() .. "/itemprices.json"
-	if g_resources.fileExists(file) then
+	local preferredFile = LoadedPlayer:ensureCharacterDir() .. "/itemprices.json"
+	local file = LoadedPlayer:getCharacterDataFile("itemprices.json")
+	local loadedFromLegacy = file and file ~= preferredFile
+	if file and g_resources.fileExists(file) then
 		local status, result = pcall(function()
 			return json.decode(g_resources.readFileContents(file))
 		end)
@@ -1124,14 +1164,39 @@ function Cyclopedia.Items.loadJson()
 	if player.setCyclopediaCustomPrice then
 		player:setCyclopediaCustomPrice(customPrice)
 	end
+
+	if loadedFromLegacy then
+		Cyclopedia.Items.saveJson()
+	end
+
+	Cyclopedia.Items.syncDropTrackerItemsToAnalyser()
 end
 
 function Cyclopedia.Items.saveJson()
+	if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
+		LoadedPlayer:cacheFromLocalPlayer()
+	end
+
 	if not LoadedPlayer or not LoadedPlayer:isLoaded() then
 		return true
 	end
 
-	local file = "/characterdata/" .. LoadedPlayer:getId() .. "/itemprices.json"
+	local characterDir = LoadedPlayer:ensureCharacterDir()
+	if not characterDir then
+		return true
+	end
+
+	local file = characterDir .. "/itemprices.json"
+
+	if DropTrackerAnalyser and not table.empty(DropTrackerAnalyser.trackedItems) then
+		Cyclopedia.Items.syncDropTrackerItemsFromAnalyser()
+	elseif not itemsData["dropTrackerItems"] or table.empty(itemsData["dropTrackerItems"]) then
+		local diskItems = getDropTrackerItemsFromDisk()
+		if diskItems and not table.empty(diskItems) then
+			itemsData["dropTrackerItems"] = diskItems
+		end
+	end
+
 	local status, result = pcall(function() return json.encode(itemsData, 2) end)
 	if not status then
 		g_logger.error("Error while saving profile itemsData. Data won't be saved. Details: " .. result)
@@ -1142,7 +1207,13 @@ function Cyclopedia.Items.saveJson()
 		g_logger.error("Something went wrong, file is above 100MB, won't be saved")
 		return
 	end
-	g_resources.writeFileContents(file, result)
+
+	local writeStatus, writeError = pcall(function()
+		return g_resources.writeFileContents(file, result)
+	end)
+	if not writeStatus then
+		g_logger.error("Error while writing itemprices.json. Details: " .. tostring(writeError))
+	end
 end
 
 function Cyclopedia.ResetItemCategorySelection(list)
@@ -1862,8 +1933,17 @@ function Cyclopedia.selectItemEntry(entry, widget)
 
     repaintItemsListPool(itemId)
 
-    UI.InfoBase.quickLootCheck.onCheckChange = function(widget, checked)
-        Cyclopedia.Items.manageQuickloot(widget, checked)
+    if UI.InfoBase.quickLootSkipCheck then
+        UI.InfoBase.quickLootSkipCheck.quickLootFilter = 1
+        UI.InfoBase.quickLootSkipCheck.onCheckChange = function(widget, checked)
+            Cyclopedia.Items.manageQuickloot(widget, checked, 1)
+        end
+    end
+    if UI.InfoBase.quickLootLootCheck then
+        UI.InfoBase.quickLootLootCheck.quickLootFilter = 2
+        UI.InfoBase.quickLootLootCheck.onCheckChange = function(widget, checked)
+            Cyclopedia.Items.manageQuickloot(widget, checked, 2)
+        end
     end
     Cyclopedia.refreshQuickLootCheck()
 
@@ -2756,9 +2836,72 @@ function Cyclopedia.Items.updateItemVisualFeedback(itemId, isTracked)
 
     for _, widget in ipairs(scrollState.listPool) do
         if widget.cyclopediaItemId == itemId and widget.Name then
-            widget.Name:setColor(isTracked and "#FF9854" or "#c0c0c0")
+            setItemListNameColor(widget.Name, itemId)
         end
     end
+end
+
+function Cyclopedia.Items.syncDropTrackerItemsFromAnalyser()
+	if not DropTrackerAnalyser or not DropTrackerAnalyser.trackedItems then
+		return
+	end
+
+	local synced = {}
+	for itemId, config in pairs(DropTrackerAnalyser.trackedItems) do
+		if config.persistent then
+			synced[tostring(itemId)] = true
+		end
+	end
+
+	itemsData["dropTrackerItems"] = synced
+end
+
+function Cyclopedia.Items.syncDropTrackerItemsToAnalyser()
+	if not DropTrackerAnalyser then
+		return false
+	end
+
+	local dropTrackerItems = itemsData and itemsData.dropTrackerItems
+	if not dropTrackerItems or table.empty(dropTrackerItems) then
+		dropTrackerItems = getDropTrackerItemsFromDisk()
+	end
+
+	if not dropTrackerItems or table.empty(dropTrackerItems) then
+		return false
+	end
+
+	if itemsData then
+		itemsData.dropTrackerItems = dropTrackerItems
+	end
+
+	local changed = false
+	for itemIdStr, isTracked in pairs(dropTrackerItems) do
+		if isTracked then
+			local itemId = tonumber(itemIdStr)
+			if itemId then
+				local tracker = DropTrackerAnalyser.trackedItems[itemId]
+				if not tracker or not tracker.persistent then
+					DropTrackerAnalyser.trackedItems[itemId] = {
+						monsterDrop = {},
+						recordStartTimestamp = tracker and tracker.recordStartTimestamp or os.time(),
+						dropCount = tracker and tracker.dropCount or 0,
+						persistent = true
+					}
+					changed = true
+				end
+			end
+		end
+	end
+
+	if changed then
+		DropTrackerAnalyser:saveConfigJson()
+	end
+
+	if not table.empty(DropTrackerAnalyser.trackedItems) then
+		DropTrackerAnalyser:updateWindow(true)
+	end
+
+	return changed or not table.empty(DropTrackerAnalyser.trackedItems)
 end
 
 function Cyclopedia.Items.isInDropTracker(itemId)
@@ -2821,38 +2964,47 @@ local function getQuickLootModule()
     return modules.game_quickloot and modules.game_quickloot.QuickLoot
 end
 
-function Cyclopedia.refreshQuickLootCheck()
-    if not Cyclopedia.isItemsTabActive() or not (UI and UI.InfoBase and UI.InfoBase.quickLootCheck) then
+local function refreshQuickLootCheckbox(check, quickLoot, itemId, filter)
+    if not check then
         return
     end
 
-    local quickLoot = getQuickLootModule()
-    local check = UI.InfoBase.quickLootCheck
-    if not quickLoot or not quickLoot.data then
-        return
-    end
-
-    if quickLoot.data.filter == 2 then
-        check:setText(tr("Loot when Quick Looting"))
-    else
-        check:setText(tr("Skip when Quick Looting"))
-    end
-
-    local itemId = tonumber(Cyclopedia.Items.currentItemId)
     local callback = check.onCheckChange
     check.onCheckChange = nil
-    if itemId then
-        check:setChecked(quickLoot.lootExists(itemId, quickLoot.data.filter))
+    if itemId and quickLoot then
+        check:setChecked(quickLoot.lootExists(itemId, filter))
     else
         check:setChecked(false)
     end
     check.onCheckChange = callback
 end
 
-function Cyclopedia.Items.manageQuickloot(widget, checked)
+function Cyclopedia.refreshQuickLootCheck()
+    if not Cyclopedia.isItemsTabActive() or not (UI and UI.InfoBase) then
+        return
+    end
+
+    local skipCheck = UI.InfoBase.quickLootSkipCheck
+    local lootCheck = UI.InfoBase.quickLootLootCheck
+    if not skipCheck and not lootCheck then
+        return
+    end
+
+    local quickLoot = getQuickLootModule()
+    if not quickLoot or not quickLoot.data then
+        return
+    end
+
+    local itemId = tonumber(Cyclopedia.Items.currentItemId)
+    refreshQuickLootCheckbox(skipCheck, quickLoot, itemId, 1)
+    refreshQuickLootCheckbox(lootCheck, quickLoot, itemId, 2)
+end
+
+function Cyclopedia.Items.manageQuickloot(widget, checked, filter)
     local quickLoot = getQuickLootModule()
     local itemId = getSelectedCyclopediaItemId()
-    if not quickLoot or not itemId then
+    filter = tonumber(filter) or tonumber(widget and widget.quickLootFilter)
+    if not quickLoot or not itemId or not filter then
         if widget then
             widget:setChecked(false)
         end
@@ -2860,9 +3012,9 @@ function Cyclopedia.Items.manageQuickloot(widget, checked)
     end
 
     if checked then
-        quickLoot.addLootList(itemId, quickLoot.data.filter)
+        quickLoot.addLootList(itemId, filter)
     else
-        quickLoot.removeLootList(itemId, quickLoot.data.filter)
+        quickLoot.removeLootList(itemId, filter)
     end
 end
 

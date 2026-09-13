@@ -723,11 +723,161 @@ if not LoadedPlayer then
   LoadedPlayer.__index = LoadedPlayer
 end
 
-function LoadedPlayer:getId() return self.playerId end
-function LoadedPlayer:getName() return self.playerName end
-function LoadedPlayer:getVocation() return self.playerVocation end
 function LoadedPlayer:isLoaded()
-  return self.playerId > 0
+  return self:getCharacterDataKey() ~= nil
+end
+
+function LoadedPlayer:cacheFromLocalPlayer()
+  local characterName = g_game.getCharacterName and g_game.getCharacterName() or ""
+  if characterName ~= "" then
+    self:setName(characterName)
+  end
+
+  local player = g_game.getLocalPlayer()
+  if not player then
+    return characterName ~= ""
+  end
+
+  self:setId(player:getId())
+  if characterName == "" then
+    self:setName(player:getName())
+  end
+  self:setVocation(player:getVocation())
+  return true
+end
+
+function LoadedPlayer:getPersistId()
+  local player = g_game.getLocalPlayer()
+  if player then
+    local playerId = player:getId()
+    if playerId and playerId > 0 then
+      self:setId(playerId)
+      return playerId
+    end
+  end
+
+  if self.playerId and self.playerId > 0 then
+    return self.playerId
+  end
+
+  return nil
+end
+
+-- Character name is stable across logins; runtime player id changes on this server.
+function LoadedPlayer:getCharacterDataKey()
+  local characterName = g_game.getCharacterName and g_game.getCharacterName() or ""
+  if characterName ~= "" then
+    self:setName(characterName)
+    local player = g_game.getLocalPlayer()
+    if player then
+      local playerId = player:getId()
+      if playerId and playerId > 0 then
+        self:setId(playerId)
+      end
+    end
+    return characterName
+  end
+
+  local player = g_game.getLocalPlayer()
+  if player then
+    local name = player:getName()
+    if name and name ~= "" then
+      self:setName(name)
+      local playerId = player:getId()
+      if playerId and playerId > 0 then
+        self:setId(playerId)
+      end
+      return name
+    end
+  end
+
+  if self.playerName and self.playerName ~= "" then
+    return self.playerName
+  end
+
+  return nil
+end
+
+function LoadedPlayer:ensureCharacterDir()
+  local key = self:getCharacterDataKey()
+  if not key then
+    return nil
+  end
+
+  pcall(function() g_resources.makeDir("/characterdata") end)
+  local characterDir = "/characterdata/" .. key
+  pcall(function() g_resources.makeDir(characterDir) end)
+  return characterDir
+end
+
+function LoadedPlayer:findLatestLegacyCharacterDataFile(fileName)
+  if not g_resources.directoryExists("/characterdata") then
+    return nil
+  end
+
+  local bestFile, bestId = nil, 0
+  for _, entry in ipairs(g_resources.listDirectoryFiles("/characterdata", false, true)) do
+    local folderId = tonumber(entry)
+    if folderId and folderId > bestId then
+      local candidate = "/characterdata/" .. entry .. "/" .. fileName
+      if g_resources.fileExists(candidate) then
+        bestId = folderId
+        bestFile = candidate
+      end
+    end
+  end
+
+  return bestFile
+end
+
+function LoadedPlayer:getCharacterDataFile(fileName)
+  local characterDir = self:ensureCharacterDir()
+  if not characterDir or not fileName or fileName == "" then
+    return nil
+  end
+
+  local preferredFile = characterDir .. "/" .. fileName
+  if g_resources.fileExists(preferredFile) then
+    return preferredFile
+  end
+
+  local legacyId = self:getPersistId()
+  if legacyId then
+    local legacyFile = "/characterdata/" .. legacyId .. "/" .. fileName
+    if g_resources.fileExists(legacyFile) then
+      return legacyFile
+    end
+  end
+
+  local latestLegacyFile = self:findLatestLegacyCharacterDataFile(fileName)
+  if latestLegacyFile then
+    return latestLegacyFile
+  end
+
+  return preferredFile
+end
+
+function LoadedPlayer:getCharacterDataSaveFile(fileName)
+  local characterDir = self:ensureCharacterDir()
+  if not characterDir or not fileName or fileName == "" then
+    return nil
+  end
+
+  return characterDir .. "/" .. fileName
+end
+
+function LoadedPlayer:getId()
+  return self:getPersistId() or 0
+end
+
+function LoadedPlayer:getName()
+  local player = g_game.getLocalPlayer()
+  return player and player:getName() or self.playerName or ""
+end
+
+function LoadedPlayer:getVocation()
+  local player = g_game.getLocalPlayer()
+  return player and player:getVocation() or self.playerVocation or 0
 end
 
 function LoadedPlayer:setId(playerId)

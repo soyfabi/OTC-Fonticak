@@ -988,8 +988,10 @@ function HuntingAnalyser:setShowBaseXp(value)
 end
 
 function HuntingAnalyser:loadConfigJson()
-	local player = g_game.getLocalPlayer()
-	if not player then
+	if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
+		LoadedPlayer:cacheFromLocalPlayer()
+	end
+	if not LoadedPlayer or not LoadedPlayer:isLoaded() then
 		return
 	end
 
@@ -998,8 +1000,8 @@ function HuntingAnalyser:loadConfigJson()
 		showBaseXp = false
 	}
 
-	local file = "/characterdata/" .. player:getId() .. "/huntingsessionanalyser.json"
-	if g_resources.fileExists(file) then
+	local file = LoadedPlayer:getCharacterDataFile("huntingsessionanalyser.json")
+	if file and g_resources.fileExists(file) then
 		local status, result = pcall(function()
 			return json.decode(g_resources.readFileContents(file))
 		end)
@@ -1020,15 +1022,13 @@ function HuntingAnalyser:saveConfigJson()
 		showBaseXp = HuntingAnalyser.showBaseXp
 	}
 
-	local player = g_game.getLocalPlayer()
-	if not player then return end
-	
-	-- Ensure the characterdata directory exists
-	local characterDir = "/characterdata/" .. player:getId()
-	pcall(function() g_resources.makeDir("/characterdata") end)
-	pcall(function() g_resources.makeDir(characterDir) end)
-	
-	local file = "/characterdata/" .. player:getId() .. "/huntingsessionanalyser.json"
+	if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
+		LoadedPlayer:cacheFromLocalPlayer()
+	end
+	if not LoadedPlayer or not LoadedPlayer:isLoaded() then return end
+
+	local file = LoadedPlayer:getCharacterDataSaveFile("huntingsessionanalyser.json")
+	if not file then return end
 	local status, result = pcall(function() return json.encode(config, 2) end)
 	if not status then
 		return g_logger.error("Error while saving profile HuntingAnalyzer. Data won't be saved. Details: " .. result)

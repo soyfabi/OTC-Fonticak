@@ -828,9 +828,15 @@ function ImpactAnalyser:loadConfigJson()
 		showSessionValues = false,
 	}
 
-	local player = g_game.getLocalPlayer()
-	local file = "/characterdata/" .. player:getId() .. "/impactanalyser.json"
-	if g_resources.fileExists(file) then
+	if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
+		LoadedPlayer:cacheFromLocalPlayer()
+	end
+	if not LoadedPlayer or not LoadedPlayer:isLoaded() then
+		return
+	end
+
+	local file = LoadedPlayer:getCharacterDataFile("impactanalyser.json")
+	if file and g_resources.fileExists(file) then
 		local status, result = pcall(function()
 			return json.decode(g_resources.readFileContents(file))
 		end)
@@ -882,15 +888,13 @@ function ImpactAnalyser:saveConfigJson()
 		showSessionValues = ImpactAnalyser.sessionMode,
 	}
 
-	local player = g_game.getLocalPlayer()
-	if not player then return end
+	if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
+		LoadedPlayer:cacheFromLocalPlayer()
+	end
+	if not LoadedPlayer or not LoadedPlayer:isLoaded() then return end
 
-	-- Ensure the characterdata directory exists
-	local characterDir = "/characterdata/" .. player:getId()
-	pcall(function() g_resources.makeDir("/characterdata") end)
-	pcall(function() g_resources.makeDir(characterDir) end)
-
-	local file = "/characterdata/" .. player:getId() .. "/impactanalyser.json"
+	local file = LoadedPlayer:getCharacterDataSaveFile("impactanalyser.json")
+	if not file then return end
 	local status, result = pcall(function() return json.encode(config, 2) end)
 	if not status then
 		return g_logger.error("Error while saving profile ImpactAnalyzer data. Data won't be saved. Details: " .. result)

@@ -52,6 +52,75 @@ local function getItemServerName(itemId)
 	return "Item #" .. tostring(itemId)
 end
 
+local DROP_TRACKER_ITEM_NAME_COLOR = "#F6F6F6"
+
+local function setDropTrackerItemName(label, text)
+	if not label then
+		return
+	end
+
+	if label.setColoredText then
+		label:setColoredText({ text, DROP_TRACKER_ITEM_NAME_COLOR })
+	else
+		label:setText(text)
+		label:setColor(DROP_TRACKER_ITEM_NAME_COLOR)
+	end
+end
+
+local function getCharacterDir()
+	if not LoadedPlayer then
+		return nil
+	end
+
+	LoadedPlayer:cacheFromLocalPlayer()
+	return LoadedPlayer:ensureCharacterDir()
+end
+
+local function readDropTrackerJsonFile(filePath)
+	if not filePath or not g_resources.fileExists(filePath) then
+		return nil
+	end
+
+	local status, result = pcall(function()
+		return json.decode(g_resources.readFileContents(filePath))
+	end)
+
+	if status and type(result) == "table" then
+		return result
+	end
+
+	return nil
+end
+
+local function buildTrackedItemEntry(itemId, entry)
+	return {
+		monsterDrop = {},
+		recordStartTimestamp = entry and entry.recordStartTimestamp or os.time(),
+		dropCount = entry and entry.dropCount or 0,
+		persistent = true,
+	}
+end
+
+local function mergeTrackedItemsFromConfig(trackedItems, config)
+	for _, entry in ipairs((config and config.trackedItems) or {}) do
+		local itemId = tonumber(entry.objectType) or entry.objectType
+		if itemId then
+			trackedItems[itemId] = buildTrackedItemEntry(itemId, entry)
+		end
+	end
+end
+
+local function mergeTrackedItemsFromDropTrackerMap(trackedItems, dropTrackerItems)
+	for itemIdStr, isTracked in pairs(dropTrackerItems or {}) do
+		if isTracked then
+			local itemId = tonumber(itemIdStr)
+			if itemId and not trackedItems[itemId] then
+				trackedItems[itemId] = buildTrackedItemEntry(itemId)
+			end
+		end
+	end
+end
+
 local function resolveDropTrackerItemPanel(widget)
 	if not widget then
 		return nil
@@ -65,6 +134,21 @@ local function resolveDropTrackerItemPanel(widget)
 	return widget
 end
 
+local function resolveDropTrackerContents()
+	local window = DropTrackerAnalyser and DropTrackerAnalyser.window
+	if not window then
+		return nil, nil
+	end
+
+	local contentsPanel = window.contentsPanel or window:getChildById("contentsPanel")
+	if not contentsPanel then
+		return nil, nil
+	end
+
+	local dropItems = contentsPanel.dropItems or contentsPanel:getChildById("dropItems")
+	return contentsPanel, dropItems
+end
+
 local function short_text(text, maxLength)
     if not text then
         return ""
@@ -73,33 +157,6 @@ local function short_text(text, maxLength)
         return text:sub(1, maxLength - 3) .. "..."
     end
     return text
-end
-
--- Helper function to get item color based on value
-local function getItemColor(itemId)
-    local thingType = g_things.getThingType(itemId, ThingCategoryItem)
-    if thingType then
-        local price = thingType:getMeanPrice() or 0
-        if price >= 1000000 then
-            return TextColors.lootYellow
-        elseif price >= 100000 then
-            return TextColors.lootPurple
-        elseif price >= 10000 then
-            return TextColors.lootBlue
-        elseif price >= 1000 then
-            return TextColors.lootGreen
-        elseif price >= 50 then
-            return "#808080"  -- grey
-        else
-            return "#ffffff"  -- white
-        end
-    end
-    return "#ffffff"  -- default white
-end
-
--- Helper function to append colored text to a table
-local function setStringColor(textTable, text, color)
-    table.insert(textTable, "{" .. text .. ", " .. color .. "}")
 end
 
 local function normalizeMonsterName(monsterName)
@@ -233,9 +290,14 @@ function DropTrackerAnalyser:create()
 
 	DropTrackerAnalyser.launchTime = g_clock.millis()
 	DropTrackerAnalyser.session = 0
-	DropTrackerAnalyser.autoTrackAboveValue = 0
 
-	DropTrackerAnalyser.trackedItems = {}
+	DropTrackerAnalyser.window.onOpen = function()
+		DropTrackerAnalyser:loadConfigJson()
+	end
+end
+
+function DropTrackerAnalyser:refreshFromDisk()
+	self:loadConfigJson()
 end
 
 function DropTrackerAnalyser:managerDropItem(itemId, shouldTrack)
@@ -290,9 +352,11 @@ end
 function DropTrackerAnalyser:reset(isLogin)
 	DropTrackerAnalyser.launchTime = g_clock.millis()
 	DropTrackerAnalyser.session = 0
-	if not isLogin then
-		DropTrackerAnalyser.autoTrackAboveValue = 0
+	if isLogin then
+		return
 	end
+
+	DropTrackerAnalyser.autoTrackAboveValue = 0
 
 	for itemId, config in pairs(DropTrackerAnalyser.trackedItems) do
 		if config.monsterDrop then
@@ -307,13 +371,21 @@ function DropTrackerAnalyser:reset(isLogin)
 end
 
 function DropTrackerAnalyser:updateWindow(ignoreVisible)
+	if not DropTrackerAnalyser.window then
+		return
+	end
+
 	if not DropTrackerAnalyser.window:isVisible() and not ignoreVisible then
 		return
 	end
 
-	local contentsPanel = DropTrackerAnalyser.window.contentsPanel
+	local contentsPanel, dropItems = resolveDropTrackerContents()
+	if not contentsPanel or not dropItems then
+		return
+	end
+
 	-- lets loop through all the items and flag them for removal
-	for _, widget in pairs(contentsPanel.dropItems:getChildren()) do
+	for _, widget in pairs(dropItems:getChildren()) do
 		resolveDropTrackerItemPanel(widget)
 		widget.toBeRemoved = true
 		if widget.dropMonster then
@@ -331,11 +403,11 @@ function DropTrackerAnalyser:updateWindow(ignoreVisible)
 			end
 		end
 
-		local widget = contentsPanel.dropItems:getChildById("ItemPanel_" .. itemId)
+		local widget = dropItems:getChildById("ItemPanel_" .. itemId)
 		if not widget then
 			-- unable to find the item, then it most likely is a
 			-- new item being tracked, so lets create it
-			widget = g_ui.createWidget("DropTrackerItemPanel", contentsPanel.dropItems)
+			widget = g_ui.createWidget("DropTrackerItemPanel", dropItems)
 			widget:setId("ItemPanel_" .. itemId)
 			resolveDropTrackerItemPanel(widget)
 			if not widget.itemSlot or not widget.itemName or not widget.drops or not widget.dropMonster then
@@ -343,7 +415,10 @@ function DropTrackerAnalyser:updateWindow(ignoreVisible)
 				widget:destroy()
 			else
 				widget.itemSlot:setItemId(itemId)
-				widget.itemName:setText(string.capitalize(short_text(getItemServerName(itemId), 13)))
+				setDropTrackerItemName(
+					widget.itemName,
+					string.capitalize(short_text(getItemServerName(itemId), 13))
+				)
 				widget.drops:setText(formatMoney(config.dropCount, ","))
 
 				-- Add right-click context menu
@@ -439,7 +514,7 @@ function DropTrackerAnalyser:updateWindow(ignoreVisible)
 		end
 	end
 
-	for _, widget in pairs(contentsPanel.dropItems:getChildren()) do
+	for _, widget in pairs(dropItems:getChildren()) do
 		if widget.toBeRemoved then
 			widget:destroy()
 		end
@@ -548,28 +623,16 @@ function DropTrackerAnalyser:isInDropTracker(itemId)
 end
 
 function DropTrackerAnalyser:removeItem(itemId)
-	-- Remove item from our tracking
 	if DropTrackerAnalyser.trackedItems[itemId] then
 		DropTrackerAnalyser.trackedItems[itemId] = nil
 	end
-	
-	-- Update Cyclopedia using direct helper functions (avoiding circular dependency)
-	-- Try both access patterns to find the correct one
-	local cyclopediaItems = nil
+
 	if Cyclopedia and Cyclopedia.Items then
-		cyclopediaItems = Cyclopedia.Items
-	elseif modules.game_cyclopedia and modules.game_cyclopedia.Items then
-		cyclopediaItems = modules.game_cyclopedia.Items
-	elseif modules.game_cyclopedia and modules.game_cyclopedia.Cyclopedia and modules.game_cyclopedia.Cyclopedia.Items then
-		cyclopediaItems = modules.game_cyclopedia.Cyclopedia.Items
-	end
-	
-	if cyclopediaItems and cyclopediaItems.removeFromDropTrackerDirectly then
-		cyclopediaItems.removeFromDropTrackerDirectly(itemId)
-		
-		-- Also refresh the current item display if available
-		if cyclopediaItems.refreshCurrentItem then
-			cyclopediaItems.refreshCurrentItem()
+		if Cyclopedia.Items.removeFromDropTrackerDirectly then
+			Cyclopedia.Items.removeFromDropTrackerDirectly(itemId)
+		end
+		if Cyclopedia.Items.refreshCurrentItem then
+			Cyclopedia.Items.refreshCurrentItem()
 		end
 	end
 	
@@ -581,32 +644,14 @@ function DropTrackerAnalyser:removeItem(itemId)
 end
 
 function DropTrackerAnalyser:removeAllItems()
-	-- Get all tracked item IDs for individual visual feedback if needed
-	local itemIds = {}
-	for itemId, _ in pairs(DropTrackerAnalyser.trackedItems) do
-		table.insert(itemIds, itemId)
-	end
-	
-	-- Clear all tracked items
 	DropTrackerAnalyser.trackedItems = {}
-	
-	-- Update Cyclopedia using direct helper functions (avoiding circular dependency)
-	-- Use the same access pattern that worked for removeItem
-	local cyclopediaItems = nil
+
 	if Cyclopedia and Cyclopedia.Items then
-		cyclopediaItems = Cyclopedia.Items
-	elseif modules.game_cyclopedia and modules.game_cyclopedia.Items then
-		cyclopediaItems = modules.game_cyclopedia.Items
-	elseif modules.game_cyclopedia and modules.game_cyclopedia.Cyclopedia and modules.game_cyclopedia.Cyclopedia.Items then
-		cyclopediaItems = modules.game_cyclopedia.Cyclopedia.Items
-	end
-	
-	if cyclopediaItems and cyclopediaItems.removeAllFromDropTrackerDirectly then
-		cyclopediaItems.removeAllFromDropTrackerDirectly()
-		
-		-- Also refresh the current item display if available
-		if cyclopediaItems.refreshCurrentItem then
-			cyclopediaItems.refreshCurrentItem()
+		if Cyclopedia.Items.removeAllFromDropTrackerDirectly then
+			Cyclopedia.Items.removeAllFromDropTrackerDirectly()
+		end
+		if Cyclopedia.Items.refreshCurrentItem then
+			Cyclopedia.Items.refreshCurrentItem()
 		end
 	end
 	
@@ -657,63 +702,38 @@ end
 
 
 function DropTrackerAnalyser:loadConfigJson()
-	local config = {
+	local characterDir = getCharacterDir()
+	if not characterDir then
+		return false
+	end
+
+	local config = readDropTrackerJsonFile(characterDir .. "/itemtracking.json") or {
 		autoTrackAboveValue = 0,
 		trackedItems = {},
 	}
+	local prices = readDropTrackerJsonFile(characterDir .. "/itemprices.json")
 
-	local player = g_game.getLocalPlayer()
-	if not player then 
-		return 
+	table.clear(DropTrackerAnalyser.trackedItems)
+	mergeTrackedItemsFromConfig(DropTrackerAnalyser.trackedItems, config)
+	if prices and prices.dropTrackerItems then
+		mergeTrackedItemsFromDropTrackerMap(DropTrackerAnalyser.trackedItems, prices.dropTrackerItems)
 	end
 
-	local playerId = player:getId()
-	local file = "/characterdata/" .. playerId .. "/itemtracking.json"
-	if g_resources.fileExists(file) then
-		local status, result = pcall(function()
-			return json.decode(g_resources.readFileContents(file))
-		end)
-
-		if not status then
-			return g_logger.error("Error while reading characterdata file. Details: " .. result)
-		end
-
-		config = result
-	end
-
-  table.clear(DropTrackerAnalyser.trackedItems)
-	for _, i in pairs(config.trackedItems) do
-		DropTrackerAnalyser.trackedItems[i.objectType] = {monsterDrop = {}, recordStartTimestamp = i.recordStartTimestamp, dropCount = i.dropCount, persistent = true}
-	end
-
-	-- Load tracked items from Cyclopedia configuration
-	local cyclopediaFile = "/characterdata/" .. playerId .. "/itemprices.json"
-	if g_resources.fileExists(cyclopediaFile) then
-		local status, result = pcall(function()
-			return json.decode(g_resources.readFileContents(cyclopediaFile))
-		end)
-
-		if status and result and result["dropTrackerItems"] then
-			-- Add items marked for tracking in Cyclopedia that aren't already tracked
-			for itemIdStr, isTracked in pairs(result["dropTrackerItems"]) do
-				if isTracked then
-					local itemId = tonumber(itemIdStr)
-					if itemId and not DropTrackerAnalyser.trackedItems[itemId] then
-						-- Add item as persistent tracked item
-						DropTrackerAnalyser.trackedItems[itemId] = {
-							monsterDrop = {}, 
-							recordStartTimestamp = os.time(), 
-							dropCount = 0, 
-							persistent = true
-						}
-					end
-				end
-			end
-		end
-	end
-
-	DropTrackerAnalyser.autoTrackAboveValue = config.autoTrackAboveValue
+	DropTrackerAnalyser.autoTrackAboveValue = config.autoTrackAboveValue or 0
 	DropTrackerAnalyser:updateWindow(true)
+
+	if Cyclopedia and Cyclopedia.Items and Cyclopedia.Items.refreshCurrentItem then
+		Cyclopedia.Items.refreshCurrentItem()
+	end
+
+	if not table.empty(DropTrackerAnalyser.trackedItems) then
+		DropTrackerAnalyser:saveConfigJson()
+		if Cyclopedia and Cyclopedia.Items and Cyclopedia.Items.syncDropTrackerItemsFromAnalyser then
+			Cyclopedia.Items.syncDropTrackerItemsFromAnalyser()
+		end
+	end
+
+	return not table.empty(DropTrackerAnalyser.trackedItems)
 end
 
 function DropTrackerAnalyser:saveConfigJson()
@@ -725,24 +745,32 @@ function DropTrackerAnalyser:saveConfigJson()
 	for itemId, insta in pairs(DropTrackerAnalyser.trackedItems) do
 		if insta.persistent then
 			config.trackedItems[#config.trackedItems + 1] = {
-				dropCount = insta.dropCount,
-				objectType = itemId,
-				recordStartTimestamp = insta.recordStartTimestamp,
+				dropCount = insta.dropCount or 0,
+				objectType = tonumber(itemId) or itemId,
+				recordStartTimestamp = insta.recordStartTimestamp or os.time(),
 			}
 		end
 	end
 
-	local player = g_game.getLocalPlayer()
-	if not player then 
-		return 
+	local characterDir = getCharacterDir()
+	if not characterDir then
+		return
 	end
 
-	-- Ensure the characterdata directory exists
-	local characterDir = "/characterdata/" .. player:getId()
-	pcall(function() g_resources.makeDir("/characterdata") end)
-	pcall(function() g_resources.makeDir(characterDir) end)
+	local file = characterDir .. "/itemtracking.json"
 
-	local file = "/characterdata/" .. player:getId() .. "/itemtracking.json"
+	if #config.trackedItems == 0 then
+		local existing = readDropTrackerJsonFile(file)
+		if existing and type(existing.trackedItems) == "table" and #existing.trackedItems > 0 then
+			return
+		end
+
+		local prices = readDropTrackerJsonFile(characterDir .. "/itemprices.json")
+		if prices and prices.dropTrackerItems and not table.empty(prices.dropTrackerItems) then
+			return
+		end
+	end
+
 	local status, result = pcall(function() return json.encode(config, 2) end)
 	if not status then
 		return g_logger.error("Error while saving profile DropTracker data. Data won't be saved. Details: " .. result)
@@ -757,7 +785,7 @@ function DropTrackerAnalyser:saveConfigJson()
 	end)
 	
 	if not writeStatus then
-		-- Silently handle write errors during logout
+		g_logger.error("Error while writing itemtracking.json. Details: " .. tostring(writeError))
 	end
 end
 

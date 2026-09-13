@@ -576,21 +576,32 @@ UIWidget
       color: #c0c0c0
 
     CheckBox
-      id: quickLootCheck
-      anchors.right: parent.right
+      id: quickLootSkipCheck
+      anchors.horizontalCenter: BuyBase.horizontalCenter
       anchors.bottom: parent.bottom
       margin-bottom: 43
-      margin-right: 0
-      text-offset: 15 0
+      width: 176
+      !text: tr('Skip when Quick Looting')
+      text-offset: 15 -1
       font: $var-cip-font-new
       color: #c0c0c0
-      text-auto-resize: true
-      @onSetup: |
-        if modules.game_quickloot.QuickLoot.data.filter == 2 then
-          self:setText("Loot when Quick Looting")
-        else
-          self:setText('Skip when Quick Looting')
-        end
+      $hover !disabled:
+        text-offset: 15 -1
+        color: #c0c0c0
+
+    CheckBox
+      id: quickLootLootCheck
+      anchors.left: quickLootSkipCheck.left
+      anchors.bottom: quickLootSkipCheck.top
+      margin-bottom: 4
+      width: 176
+      !text: tr('Loot when Quick Looting')
+      text-offset: 15 -1
+      font: $var-cip-font-new
+      color: #c0c0c0
+      $hover !disabled:
+        text-offset: 15 -1
+        color: #c0c0c0
 
 ItemCategory < UIWidget
   font: $var-cip-font-new
@@ -628,7 +639,7 @@ ItemsListBaseItem < UIWidget
     anchors.fill: ItemBackground
     virtual: true
     draggable: false
-  Label
+  UILabel
     id: Name
     size: 143 32
     anchors.left: ItemBackground.right
@@ -638,4 +649,4 @@ ItemsListBaseItem < UIWidget
     text-align: left
     !text: tr('Item Name')
     font: $var-cip-font-new
-    color: #c0c0c0
+    color: #F6F6F6

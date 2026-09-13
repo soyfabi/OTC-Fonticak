@@ -180,6 +180,7 @@ function init()
   connect(g_game, {
     onGameStart = onlineAnalyser,
     onGameEnd = offlineAnalyser,
+    onLogout = saveAnalyserPersistentData,
     onSupplyTracker = onSupplyTracker,
     onLootStats = onLootStats,
     onImpactTracker = onImpactTracker,
@@ -199,6 +200,10 @@ function init()
   connect(Creature, {
       onShieldChange = onShieldChange,
   })
+
+  connect(g_app, {
+    onClose = saveAnalyserPersistentData,
+  })
   
   -- Set up party member tracking as backup (less frequent since shield changes trigger it)
   if partyMemberCheckEvent then
@@ -209,6 +214,8 @@ function init()
 end
 
 function terminate()
+  saveAnalyserPersistentData()
+
   if ControllerAnalyser and ControllerAnalyser.stopEvents then
     ControllerAnalyser:stopEvents()
   end
@@ -239,6 +246,7 @@ function terminate()
   disconnect(g_game, {
     onGameStart = onlineAnalyser,
     onGameEnd = offlineAnalyser,
+    onLogout = saveAnalyserPersistentData,
     onSupplyTracker = onSupplyTracker,
     onLootStats = onLootStats,
     onImpactTracker = onImpactTracker,
@@ -256,6 +264,10 @@ function terminate()
 
   disconnect(Creature, {
       onShieldChange = onShieldChange,
+  })
+
+  disconnect(g_app, {
+    onClose = saveAnalyserPersistentData,
   })
   
   -- Clean up party member tracking
@@ -313,8 +325,27 @@ function startNewSession(login)
   ControllerAnalyser:startEvent()
 end
 
+function saveAnalyserPersistentData()
+  if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
+    LoadedPlayer:cacheFromLocalPlayer()
+  end
+
+  if not LoadedPlayer or not LoadedPlayer:isLoaded() then
+    return
+  end
+
+  LoadedPlayer:ensureCharacterDir()
+  pcall(function() DropTrackerAnalyser:saveConfigJson() end)
+  if Cyclopedia and Cyclopedia.Items and Cyclopedia.Items.saveJson then
+    pcall(function() Cyclopedia.Items.saveJson() end)
+  end
+end
+
 function onlineAnalyser()
-  local benchmark = g_clock.millis()
+  if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
+    LoadedPlayer:cacheFromLocalPlayer()
+  end
+
   startNewSession(true)
 
   loadGainAndWastConfigJson()
@@ -323,6 +354,29 @@ function onlineAnalyser()
     partyMemberCheckEvent:cancel()
   end
   partyMemberCheckEvent = cycleEvent(checkPartyMembersChange, 5000)
+
+  local function retryDropTrackerLoad(attempt)
+    attempt = attempt or 1
+
+    if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
+      LoadedPlayer:cacheFromLocalPlayer()
+    end
+
+    if DropTrackerAnalyser:loadConfigJson() then
+      return
+    end
+
+    if Cyclopedia and Cyclopedia.Items and Cyclopedia.Items.syncDropTrackerItemsToAnalyser then
+      Cyclopedia.Items.syncDropTrackerItemsToAnalyser()
+    end
+
+    if table.empty(DropTrackerAnalyser.trackedItems) and attempt < 30 then
+      scheduleEvent(function() retryDropTrackerLoad(attempt + 1) end, 100)
+    end
+  end
+
+  scheduleEvent(function() retryDropTrackerLoad(1) end, 100)
+  scheduleEvent(function() retryDropTrackerLoad(1) end, 1000)
 end
 
 function offlineAnalyser()
@@ -337,21 +391,21 @@ function offlineAnalyser()
     partyMemberCheckEvent = nil
   end
 
-  -- Only save if we have a valid player and can still write to filesystem
-  local player = g_game.getLocalPlayer()
-  if player then
-    -- Ensure the characterdata directory exists before saving anything
-    local characterDir = "/characterdata/" .. player:getId()
-    pcall(function() g_resources.makeDir("/characterdata") end)
-    pcall(function() g_resources.makeDir(characterDir) end)
-    
-    -- Use pcall to safely attempt saves, catching any filesystem errors
+  if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
+    LoadedPlayer:cacheFromLocalPlayer()
+  end
+
+  if LoadedPlayer and LoadedPlayer:isLoaded() then
+    LoadedPlayer:ensureCharacterDir()
     pcall(function() HuntingAnalyser:saveConfigJson() end)
     pcall(function() ImpactAnalyser:saveConfigJson() end)
     pcall(function() InputAnalyser:saveConfigJson() end)
     pcall(function() XPAnalyser:saveConfigJson() end)
     pcall(function() DropTrackerAnalyser:saveConfigJson() end)
     pcall(function() saveGainAndWastConfigJson() end)
+    if Cyclopedia and Cyclopedia.Items and Cyclopedia.Items.saveJson then
+      pcall(function() Cyclopedia.Items.saveJson() end)
+    end
   end
   BossCooldown.cooldown = {}
 end
@@ -420,6 +474,8 @@ function toggleAnalysers(buttonId)
     elseif buttonId == 'bossButton' then
       toggleBossCDFocus(false)
       widget:focus()
+    elseif buttonId == 'dropButton' then
+      DropTrackerAnalyser:refreshFromDisk()
     elseif buttonId == 'xpAnalyser' then
       XPAnalyser:checkAnchos()
       XPAnalyser:forceUpdateUI()  -- Update UI with any accumulated XP data
@@ -523,12 +579,14 @@ function loadGainAndWastConfigJson()
   }
 
   if not g_game.isOnline() then return end
-  
-  local player = g_game.getLocalPlayer()
-  if not player then return end
 
-  local file = "/characterdata/" .. player:getId() .. "/gainandwaste.json"
-  if g_resources.fileExists(file) then
+  if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
+    LoadedPlayer:cacheFromLocalPlayer()
+  end
+  if not LoadedPlayer or not LoadedPlayer:isLoaded() then return end
+
+  local file = LoadedPlayer:getCharacterDataFile("gainandwaste.json")
+  if file and g_resources.fileExists(file) then
     local status, result = pcall(function()
       return json.decode(g_resources.readFileContents(file))
     end)
@@ -551,15 +609,15 @@ end
 
 function saveGainAndWastConfigJson()
   if not g_game.isOnline() then return end
-  
-  local player = g_game.getLocalPlayer()
-  if not player then return end
-  
-  -- Ensure the characterdata directory exists
-  local characterDir = "/characterdata/" .. player:getId()
-  pcall(function() g_resources.makeDir("/characterdata") end)
-  pcall(function() g_resources.makeDir(characterDir) end)
-  
+
+  if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
+    LoadedPlayer:cacheFromLocalPlayer()
+  end
+  if not LoadedPlayer or not LoadedPlayer:isLoaded() then return end
+
+  local file = LoadedPlayer:getCharacterDataSaveFile("gainandwaste.json")
+  if not file then return end
+
   local config = {
     gainGaugeTarget = LootAnalyser:getTarget(),
     gainGaugeVisible = LootAnalyser:gaugeIsVisible(),
@@ -569,7 +627,6 @@ function saveGainAndWastConfigJson()
     wasteGraphVisible = SupplyAnalyser:graphIsVisible(),
   }
 
-  local file = "/characterdata/" .. player:getId() .. "/gainandwaste.json"
   local status, result = pcall(function() return json.encode(config, 2) end)
   if not status then
     return g_logger.error("Error while saving profile Analyzer data. Data won't be saved. Details: " .. result)

@@ -21,7 +21,7 @@ DropTrackerItemPanel < Panel
     phantom: true
     virtual: true
 
-  Label
+  UILabel
     id: itemName
     !text: tr('Item Name')
     anchors.top: parent.top
@@ -29,7 +29,7 @@ DropTrackerItemPanel < Panel
     margin-top: 5
     margin-left: 5
     text-auto-resize: true
-    color: #c0c0c0
+    color: #F6F6F6
     font: Verdana Bold-11px
 
   Label

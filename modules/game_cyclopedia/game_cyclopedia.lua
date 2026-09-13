@@ -256,6 +256,9 @@ function getCurrentType()
 end
 
 function onCyclopediaGameStart()
+	if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
+		LoadedPlayer:cacheFromLocalPlayer()
+	end
 	if registerBestiaryProtocol then
 		registerBestiaryProtocol()
 	end
@@ -269,6 +272,9 @@ function onCyclopediaGameStart()
 end
 
 function onCyclopediaGameEnd()
+	if Cyclopedia.Items and Cyclopedia.Items.saveJson then
+		Cyclopedia.Items.saveJson()
+	end
 	if window then
 		window:hide()
 	end
