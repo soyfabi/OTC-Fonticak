@@ -45,7 +45,6 @@ OptionsCategory < UIWidget
   image-source: /images/ui/1pixel_down_frame
   image-border: 5
   margin-bottom: 3
-  clipping: true
   UIWidget
     id: Button
     size: 115 20

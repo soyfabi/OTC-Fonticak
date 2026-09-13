@@ -1490,6 +1490,21 @@ local function getCategoryOpenedSize(subCount)
 
     return SUBCATEGORY_FIRST_MARGIN + subCount * SUBCATEGORY_HEIGHT + (subCount - 1) * SUBCATEGORY_GAP
 end
+
+local function refreshCategorySizes(parent)
+    if not parent or not parent.subCategories then
+        return
+    end
+
+    local subCount = #parent.subCategories
+    parent.subCategoriesSize = subCount
+    parent.closedSize = CATEGORY_BASE_HEIGHT
+    parent.openedSize = getCategoryOpenedSize(subCount)
+
+    if parent.opened then
+        parent:setHeight(parent.openedSize)
+    end
+end
 local CATEGORY_ARROW_CLOSED = "/images/ui/icon-arrow7x7-right"
 local CATEGORY_ARROW_OPEN = "/images/ui/icon-arrow7x7-down"
 local CATEGORY_ACCORDION_MS = 240
@@ -1575,20 +1590,7 @@ local function setCategoryArrow(button, isOpen)
 end
 
 local function ensureCategorySizes(parent)
-    if not parent or not parent.subCategoriesSize then
-        return
-    end
-    if parent.closedSize and parent.openedSize then
-        return
-    end
-
-    local baseHeight = parent:getHeight() or 22
-    if parent.opened and parent.closedSize then
-        baseHeight = parent.closedSize
-    end
-
-    parent.closedSize = parent.closedSize or CATEGORY_BASE_HEIGHT
-    parent.openedSize = parent.openedSize or getCategoryOpenedSize(parent.subCategoriesSize)
+    refreshCategorySizes(parent)
 end
 
 local function setSubCategoriesVisible(parent, isOpen, opacity)
@@ -1608,7 +1610,7 @@ local function toggleSubCategories(parent, isOpen)
     end
 
     ensureCategorySizes(parent)
-    parent:setClipping(true)
+    parent:setClipping(false)
     parent.opened = isOpen
     setCategoryArrow(parent.Button, isOpen)
 
@@ -1782,6 +1784,7 @@ end
 
 function configureCharacterCategories()
     controller.ui.selectedCategoryButton = nil
+    controller.ui.openedCategory = nil
     controller.ui.optionsTabBar:destroyChildren()
 
     for id, button in ipairs(buttons) do
@@ -1829,9 +1832,8 @@ function configureCharacterCategories()
                 close(oldOpen)
             end
 
-            if parent.subCategoriesSize then
-                parent.closedSize = parent.closedSize or CATEGORY_BASE_HEIGHT
-                parent.openedSize = parent.openedSize or getCategoryOpenedSize(parent.subCategoriesSize)
+            if parent.subCategories then
+                refreshCategorySizes(parent)
 
                 if not parent.opened then
                     open(parent)
