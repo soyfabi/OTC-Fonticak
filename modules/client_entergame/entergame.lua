@@ -97,18 +97,44 @@ local function buildLoginUrl(useHttps)
 	return string.format("%s://%s:%d%s", scheme, G.loginHost, G.port, G.loginPath)
 end
 
+local function parseHttpLoginHost(hostString)
+	if not hostString or hostString == "" then
+		return nil, nil
+	end
+
+	local host, pathPart = hostString:match("^([^/]+)(.*)$")
+	if not host or host == "" then
+		return nil, nil
+	end
+
+	local path = pathPart or ""
+	if path ~= "" and path:sub(1, 1) ~= "/" then
+		path = "/" .. path
+	end
+
+	return host, path
+end
+
+local function abortHttpLogin(message)
+	if loadBox then
+		loadBox:destroy()
+
+		loadBox = nil
+	end
+
+	local errorBox = displayErrorBox(tr("Login Error"), message)
+
+	connect(errorBox, {
+		onOk = EnterGame.show
+	})
+end
+
 local function sendHttpLoginRequest(httpLogin, token, useHttps)
 	local requestId = G.requestId
 	local url = buildLoginUrl(useHttps)
 
 	G.httpOperationId = HTTP.postJSON(url, buildLoginBody(token), function(data, err)
 		if G.requestId ~= requestId then
-			return
-		end
-
-		if err and useHttps and httpLogin then
-			sendHttpLoginRequest(httpLogin, token, false)
-
 			return
 		end
 
@@ -319,13 +345,25 @@ local function setupEnterGameHighlights()
 
 	local loginWithGoogle = enterGame:getChildById("btnLoginWithGoogle")
 	if loginWithGoogle then
-		local googleLoginLabel = loginWithGoogle:recursiveGetChildById("googleLoginLabel")
-		local googleLoginIcon = loginWithGoogle:recursiveGetChildById("googleLoginIcon")
-		bindLabelHighlight(googleLoginLabel, {
-			loginWithGoogle,
-			googleLoginIcon,
-			googleLoginLabel
-		})
+		local googleUrl = Services and Services.googleLogin
+		local googleEnabled = googleUrl and googleUrl ~= ""
+
+		loginWithGoogle:setVisible(googleEnabled)
+
+		if not googleEnabled then
+			loginWithGoogle:setHeight(0)
+			loginWithGoogle:setMarginTop(0)
+		end
+
+		if googleEnabled then
+			local googleLoginLabel = loginWithGoogle:recursiveGetChildById("googleLoginLabel")
+			local googleLoginIcon = loginWithGoogle:recursiveGetChildById("googleLoginIcon")
+			bindLabelHighlight(googleLoginLabel, {
+				loginWithGoogle,
+				googleLoginIcon,
+				googleLoginLabel
+			})
+		end
 	end
 end
 
@@ -895,27 +933,22 @@ function EnterGame.tryHttpLogin(clientVersion, httpLogin, token)
 		return
 	end
 
-	local host, path = G.host:match("([^/]+)/([^/].*)")
+	local host, path = parseHttpLoginHost(G.host)
 
-	if not G.port then
-		local isHttps, _ = string.find(host, "https")
+	if not host then
+		abortHttpLogin(tr("ERROR , try adding \n- ip/login.php \n- Enable HTTP login"))
 
-		if not isHttps then
-			G.port = 443
-		else
-			G.port = 80
-		end
+		return
 	end
 
-	path = not path and "" or "/" .. path
+	if not G.port then
+		G.port = 443
+	end
+
 	G.loginHost = host
 	G.loginPath = path
 
-	if not host then
-		loadBox = displayCancelBox(tr("Please wait"), tr("ERROR , try adding \n- ip/login.php \n- Enable HTTP login"))
-	else
-		loadBox = displayCancelBox(tr("Connecting"), tr("Your character list is being loaded. Please wait."))
-	end
+	loadBox = displayCancelBox(tr("Connecting"), tr("Your character list is being loaded. Please wait."))
 
 	connect(loadBox, {
 		onCancel = function(msgbox)
@@ -931,9 +964,7 @@ function EnterGame.tryHttpLogin(clientVersion, httpLogin, token)
 			EnterGame.show()
 		end
 	})
-	math.randomseed(os.time())
-
-	G.requestId = math.random(1)
+	G.requestId = (G.requestId or 0) + 1
 
 	sendHttpLoginRequest(httpLogin, token or "", true)
 end
@@ -1145,7 +1176,11 @@ function EnterGame.tryProtocolLogin(clientVersion)
 end
 
 function EnterGame.onGoogleLoginClick()
-	-- Placeholder: click is handled but Google login is not implemented yet.
+	local url = Services and Services.googleLogin
+	if url and url ~= "" then
+		g_platform.openUrl(url)
+	end
+
 	return true
 end
 

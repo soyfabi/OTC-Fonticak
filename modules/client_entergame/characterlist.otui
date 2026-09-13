@@ -511,9 +511,7 @@ MainWindow
     text-offset: 0 1
     font: cipsoftFont
     visible: false
-    @onClick: |
-      local url = Services and Services.premium or "https://google.com"
-      g_platform.openUrl(url)
+    @onClick: CharacterList.onGetPremiumClick()
 
     $pressed:
       image-source: /images/ui/button-green-down

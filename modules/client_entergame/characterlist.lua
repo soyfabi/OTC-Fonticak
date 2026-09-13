@@ -34,6 +34,7 @@ local levelSortOrder = "desc"
 local AUTO_RECONNECT_MAX_TRIES = 120
 local AUTO_RECONNECT_FORCE_LOGOUT_AFTER = 20
 local PINNED_CHARACTERS_SETTING = "pinned-characters"
+local LEGACY_PINNED_CHARACTERS_SETTING = "characterlist-pinned-characters"
 local HIDDEN_CHARACTERS_SETTING = "hidden-characters"
 local PIN_CLIP_OUTLINE = "0 0 12 12"
 local PIN_CLIP_ACTIVE = "0 12 12 12"
@@ -41,6 +42,82 @@ local pendingFocusCharacterKey, pinnedCharactersData, hiddenCharactersData, curr
 
 local function makeCharacterKey(characterInfo)
 	return string.format("%s|%s|%s", G.account or "", characterInfo.name or "", characterInfo.worldName or "")
+end
+
+local savePinnedCharacters
+
+local function migrateLegacyPinKey(key)
+	if not key or key == "" then
+		return nil
+	end
+
+	local account = G.account or ""
+	if account == "" then
+		return key
+	end
+
+	local accountPrefix = account .. "|"
+	if key:sub(1, #accountPrefix) == accountPrefix then
+		return key
+	end
+
+	return string.format("%s|%s", account, key)
+end
+
+local function appendPinnedKey(data, key)
+	local migratedKey = migrateLegacyPinKey(key)
+	if not migratedKey or data.map[migratedKey] then
+		return
+	end
+
+	data.map[migratedKey] = true
+	table.insert(data.order, migratedKey)
+	data.orderIndex[migratedKey] = #data.order
+end
+
+local function loadLegacyPinnedCharacters(data)
+	local rawPinnedCharacters = g_settings.getNode(LEGACY_PINNED_CHARACTERS_SETTING)
+	if type(rawPinnedCharacters) ~= "table" then
+		return false
+	end
+
+	local migrated = false
+
+	for key, value in pairs(rawPinnedCharacters) do
+		local pinKey
+
+		if type(key) == "number" then
+			if type(value) == "string" and value ~= "" then
+				pinKey = value
+			end
+		elseif type(key) == "string" then
+			local pinned = false
+
+			if value == true then
+				pinned = true
+			elseif type(value) == "number" and value ~= 0 then
+				pinned = true
+			elseif type(value) == "string" then
+				local normalizedValue = string.lower(value)
+				pinned = normalizedValue == "true" or normalizedValue == "1"
+			end
+
+			if pinned then
+				pinKey = key
+			end
+		end
+
+		if pinKey then
+			appendPinnedKey(data, pinKey)
+			migrated = true
+		end
+	end
+
+	if migrated then
+		g_settings.setNode(LEGACY_PINNED_CHARACTERS_SETTING, nil)
+	end
+
+	return migrated
 end
 
 local function loadPinnedCharacters()
@@ -95,6 +172,12 @@ local function loadPinnedCharacters()
 
 	if #migratedOrder > 0 then
 		savePinnedCharacters(migratedOrder)
+
+		return data
+	end
+
+	if loadLegacyPinnedCharacters(data) and #data.order > 0 then
+		savePinnedCharacters(data.order)
 	end
 
 	return data
@@ -121,7 +204,7 @@ local function flushSaveSettings()
 	end
 end
 
-local function savePinnedCharacters(orderArray)
+savePinnedCharacters = function(orderArray)
 	g_settings.setList(PINNED_CHARACTERS_SETTING, orderArray or {})
 	scheduleSaveSettings()
 end
@@ -169,7 +252,32 @@ end
 local function isCharacterPinned(key, pinnedData)
 	pinnedData = pinnedData or pinnedCharactersData
 
-	return pinnedData and pinnedData.map[key] == true
+	if not pinnedData or not pinnedData.map then
+		return false
+	end
+
+	if pinnedData.map[key] then
+		return true
+	end
+
+	local parts = {}
+	for part in string.gmatch(key or "", "([^|]+)") do
+		table.insert(parts, part)
+	end
+
+	if #parts >= 3 then
+		local legacyWorldKey = string.format("%s|%s", parts[2], parts[3])
+
+		if pinnedData.map[legacyWorldKey] then
+			return true
+		end
+
+		if pinnedData.map[parts[2]] then
+			return true
+		end
+	end
+
+	return false
 end
 
 local function isFirstPinnedCharacter(key)
@@ -1495,6 +1603,22 @@ function CharacterList.cancelWait()
 
 	CharacterList.destroyLoadBox()
 	CharacterList.showAgain()
+end
+
+function CharacterList.onGetPremiumClick()
+	if Services and Services.getCoinsUrl and Services.getCoinsUrl ~= "" then
+		g_platform.openUrl(Services.getCoinsUrl)
+
+		return
+	end
+
+	if Services and Services.premium and Services.premium ~= "" then
+		g_platform.openUrl(Services.premium)
+
+		return
+	end
+
+	displayInfoBox(tr("Information"), tr("Premium URL not configured. Please contact the server administrator."))
 end
 
 function CharacterList.updateCharactersAppearances(showOutfits)
