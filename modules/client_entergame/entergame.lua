@@ -860,25 +860,38 @@ function EnterGame.setPassword(password)
 	end
 end
 
-function EnterGame.saveRememberedCredentials(clearWhenUnchecked)
+function EnterGame.saveRememberedCredentials(clearFieldsWhenUnchecked)
 	if not enterGame then
 		return
 	end
 
+	local accountEdit = enterGame:getChildById("accountNameTextEdit")
+	local passwordEdit = enterGame:getChildById("accountPasswordTextEdit")
+
 	if enterGame:getChildById("rememberEmailBox"):isChecked() then
 		g_settings.set("account", g_crypt.encrypt(G.account or ""))
 		g_settings.set("rememberEmail", true)
-	elseif clearWhenUnchecked then
-		EnterGame.clearAccountNameFields()
+	else
 		g_settings.set("rememberEmail", false)
+		g_settings.remove("account")
+		if clearFieldsWhenUnchecked and accountEdit then
+			accountEdit:clearText()
+			accountEdit:focus()
+		end
 	end
 
 	if enterGame:getChildById("rememberPasswordBox"):isChecked() then
 		g_settings.set("password", g_crypt.encrypt(G.password or ""))
 		g_settings.set("rememberPassword", true)
-	elseif clearWhenUnchecked then
-		EnterGame.clearPasswordNameFields()
+	else
 		g_settings.set("rememberPassword", false)
+		g_settings.remove("password")
+		if clearFieldsWhenUnchecked and passwordEdit then
+			passwordEdit:clearText()
+			if accountEdit then
+				accountEdit:focus()
+			end
+		end
 	end
 
 	g_settings.save()
