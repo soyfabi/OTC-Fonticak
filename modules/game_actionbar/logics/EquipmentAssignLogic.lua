@@ -38,12 +38,16 @@ local EQUIPMENT_SET_EQUIP_ORDER = {
 }
 
 local EQUIPMENT_SET_COOLDOWN_MS = 1000
-local EQUIP_SET_ACTION_DELAY_MS = 250
+local EQUIP_SET_ACTION_DELAY_MS = 350
+local EQUIP_SET_MAX_STEPS = 32
 local EQUIPMENT_SLOT_HOVER_PULSE_MS = 36
 local EQUIPMENT_SLOT_HOVER_PULSE_COLOR = "#8CB8E8"
 local EQUIPMENT_SLOT_HOVER_PULSE_MIN = 0.12
 local EQUIPMENT_SLOT_HOVER_PULSE_MAX = 0.46
 local EQUIPMENT_SLOT_HOVER_PULSE_STEP = 0.11
+local EQUIPMENT_SLOT_VALID_DRAG_BORDER_COLOR = "#8CB8E8"
+local EQUIPMENT_SLOT_INVALID_DRAG_BORDER_COLOR = "#E04040"
+local EQUIPMENT_SLOT_DRAG_BORDER_WIDTH = 2
 local EQUIPMENT_ASSIGN_SLOT_TOOLTIP = tr('Right-click to select equipment or drag an item here.')
 local EQUIPMENT_ASSIGN_BACKPACK_TOOLTIP = tr('Your current backpack.')
 
@@ -62,8 +66,11 @@ local equipmentAssignTypeIndex = 0
 local equipmentAssignTypePickerRevertIndex = 0
 local equipmentAssignTypeRadioGroup
 local equipmentSetSharedCooldownUntil = nil
-local pendingEquipmentSetQueue = nil
 local pendingEquipmentSetEvent = nil
+local pendingEquipmentSetActive = false
+local pendingEquipmentSetMode = nil
+local pendingEquipmentSetCache = nil
+local pendingEquipmentSetSteps = 0
 local EQUIP_ASSIGN_DEBUG = false
 local SERVER_EQUIPMENT_DATA = dofile('/modules/game_actionbar/logics/EquipmentServerSlots.lua')
 local SERVER_ITEM_INVENTORY_SLOTS = SERVER_EQUIPMENT_DATA.slots or SERVER_EQUIPMENT_DATA
@@ -1227,10 +1234,11 @@ local function onEquipmentAssignSlotDrop(slotWidget, draggedWidget, mousePos, in
         return false
     end
     if equipmentAssignSetSlotItem(invSlot, item, slotWidget) then
-        slotWidget:setBorderWidth(0)
+        clearEquipmentAssignSlotHighlight(slotWidget)
         if draggedWidget then draggedWidget:setBorderWidth(0) end
         return true
     end
+    showEquipmentAssignSlotInvalidDrag(slotWidget)
     return false
 end
 
@@ -1304,12 +1312,58 @@ local function stopAllEquipmentAssignSlotHoverPulses()
     end)
 end
 
-local function onEquipmentAssignSlotHoverChange(slotWidget, hovered, invSlot)
-    if isEquipmentAssignVisualBackpackSlot(invSlot) then
+local function clearEquipmentAssignSlotHighlight(slotWidget)
+    if not slotWidget or slotWidget:isDestroyed() then
         return
     end
     slotWidget:setBorderWidth(0)
-    if hovered and equipmentAssignSlotIsEmpty(invSlot) then
+    stopEquipmentAssignSlotHoverPulse(slotWidget)
+end
+
+local function showEquipmentAssignSlotValidDrag(slotWidget)
+    stopEquipmentAssignSlotHoverPulse(slotWidget)
+    slotWidget:setBorderWidth(EQUIPMENT_SLOT_DRAG_BORDER_WIDTH)
+    slotWidget:setBorderColor(EQUIPMENT_SLOT_VALID_DRAG_BORDER_COLOR)
+end
+
+local function showEquipmentAssignSlotInvalidDrag(slotWidget)
+    stopEquipmentAssignSlotHoverPulse(slotWidget)
+    slotWidget:setBorderWidth(EQUIPMENT_SLOT_DRAG_BORDER_WIDTH)
+    slotWidget:setBorderColor(EQUIPMENT_SLOT_INVALID_DRAG_BORDER_COLOR)
+end
+
+local function onEquipmentAssignSlotHoverChange(slotWidget, hovered, invSlot, draggedWidget)
+    if isEquipmentAssignVisualBackpackSlot(invSlot) then
+        return
+    end
+
+    if not hovered then
+        clearEquipmentAssignSlotHighlight(slotWidget)
+        return
+    end
+
+    local draggingWidget = draggedWidget
+    if not draggingWidget and g_ui.getDraggingWidget then
+        draggingWidget = g_ui.getDraggingWidget()
+    end
+    local item = equipmentAssignDraggedItem(draggingWidget)
+
+    if item then
+        if itemFitsEquipmentAssignSlot(item, invSlot, "drag") then
+            if equipmentAssignSlotIsEmpty(invSlot) then
+                slotWidget:setBorderWidth(0)
+                startEquipmentAssignSlotHoverPulse(slotWidget)
+            else
+                showEquipmentAssignSlotValidDrag(slotWidget)
+            end
+        else
+            showEquipmentAssignSlotInvalidDrag(slotWidget)
+        end
+        return
+    end
+
+    slotWidget:setBorderWidth(0)
+    if equipmentAssignSlotIsEmpty(invSlot) then
         startEquipmentAssignSlotHoverPulse(slotWidget)
     else
         stopEquipmentAssignSlotHoverPulse(slotWidget)
@@ -1333,8 +1387,8 @@ local function bindEquipmentAssignSlotTarget(target, slotWidget, invSlot)
     function target:onHoverChange(hovered)
         onEquipmentAssignSlotHoverChange(slotWidget, hovered, invSlot)
     end
-    function target:onDragEnter(mousePos)
-        onEquipmentAssignSlotHoverChange(slotWidget, true, invSlot)
+    function target:onDragEnter(draggedWidget, mousePos)
+        onEquipmentAssignSlotHoverChange(slotWidget, true, invSlot, draggedWidget)
         return true
     end
     function target:onDragLeave(droppedWidget, mousePos)
@@ -1541,43 +1595,84 @@ function cancelEquipmentSetQueue()
         removeEvent(pendingEquipmentSetEvent)
         pendingEquipmentSetEvent = nil
     end
-    pendingEquipmentSetQueue = nil
+    pendingEquipmentSetActive = false
+    pendingEquipmentSetMode = nil
+    pendingEquipmentSetCache = nil
+    pendingEquipmentSetSteps = 0
+end
+
+local function finishEquipmentSetQueue(onComplete)
+    pendingEquipmentSetActive = false
+    pendingEquipmentSetMode = nil
+    pendingEquipmentSetCache = nil
+    pendingEquipmentSetSteps = 0
+    pendingEquipmentSetEvent = nil
+    if onComplete then
+        onComplete()
+    end
 end
 
 local function queueEquipItemAction(itemId, tier)
     return { itemId = itemId, tier = tier or 0 }
 end
 
-local function runEquipmentSetActionQueue(onComplete)
-    if not pendingEquipmentSetQueue or #pendingEquipmentSetQueue == 0 then
-        pendingEquipmentSetQueue = nil
-        pendingEquipmentSetEvent = nil
-        if onComplete then onComplete() end
+local function appendPresetEquipSlotActions(actions, player, cache, invSlot)
+    local entry = presetEntryForSlot(cache, invSlot)
+    if not entry then
         return
     end
-    local action = table.remove(pendingEquipmentSetQueue, 1)
-    if action and action.itemId and action.itemId > 0 then
-        g_game.equipItemId(action.itemId, action.tier or 0)
+
+    local equipped = player:getInventoryItem(invSlot)
+    if actionSlotEquippedItemMatches(equipped, entry.itemId, entry.getTier or 0) then
+        return
     end
-    if pendingEquipmentSetQueue and #pendingEquipmentSetQueue > 0 then
-        pendingEquipmentSetEvent = scheduleEvent(function()
-            runEquipmentSetActionQueue(onComplete)
-        end, EQUIP_SET_ACTION_DELAY_MS)
-    else
-        pendingEquipmentSetQueue = nil
-        pendingEquipmentSetEvent = nil
-        if onComplete then onComplete() end
+
+    if equipped then
+        table.insert(actions, queueEquipItemAction(equipped:getId(),
+            equipped.getTier and equipped:getTier() or 0))
     end
+    table.insert(actions, queueEquipItemAction(entry.itemId, entry.getTier or 0))
 end
 
-local function enqueueEquipmentSetActions(actions, onComplete)
-    if not actions or #actions == 0 then
+local function isEquipmentPresetSetWorn(cache)
+    if not isEquipmentPresetCache(cache) then
         return false
     end
-    cancelEquipmentSetQueue()
-    pendingEquipmentSetQueue = actions
-    runEquipmentSetActionQueue(onComplete)
-    return true
+    local player = g_game.getLocalPlayer()
+    if not player or not player.getInventoryItem then
+        return false
+    end
+    local hasPresetEntry = false
+    for _, invSlot in ipairs(EQUIPMENT_SET_EQUIP_ORDER) do
+        local entry = presetEntryForSlot(cache, invSlot)
+        if entry then
+            hasPresetEntry = true
+            if not actionSlotEquippedItemMatches(player:getInventoryItem(invSlot), entry.itemId, entry.getTier or 0) then
+                return false
+            end
+        end
+    end
+    return hasPresetEntry
+end
+
+local function hasAnyPresetItemEquipped(cache)
+    if not isEquipmentPresetCache(cache) then
+        return false
+    end
+    local player = g_game.getLocalPlayer()
+    if not player or not player.getInventoryItem then
+        return false
+    end
+    for _, invSlot in ipairs(EQUIPMENT_SET_EQUIP_ORDER) do
+        local entry = presetEntryForSlot(cache, invSlot)
+        if entry then
+            local equipped = player:getInventoryItem(invSlot)
+            if equipped and actionSlotEquippedItemMatches(equipped, entry.itemId, entry.getTier or 0) then
+                return true
+            end
+        end
+    end
+    return false
 end
 
 local function isEquipmentSetFullyActive(cache)
@@ -1619,10 +1714,7 @@ local function buildEquipmentSetEquipActions(cache)
         end
     end
     for _, invSlot in ipairs(EQUIPMENT_SET_EQUIP_ORDER) do
-        local entry = presetEntryForSlot(cache, invSlot)
-        if entry and not actionSlotEquippedItemMatches(player:getInventoryItem(invSlot), entry.itemId, entry.getTier or 0) then
-            table.insert(actions, queueEquipItemAction(entry.itemId, entry.getTier or 0))
-        end
+        appendPresetEquipSlotActions(actions, player, cache, invSlot)
     end
     return actions
 end
@@ -1661,6 +1753,66 @@ local function equipmentSetNeedsEquip(cache)
         end
     end
     return false
+end
+
+local function buildNextEquipmentSetAction(cache, mode)
+    if mode == "unequip" then
+        local actions = buildEquipmentSetUnequipActions(cache)
+        return actions[1]
+    end
+    local actions = buildEquipmentSetEquipActions(cache)
+    return actions[1]
+end
+
+local function equipmentSetGoalReached(cache, mode)
+    if mode == "unequip" then
+        return not hasAnyPresetItemEquipped(cache)
+    end
+    return not equipmentSetNeedsEquip(cache)
+end
+
+local function runEquipmentSetDynamicStep(onComplete)
+    local cache = pendingEquipmentSetCache
+    local mode = pendingEquipmentSetMode
+    if not pendingEquipmentSetActive or not cache or not mode then
+        finishEquipmentSetQueue(onComplete)
+        return
+    end
+
+    if equipmentSetGoalReached(cache, mode) then
+        finishEquipmentSetQueue(onComplete)
+        return
+    end
+
+    pendingEquipmentSetSteps = pendingEquipmentSetSteps + 1
+    if pendingEquipmentSetSteps > EQUIP_SET_MAX_STEPS then
+        finishEquipmentSetQueue(onComplete)
+        return
+    end
+
+    local action = buildNextEquipmentSetAction(cache, mode)
+    if not action or not action.itemId or action.itemId <= 0 then
+        finishEquipmentSetQueue(onComplete)
+        return
+    end
+
+    g_game.equipItemId(action.itemId, action.tier or 0)
+    pendingEquipmentSetEvent = scheduleEvent(function()
+        runEquipmentSetDynamicStep(onComplete)
+    end, EQUIP_SET_ACTION_DELAY_MS)
+end
+
+local function startEquipmentSetDynamicQueue(cache, mode, onComplete)
+    if not cache or not mode then
+        return false
+    end
+    cancelEquipmentSetQueue()
+    pendingEquipmentSetActive = true
+    pendingEquipmentSetCache = cache
+    pendingEquipmentSetMode = mode
+    pendingEquipmentSetSteps = 0
+    runEquipmentSetDynamicStep(onComplete)
+    return true
 end
 
 function isEquipmentSetOnCooldown()
@@ -1715,24 +1867,26 @@ function executeEquipmentPreset(button)
     if not button or not button.cache or not isEquipmentPresetCache(button.cache) then
         return false
     end
-    if isEquipmentSetOnCooldown() or pendingEquipmentSetQueue then return false end
+    if isEquipmentSetOnCooldown() or pendingEquipmentSetActive then return false end
     if not g_game.getLocalPlayer() then return false end
 
-    local actions
-    if isEquipmentSetFullyActive(button.cache) then
-        actions = buildEquipmentSetUnequipActions(button.cache)
+    local mode
+    if isEquipmentPresetSetWorn(button.cache) then
+        mode = "unequip"
+        if #buildEquipmentSetUnequipActions(button.cache) == 0 then
+            return false
+        end
     elseif equipmentSetNeedsEquip(button.cache) then
-        actions = buildEquipmentSetEquipActions(button.cache)
+        mode = "equip"
+        if #buildEquipmentSetEquipActions(button.cache) == 0 then
+            return false
+        end
     else
         return false
     end
 
-    if #actions == 0 then
-        return false
-    end
-
     startEquipmentSetActionCooldown()
-    enqueueEquipmentSetActions(actions, function()
+    startEquipmentSetDynamicQueue(button.cache, mode, function()
         if button and not button:isDestroyed() and updateButtonState then
             updateButtonState(button)
         end
