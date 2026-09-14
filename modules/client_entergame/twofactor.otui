@@ -6,7 +6,7 @@ TwoFactorWindow < MainWindow
   text-offset: 0 1
   padding-left: 15
   draggable: false
-  image-source: /images/ui/popupwindow
+  image-source: /images/ui/popupwindow-rounded
   @onEnter: EnterGame.submitTwoFactor()
   @onEscape: EnterGame.cancelTwoFactor()
 
