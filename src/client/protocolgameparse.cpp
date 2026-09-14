@@ -77,6 +77,25 @@ bool shouldDrawMagicEffect(const int effectId)
     return shouldShowLootHighlightEffect();
 }
 
+void removeLootHighlightAttachedEffects(const ItemPtr& item)
+{
+    if (!item || !item->hasAttachedEffects())
+        return;
+
+    std::vector<AttachedEffectPtr> toDetach;
+    for (const auto& effect : item->getAttachedEffects()) {
+        if (!effect)
+            continue;
+
+        const auto* thingType = effect->getThingType();
+        if (thingType && thingType->getId() == LootHighlightEffectId)
+            toDetach.push_back(effect);
+    }
+
+    for (const auto& effect : toDetach)
+        item->detachEffect(effect);
+}
+
 bool shouldShowCreatureFrame(const CreaturePtr& creature)
 {
     if (!creature)
@@ -4515,8 +4534,10 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
                     break;
                 case 4: // Loot Highlight
                 {
+                    removeLootHighlightAttachedEffects(item);
                     if (!shouldShowLootHighlightEffect())
                         break;
+
                     const auto& attachedEffect = AttachedEffect::create(LootHighlightEffectId, ThingCategoryEffect);
                     if (attachedEffect) {
                         attachedEffect->setPermanent(true);
@@ -4543,6 +4564,8 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
                     }
                     break;
                 default:
+                    if (containerType == 0)
+                        removeLootHighlightAttachedEffects(item);
                     break;
             }
         } else {
