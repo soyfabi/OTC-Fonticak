@@ -218,6 +218,9 @@ local LOOT_CENTER_LABEL = 'lowCenterLabel'
 local VALUABLE_LOOT_CENTER_LABEL = 'middleCenterLabel'
 local NON_LOOT_CENTER_LABEL_SLOTS = { 'highCenterLabel', 'middleCenterLabel' }
 local MAX_CENTER_MESSAGES_PER_MODE = 1
+local DEDUP_CENTER_MESSAGE_MODES = {
+    [MessageModes.Look] = true
+}
 local PROTECTED_CENTER_MESSAGE_MODES = {
     [MessageModes.Loot] = true,
     [MessageModes.ValuableLoot] = true
@@ -368,15 +371,18 @@ end
 
 local function resolveCenterLabel(modeNum, text)
     local excludeProtected = not PROTECTED_CENTER_MESSAGE_MODES[modeNum]
+    local dedupeByMode = DEDUP_CENTER_MESSAGE_MODES[modeNum] == true
 
-    local sameTextLabel = findCenterLabelByText(text, excludeProtected)
-    if sameTextLabel then
-        return sameTextLabel
-    end
+    if dedupeByMode then
+        local sameTextLabel = findCenterLabelByText(text, excludeProtected)
+        if sameTextLabel then
+            return sameTextLabel
+        end
 
-    local modeLabels = findCenterLabelsByMode(modeNum, excludeProtected)
-    if #modeLabels >= MAX_CENTER_MESSAGES_PER_MODE then
-        return modeLabels[1]
+        local modeLabels = findCenterLabelsByMode(modeNum, excludeProtected)
+        if #modeLabels >= MAX_CENTER_MESSAGES_PER_MODE then
+            return modeLabels[1]
+        end
     end
 
     local preferredSlots = excludeProtected and NON_LOOT_CENTER_LABEL_SLOTS or CENTER_LABEL_SLOTS
