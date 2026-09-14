@@ -22,6 +22,7 @@
 
 #pragma once
 
+#include <framework/core/timer.h>
 #include <framework/luaengine/luaobject.h>
 
 #include "attachableobject.h"
@@ -41,6 +42,7 @@ public:
     void onAddInMapView();
     void draw(const Point& dest, int flags, LightView* lightView = nullptr);
     void drawLight(const Point& dest, LightView* lightView);
+    void drawLootHighlights(const Point& dest, uint8_t drawElevation, LightView* lightView);
 
     void clean();
     void cleanExpiredEffects();
@@ -227,4 +229,6 @@ private:
     TileSelectType m_selectType{ TileSelectType::NONE };
 
     bool m_drawTopAndCreature{ true };
+
+    Timer m_lootHighlightTimer;
 };

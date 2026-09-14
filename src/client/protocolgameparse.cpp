@@ -24,6 +24,7 @@
 #include "attachedeffect.h"
 #include "attachedeffectmanager.h"
 #include "client.h"
+#include "const.h"
 #include "effect.h"
 #include "game.h"
 #include "gameconfig.h"
@@ -49,8 +50,6 @@
 
 namespace
 {
-constexpr int LootHighlightEffectId = 252;
-
 bool shouldShowLootHighlightEffect()
 {
     const int rets = g_lua.luaCallGlobalField("g_game", "shouldShowLootHighlightEffect");
@@ -71,7 +70,7 @@ bool shouldShowLootHighlightEffect()
 
 bool shouldDrawMagicEffect(const int effectId)
 {
-    if (effectId != LootHighlightEffectId)
+    if (effectId != Otc::LootHighlightEffectId)
         return true;
 
     return shouldShowLootHighlightEffect();
@@ -87,13 +86,25 @@ void removeLootHighlightAttachedEffects(const ItemPtr& item)
         if (!effect)
             continue;
 
-        const auto* thingType = effect->getThingType();
-        if (thingType && thingType->getId() == LootHighlightEffectId)
+        auto* thingType = effect->getThingType();
+        if (thingType && thingType->getId() == Otc::LootHighlightEffectId)
             toDetach.push_back(effect);
     }
 
     for (const auto& effect : toDetach)
         item->detachEffect(effect);
+}
+
+void normalizeLootHighlightOnTile(const Position& position)
+{
+    const auto& tile = g_map.getTile(position);
+    if (!tile)
+        return;
+
+    for (const auto& thing : tile->getThings()) {
+        if (thing->isItem())
+            removeLootHighlightAttachedEffects(thing->static_self_cast<Item>());
+    }
 }
 
 bool shouldShowCreatureFrame(const CreaturePtr& creature)
@@ -1630,6 +1641,7 @@ void ProtocolGame::parseTileAddThing(const InputMessagePtr& msg)
     const auto& thing = getThing(msg);
 
     g_map.addThing(thing, pos, stackPos);
+    normalizeLootHighlightOnTile(pos);
 }
 
 void ProtocolGame::parseTileTransformThing(const InputMessagePtr& msg)
@@ -1651,6 +1663,7 @@ void ProtocolGame::parseTileTransformThing(const InputMessagePtr& msg)
     }
 
     g_map.addThing(newThing, pos, stackPos);
+    normalizeLootHighlightOnTile(pos);
 }
 
 void ProtocolGame::parseTileRemoveThing(const InputMessagePtr& msg) const
@@ -1661,8 +1674,13 @@ void ProtocolGame::parseTileRemoveThing(const InputMessagePtr& msg) const
         return;
     }
 
-    if (!g_map.removeThing(thing))
+    const auto pos = thing->getServerPosition();
+    if (!g_map.removeThing(thing)) {
         g_logger.traceError("ProtocolGame::parseTileRemoveThing: unable to remove thing");
+        return;
+    }
+
+    normalizeLootHighlightOnTile(pos);
 }
 
 void ProtocolGame::parseCreatureMove(const InputMessagePtr& msg)
@@ -4079,6 +4097,7 @@ int ProtocolGame::setTileDescription(const InputMessagePtr& msg, const Position 
     bool gotEffect = false;
     for (auto stackPos = 0; stackPos < 256; ++stackPos) {
         if (msg->peekU16() >= 0xff00) {
+            normalizeLootHighlightOnTile(position);
             return msg->getU16() & 0xff;
         }
 
@@ -4096,6 +4115,7 @@ int ProtocolGame::setTileDescription(const InputMessagePtr& msg, const Position 
         g_map.addThing(thing, position, stackPos);
     }
 
+    normalizeLootHighlightOnTile(position);
     return 0;
 }
 
@@ -4533,20 +4553,9 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
                     msg->getU32(); // obtain flags
                     break;
                 case 4: // Loot Highlight
-                {
                     removeLootHighlightAttachedEffects(item);
-                    if (!shouldShowLootHighlightEffect())
-                        break;
-
-                    const auto& attachedEffect = AttachedEffect::create(LootHighlightEffectId, ThingCategoryEffect);
-                    if (attachedEffect) {
-                        attachedEffect->setPermanent(true);
-                        attachedEffect->setOnTop(true);
-                        attachedEffect->setDrawOrder(DrawOrder::FIFTH);
-                        item->attachEffect(attachedEffect);
-                    }
+                    item->setLootHighlight(true);
                     break;
-                }
                 case 8: // Obtain
                     msg->getU32(); // obtain flags
                     break;
@@ -4564,8 +4573,10 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
                     }
                     break;
                 default:
-                    if (containerType == 0)
+                    if (containerType == 0) {
+                        item->setLootHighlight(false);
                         removeLootHighlightAttachedEffects(item);
+                    }
                     break;
             }
         } else {

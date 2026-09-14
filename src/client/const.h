@@ -1014,6 +1014,8 @@ namespace Otc
         WheelGemQuality_Greater  = 2,
         WheelGemQuality_Supreme  = 3
     };
+
+    constexpr int LootHighlightEffectId = 252;
 }
 
 enum FrameGroupType : uint8_t

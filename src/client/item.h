@@ -121,6 +121,9 @@ public:
 
     void setAsync(const bool enable) { m_async = enable; }
 
+    void setLootHighlight(bool enabled) { m_lootHighlight = enabled; }
+    bool hasLootHighlight() const { return m_lootHighlight; }
+
     ItemPtr clone();
     ItemPtr asItem() { return static_self_cast<Item>(); }
     bool isItem() const override { return true; }
@@ -196,6 +199,7 @@ private:
     ticks_t m_lastPhase{ 0 };
 
     bool m_async{ true };
+    bool m_lootHighlight{ false };
     std::string m_tooltip;
 
 #ifdef FRAMEWORK_EDITOR
