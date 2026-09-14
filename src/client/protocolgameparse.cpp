@@ -30,6 +30,7 @@
 #include "gameconfig.h"
 #include "item.h"
 #include "localplayer.h"
+#include "loothighlight.h"
 #include "protocolgame.h"
 #include "protocolcodes.h"
 #include "luavaluecasts_client.h"
@@ -57,25 +58,6 @@ bool shouldDrawMagicEffect(const int effectId)
         return false;
 
     return true;
-}
-
-void removeLootHighlightAttachedEffects(const ItemPtr& item)
-{
-    if (!item || !item->hasAttachedEffects())
-        return;
-
-    std::vector<AttachedEffectPtr> toDetach;
-    for (const auto& effect : item->getAttachedEffects()) {
-        if (!effect)
-            continue;
-
-        auto* thingType = effect->getThingType();
-        if (thingType && thingType->getId() == Otc::LootHighlightEffectId)
-            toDetach.push_back(effect);
-    }
-
-    for (const auto& effect : toDetach)
-        item->detachEffect(effect);
 }
 
 bool tileHasLegacyLootHighlightAttachedEffects(const TilePtr& tile)
@@ -135,9 +117,6 @@ ItemPtr findTopItemForLootHighlight(const TilePtr& tile)
 
 void applyLootHighlightFromMapEffect(const Position& position)
 {
-    if (!g_game.isLootHighlightVisible())
-        return;
-
     const auto& tile = g_map.getTile(position);
     if (!tile)
         return;
@@ -4627,7 +4606,7 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
     if (item->isContainer()) {
         if (g_game.getFeature(Otc::GameContainerTypes)) {
             const uint8_t containerType = msg->getU8(); // container type
-            item->setLootHighlight(false);
+            applyContainerLootHighlightState(item, containerType);
             switch (containerType) {
                 case 1: // Loot Container
                     msg->getU32(); // loot category flags
@@ -4640,9 +4619,6 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
                     msg->getU32(); // obtain flags
                     break;
                 case 4: // Loot Highlight
-                    removeLootHighlightAttachedEffects(item);
-                    if (g_game.isLootHighlightVisible())
-                        item->setLootHighlight(true);
                     break;
                 case 8: // Obtain
                     msg->getU32(); // obtain flags
@@ -4661,8 +4637,6 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
                     }
                     break;
                 default:
-                    if (containerType == 0)
-                        removeLootHighlightAttachedEffects(item);
                     break;
             }
         } else {

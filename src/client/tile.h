@@ -44,6 +44,7 @@ public:
     void drawLight(const Point& dest, LightView* lightView);
     void drawLootHighlights(const Point& dest, uint8_t drawElevation, LightView* lightView);
     void updateLootHighlightFlag();
+    bool hasLootHighlightItems() const { return m_hasLootHighlight; }
 
     void clean();
     void cleanExpiredEffects();
