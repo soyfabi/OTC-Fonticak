@@ -218,8 +218,10 @@ void Tile::drawLootHighlights(const Point& dest, const uint8_t drawElevation, Li
         }
     }
 
-    if (!highlightedItem)
+    if (!highlightedItem) {
+        m_lootHighlightTimer.stop();
         return;
+    }
 
     if (!g_things.isValidDatId(Otc::LootHighlightEffectId, ThingCategoryEffect))
         return;
@@ -377,6 +379,8 @@ void Tile::clean()
 
     m_firstCreatureIndex = -1;
     m_lastCreatureIndex = -1;
+
+    m_lootHighlightTimer.stop();
 
 #ifdef FRAMEWORK_EDITOR
     m_flags = 0;

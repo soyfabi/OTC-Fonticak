@@ -70,10 +70,11 @@ bool shouldShowLootHighlightEffect()
 
 bool shouldDrawMagicEffect(const int effectId)
 {
-    if (effectId != Otc::LootHighlightEffectId)
-        return true;
+    // Loot highlight is rendered by Tile::drawLootHighlights; ignore map magic effects.
+    if (effectId == Otc::LootHighlightEffectId)
+        return false;
 
-    return shouldShowLootHighlightEffect();
+    return true;
 }
 
 void removeLootHighlightAttachedEffects(const ItemPtr& item)
