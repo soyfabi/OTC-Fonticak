@@ -214,7 +214,23 @@ MessageTypes = {
 messagesPanel = nil
 
 local CENTER_LABEL_SLOTS = { 'highCenterLabel', 'middleCenterLabel', 'lowCenterLabel' }
+local LOOT_CENTER_LABEL = 'lowCenterLabel'
+local VALUABLE_LOOT_CENTER_LABEL = 'middleCenterLabel'
+local NON_LOOT_CENTER_LABEL_SLOTS = { 'highCenterLabel', 'middleCenterLabel' }
+local MAX_CENTER_MESSAGES_PER_MODE = 1
+local PROTECTED_CENTER_MESSAGE_MODES = {
+    [MessageModes.Loot] = true,
+    [MessageModes.ValuableLoot] = true
+}
 local labelMessageSequence = 0
+
+local function isLootMessageText(text)
+    if type(text) ~= 'string' then
+        return false
+    end
+    local lower = text:lower()
+    return lower:find('^loot of') ~= nil or lower:find('^loot de') ~= nil
+end
 
 local function isUiWidgetValid(widget)
     if not widget then
@@ -243,6 +259,8 @@ local function hideLabelMessage(label)
     removeEvent(label.hideEvent)
     label.hideEvent = nil
     label.gameMessageSeq = nil
+    label.gameMessageMode = nil
+    label.gameMessageIsLoot = nil
 end
 
 local function raiseMessagesPanel()
@@ -258,21 +276,38 @@ local function getCenterLabelById(labelId)
     return messagesPanel:recursiveGetChildById(labelId)
 end
 
-local function findOldestVisibleCenterLabel()
+local function isProtectedCenterLabel(label)
+    if not label then
+        return false
+    end
+    if label.gameMessageIsLoot then
+        return true
+    end
+    if PROTECTED_CENTER_MESSAGE_MODES[label.gameMessageMode] then
+        return true
+    end
+    return isLootMessageText(label:getText())
+end
+
+local function findOldestVisibleCenterLabel(excludeProtected)
     local oldestLabel, oldestSeq
     for _, slotId in ipairs(CENTER_LABEL_SLOTS) do
         local label = getCenterLabelById(slotId)
         if label and label:isVisible() and label.gameMessageSeq then
+            if excludeProtected and isProtectedCenterLabel(label) then
+                goto continue
+            end
             if not oldestSeq or label.gameMessageSeq < oldestSeq then
                 oldestLabel = label
                 oldestSeq = label.gameMessageSeq
             end
         end
+        ::continue::
     end
     return oldestLabel
 end
 
-local function allocateCenterLabel(preferredOrder)
+local function allocateCenterLabel(preferredOrder, excludeProtected)
     preferredOrder = preferredOrder or CENTER_LABEL_SLOTS
     for _, slotId in ipairs(preferredOrder) do
         local label = getCenterLabelById(slotId)
@@ -281,7 +316,7 @@ local function allocateCenterLabel(preferredOrder)
         end
     end
 
-    local oldestLabel = findOldestVisibleCenterLabel()
+    local oldestLabel = findOldestVisibleCenterLabel(excludeProtected)
     if oldestLabel then
         hideLabelMessage(oldestLabel)
         return oldestLabel
@@ -290,7 +325,75 @@ local function allocateCenterLabel(preferredOrder)
     return getCenterLabelById(preferredOrder[1])
 end
 
-local function showScreenMessage(label, text, color, useColoredLoot)
+local function getVisibleCenterLabels()
+    local labels = {}
+    for _, slotId in ipairs(CENTER_LABEL_SLOTS) do
+        local label = getCenterLabelById(slotId)
+        if label and label:isVisible() then
+            table.insert(labels, label)
+        end
+    end
+    return labels
+end
+
+local function findCenterLabelByText(text, excludeProtected)
+    for _, label in ipairs(getVisibleCenterLabels()) do
+        if excludeProtected and isProtectedCenterLabel(label) then
+            goto continue
+        end
+        if label:getText() == text then
+            return label
+        end
+        ::continue::
+    end
+    return nil
+end
+
+local function findCenterLabelsByMode(modeNum, excludeProtected)
+    local labels = {}
+    for _, label in ipairs(getVisibleCenterLabels()) do
+        if excludeProtected and isProtectedCenterLabel(label) then
+            goto continue
+        end
+        if label.gameMessageMode == modeNum then
+            table.insert(labels, label)
+        end
+        ::continue::
+    end
+    table.sort(labels, function(a, b)
+        return (a.gameMessageSeq or 0) > (b.gameMessageSeq or 0)
+    end)
+    return labels
+end
+
+local function resolveCenterLabel(modeNum, text)
+    local excludeProtected = not PROTECTED_CENTER_MESSAGE_MODES[modeNum]
+
+    local sameTextLabel = findCenterLabelByText(text, excludeProtected)
+    if sameTextLabel then
+        return sameTextLabel
+    end
+
+    local modeLabels = findCenterLabelsByMode(modeNum, excludeProtected)
+    if #modeLabels >= MAX_CENTER_MESSAGES_PER_MODE then
+        return modeLabels[1]
+    end
+
+    local preferredSlots = excludeProtected and NON_LOOT_CENTER_LABEL_SLOTS or CENTER_LABEL_SLOTS
+    return allocateCenterLabel(preferredSlots, excludeProtected)
+end
+
+local function getStorageModeNum(modeNum, isLootMsg)
+    if not isLootMsg then
+        return modeNum
+    end
+    if modeNum == MessageModes.ValuableLoot then
+        return MessageModes.ValuableLoot
+    end
+    return MessageModes.Loot
+end
+
+local function showScreenMessage(label, text, color, useColoredLoot, modeNum, isLootMsg)
     if not isUiWidgetValid(label) then
         return
     end
@@ -313,6 +416,11 @@ local function showScreenMessage(label, text, color, useColoredLoot)
 
     labelMessageSequence = labelMessageSequence + 1
     label.gameMessageSeq = labelMessageSequence
+    label.gameMessageIsLoot = isLootMsg or false
+    local storageModeNum = getStorageModeNum(modeNum, isLootMsg)
+    if storageModeNum ~= nil then
+        label.gameMessageMode = storageModeNum
+    end
 
     label.hideEvent = scheduleEvent(function()
         hideLabelMessage(label)
@@ -343,18 +451,18 @@ local function showCenterScreenMessage(modeNum, text, msgtype, isLootMsg)
 
     local label
     if modeNum == MessageModes.ValuableLoot then
-        label = getCenterLabelById('middleCenterLabel')
+        label = getCenterLabelById(VALUABLE_LOOT_CENTER_LABEL)
     elseif isLootMsg then
-        label = getCenterLabelById('highCenterLabel')
+        label = getCenterLabelById(LOOT_CENTER_LABEL)
     else
-        label = allocateCenterLabel(CENTER_LABEL_SLOTS)
+        label = resolveCenterLabel(modeNum, text)
     end
 
     if not label then
         return
     end
 
-    showScreenMessage(label, text, displayColor, useColoredLoot)
+    showScreenMessage(label, text, displayColor, useColoredLoot, modeNum, isLootMsg)
 end
 
 function init()
@@ -402,14 +510,6 @@ local function getLootConsoleSpeaktype(msgtype)
         consoleOption = msgtype and msgtype.consoleOption,
         colored = true
     }
-end
-
-local function isLootMessageText(text)
-    if type(text) ~= 'string' then
-        return false
-    end
-    local lower = text:lower()
-    return lower:find('^loot of') ~= nil or lower:find('^loot de') ~= nil
 end
 
 function displayMessage(mode, text)
@@ -567,6 +667,8 @@ function clearMessages()
             removeEvent(child.hideEvent)
             child.hideEvent = nil
             child.gameMessageSeq = nil
+            child.gameMessageMode = nil
+            child.gameMessageIsLoot = nil
         end
     end
 end
