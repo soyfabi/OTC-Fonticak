@@ -50,24 +50,6 @@
 
 namespace
 {
-bool shouldShowLootHighlightEffect()
-{
-    const int rets = g_lua.luaCallGlobalField("g_game", "shouldShowLootHighlightEffect");
-    if (rets <= 0)
-        return true;
-
-    bool shouldDraw = true;
-    if (g_lua.isBoolean())
-        shouldDraw = g_lua.popBoolean();
-    else
-        g_lua.pop(1);
-
-    if (rets > 1)
-        g_lua.pop(rets - 1);
-
-    return shouldDraw;
-}
-
 bool shouldDrawMagicEffect(const int effectId)
 {
     // Loot highlight is rendered by Tile::drawLootHighlights; ignore map magic effects.
@@ -96,16 +78,105 @@ void removeLootHighlightAttachedEffects(const ItemPtr& item)
         item->detachEffect(effect);
 }
 
-void normalizeLootHighlightOnTile(const Position& position)
+bool tileHasLegacyLootHighlightAttachedEffects(const TilePtr& tile)
+{
+    if (!tile)
+        return false;
+
+    for (const auto& thing : tile->getThings()) {
+        if (!thing->isItem() || !thing->static_self_cast<Item>()->hasAttachedEffects())
+            continue;
+
+        for (const auto& effect : thing->static_self_cast<Item>()->getAttachedEffects()) {
+            if (!effect)
+                continue;
+
+            auto* thingType = effect->getThingType();
+            if (thingType && thingType->getId() == Otc::LootHighlightEffectId)
+                return true;
+        }
+    }
+
+    return false;
+}
+
+void stripLegacyLootHighlightAttachedEffectsOnTile(const Position& position)
 {
     const auto& tile = g_map.getTile(position);
-    if (!tile)
+    if (!tile || !tileHasLegacyLootHighlightAttachedEffects(tile))
         return;
 
     for (const auto& thing : tile->getThings()) {
         if (thing->isItem())
             removeLootHighlightAttachedEffects(thing->static_self_cast<Item>());
     }
+}
+
+ItemPtr findTopItemForLootHighlight(const TilePtr& tile)
+{
+    if (!tile)
+        return nullptr;
+
+    ItemPtr topItem;
+    int topStackPos = -1;
+    for (int stackPos = 0; stackPos < static_cast<int>(tile->getThings().size()); ++stackPos) {
+        const auto& thing = tile->getThings()[stackPos];
+        if (!thing->isItem())
+            continue;
+
+        if (stackPos > topStackPos) {
+            topStackPos = stackPos;
+            topItem = thing->static_self_cast<Item>();
+        }
+    }
+
+    return topItem;
+}
+
+void applyLootHighlightFromMapEffect(const Position& position)
+{
+    if (!g_game.isLootHighlightVisible())
+        return;
+
+    const auto& tile = g_map.getTile(position);
+    if (!tile)
+        return;
+
+    for (const auto& thing : tile->getThings()) {
+        if (thing->isItem() && thing->static_self_cast<Item>()->hasLootHighlight()) {
+            tile->updateLootHighlightFlag();
+            return;
+        }
+    }
+
+    const auto& targetItem = findTopItemForLootHighlight(tile);
+    if (!targetItem)
+        return;
+
+    removeLootHighlightAttachedEffects(targetItem);
+    targetItem->setLootHighlight(true);
+    tile->updateLootHighlightFlag();
+}
+
+void clearLootHighlightOnTile(const Position& position)
+{
+    const auto& tile = g_map.getTile(position);
+    if (!tile)
+        return;
+
+    for (const auto& thing : tile->getThings()) {
+        if (!thing->isItem())
+            continue;
+
+        const auto& item = thing->static_self_cast<Item>();
+        if (!item->hasLootHighlight() && !item->hasAttachedEffects())
+            continue;
+
+        item->setLootHighlight(false);
+        removeLootHighlightAttachedEffects(item);
+    }
+
+    tile->updateLootHighlightFlag();
 }
 
 bool shouldShowCreatureFrame(const CreaturePtr& creature)
@@ -1642,7 +1713,6 @@ void ProtocolGame::parseTileAddThing(const InputMessagePtr& msg)
     const auto& thing = getThing(msg);
 
     g_map.addThing(thing, pos, stackPos);
-    normalizeLootHighlightOnTile(pos);
 }
 
 void ProtocolGame::parseTileTransformThing(const InputMessagePtr& msg)
@@ -1664,7 +1734,6 @@ void ProtocolGame::parseTileTransformThing(const InputMessagePtr& msg)
     }
 
     g_map.addThing(newThing, pos, stackPos);
-    normalizeLootHighlightOnTile(pos);
 }
 
 void ProtocolGame::parseTileRemoveThing(const InputMessagePtr& msg) const
@@ -1681,7 +1750,9 @@ void ProtocolGame::parseTileRemoveThing(const InputMessagePtr& msg) const
         return;
     }
 
-    normalizeLootHighlightOnTile(pos);
+    const auto& tile = g_map.getTile(pos);
+    if (tile)
+        tile->updateLootHighlightFlag();
 }
 
 void ProtocolGame::parseCreatureMove(const InputMessagePtr& msg)
@@ -2073,6 +2144,10 @@ void ProtocolGame::parseMagicEffect(const InputMessagePtr& msg)
                 case Otc::MAGIC_EFFECTS_CREATE_EFFECT: {
                     const uint16_t effectId = g_game.getFeature(Otc::GameEffectU16) ? msg->getU16() : msg->getU8();
                     const uint8_t effectSource = g_game.getFeature(Otc::GameEffectSource) ? msg->getU8() : 0;
+                    if (effectId == Otc::LootHighlightEffectId) {
+                        applyLootHighlightFromMapEffect(pos);
+                        break;
+                    }
                     if (!shouldDrawMagicEffect(effectId))
                         continue;
                     if (!g_things.isValidDatId(effectId, ThingCategoryEffect)) {
@@ -2115,6 +2190,11 @@ void ProtocolGame::parseMagicEffect(const InputMessagePtr& msg)
         effectId += 1; //hack to fix effects in earlier clients
     }
 
+    if (effectId == Otc::LootHighlightEffectId) {
+        applyLootHighlightFromMapEffect(pos);
+        return;
+    }
+
     if (!shouldDrawMagicEffect(effectId))
         return;
 
@@ -2133,6 +2213,11 @@ void ProtocolGame::parseRemoveMagicEffect(const InputMessagePtr& msg)
 {
     const auto& pos = getPosition(msg);
     const uint16_t effectId = g_game.getFeature(Otc::GameEffectU16) ? msg->getU16() : msg->getU8();
+
+    if (effectId == Otc::LootHighlightEffectId) {
+        clearLootHighlightOnTile(pos);
+        return;
+    }
 
     if (!g_things.isValidDatId(effectId, ThingCategoryEffect)) {
         g_logger.warning("[ProtocolGame::parseRemoveMagicEffect] - Invalid effectId type {}", effectId);
@@ -4098,7 +4183,7 @@ int ProtocolGame::setTileDescription(const InputMessagePtr& msg, const Position 
     bool gotEffect = false;
     for (auto stackPos = 0; stackPos < 256; ++stackPos) {
         if (msg->peekU16() >= 0xff00) {
-            normalizeLootHighlightOnTile(position);
+            stripLegacyLootHighlightAttachedEffectsOnTile(position);
             return msg->getU16() & 0xff;
         }
 
@@ -4116,7 +4201,7 @@ int ProtocolGame::setTileDescription(const InputMessagePtr& msg, const Position 
         g_map.addThing(thing, position, stackPos);
     }
 
-    normalizeLootHighlightOnTile(position);
+    stripLegacyLootHighlightAttachedEffectsOnTile(position);
     return 0;
 }
 
@@ -4542,6 +4627,7 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
     if (item->isContainer()) {
         if (g_game.getFeature(Otc::GameContainerTypes)) {
             const uint8_t containerType = msg->getU8(); // container type
+            item->setLootHighlight(false);
             switch (containerType) {
                 case 1: // Loot Container
                     msg->getU32(); // loot category flags
@@ -4555,7 +4641,8 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
                     break;
                 case 4: // Loot Highlight
                     removeLootHighlightAttachedEffects(item);
-                    item->setLootHighlight(true);
+                    if (g_game.isLootHighlightVisible())
+                        item->setLootHighlight(true);
                     break;
                 case 8: // Obtain
                     msg->getU32(); // obtain flags
@@ -4574,10 +4661,8 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
                     }
                     break;
                 default:
-                    if (containerType == 0) {
-                        item->setLootHighlight(false);
+                    if (containerType == 0)
                         removeLootHighlightAttachedEffects(item);
-                    }
                     break;
             }
         } else {

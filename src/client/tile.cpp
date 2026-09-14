@@ -37,28 +37,9 @@
 #include "framework/core/clock.h"
 #include "framework/core/eventdispatcher.h"
 #include "framework/graphics/drawpoolmanager.h"
-#include "framework/luaengine/luainterface.h"
 
 namespace
 {
-bool isTileLootHighlightVisible()
-{
-    const int rets = g_lua.luaCallGlobalField("g_game", "shouldShowLootHighlightEffect");
-    if (rets <= 0)
-        return true;
-
-    bool shouldDraw = true;
-    if (g_lua.isBoolean())
-        shouldDraw = g_lua.popBoolean();
-    else
-        g_lua.pop(1);
-
-    if (rets > 1)
-        g_lua.pop(rets - 1);
-
-    return shouldDraw;
-}
-
 int getTileLootHighlightPhase(const ThingTypePtr& effectType, Timer& timer)
 {
     if (!effectType)
@@ -152,7 +133,7 @@ void Tile::draw(const Point& dest, const int flags, LightView* lightView)
         }
     }
 
-    if (!(flags & Otc::DrawLights))
+    if (!(flags & Otc::DrawLights) && m_hasLootHighlight)
         drawLootHighlights(dest, drawElevation, lightView);
 
     // when walking diagonally over a tile that has a non-walkable object (e.g. a tree),
@@ -198,27 +179,10 @@ void Tile::draw(const Point& dest, const int flags, LightView* lightView)
 
 void Tile::drawLootHighlights(const Point& dest, const uint8_t drawElevation, LightView* lightView)
 {
-    if (!isTileLootHighlightVisible())
+    if (!g_game.isLootHighlightVisible())
         return;
 
-    ItemPtr highlightedItem;
-    int topStackPos = -1;
-    for (const auto& thing : m_things) {
-        if (!thing->isItem())
-            continue;
-
-        const auto& item = thing->static_self_cast<Item>();
-        if (!item->hasLootHighlight())
-            continue;
-
-        const int stackPos = getThingStackPos(thing);
-        if (stackPos > topStackPos) {
-            topStackPos = stackPos;
-            highlightedItem = item;
-        }
-    }
-
-    if (!highlightedItem) {
+    if (!m_hasLootHighlight) {
         m_lootHighlightTimer.stop();
         return;
     }
@@ -246,6 +210,22 @@ void Tile::drawLootHighlights(const Point& dest, const uint8_t drawElevation, Li
     g_drawPool.setDrawOrder(DrawOrder::THIRD);
     effectType->draw(effectDest, 0, xPattern, yPattern, 0, highlightPhase, Color::white, true, lightView);
     g_drawPool.resetDrawOrder();
+}
+
+void Tile::updateLootHighlightFlag()
+{
+    m_hasLootHighlight = false;
+    for (const auto& thing : m_things) {
+        if (!thing->isItem())
+            continue;
+
+        if (thing->static_self_cast<Item>()->hasLootHighlight()) {
+            m_hasLootHighlight = true;
+            return;
+        }
+    }
+
+    m_lootHighlightTimer.stop();
 }
 
 void Tile::drawLight(const Point& dest, LightView* lightView) {
@@ -381,6 +361,7 @@ void Tile::clean()
     m_lastCreatureIndex = -1;
 
     m_lootHighlightTimer.stop();
+    m_hasLootHighlight = false;
 
 #ifdef FRAMEWORK_EDITOR
     m_flags = 0;
@@ -511,6 +492,7 @@ void Tile::addThing(const ThingPtr& thing, int stackPos)
 
     updateElevation(thing, m_drawElevation);
     checkForDetachableThing();
+    updateLootHighlightFlag();
 
     if (g_game.isTileThingLuaCallbackEnabled())
         callLuaField("onAddThing", thing);
@@ -564,6 +546,7 @@ bool Tile::removeThing(const ThingPtr thing)
     }
 
     thing->onDisappear();
+    updateLootHighlightFlag();
 
     if (g_game.isTileThingLuaCallbackEnabled())
         callLuaField("onRemoveThing", thing);

@@ -404,7 +404,12 @@ return {
         value = true
     },
     lootHighlight                     = {
-        value = true
+        value = true,
+        action = function()
+            if g_game.resetLootHighlightVisibilityCache then
+                g_game.resetLootHighlightVisibilityCache()
+            end
+        end
     },
     combatFrames                      = {
         value = true

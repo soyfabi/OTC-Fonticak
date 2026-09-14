@@ -33,6 +33,7 @@
 #include "thingtype.h"
 #include "thingtypemanager.h"
 #include "tile.h"
+#include "framework/core/clock.h"
 #include "framework/core/eventdispatcher.h"
 #include "framework/core/graphicalapplication.h"
 #include "framework/luaengine/luainterface.h"
@@ -1847,6 +1848,38 @@ bool Game::canPerformGameAction() const
     // - we have a game protocol
     // - the game protocol is connected
     return m_online && m_localPlayer && !m_dead && m_protocolGame && m_protocolGame->isConnected();
+}
+
+bool Game::isLootHighlightVisible() const
+{
+    const ticks_t now = g_clock.millis();
+    if (m_lootHighlightVisibilityCachedAt == now)
+        return m_lootHighlightVisibilityCached;
+
+    m_lootHighlightVisibilityCachedAt = now;
+
+    const int rets = g_lua.luaCallGlobalField("g_game", "shouldShowLootHighlightEffect");
+    if (rets <= 0) {
+        m_lootHighlightVisibilityCached = true;
+        return m_lootHighlightVisibilityCached;
+    }
+
+    bool shouldDraw = true;
+    if (g_lua.isBoolean())
+        shouldDraw = g_lua.popBoolean();
+    else
+        g_lua.pop(1);
+
+    if (rets > 1)
+        g_lua.pop(rets - 1);
+
+    m_lootHighlightVisibilityCached = shouldDraw;
+    return m_lootHighlightVisibilityCached;
+}
+
+void Game::resetLootHighlightVisibilityCache()
+{
+    m_lootHighlightVisibilityCachedAt = 0;
 }
 
 void Game::setProtocolVersion(const uint16_t version)

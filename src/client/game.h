@@ -350,6 +350,8 @@ public:
     Otc::OperatingSystem_t getOs();
 
     bool canPerformGameAction() const;
+    bool isLootHighlightVisible() const;
+    void resetLootHighlightVisibilityCache();
 
     bool isOnline() { return m_online; }
     bool isLogging() { return !m_online && m_protocolGame; }
@@ -512,6 +514,9 @@ private:
     bool m_online{ false };
     bool m_dead{ false };
     bool m_expertPvpMode{ false };
+
+    mutable ticks_t m_lootHighlightVisibilityCachedAt{ 0 };
+    mutable bool m_lootHighlightVisibilityCached{ true };
     bool m_connectionFailWarned{ false };
     bool m_scheduleLastWalk{ false };
     bool m_safeFight{ true };
