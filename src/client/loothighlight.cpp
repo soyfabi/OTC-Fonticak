@@ -22,6 +22,7 @@
 
 #include "loothighlight.h"
 
+#include "attachedeffect.h"
 #include "const.h"
 #include "item.h"
 
