@@ -325,6 +325,7 @@ void Client::registerLuaFunctions()
     g_lua.bindSingletonFunction("g_game", "setConnectionStabilityOptimisation", &Game::setConnectionStabilityOptimisation, &g_game);
     g_lua.bindSingletonFunction("g_game", "isConnectionStabilityOptimisation", &Game::isConnectionStabilityOptimisation, &g_game);
     g_lua.bindSingletonFunction("g_game", "changeMapAwareRange", &Game::changeMapAwareRange, &g_game);
+    g_lua.bindSingletonFunction("g_game", "resetLootHighlightVisibilityCache", &Game::resetLootHighlightVisibilityCache, &g_game);
     g_lua.bindSingletonFunction("g_game", "canReportBugs", &Game::canReportBugs, &g_game);
     g_lua.bindSingletonFunction("g_game", "canExivaOptions", &Game::canExivaOptions, &g_game);
     g_lua.bindSingletonFunction("g_game", "sendExivaOptions", &Game::sendExivaOptions, &g_game);

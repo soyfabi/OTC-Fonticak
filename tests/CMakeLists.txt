@@ -51,5 +51,6 @@ function(otclient_add_gtest TARGET_NAME)
 endfunction()
 
 add_subdirectory(map)
+add_subdirectory(client)
 add_subdirectory(stdext)
 add_subdirectory(otml)

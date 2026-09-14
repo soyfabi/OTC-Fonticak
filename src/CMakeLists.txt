@@ -401,6 +401,7 @@ set(SOURCE_FILES
         client/itemtype.cpp
         client/lightview.cpp
         client/localplayer.cpp
+        client/loothighlight.cpp
         client/luafunctions.cpp
         client/luavaluecasts_client.cpp
         client/map.cpp

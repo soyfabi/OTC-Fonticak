@@ -23,6 +23,7 @@
 #include "tile.h"
 
 #include "client.h"
+#include "const.h"
 #include "localplayer.h"
 #include "effect.h"
 #include "game.h"
@@ -31,10 +32,43 @@
 #include "map.h"
 #include "mapview.h"
 #include "thing.h"
+#include "thingtypemanager.h"
 #include "uimap.h"
 #include "framework/core/clock.h"
 #include "framework/core/eventdispatcher.h"
 #include "framework/graphics/drawpoolmanager.h"
+
+namespace
+{
+int getTileLootHighlightPhase(const ThingTypePtr& effectType, Timer& timer)
+{
+    if (!effectType)
+        return 0;
+
+    const auto* animator = effectType->getIdleAnimator();
+    if (!animator && effectType->isAnimateAlways())
+        animator = effectType->getAnimator();
+
+    constexpr float speed = 1.f;
+    if (animator)
+        return animator->getPhaseAt(timer, speed);
+
+    if (effectType->isEffect()) {
+        const int animationPhases = effectType->getAnimationPhases();
+        if (animationPhases <= 0)
+            return 0;
+
+        const int lastPhase = animationPhases - 1;
+        const int ticksPerFrame = std::max<int>(1, static_cast<int>(g_gameConfig.getEffectTicksPerFrame() / speed));
+        const int phase = std::min<int>(static_cast<int>(timer.ticksElapsed() / ticksPerFrame), lastPhase);
+        if (phase == lastPhase)
+            timer.restart();
+        return phase;
+    }
+
+    return 0;
+}
+}
 
 Tile::Tile(const Position& position) : m_position(position) {}
 
@@ -99,6 +133,9 @@ void Tile::draw(const Point& dest, const int flags, LightView* lightView)
         }
     }
 
+    if (!(flags & Otc::DrawLights) && m_hasLootHighlight)
+        drawLootHighlights(dest, drawElevation, lightView);
+
     // when walking diagonally over a tile that has a non-walkable object (e.g. a tree),
     // draw the creature behind it (creature first, then the object)
     if (hasWalkingCreature()) {
@@ -138,6 +175,57 @@ void Tile::draw(const Point& dest, const int flags, LightView* lightView)
     drawTop(dest, flags, false, drawElevation);
     drawAttachedEffect(dest, dest, lightView, true);
     drawAttachedParticlesEffect(dest);
+}
+
+void Tile::drawLootHighlights(const Point& dest, const uint8_t drawElevation, LightView* lightView)
+{
+    if (!g_game.isLootHighlightVisible())
+        return;
+
+    if (!m_hasLootHighlight) {
+        m_lootHighlightTimer.stop();
+        return;
+    }
+
+    if (!g_things.isValidDatId(Otc::LootHighlightEffectId, ThingCategoryEffect))
+        return;
+
+    const auto& effectType = g_things.getThingType(Otc::LootHighlightEffectId, ThingCategoryEffect);
+    if (!effectType || effectType->isNull())
+        return;
+
+    if (!m_lootHighlightTimer.running())
+        m_lootHighlightTimer.restart();
+
+    const int highlightPhase = getTileLootHighlightPhase(effectType, m_lootHighlightTimer);
+
+    int xPattern = m_position.x % effectType->getNumPatternX();
+    if (xPattern < 0)
+        xPattern += effectType->getNumPatternX();
+    int yPattern = m_position.y % effectType->getNumPatternY();
+    if (yPattern < 0)
+        yPattern += effectType->getNumPatternY();
+
+    const auto& effectDest = dest - drawElevation * g_drawPool.getScaleFactor();
+    g_drawPool.setDrawOrder(DrawOrder::THIRD);
+    effectType->draw(effectDest, 0, xPattern, yPattern, 0, highlightPhase, Color::white, true, lightView);
+    g_drawPool.resetDrawOrder();
+}
+
+void Tile::updateLootHighlightFlag()
+{
+    m_hasLootHighlight = false;
+    for (const auto& thing : m_things) {
+        if (!thing->isItem())
+            continue;
+
+        if (thing->static_self_cast<Item>()->hasLootHighlight()) {
+            m_hasLootHighlight = true;
+            return;
+        }
+    }
+
+    m_lootHighlightTimer.stop();
 }
 
 void Tile::drawLight(const Point& dest, LightView* lightView) {
@@ -272,6 +360,9 @@ void Tile::clean()
     m_firstCreatureIndex = -1;
     m_lastCreatureIndex = -1;
 
+    m_lootHighlightTimer.stop();
+    m_hasLootHighlight = false;
+
 #ifdef FRAMEWORK_EDITOR
     m_flags = 0;
 #endif
@@ -401,6 +492,7 @@ void Tile::addThing(const ThingPtr& thing, int stackPos)
 
     updateElevation(thing, m_drawElevation);
     checkForDetachableThing();
+    updateLootHighlightFlag();
 
     if (g_game.isTileThingLuaCallbackEnabled())
         callLuaField("onAddThing", thing);
@@ -454,6 +546,7 @@ bool Tile::removeThing(const ThingPtr thing)
     }
 
     thing->onDisappear();
+    updateLootHighlightFlag();
 
     if (g_game.isTileThingLuaCallbackEnabled())
         callLuaField("onRemoveThing", thing);
