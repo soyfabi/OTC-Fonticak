@@ -481,3 +481,19 @@ function translateVocation(id)
 	end
 	return 0
 end
+
+function isWidgetAlive(w)
+	if not w then
+		return false
+	end
+
+	if type(w) ~= "userdata" then
+		return false
+	end
+
+	if type(w.isDestroyed) ~= "function" then
+		return false
+	end
+
+	return not w:isDestroyed()
+end

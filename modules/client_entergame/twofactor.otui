@@ -1,0 +1,72 @@
+TwoFactorWindow < MainWindow
+  !text: tr('Two-Factor Authentication')
+  size: 360 121
+  color: #909090
+  font: Verdana Bold-11px
+  text-offset: 0 1
+  padding-left: 15
+  draggable: false
+  image-source: /images/ui/popupwindow
+  @onEnter: EnterGame.submitTwoFactor()
+  @onEscape: EnterGame.cancelTwoFactor()
+
+TwoFactorWindow
+  id: twoFactorWindow
+
+  Label
+    id: tokenPromptLabel
+    !text: tr('Please enter a new, valid token:')
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: parent.top
+    margin-top: -8
+    margin-left: -2
+    color: #c0c0c0
+    font: Verdana Bold-11px
+    text-offset: 2 0
+    text-wrap: true
+
+  TextEdit
+    id: tokenTextEdit
+    anchors.left: parent.left
+    anchors.top: tokenPromptLabel.bottom
+    margin-top: 6
+    margin-left: 1
+    font: Verdana Bold-11px
+    padding-left: 4
+    padding-right: 1
+    text-offset: 0 -3
+    max-length: 8
+    width: 328
+    height: 16
+
+  HorizontalSeparator
+    id: separator
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: tokenTextEdit.bottom
+    margin-top: 11
+    margin-left: 1
+
+  QtButton
+    id: cancelButton
+    !text: tr('Cancel')
+    anchors.right: parent.right
+    anchors.top: separator.bottom
+    margin-top: 11
+    margin-right: -1
+    text-offset: 0 1
+    size: 41 21
+    color: #FFFFFF
+    @onClick: EnterGame.cancelTwoFactor()
+
+  QtButton
+    id: okButton
+    !text: tr('Ok')
+    anchors.right: cancelButton.left
+    anchors.top: cancelButton.top
+    margin-right: 6
+    text-offset: 0 1
+    size: 41 21
+    color: #FFFFFF
+    @onClick: EnterGame.submitTwoFactor()

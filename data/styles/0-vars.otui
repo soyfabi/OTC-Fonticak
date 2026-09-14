@@ -28,7 +28,7 @@
 
 &var-main-font: verdana-11px-antialised
 &var-cip-main-font: Verdana Bold-11px
-&var-cip-font: verdana-11px-antialised
+&var-cip-font: Verdana Bold-11px
 &var-cip-font-off: verdana-11px-antialised
 &var-cip-font-wheel: Verdana Bold-11px-wheel
 &var-cip-font-new: Verdana Bold-11px-new
