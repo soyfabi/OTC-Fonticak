@@ -13,7 +13,7 @@ EnterGameWindow
   id: enterGame
   draggable: false
   size: 280 246
-  image-source: /images/ui/popupwindow
+  image-source: /images/ui/popupwindow-rounded
   @onEnter: EnterGame.doLogin()
 
   Label
