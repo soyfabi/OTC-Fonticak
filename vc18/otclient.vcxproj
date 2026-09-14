@@ -360,6 +360,7 @@
     <ClCompile Include="..\src\client\itemtype.cpp" />
     <ClCompile Include="..\src\client\lightview.cpp" />
     <ClCompile Include="..\src\client\localplayer.cpp" />
+    <ClCompile Include="..\src\client\loothighlight.cpp" />
     <ClCompile Include="..\src\client\luafunctions.cpp" />
     <ClCompile Include="..\src\client\map.cpp" />
     <ClCompile Include="..\src\client\mapio.cpp" />
@@ -580,6 +581,7 @@
     <ClInclude Include="..\src\client\itemtype.h" />
     <ClInclude Include="..\src\client\lightview.h" />
     <ClInclude Include="..\src\client\localplayer.h" />
+    <ClInclude Include="..\src\client\loothighlight.h" />
     <ClInclude Include="..\src\client\map.h" />
     <ClInclude Include="..\src\client\mapview.h" />
     <ClInclude Include="..\src\client\minimap.h" />
