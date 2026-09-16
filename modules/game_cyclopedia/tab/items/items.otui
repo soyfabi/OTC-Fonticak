@@ -132,10 +132,12 @@ UIWidget
       anchors.fill: ItemListBase
       focusable: false
       margin-top: 5
+      margin-bottom: 2
       size: 200 187
       image-border: 10
       padding-top: 1
-      padding-bottom: 1
+      padding-bottom: 2
+      clipping: true
       layout:
         type: grid
         cell-size: 200 35

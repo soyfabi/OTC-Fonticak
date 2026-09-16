@@ -2232,11 +2232,18 @@ function refreshTargetMark()
     local attacking = g_game.getAttackingCreature()
     if attacking then
         applyCreatureTargetVisual(attacking, UICreatureButton.getCreatureButtonColors().onTargeted.notHovered, true)
+        lastCreatureSelected = attacking
     end
 
     for _, instance in pairs(BattleListManager.instances) do
         for _, battleButton in pairs(instance.battleButtons) do
-            if battleButton.isTarget then
+            if attacking and battleButton.creature == attacking then
+                if not battleButton.isTarget then
+                    battleButton.isTarget = true
+                end
+                updateBattleButton(battleButton)
+            elseif battleButton.isTarget then
+                battleButton.isTarget = false
                 updateBattleButton(battleButton)
             end
         end
@@ -2253,20 +2260,20 @@ function onAttack(creature) -- Update battleButton once you're attacking a targe
     
     -- Update all battle list instances
     for _, instance in pairs(BattleListManager.instances) do
-        if instance.window and instance.window:isVisible() then
-            if creature then
-                -- Setting a new target
-                local battleButton = instance.battleButtons[creature:getId()]
-                if battleButton then
-                    battleButton.isTarget = true
+        if creature then
+            local battleButton = instance.battleButtons[creature:getId()]
+            if battleButton then
+                battleButton.isTarget = true
+                foundBattleButton = true
+                if instance.window and instance.window:isVisible() then
                     updateBattleButton(battleButton)
-                    foundBattleButton = true
                 end
-            else
-                -- No target (attack cancelled), clear all target flags
-                for _, battleButton in pairs(instance.battleButtons) do
-                    if battleButton.isTarget then
-                        battleButton.isTarget = false
+            end
+        elseif creature == nil then
+            for _, battleButton in pairs(instance.battleButtons) do
+                if battleButton.isTarget then
+                    battleButton.isTarget = false
+                    if instance.window and instance.window:isVisible() then
                         updateBattleButton(battleButton)
                     end
                 end
@@ -2280,6 +2287,7 @@ function onAttack(creature) -- Update battleButton once you're attacking a targe
     end
 
     lastCreatureSelected = creature
+    refreshTargetMark()
 end
 
 function onFollow(creature) -- Update battleButton once you're following a target
@@ -2448,6 +2456,10 @@ function onCreaturePositionChange(creature, newPos, oldPos) -- Update battleButt
                             v:setVisible(canBeSeen(mob))
                         end
                     end
+
+                    if g_game.getAttackingCreature() then
+                        refreshTargetMark()
+                    end
                 end
             else
                 -- If it's a creature moving
@@ -2490,9 +2502,8 @@ function onCreaturePositionChange(creature, newPos, oldPos) -- Update battleButt
                                     elseif newDistance < oldDistance then
                                         battleButton:setVisible(canBeSeen(creature))
 
-                                        if lastCreatureSelected == creature and not battleButton:isVisible() then
-                                            clearCreatureTargetVisual(lastCreatureSelected)
-                                            lastCreatureSelected = nil
+                                        if creature == g_game.getAttackingCreature() and not battleButton:isVisible() then
+                                            refreshTargetMark()
                                         end
 
                                         if index > 1 then
