@@ -20,6 +20,9 @@ Cursors
   look:
     image: cursor-look
     hot-spot: 0 0
+  lenshelp:
+    image: cursor-lenshelp
+    hot-spot: 0 0
   open:
     image: cursor-open
     hot-spot: 0 0

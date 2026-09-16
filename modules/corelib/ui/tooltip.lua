@@ -5,6 +5,7 @@ g_tooltip = {}
 local toolTipLabel
 local SpecialToolTipLabel
 local currentHoveredWidget
+local clientHelpModeActive = false
 local isTrackingMouse = false
 local isTrackingSpecialMouse = false
 local pendingHoveredWidget = nil
@@ -204,6 +205,10 @@ local function cancelPendingHide()
 end
 
 local function displayWidgetTooltip(widget)
+    if clientHelpModeActive then
+        return false
+    end
+
     if not widget or g_mouse.isPressed() then
         return false
     end
@@ -255,6 +260,10 @@ local function scheduleHide(instant)
 end
 
 local function scheduleTooltip(widget)
+    if clientHelpModeActive then
+        return
+    end
+
     if not widget or g_mouse.isPressed() then
         return
     end
@@ -707,6 +716,15 @@ function g_tooltip.hide(instant)
         end
     else
         stopTrackingMouseMove()
+    end
+end
+
+function g_tooltip.setClientHelpMode(active)
+    clientHelpModeActive = active == true
+    if clientHelpModeActive then
+        cancelPendingTooltip()
+        g_tooltip.hide(true)
+        g_tooltip.hideSpecial(true)
     end
 end
 

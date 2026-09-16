@@ -1,0 +1,52 @@
+ClientHelpHighlight < UIWidget
+  id: clientHelpHighlight
+  visible: false
+  phantom: true
+  focusable: false
+  background-color: #c0c0c066
+  border-width: 1
+  border-color: #ffffff88
+
+ClientHelpPanel < UIWidget
+  id: clientHelpPanel
+  size: 280 120
+  visible: false
+  phantom: true
+  focusable: false
+  padding: 8
+  border-width: 1
+  border-color: #b0b0b0
+  background-color: #00000077
+
+  Label
+    id: helpTitle
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    font: verdana-11px-rounded
+    color: #cc4444
+    text-auto-resize: true
+    text-wrap: true
+
+  Label
+    id: helpBody
+    anchors.top: helpTitle.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 4
+    font: verdana-11px-antialised
+    color: #ffffff
+    text-wrap: true
+    text-auto-resize: true
+
+  Label
+    id: helpFooter
+    anchors.top: helpBody.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 6
+    font: verdana-11px-antialised
+    color: #cccccc
+    text-wrap: true
+    text-auto-resize: true
+    !text: tr('Press Escape or click the lens button to leave this mode.')

@@ -13,6 +13,7 @@ Module
     - game_healthinfo
     - game_inventory
     - game_mainpanel
+    - game_clienthelp
     - game_prey
     - game_imbuing
     - game_imbuementtracker

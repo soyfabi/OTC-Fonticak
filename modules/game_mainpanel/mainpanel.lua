@@ -52,6 +52,7 @@ ControlButtonNames = {
     cyclopediaButton = 'Cyclopedia',
     bestiaryTrackerButton = 'Bestiary Tracker',
     botButton = 'Bot Hub',
+    lensHelpButton = 'Client Help',
 }
 
 local MANAGE_CONTROL_BUTTONS_ID = 'manageControlButtons'
@@ -298,7 +299,7 @@ optionsController = Controller:new()
 optionsController:setUI('mainoptionspanel', modules.game_interface.getMainRightPanel())
 
 function optionsController:onInit()
-    createButton_large('Store shop', tr('Store shop'), '/images/store/button-store-up', toggleStore,
+    createButton_large('Store shop', tr('Store'), '/images/store/button-store-up', toggleStore,
     false, 8)
     createGoldFrame(optionsController.ui.onPanel, 'resizer', 'resizerBorder')
     createGoldFrame(optionsController.ui.offPanel, 'collapsedResizer', 'collapsedResizerBorder')

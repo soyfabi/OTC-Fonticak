@@ -5,14 +5,35 @@ UIWidget
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: parent.top
-    height: 60
+    height: 110
 
     OptionsQtButton
-      !text: tr('Wiki')
+      id: clientHelpBtn
+      !text: tr('Client Help')
       anchors.left: parent.left
       anchors.top: parent.top
       size: 130 20
       margin-bottom: 10
+      margin-right: 10
+      @onClick: |
+        if modules.game_clienthelp then
+          modules.game_clienthelp.toggleClientHelp()
+        end
+
+    UIWidget
+      image-source: /images/icons/show_gui_help_grey
+      size: 12 12
+      anchors.right: parent.right
+      anchors.verticalCenter: clientHelpBtn.verticalCenter
+      margin-right: 5
+      !tooltip: tr('Activate Client Help mode to learn what each interface element does.')
+
+    OptionsQtButton
+      !text: tr('Wiki')
+      anchors.left: parent.left
+      anchors.top: clientHelpBtn.bottom
+      size: 130 20
+      margin-top: 5
       margin-right: 10
       @onClick: g_platform.openUrl("https://github.com/mehah/otclient/wiki")
 

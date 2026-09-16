@@ -1,4 +1,5 @@
 SupplyStashWindow < MainWindow
+  id: supplyStashWindow
   !text: tr('Supply Stash')
   size: 604 435
   visible: false

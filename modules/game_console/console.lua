@@ -1528,6 +1528,10 @@ function onConsoleTextHovered(widget, text, hovered)
     if not modules.client_options then
         return
     end
+
+    if modules.game_clienthelp and modules.game_clienthelp.isClientHelpActive() then
+        return
+    end
     
     if g_ui.getDraggingWidget() or g_ui.isMouseGrabbed() then
         if widget.consoleCursorPushed then

@@ -35,6 +35,11 @@ function UIButton:onVisibilityChange(visible)
 end
 
 function UIButton:onHoverChange(hovered)
+    if modules.game_clienthelp and modules.game_clienthelp.isClientHelpActive() then
+        UIWidget.onHoverChange(self, hovered)
+        return
+    end
+
     if not modules.client_options then
         UIWidget.onHoverChange(self, hovered)
         return

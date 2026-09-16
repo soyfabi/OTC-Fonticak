@@ -1,0 +1,8 @@
+Module
+  name: game_clienthelp
+  description: Tibia-style Client Help (Lens Help) mode
+  author: OTC-Fonticak
+  sandboxed: true
+  scripts: [ help_texts, clienthelp ]
+  @onLoad: init()
+  @onUnload: terminate()

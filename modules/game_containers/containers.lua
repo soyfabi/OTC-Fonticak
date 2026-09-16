@@ -35,6 +35,29 @@ local function getItemStackSortValue(item)
     return item:getCount() or 1
 end
 
+local function registerLockerItemHelp(container, itemWidget, item)
+    if not container or container:getName():lower() ~= 'locker' then
+        return
+    end
+
+    local clientHelp = modules.game_clienthelp
+    if not clientHelp then
+        return
+    end
+
+    if not item then
+        itemWidget.clientHelpId = nil
+        return
+    end
+
+    local helpId = ClientHelpLockerShortcutIds[item:getId()]
+    if helpId then
+        clientHelp.registerClientHelpWidget(itemWidget, helpId)
+    else
+        itemWidget.clientHelpId = nil
+    end
+end
+
 local function refreshContainerSlotQuickLootIcon(slotWidget, item)
     if not slotWidget then
         return
@@ -576,6 +599,7 @@ function sortContainerItems(container, sortMode)
                 ItemsDatabase.setTier(itemWidget, itemData.item)
                 ItemsDatabase.applyExpiryDisplay(itemWidget, 'showExpiryInContainers')
                 refreshContainerSlotQuickLootIcon(itemWidget, itemData.item)
+                registerLockerItemHelp(container, itemWidget, itemData.item)
             end
         end
     end
@@ -702,6 +726,7 @@ function refreshContainerItems(container)
                 ItemsDatabase.setTier(itemWidget, container:getItem(slot))
                 ItemsDatabase.applyExpiryDisplay(itemWidget, 'showExpiryInContainers')
                 refreshContainerSlotQuickLootIcon(itemWidget, container:getItem(slot))
+                registerLockerItemHelp(container, itemWidget, container:getItem(slot))
             end
         end
 
@@ -1036,6 +1061,18 @@ function onContainerOpen(container, previousContainer)
         containerWindow:setText(name)
     end
 
+    if name:lower() == 'locker' then
+        local clientHelp = modules.game_clienthelp
+        if clientHelp then
+            clientHelp.registerClientHelpWidget(containerWindow, 'depotLocker')
+        end
+    elseif name:lower():find('store inbox', 1, true) then
+        local clientHelp = modules.game_clienthelp
+        if clientHelp then
+            clientHelp.registerClientHelpWidget(containerWindow, 'storeInbox')
+        end
+    end
+
     local containerItem = container:getContainerItem()
     if containerItem then
         containerItemWidget:setItemId(containerItem:getId())
@@ -1053,6 +1090,7 @@ function onContainerOpen(container, previousContainer)
         ItemsDatabase.setTier(itemWidget, container:getItem(slot))
         ItemsDatabase.applyExpiryDisplay(itemWidget, 'showExpiryInContainers')
         refreshContainerSlotQuickLootIcon(itemWidget, container:getItem(slot))
+        registerLockerItemHelp(container, itemWidget, container:getItem(slot))
         itemWidget:setMargin(0)
         itemWidget.position = container:getSlotPosition(slot)
 
@@ -1184,6 +1222,7 @@ function onContainerUpdateItem(container, slot, item, oldItem)
             ItemsDatabase.setTier(itemWidget, item)
             ItemsDatabase.applyExpiryDisplay(itemWidget, 'showExpiryInContainers')
             refreshContainerSlotQuickLootIcon(itemWidget, item)
+            registerLockerItemHelp(container, itemWidget, item)
         end
     end)
     
