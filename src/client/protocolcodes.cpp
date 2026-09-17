@@ -164,6 +164,7 @@ namespace Proto
             messageModesMap[Otc::MessageFailure] = 20;
             messageModesMap[Otc::MessageBlue] = 21;
             messageModesMap[Otc::MessageRed] = 22;
+            messageModesMap[Otc::MessageLoot] = 28;
         } else if (version >= 840) {
             messageModesMap[Otc::MessageNone] = 0;
             messageModesMap[Otc::MessageSay] = 1;
@@ -194,6 +195,7 @@ namespace Proto
             messageModesMap[Otc::MessageLook] = 25;
             messageModesMap[Otc::MessageFailure] = 26;
             messageModesMap[Otc::MessageBlue] = 27;
+            messageModesMap[Otc::MessageLoot] = 28;
         } else if (version >= 740) {
             messageModesMap[Otc::MessageNone] = 0;
             messageModesMap[Otc::MessageSay] = 1;

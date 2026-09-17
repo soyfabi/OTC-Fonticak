@@ -872,8 +872,16 @@ local function isDatMarketItem(thingType)
 		return false
 	end
 
+	if thingType.isMarketable and not thingType:isMarketable() then
+		return false
+	end
+
+	if thingType.isPickupable and not thingType:isPickupable() then
+		return false
+	end
+
 	local marketData = thingType:getMarketData()
-	return marketData and not table.empty(marketData)
+	return marketData and marketData.name and marketData.name ~= ""
 end
 
 function Cyclopedia.isListableItem(itemOrType)

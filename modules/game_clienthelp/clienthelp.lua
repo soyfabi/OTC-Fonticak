@@ -542,6 +542,14 @@ function registerClientHelpWidget(widget, helpId)
   widget.clientHelpId = helpId
 end
 
+function getLockerShortcutHelpId(itemId)
+  if not itemId or not ClientHelpLockerShortcutIds then
+    return nil
+  end
+
+  return ClientHelpLockerShortcutIds[itemId]
+end
+
 local function bindMouseHooks()
   if mouseHooksBound then
     return
