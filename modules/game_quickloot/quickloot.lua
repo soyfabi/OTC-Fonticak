@@ -629,23 +629,23 @@ function QuickLoot.Define()
                     local obtainerContainerId = container[2]
 
                     if lootContainerId and lootContainerId > 0 then
-                        widget.item:setItemId(lootContainerId)
-                    else
-                        widget.item:setItemId(0)
-                    end
-
-                    if obtainerContainerId and obtainerContainerId > 0 then
-                        widget.item2:setItemId(obtainerContainerId)
+                        widget.item2:setItemId(lootContainerId)
                     else
                         widget.item2:setItemId(0)
                     end
 
+                    if obtainerContainerId and obtainerContainerId > 0 then
+                        widget.item:setItemId(obtainerContainerId)
+                    else
+                        widget.item:setItemId(0)
+                    end
+
 					if lootContainerId and lootContainerId > 0 then
-						hasItem = true
+						hasItem2 = true
 					end
 
 					if obtainerContainerId and obtainerContainerId > 0 then
-						hasItem2 = true
+						hasItem = true
 					end
 
 					break

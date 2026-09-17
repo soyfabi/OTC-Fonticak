@@ -1028,11 +1028,12 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
                 end
             end, '(Ctrl+I)')
         end
-        if lookThing:isItem() and modules.game_cyclopedia
+        if lookThing:isItem() and lookThing:isPickupable() and not lookThing:isNotMoveable()
+            and modules.game_cyclopedia
             and modules.game_cyclopedia.Cyclopedia
             and modules.game_cyclopedia.Cyclopedia.canShowInItemsTab
             and modules.game_cyclopedia.Cyclopedia.canShowInItemsTab(lookThing) then
-            menu:addOption(tr('Cyclopedia'), function()
+            menu:addOption(tr('Open Cyclopedia'), function()
                 modules.game_cyclopedia.Cyclopedia.openItem(lookThing:getId())
             end)
         end
