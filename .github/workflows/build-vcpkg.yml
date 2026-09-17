@@ -154,7 +154,7 @@ jobs:
             python3 zip unzip tar curl git \
             libgl1-mesa-dev libglu1-mesa-dev libx11-dev libxext-dev libxrandr-dev \
             libxi-dev libxcursor-dev libxinerama-dev libxrender-dev libxfixes-dev \
-            libxxf86vm-dev libasound2-dev
+            libxxf86vm-dev libasound2-dev libglew-dev
 
       - name: Create vcpkg binary cache directory
         run: mkdir -p "${{ github.workspace }}/vcpkg_cache"
@@ -221,5 +221,5 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: otclient-linux-${{ github.sha }}
-          path: ${{ github.workspace }}/build/otclient
+          path: ${{ github.workspace }}/otclient
           if-no-files-found: error
