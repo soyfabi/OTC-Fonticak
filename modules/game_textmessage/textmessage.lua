@@ -227,6 +227,14 @@ local PROTECTED_CENTER_MESSAGE_MODES = {
 }
 local labelMessageSequence = 0
 
+local function isQuickLootFeedbackText(text)
+    if type(text) ~= 'string' then
+        return false
+    end
+    local lower = text:lower()
+    return lower:find('you looted') ~= nil or lower:find('no loot') ~= nil
+end
+
 local function isLootMessageText(text)
     if type(text) ~= 'string' then
         return false
@@ -554,9 +562,14 @@ function displayMessage(mode, text)
         return
     end
 
-    local isLootMsg = modeNum == MessageModes.Loot or modeNum == MessageModes.ValuableLoot
+    local isQuickLootFeedback = isQuickLootFeedbackText(text)
+    local isLootMsg = not isQuickLootFeedback and (modeNum == MessageModes.Loot or modeNum == MessageModes.ValuableLoot
         or msgtype == MessageSettings.loot or msgtype == MessageSettings.valuableLoot
-        or isLootMessageText(text)
+        or isLootMessageText(text))
+
+    if isQuickLootFeedback then
+        msgtype = MessageSettings.centerWhite
+    end
 
     if msgtype.consoleTab ~= nil and
         (msgtype.consoleOption == nil or isOptionEnabled(msgtype.consoleOption, true)) then

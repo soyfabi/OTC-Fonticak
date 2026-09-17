@@ -50,7 +50,7 @@ local function registerLockerItemHelp(container, itemWidget, item)
         return
     end
 
-    local helpId = ClientHelpLockerShortcutIds[item:getId()]
+    local helpId = clientHelp.getLockerShortcutHelpId and clientHelp.getLockerShortcutHelpId(item:getId())
     if helpId then
         clientHelp.registerClientHelpWidget(itemWidget, helpId)
     else
