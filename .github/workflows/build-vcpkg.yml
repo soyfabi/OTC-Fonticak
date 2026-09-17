@@ -150,7 +150,7 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
-            build-essential ninja-build pkg-config autoconf automake libtool \
+            build-essential ninja-build pkg-config autoconf autoconf-archive automake libtool \
             python3 zip unzip tar curl git \
             libgl1-mesa-dev libglu1-mesa-dev libx11-dev libxext-dev libxrandr-dev \
             libxi-dev libxcursor-dev libxinerama-dev libxrender-dev libxfixes-dev \
