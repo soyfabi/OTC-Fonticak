@@ -533,6 +533,9 @@ function controller:onTerminate()
         autoSwitchPresetEvent = nil
     end
 
+    stopHudLivePreviewRefresh()
+    destroyHudLivePreviewMap()
+
     cancelCategoryAnimations()
 
     -- Make sure all settings are saved before terminating
@@ -656,10 +659,342 @@ local function applyAutomaticPreset(attempt)
     end
 end
 
+local OPTIONS_WINDOW_SIZE = { width = 720, height = 534 }
+local OPTIONS_WINDOW_SIZE_HUD = { width = 988, height = 534 }
+local HUD_PREVIEW_ZOOM = 4
+local hudLivePreviewRefreshEvent = nil
+
+local function getHudPanel()
+    return panels.interfaceHUD
+end
+
+local function isHudPanelVisible()
+    local panel = getHudPanel()
+    return panel and not panel:isDestroyed() and panel:isVisible()
+end
+
+local hudLivePreviewMapWidget = nil
+local hudLivePreviewInitEvent = nil
+
+local function getHudLivePreviewMap()
+    if hudLivePreviewMapWidget and not hudLivePreviewMapWidget:isDestroyed() then
+        return hudLivePreviewMapWidget
+    end
+    hudLivePreviewMapWidget = nil
+    return nil
+end
+
+local function getMainGameMap()
+    if modules.game_interface and modules.game_interface.getMapPanel then
+        return modules.game_interface.getMapPanel()
+    end
+end
+
+local function destroyHudLivePreviewMapWidget()
+    if hudLivePreviewMapWidget and not hudLivePreviewMapWidget:isDestroyed() then
+        hudLivePreviewMapWidget:destroy()
+    end
+    hudLivePreviewMapWidget = nil
+end
+
+local function cancelHudLivePreviewInitEvent()
+    if hudLivePreviewInitEvent then
+        removeEvent(hudLivePreviewInitEvent)
+        hudLivePreviewInitEvent = nil
+    end
+end
+
+local function destroyHudLivePreviewMap()
+    cancelHudLivePreviewInitEvent()
+    destroyHudLivePreviewMapWidget()
+end
+
+local function syncHudLivePreviewMapSettings(map, gameMap)
+    map:setDrawLights(true)
+    map:setKeepAspectRatio(false)
+    map:setLimitVisibleDimension(false)
+    if gameMap.isLimitVisibleRangeEnabled then
+        map:setLimitVisibleRange(gameMap:isLimitVisibleRangeEnabled())
+    else
+        map:setLimitVisibleRange(false)
+    end
+
+    if map.setMaxZoomIn then
+        map:setMaxZoomIn(3)
+    end
+    if map.setZoom then
+        map:setZoom(HUD_PREVIEW_ZOOM)
+    end
+
+    if gameMap.getFloorViewMode and map.setFloorViewMode then
+        map:setFloorViewMode(gameMap:getFloorViewMode())
+    end
+end
+
+local function ensureHudLivePreviewFollowsPlayer()
+    local map = getHudLivePreviewMap()
+    local player = g_game.getLocalPlayer()
+    if not map or not player then
+        return
+    end
+
+    if map.updateMapRect then
+        map:updateMapRect()
+    end
+
+    local following = map.getFollowingCreature and map:getFollowingCreature()
+    if following ~= player then
+        map:followCreature(player)
+    end
+end
+
+local function hookHudLivePreviewGeometry()
+    if controller and controller.ui and not controller.ui._hudPreviewGeometryHooked then
+        controller.ui._hudPreviewGeometryHooked = true
+        local previous = controller.ui.onGeometryChange
+        controller.ui.onGeometryChange = function(widget, oldRect, newRect)
+            if previous then
+                previous(widget, oldRect, newRect)
+            end
+            if isHudPanelVisible() then
+                ensureHudLivePreviewFollowsPlayer()
+            end
+        end
+    end
+end
+
+local function createHudLivePreviewMap()
+    local panel = getHudPanel()
+    local container = panel and panel:recursiveGetChildById('hudLivePreviewMapContainer')
+    local gameMap = getMainGameMap()
+    local player = g_game.getLocalPlayer()
+    if not container or not gameMap or not player or not g_game.isOnline() then
+        return nil
+    end
+
+    if not UIMap or not UIMap.create then
+        return nil
+    end
+
+    local map = UIMap.create()
+    map:setId('hudLivePreviewMap')
+    if map.setControlsDrawPool then
+        map:setControlsDrawPool(false)
+    end
+    container:addChild(map)
+    map:fill('parent')
+    map:setFocusable(false)
+    map:setPhantom(true)
+    if map.setDraggable then
+        map:setDraggable(false)
+    end
+    map.onMousePress = function()
+        return true
+    end
+    map.onMouseMove = function()
+        return true
+    end
+    map.onMouseWheel = function()
+        return true
+    end
+    map.onGeometryChange = function()
+        scheduleEvent(function()
+            if isHudPanelVisible() and getHudLivePreviewMap() == map then
+                ensureHudLivePreviewFollowsPlayer()
+            end
+        end, 50)
+    end
+
+    syncHudLivePreviewMapSettings(map, gameMap)
+    map:followCreature(player)
+    hudLivePreviewMapWidget = map
+    hookHudLivePreviewGeometry()
+
+    return map
+end
+
+local function applyOptionsWindowSize(forHudPreview)
+    if not controller or not controller.ui or controller.ui:isDestroyed() then
+        return
+    end
+
+    local size = forHudPreview and OPTIONS_WINDOW_SIZE_HUD or OPTIONS_WINDOW_SIZE
+    controller.ui:setSize(size)
+end
+
+function applyHudLivePreviewSettings()
+    local map = getHudLivePreviewMap()
+    if not map then
+        return
+    end
+
+    local opts = options
+    local ownEnabled = opts.ownHUDCharacter and opts.ownHUDCharacter.value
+    if not ownEnabled then
+        if map.setDrawPlayerBars then map:setDrawPlayerBars(false) end
+        if map.setDrawPlayerNames then map:setDrawPlayerNames(false) end
+        map:setDrawManaBar(false)
+        map:setDrawOwnHarmonyBar(false)
+    else
+        local showBars = opts.showOwnBars and opts.showOwnBars.value
+        local showHealth = showBars and opts.showOwnHealth and opts.showOwnHealth.value
+        local showName = opts.showOwnName and opts.showOwnName.value
+        local showMana = showBars and opts.showOwnMana and opts.showOwnMana.value
+        local showHarmony = opts.displayHarmony and opts.displayHarmony.value
+
+        if map.setDrawPlayerBars then
+            map:setDrawPlayerBars(showHealth)
+        end
+        if map.setDrawPlayerNames then
+            map:setDrawPlayerNames(showName)
+        end
+        map:setDrawManaBar(showMana)
+        map:setDrawOwnHarmonyBar(showHarmony)
+    end
+
+    local othersEnabled = opts.otherHUDCreatures and opts.otherHUDCreatures.value
+    if not othersEnabled then
+        map:setDrawNames(false)
+        map:setDrawHealthBars(false)
+    else
+        map:setDrawNames(opts.displayNames and opts.displayNames.value)
+        map:setDrawHealthBars(opts.displayHealth and opts.displayHealth.value)
+    end
+end
+
+function updateHudLivePreviewOverlay()
+    if not isHudPanelVisible() then
+        return
+    end
+
+    local panel = getHudPanel()
+    if not panel then
+        return
+    end
+
+    local fpsLabel = panel:recursiveGetChildById('hudPreviewFpsLabel')
+    local pingLabel = panel:recursiveGetChildById('hudPreviewPingLabel')
+    local showFps = options.showFps and options.showFps.value
+    local showPing = options.showPing and options.showPing.value
+
+    if fpsLabel then
+        fpsLabel:setVisible(showFps and g_game.isOnline())
+        if showFps and g_game.isOnline() then
+            fpsLabel:setText(tr('FPS: %d', g_app.getFps()))
+        end
+    end
+
+    if pingLabel then
+        local pingFeatureAvailable = g_game.getFeature(GameClientPing) or g_game.getFeature(GameExtendedClientPing)
+        pingLabel:setVisible(showPing and g_game.isOnline() and pingFeatureAvailable)
+        if showPing and g_game.isOnline() and pingFeatureAvailable then
+            pingLabel:setText(tr('%d ms', g_game.getPing()))
+        end
+    end
+end
+
+function refreshHudLivePreviewIfVisible()
+    if not isHudPanelVisible() then
+        return
+    end
+
+    if not getHudLivePreviewMap() then
+        initHudLivePreview()
+        return
+    end
+
+    applyHudLivePreviewSettings()
+    updateHudLivePreviewOverlay()
+end
+
+local function stopHudLivePreviewRefresh()
+    if hudLivePreviewRefreshEvent then
+        removeEvent(hudLivePreviewRefreshEvent)
+        hudLivePreviewRefreshEvent = nil
+    end
+end
+
+local function startHudLivePreviewRefresh()
+    stopHudLivePreviewRefresh()
+
+    local function tick()
+        if not isHudPanelVisible() then
+            hudLivePreviewRefreshEvent = nil
+            return
+        end
+        ensureHudLivePreviewFollowsPlayer()
+        updateHudLivePreviewOverlay()
+        hudLivePreviewRefreshEvent = scheduleEvent(tick, 100)
+    end
+
+    hudLivePreviewRefreshEvent = scheduleEvent(tick, 100)
+end
+
+function initHudLivePreview()
+    local panel = getHudPanel()
+    if not panel then
+        return
+    end
+
+    local offlineLabel = panel:recursiveGetChildById('hudPreviewOfflineLabel')
+    destroyHudLivePreviewMapWidget()
+
+    local map = createHudLivePreviewMap()
+    if map then
+        map:show()
+        if offlineLabel then
+            offlineLabel:hide()
+        end
+        applyHudLivePreviewSettings()
+        updateHudLivePreviewOverlay()
+        startHudLivePreviewRefresh()
+    else
+        if offlineLabel then
+            offlineLabel:show()
+        end
+        stopHudLivePreviewRefresh()
+    end
+end
+
+function onHudPanelVisibilityChange(visible)
+    if visible then
+        applyOptionsWindowSize(true)
+        if hudLivePreviewInitEvent then
+            removeEvent(hudLivePreviewInitEvent)
+        end
+        hudLivePreviewInitEvent = scheduleEvent(function()
+            hudLivePreviewInitEvent = nil
+            if isHudPanelVisible() then
+                initHudLivePreview()
+                local scroll = getHudPanel() and getHudPanel():recursiveGetChildById('hudScrollBar')
+                if scroll then
+                    scroll:setValue(0)
+                end
+            end
+        end, 250)
+    else
+        destroyHudLivePreviewMap()
+        stopHudLivePreviewRefresh()
+        applyOptionsWindowSize(false)
+    end
+end
+
 function controller:onGameStart()
     if autoSwitchPresetEvent then
         removeEvent(autoSwitchPresetEvent)
     end
+
+    controller:registerEvents(LocalPlayer, {
+        onOutfitChange = function()
+            refreshHudLivePreviewIfVisible()
+        end,
+        onPositionChange = function()
+            if isHudPanelVisible() then
+                ensureHudLivePreviewFollowsPlayer()
+                applyHudLivePreviewSettings()
+            end
+        end,
+    }):execute()
 
     -- onGameStart may fire while g_game still exposes the previous character
     -- name. Wait for the new local player object before resolving the preset.
@@ -697,6 +1032,8 @@ function controller:onGameStart()
     if applyOwnHUD then
         applyOwnHUD()
     end
+
+    refreshHudLivePreviewIfVisible()
 end
 
 function controller:onGameEnd()
@@ -704,6 +1041,9 @@ function controller:onGameEnd()
         removeEvent(autoSwitchPresetEvent)
         autoSwitchPresetEvent = nil
     end
+
+    stopHudLivePreviewRefresh()
+    destroyHudLivePreviewMap()
 end
 
 function onTurnModifierCheckChange(widget)
@@ -1047,6 +1387,7 @@ function applyOwnHUD(opts, panelTable)
     panelTable = panelTable or panels
     local map = panelTable.gameMapPanel
     if not map then
+        refreshHudLivePreviewIfVisible()
         return
     end
 
@@ -1059,6 +1400,7 @@ function applyOwnHUD(opts, panelTable)
         if g_gameConfig.isDrawingInformationByWidget() and modules.game_creatureinformation then
             modules.game_creatureinformation.toggleInformation()
         end
+        refreshHudLivePreviewIfVisible()
         return
     end
 
@@ -1093,6 +1435,8 @@ function applyOwnHUD(opts, panelTable)
     if g_gameConfig.isDrawingInformationByWidget() and modules.game_creatureinformation then
         modules.game_creatureinformation.toggleInformation()
     end
+
+    refreshHudLivePreviewIfVisible()
 end
 
 function applyOtherHUD(opts, panelTable)
@@ -1115,6 +1459,8 @@ function applyOtherHUD(opts, panelTable)
     if g_gameConfig.isDrawingInformationByWidget() and modules.game_creatureinformation then
         modules.game_creatureinformation.toggleInformation()
     end
+
+    refreshHudLivePreviewIfVisible()
 end
 
 function applyShowMessagesCascade(enabled)
@@ -1439,6 +1785,7 @@ end
 
 function hide()
     -- Save all settings when closing the options window
+    applyOptionsWindowSize(false)
     commitRenderBackendChange()
     g_settings.save()
     cancelCategoryAnimations()

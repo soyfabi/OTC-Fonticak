@@ -24,6 +24,7 @@
 
 #include "game.h"
 #include "gameconfig.h"
+#include "localplayer.h"
 #include "map.h"
 #include "mapview.h"
 #include "minimap.h"
@@ -39,6 +40,48 @@
 #include "creatures.h"
 #endif
 #include "paperdollmanager.h"
+
+namespace
+{
+    UIMapPtr findHudLivePreviewMap()
+    {
+        const auto& root = g_ui.getRootWidget();
+        if (!root)
+            return nullptr;
+
+        const auto& widget = root->recursiveGetChildById("hudLivePreviewMap");
+        if (!widget || widget->isDestroyed() || !widget->isVisible())
+            return nullptr;
+
+        return widget->static_self_cast<UIMap>();
+    }
+
+    void drawMapWidget(const UIMapPtr& map, const DrawPoolType type)
+    {
+        if (!map || map->isDestroyed() || !map->isVisible())
+            return;
+
+        map->updateMapRect();
+
+        if (type == DrawPoolType::FOREGROUND_MAP)
+            map->draw(DrawPoolType::CREATURE_INFORMATION);
+
+        map->draw(type);
+    }
+
+    bool shouldForceMapRepaint()
+    {
+        return findHudLivePreviewMap() != nullptr;
+    }
+
+    void forceRepaintMapLayers()
+    {
+        g_drawPool.repaint(DrawPoolType::MAP);
+        g_drawPool.repaint(DrawPoolType::CREATURE_INFORMATION);
+        g_drawPool.repaint(DrawPoolType::FOREGROUND_MAP);
+        g_drawPool.repaint(DrawPoolType::LIGHT);
+    }
+}
 
 Client g_client;
 
@@ -84,6 +127,16 @@ void Client::preLoad() {
             m_mapWidget->getMapView()->preLoad();
         }
     }
+
+    if (const auto& previewMap = findHudLivePreviewMap()) {
+        previewMap->updateMapRect();
+        if (const auto& player = g_game.getLocalPlayer()) {
+            const auto& playerCreature = std::static_pointer_cast<Creature>(player);
+            if (previewMap->getFollowingCreature() != playerCreature)
+                previewMap->followCreature(playerCreature);
+        }
+        previewMap->getMapView()->preLoad();
+    }
 }
 
 void Client::draw(const DrawPoolType type)
@@ -105,21 +158,24 @@ void Client::draw(const DrawPoolType type)
     if (type == DrawPoolType::MAP && !m_mapWidget)
         m_mapWidget = g_ui.getRootWidget()->recursiveGetChildById("gameMapPanel")->static_self_cast<UIMap>();
 
-    if (!m_mapWidget)
+    const auto previewMap = findHudLivePreviewMap();
+    if (!m_mapWidget && !previewMap)
         return;
 
     if (type == DrawPoolType::FOREGROUND_MAP) {
         g_textDispatcher.poll();
-        m_mapWidget->draw(DrawPoolType::CREATURE_INFORMATION);
     }
 
-    m_mapWidget->draw(type);
+    drawMapWidget(m_mapWidget, type);
+    drawMapWidget(previewMap, type);
 }
 
 bool Client::canDraw(const DrawPoolType type) const
 {
     switch (type) {
         case DrawPoolType::MAP:
+            if (g_game.isOnline() && shouldForceMapRepaint())
+                forceRepaintMapLayers();
             return g_game.isOnline();
 
         case DrawPoolType::FOREGROUND: {
@@ -134,10 +190,19 @@ bool Client::canDraw(const DrawPoolType type) const
 
         case DrawPoolType::CREATURE_INFORMATION:
         case DrawPoolType::FOREGROUND_MAP:
+            if (g_game.isOnline() && shouldForceMapRepaint())
+                forceRepaintMapLayers();
             return g_game.isOnline() && g_drawPool.get(type)->canRepaint();
 
-        case DrawPoolType::LIGHT:
-            return g_game.isOnline() && m_mapWidget && m_mapWidget->isDrawingLights();
+        case DrawPoolType::LIGHT: {
+            const auto previewMap = findHudLivePreviewMap();
+            if (g_game.isOnline() && shouldForceMapRepaint())
+                forceRepaintMapLayers();
+            return g_game.isOnline() && (
+                (m_mapWidget && m_mapWidget->isDrawingLights()) ||
+                (previewMap && previewMap->isDrawingLights())
+            );
+        }
 
         default:
             return false;

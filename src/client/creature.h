@@ -207,6 +207,18 @@ minHeight,
         return m_cameraFollowing;
     }
 
+    void incrementCameraFollowing()
+    {
+        if (++m_cameraFollowingRefCount == 1)
+            m_cameraFollowing = true;
+    }
+
+    void decrementCameraFollowing()
+    {
+        if (m_cameraFollowingRefCount > 0 && --m_cameraFollowingRefCount == 0)
+            m_cameraFollowing = false;
+    }
+
     void setCameraFollowing(bool v) {
         m_cameraFollowing = v;
     }
@@ -372,6 +384,7 @@ private:
     bool m_showTimedSquare{ false };
     bool m_showStaticSquare{ false };
     bool m_cameraFollowing{ false };
+    uint8_t m_cameraFollowingRefCount{ 0 };
 
     bool m_removed{ true };
     bool m_drawOutfitColor{ true };

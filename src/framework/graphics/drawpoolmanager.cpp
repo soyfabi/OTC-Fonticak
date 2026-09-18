@@ -84,6 +84,19 @@ DrawPoolType DrawPoolManager::getCurrentType() const { return static_cast<DrawPo
 bool DrawPoolManager::isValid() const { return CURRENT_POOL < static_cast<uint8_t>(DrawPoolType::LAST); }
 DrawPool* DrawPoolManager::getCurrentPool() const { return m_pools[CURRENT_POOL]; }
 void DrawPoolManager::select(DrawPoolType type) { CURRENT_POOL = static_cast<uint8_t>(type); }
+
+void DrawPoolManager::clearVkMapHoles() const
+{
+    if (const auto pool = get(DrawPoolType::FOREGROUND))
+        pool->m_vkPendingMapHoles.clear();
+}
+
+void DrawPoolManager::setVkMapHole(const Rect& rect) const
+{
+    if (rect.isValid())
+        getCurrentPool()->m_vkPendingMapHoles.push_back(rect);
+}
+
 bool DrawPoolManager::isPreDrawing() const { return CURRENT_POOL != static_cast<uint8_t>(DrawPoolType::LAST); }
 bool DrawPoolManager::shaderNeedFramebuffer() const { return getCurrentPool()->getCurrentState().shaderProgram && getCurrentPool()->getCurrentState().shaderProgram->useFramebuffer(); }
 

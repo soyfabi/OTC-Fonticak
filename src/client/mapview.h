@@ -62,6 +62,10 @@ public:
     void followCreature(const CreaturePtr& creature);
     bool isFollowingCreature() const { return m_followingCreature && m_follow; }
 
+    void setControlsDrawPool(bool controls) { m_controlsDrawPool = controls; }
+    bool controlsDrawPool() const { return m_controlsDrawPool; }
+    float getScaleFactor() const { return m_posInfo.scaleFactor; }
+
     Position getCameraPosition();
     void setCameraPosition(const Position& pos);
 
@@ -277,6 +281,7 @@ private:
     bool m_drawNames{ true };
     bool m_smooth{ true };
     bool m_follow{ true };
+    bool m_controlsDrawPool{ true };
     bool m_drawingLight{ true };
     bool m_drawOwnHarmonyBar{ true };
 
