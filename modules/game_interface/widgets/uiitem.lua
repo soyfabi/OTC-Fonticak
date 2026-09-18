@@ -1,3 +1,26 @@
+local SUPPLY_STASH_ITEM_ID = 28750
+
+local function isSupplyStashDropTarget(toPos, targetWidget)
+    if targetWidget and targetWidget.getItem then
+        local targetItem = targetWidget:getItem()
+        if targetItem and targetItem:getId() == SUPPLY_STASH_ITEM_ID then
+            return true
+        end
+    end
+
+    if toPos and toPos.x == 65535 and toPos.y >= 64 and g_game.getContainer then
+        local container = g_game.getContainer(toPos.y - 64)
+        if container and container.getContainerItem then
+            local containerItem = container:getContainerItem()
+            if containerItem and containerItem:getId() == SUPPLY_STASH_ITEM_ID then
+                return true
+            end
+        end
+    end
+
+    return false
+end
+
 function UIItem:onDragEnter(mousePos)
     if self:isVirtual() then
         return false
@@ -96,6 +119,13 @@ function UIItem:onDrop(widget, mousePos, forced)
 
     if itemPos.x == toPos.x and itemPos.y == toPos.y and itemPos.z == toPos.z then
         return false
+    end
+
+    if isSupplyStashDropTarget(toPos, self) then
+        if modules.game_interface and modules.game_interface.stashItem then
+            modules.game_interface.stashItem(item)
+            return true
+        end
     end
 
     if item:getCount() > 1 then
