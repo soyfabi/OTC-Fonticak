@@ -39,6 +39,10 @@ function UIComboBox:setOption(text, dontSignal)
     self:setCurrentOption(text, dontSignal)
 end
 
+function UIComboBox:getOptionsCount()
+    return self.options and #self.options or 0
+end
+
 function UIComboBox:setCurrentOption(text, dontSignal)
     if not self.options then
         return

@@ -244,6 +244,78 @@ MainInventoryItem < UIWidget
     phantom: true
     focusable: false
 
+ContainerItemSlot < UIWidget
+  size: 34 34
+  focusable: false
+
+  UIWidget
+    id: itemSlot
+    size: 34 34
+    image-source: /images/ui/item
+    anchors.fill: parent
+    phantom: true
+    focusable: false
+
+  UIWidget
+    id: rarity
+    size: 32 32
+    anchors.centerIn: parent
+    phantom: true
+    focusable: false
+
+  UIItem
+    id: item
+    size: 32 32
+    anchors.centerIn: parent
+    font: verdana-11px-rounded
+    show-count: false
+    virtual-count: true
+    focusable: true
+    border-color: white
+    color: white
+
+    $disabled:
+      color: #646464
+
+  UIWidget
+    id: tier
+    size: 9 8
+    image-source: /images/inventory/tiers-strip
+    image-clip: 0 0 9 8
+    image-size: 9 8
+    anchors.top: item.top
+    anchors.right: item.right
+    phantom: true
+    focusable: false
+    visible: false
+    image-smooth: true
+
+  Label
+    id: amount
+    size: 54 16
+    anchors.bottom: item.bottom
+    anchors.right: item.right
+    text-align: right
+    color: #bfbfbf
+    font: verdana-11px-rounded
+    text-auto-resize: false
+    !text: tr('')
+    text-offset: 0 2
+    phantom: true
+    visible: false
+
+  UIWidget
+    id: quickloot
+    visible: false
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    image-source: /modules/game_quickloot/images/icon-loot-container.png
+    margin-bottom: 2
+    margin-right: 2
+    image-size: 7 9
+    phantom: false
+    focusable: false
+
 UIDragIcon < UIItem
   size: 34 34
   border-color: alpha
