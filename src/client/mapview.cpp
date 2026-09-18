@@ -79,6 +79,9 @@ MapView::~MapView()
 #ifndef NDEBUG
     assert(!g_app.isTerminated());
 #endif
+
+    if (m_followingCreature)
+        m_followingCreature->decrementCameraFollowing();
 }
 
 void MapView::registerEvents() {
@@ -105,7 +108,7 @@ void MapView::registerEvents() {
                 m_shader->bind();
                 m_shader->setUniformValue(ShaderManager::MAP_CENTER_COORD, center.x / static_cast<float>(m_rectDimension.width()), 1.f - center.y / static_cast<float>(m_rectDimension.height()));
                 m_shader->setUniformValue(ShaderManager::MAP_GLOBAL_COORD, globalCoord.x / static_cast<float>(m_rectDimension.height()), globalCoord.y / static_cast<float>(m_rectDimension.height()));
-                m_shader->setUniformValue(ShaderManager::MAP_ZOOM, m_pool->getScaleFactor());
+                m_shader->setUniformValue(ShaderManager::MAP_ZOOM, m_posInfo.scaleFactor);
 
                 Point last = transformPositionTo2D(camera, m_shaderPosition);
                 //Reverse vertical axis.
@@ -529,19 +532,24 @@ void MapView::updateGeometry(const Size& visibleDimension)
 
     const auto optimize = maxAwareRange > 115;
 
-    m_pool->agroup(optimize);
-    m_drawCoveredThings = !optimize;
-    m_multithreading = optimize;
-    while (maxAwareRange > 100) {
-        maxAwareRange /= 2;
-        scaleFactor /= 2;
-    }
+    if (m_controlsDrawPool) {
+        m_pool->agroup(optimize);
+        m_drawCoveredThings = !optimize;
+        m_multithreading = optimize;
+        while (maxAwareRange > 100) {
+            maxAwareRange /= 2;
+            scaleFactor /= 2;
+        }
 
-    m_pool->setScaleFactor(scaleFactor);
+        m_pool->setScaleFactor(scaleFactor);
+    } else {
+        m_drawCoveredThings = true;
+        m_multithreading = false;
+    }
 
     m_posInfo.scaleFactor = scaleFactor;
 
-    const uint16_t tileSize = g_gameConfig.getSpriteSize() * m_pool->getScaleFactor();
+    const uint16_t tileSize = g_gameConfig.getSpriteSize() * m_posInfo.scaleFactor;
     const auto& drawDimension = visibleDimension + 3;
     const auto& bufferSize = drawDimension * tileSize;
 
@@ -564,9 +572,11 @@ void MapView::updateGeometry(const Size& visibleDimension)
         m_lightView->resize(lightSize, tileSize);
     }
 
-    g_mainDispatcher.addEvent([this, bufferSize] {
-        m_pool->getFrameBuffer()->resize(bufferSize);
-    });
+    if (m_controlsDrawPool) {
+        g_mainDispatcher.addEvent([this, bufferSize] {
+            m_pool->getFrameBuffer()->resize(bufferSize);
+        });
+    }
 
     const uint8_t left = std::min<uint8_t>(g_map.getAwareRange().left, (m_drawDimension.width() / 2) - 1);
     const uint8_t top = std::min<uint8_t>(g_map.getAwareRange().top, (m_drawDimension.height() / 2) - 1);
@@ -802,9 +812,9 @@ void MapView::followCreature(const CreaturePtr& creature)
         return;
     }
 
-    if (m_followingCreature) m_followingCreature->setCameraFollowing(false);
+    if (m_followingCreature) m_followingCreature->decrementCameraFollowing();
     m_followingCreature = creature;
-    m_followingCreature->setCameraFollowing(true);
+    m_followingCreature->incrementCameraFollowing();
     m_lastCameraPosition = {};
     m_follow = true;
 
@@ -814,7 +824,7 @@ void MapView::followCreature(const CreaturePtr& creature)
 void MapView::setCameraPosition(const Position& pos)
 {
     if (m_followingCreature)
-        m_followingCreature->setCameraFollowing(false);
+        m_followingCreature->decrementCameraFollowing();
 
     m_follow = false;
     m_customCameraPosition = pos;
@@ -883,7 +893,7 @@ Point MapView::getPositionOffset(const Point& point, const Size& mapSize)
 
     const auto& framebufferPos = Point(point.x * sh, point.y * sv);
     const auto& realPos = (framebufferPos + srcRect.topLeft());
-    const float scaleFactor = m_pool->getScaleFactor();
+    const float scaleFactor = m_posInfo.scaleFactor;
 
     const int unscaledX = static_cast<int>(realPos.x / scaleFactor);
     const int unscaledY = static_cast<int>(realPos.y / scaleFactor);
@@ -925,9 +935,9 @@ Rect MapView::calcFramebufferSource(const Size& destSize)
 {
     Point drawOffset = ((m_drawDimension - m_visibleDimension - Size(1)).toPoint() / 2) * m_tileSize;
     if (isFollowingCreature())
-        drawOffset += m_followingCreature->getWalkOffset() * m_pool->getScaleFactor();
+        drawOffset += m_followingCreature->getWalkOffset() * m_posInfo.scaleFactor;
     else if (!m_moveOffset.isNull())
-        drawOffset += m_moveOffset * m_pool->getScaleFactor();
+        drawOffset += m_moveOffset * m_posInfo.scaleFactor;
 
     const auto& srcVisible = m_visibleDimension * m_tileSize;
 

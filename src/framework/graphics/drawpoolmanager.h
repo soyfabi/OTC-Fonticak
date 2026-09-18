@@ -55,7 +55,8 @@ public:
     void addAction(const std::function<void()>& action, size_t hash = 0) const { getCurrentPool()->addAction(action, hash); }
 
     // Registers the UIMap alpha cutout rect for the Vulkan feeder.
-    void setVkMapHole(const Rect& rect) const { getCurrentPool()->m_vkPendingMapHole = rect; }
+    void clearVkMapHoles() const;
+    void setVkMapHole(const Rect& rect) const;
 
     void bindFrameBuffer(const Size& size, const Color& color = Color::white) const { getCurrentPool()->bindFrameBuffer(size, color); }
     void releaseFrameBuffer(const Rect& dest) const { getCurrentPool()->releaseFrameBuffer(dest); };

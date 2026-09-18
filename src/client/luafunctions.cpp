@@ -1179,6 +1179,8 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMap>("zoomIn", &UIMap::zoomIn);
     g_lua.bindClassMemberFunction<UIMap>("zoomOut", &UIMap::zoomOut);
     g_lua.bindClassMemberFunction<UIMap>("followCreature", &UIMap::followCreature);
+    g_lua.bindClassMemberFunction<UIMap>("setControlsDrawPool", &UIMap::setControlsDrawPool);
+    g_lua.bindClassMemberFunction<UIMap>("updateMapRect", &UIMap::updateMapRect);
     g_lua.bindClassMemberFunction<UIMap>("setCameraPosition", &UIMap::setCameraPosition);
     g_lua.bindClassMemberFunction<UIMap>("setMaxZoomIn", &UIMap::setMaxZoomIn);
     g_lua.bindClassMemberFunction<UIMap>("setMaxZoomOut", &UIMap::setMaxZoomOut);
