@@ -905,6 +905,23 @@ local function onDailyRewardCollectionState(state)
 	updateStreakWarning(nil, nil, state)
 end
 
+function updatePlayerRestingAreaState(zone, state, message)
+	local restingCondition = ConditionIcons and ConditionIcons[22]
+	if not restingCondition then
+		return
+	end
+
+	if zone == ZONE.RESTING_AREA_ZONE and message and message ~= "" then
+		restingCondition.tooltipBar = message
+	else
+		restingCondition.tooltipBar = tr('')
+	end
+
+	if StatusIconBar and StatusIconBar.refreshIcons then
+		StatusIconBar.refreshIcons()
+	end
+end
+
 local function onRestingAreaState(zone, state, message)
 	updatePlayerRestingAreaState(zone, state, message)
 
