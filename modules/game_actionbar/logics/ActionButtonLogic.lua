@@ -35,15 +35,6 @@ local function resolveEquipButtonVisual(button, isItemEquipped)
     return isItemEquipped
 end
 
-local function setPendingEquipVisual(button, equipped)
-    if not button or not button.cache then
-        return
-    end
-    button.cache.pendingEquipVisual = equipped
-    button.cache.pendingEquipVisualUntil = g_clock.millis() + EQUIP_VISUAL_PENDING_MS
-    applyActionButtonSlotClip(button, equipped)
-end
-
 --- Applies the filled action slot frame clip (normal or pressed/equipped).
 function applyActionButtonSlotClip(button, pressed)
     if not button or button:isDestroyed() or not button.item or button.item:isDestroyed() then
@@ -66,6 +57,15 @@ function applyActionButtonSlotClip(button, pressed)
     if button.cache then
         button.cache.equippedVisual = pressed
     end
+end
+
+local function setPendingEquipVisual(button, equipped)
+    if not button or not button.cache then
+        return
+    end
+    button.cache.pendingEquipVisual = equipped
+    button.cache.pendingEquipVisualUntil = g_clock.millis() + EQUIP_VISUAL_PENDING_MS
+    applyActionButtonSlotClip(button, equipped)
 end
 
 --- checks if string is empty
@@ -600,9 +600,7 @@ function updateButtonState(button)
     elseif isEquipmentPresetCache and isEquipmentPresetCache(button.cache) then
         if button.item.gray then button.item.gray:setVisible(false) end
         setupButtonTooltip(button, false)
-        if isEquipmentSetFullyActive then
-            applyActionButtonSlotClip(button, isEquipmentSetFullyActive(button.cache))
-        end
+        applyActionButtonSlotClip(button, isEquipmentSetFullyActive(button.cache))
     elseif button.cache.itemId ~= 0 then
         local tier = 0
         if g_game.getFeature(GameThingUpgradeClassification) then
@@ -617,9 +615,12 @@ function updateButtonState(button)
             button.item.gray:setVisible(itemCount == 0)
         end
 
-        local isEquipped = button.cache.actionType == UseTypes["Equip"]
-            and resolveEquipButtonVisual(button, isItemEquipped)
-        applyActionButtonSlotClip(button, isEquipped)
+        if button.cache.actionType == UseTypes["Equip"] then
+            applyActionButtonSlotClip(button, resolveEquipButtonVisual(button, isItemEquipped))
+        elseif button.cache.equippedVisual then
+            clearPendingEquipVisual(button.cache)
+            applyActionButtonSlotClip(button, false)
+        end
         if button.item.setDisplayCount then
             if modules.client_options.getOption('showHKObjectsBars') then
                 -- 0 is a valid display value (missing stack); -1 clears the override
