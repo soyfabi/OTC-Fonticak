@@ -246,10 +246,7 @@ function bindKeys()
         if not tile then return end
         local positionOffset = map:getPositionOffset(mousePos)
         local lookThing = tile:getTopLookThingEx(positionOffset)
-        local creatureThing = tile:getTopCreatureEx(positionOffset)
-        if creatureThing and creatureThing:isPlayer() and not creatureThing:isLocalPlayer() then
-            g_game.inspectCharacter(creatureThing:getId(), InspectCreaturesTypes.INSPECT_CREATURE)
-        elseif lookThing and lookThing:isItem() and not lookThing:isNotMoveable() then
+        if lookThing and lookThing:isItem() and not lookThing:isNotMoveable() then
             g_game.inspectionNormalObject(lookThing:getPosition())
         end
     end, gameRootPanel)
@@ -1017,15 +1014,10 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
         menu:addOption(tr('Look'), function()
             g_game.look(lookThing)
         end, shortcut)
-        local clientVersion = g_game.getClientVersion()
         local canInspectItem = lookThing:isItem() and not lookThing:isNotMoveable()
-        if modules.game_inspect and (lookThing:isCreature() or canInspectItem) then
+        if modules.game_inspect and canInspectItem then
             menu:addOption(tr('Inspect'), function()
-                if lookThing:isCreature() then
-                    g_game.inspectCharacter(lookThing:getId(), InspectCreaturesTypes.INSPECT_CREATURE)
-                elseif canInspectItem then
-                    g_game.inspectionNormalObject(lookThing:getPosition())
-                end
+                g_game.inspectionNormalObject(lookThing:getPosition())
             end, '(Ctrl+I)')
         end
         if lookThing:isItem() and lookThing:isPickupable() and not lookThing:isNotMoveable()
