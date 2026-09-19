@@ -1044,22 +1044,24 @@ function onMultiUseCooldown(multiUseCooldown)
 end
 
 function updateInventoryItems(_)
-    local refreshed = false
     for _, widgetList in pairs(cachedItemWidget) do
         for _, widget in pairs(widgetList) do
             updateButtonState(widget)
-            refreshed = true
         end
     end
 
-    -- Fallback for login/reconnect when the item cache is still empty
-    if not refreshed then
-        for _, actionbar in pairs(activeActionBars) do
-            for _, button in pairs(actionbar.tabBar:getChildren()) do
-                if button.cache and button.cache.itemId and button.cache.itemId ~= 0 then
-                    updateButtonState(button)
-                end
+    for _, actionbar in pairs(activeActionBars) do
+        for _, button in pairs(actionbar.tabBar:getChildren()) do
+            if not button.cache then
+                goto continue
             end
+
+            if (button.cache.itemId and button.cache.itemId ~= 0)
+                or (isEquipmentPresetCache and isEquipmentPresetCache(button.cache)) then
+                updateButtonState(button)
+            end
+
+            ::continue::
         end
     end
 end

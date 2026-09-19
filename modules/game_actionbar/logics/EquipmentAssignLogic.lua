@@ -1675,7 +1675,7 @@ local function hasAnyPresetItemEquipped(cache)
     return false
 end
 
-local function isEquipmentSetFullyActive(cache)
+function isEquipmentSetFullyActive(cache)
     if not isEquipmentPresetCache(cache) then
         return false
     end

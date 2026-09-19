@@ -19,14 +19,16 @@ ActionButton < UIButton
       image-clip: 0 0 34 34
       image-border: 0
     $on:
-      image-source: /images/ui/button
-      image-color: #dfdfdf
-      image-clip: 0 0 22 23
-      image-border: 3
+      image-source: /images/game/actionbar/slot-actionbar-filled
+      image-color: #ffffff
+      image-clip: 0 0 34 34
+      image-border: 0
     $pressed on:
-      image-clip: 0 46 22 23
+      image-clip: 0 34 34 34
+      image-color: #d8d8d8
     $checked on:
-      image-clip: 0 46 22 23
+      image-clip: 0 34 34 34
+      image-color: #d8d8d8
 
     Panel
       id: gray
