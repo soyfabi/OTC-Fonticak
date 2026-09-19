@@ -1047,6 +1047,19 @@ function updateInventoryItems(_)
     local updated = {}
     local refreshed = false
 
+    local function needsInventoryRefreshOutsideItemCache(cache)
+        if not cache then
+            return false
+        end
+        if isEquipmentPresetCache and isEquipmentPresetCache(cache) then
+            return true
+        end
+        if hasMultiActions and hasMultiActions(cache.multiActions) then
+            return true
+        end
+        return false
+    end
+
     for _, widgetList in pairs(cachedItemWidget) do
         for _, widget in pairs(widgetList) do
             refreshed = true
@@ -1063,7 +1076,7 @@ function updateInventoryItems(_)
                 if updated[button] or not button.cache then
                     goto continue
                 end
-                if isEquipmentPresetCache and isEquipmentPresetCache(button.cache) then
+                if needsInventoryRefreshOutsideItemCache(button.cache) then
                     updated[button] = true
                     updateButtonState(button)
                 end
@@ -1080,7 +1093,7 @@ function updateInventoryItems(_)
                 goto continue
             end
             if (button.cache.itemId and button.cache.itemId ~= 0)
-                or (isEquipmentPresetCache and isEquipmentPresetCache(button.cache)) then
+                or needsInventoryRefreshOutsideItemCache(button.cache) then
                 updateButtonState(button)
             end
             ::continue::

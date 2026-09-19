@@ -304,7 +304,7 @@ local function renderSlotOnWidget(widget, slotData, isMainButton, slotIndex)
         end
         if widget.cache.actionType == UseTypes["Equip"] then
             local equipped = player and player:hasEquippedItemId(widget.cache.itemId, widget.cache.upgradeTier)
-            applyActionButtonSlotClip(widget, itemCount ~= 0 and equipped)
+            applyActionButtonSlotClip(widget, equipped)
         end
 
         local runeSpellData = Spells.getRuneSpellByItem(widget.cache.itemId)
