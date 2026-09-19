@@ -158,13 +158,7 @@ function assignSpell(button, multiSlotIndex)
         end
 
         local spellData = preselectSpellData
-        local spellId = spellData.clientId
-        if not spellId then
-            print("Warning Spell ID not found modules/game_actionbar/logics/ActionAssignmentWindows.lua")
-            closeAssignSpellWindow()
-            return
-        end
-        local clip = Spells.getImageClip(spellId, 'Default')
+        local clip = Spells.getSpellImageClip(spellData, 'Default')
         previewWidget:setText((spellData.name or '') .. "\n" .. (spellData.words or ''))
         if previewWidget.image then
             previewWidget.image:setImageSource(defaultIconsFolder)
@@ -242,8 +236,7 @@ function assignSpell(button, multiSlotIndex)
             end
         end,
         onSetupWidget = function(widget, spellName, spellData)
-            local spellId = spellData.clientId
-            local clip = Spells.getImageClip(spellId)
+            local clip = Spells.getSpellImageClip(spellData, 'Default')
             widget:setId(spellData.id)
             widget:setText(spellName .. "\n" .. spellData.words)
             widget.words = spellData.words

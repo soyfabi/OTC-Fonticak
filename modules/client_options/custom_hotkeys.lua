@@ -503,14 +503,13 @@ function addCustomHotkeyRow(hotkeyId, action, data, primary, secondary)
       actionCol.spellIcon:setBorderColor('alpha')
     end
     actionCol:setTextOffset({ x = 28, y = 0 })
-  elseif spellData and spellData.clientId then
+  elseif spellData and (spellData.clientId or spellData.id) then
     actionCol.item:setVisible(false)
     actionCol.item:setBorderWidth(0)
     actionCol.item:setBorderColor('alpha')
     if actionCol.spellIcon then
-      local iconId = tonumber(spellData.clientId)
       local source = SpelllistSettings['Default'].iconFile
-      local clip = Spells.getImageClip(iconId, 'Default')
+      local clip = Spells.getSpellImageClip(spellData, 'Default')
       if SpellIcons and SpellIcons[spellData.name] and SpelllistSettings['Default'].iconsFolder and Spells.getImageClipNormal then
         source = SpelllistSettings['Default'].iconsFolder .. SpellIcons[spellData.name][1]
         clip = Spells.getImageClipNormal(SpellIcons[spellData.name][2])
@@ -721,7 +720,6 @@ function assignSpellDialog(row)
         return
       end
 
-      local iconId = tonumber(spellData.clientId)
       widget:setId(spellData.id)
       widget:setText(spellName .. "\n" .. spellData.words)
       widget.words = spellData.words
@@ -729,7 +727,7 @@ function assignSpellDialog(row)
       widget.param = spellData.parameter
       widget.spellLevel = spellData.level or 0
       widget.source = SpelllistSettings['Default'].iconFile
-      widget.clip = Spells.getImageClip(iconId, 'Default')
+      widget.clip = Spells.getSpellImageClip(spellData, 'Default')
       if SpellIcons and SpellIcons[spellName] and SpelllistSettings['Default'].iconsFolder and Spells.getImageClipNormal then
         widget.source = SpelllistSettings['Default'].iconsFolder .. SpellIcons[spellName][1]
         widget.clip = Spells.getImageClipNormal(SpellIcons[spellName][2])

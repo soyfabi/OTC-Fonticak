@@ -19,6 +19,7 @@ Module
     dofile 'market'
     dofile 'textmessages'
     dofile 'thing'
+    dofile 'spell_icons'
     dofile 'spells'
     dofile 'tile'
     dofile 'items'

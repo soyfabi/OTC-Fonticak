@@ -160,6 +160,11 @@ function setupActionBar(n)
                             return true
                         end
                     end
+                    if draggedWidget and draggedWidget.spellData and tryAssignSpellFromDrop then
+                        if tryAssignSpellFromDrop(mousePos, draggedWidget.spellData) then
+                            return true
+                        end
+                    end
                end
                
                widget.onMouseRelease = function(self, mousePos, mouseButton)
@@ -882,14 +887,8 @@ local function flySpellAnimation(spellName, targetButton, onFinish)
         return
     end
 
-    local spellId = spellData.clientId
-    if not spellId then
-        if onFinish then onFinish() end
-        return
-    end
-
     local source = SpelllistSettings['Default'].iconFile
-    local clip = Spells.getImageClip(spellId, 'Default')
+    local clip = Spells.getSpellImageClip(spellData, 'Default')
 
     -- Create temporary flying widget on the root panel
     local flyWidget = g_ui.createWidget('UIWidget', root)

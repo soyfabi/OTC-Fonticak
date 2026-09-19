@@ -1,6 +1,7 @@
 TibiaSpellListEntry < UIWidget
   height: 34
   focusable: false
+  draggable: true
   border-width: 0
   change-cursor-image: false
   background-color: alpha

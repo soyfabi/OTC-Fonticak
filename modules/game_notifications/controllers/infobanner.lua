@@ -775,8 +775,8 @@ function notificationsController:processNext()
             local spell = data.extraData.spellData
             local iconSource = SpelllistSettings and SpelllistSettings['Default'] and SpelllistSettings['Default'].iconFile
             local iconClip = nil
-            if spell and spell.clientId then
-                iconClip = Spells.getImageClip(spell.clientId, 'Default')
+            if spell then
+                iconClip = Spells.getSpellImageClip(spell, 'Default')
             end
 
             local spellWidget = g_ui.createWidget('UIWidget', appendW)

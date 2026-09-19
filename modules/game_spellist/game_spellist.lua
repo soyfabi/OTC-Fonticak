@@ -10,6 +10,8 @@ local searchFocusEvent = nil
 local searchUi = {}
 local configLoaded = false
 local SETTINGS_NODE = 'game_spellist-filters'
+local spellDragPreview = nil
+local spellDragHighlight = nil
 
 local DEFAULT_CONFIG = {
   showAttackSpellGroup = true,
@@ -133,7 +135,7 @@ local function rebuildSpellListData()
       entry[k] = v
     end
     entry.name = spell.name or spellName
-    spellListData[tostring(spell.clientId or spell.id or spellName)] = entry
+    spellListData[tostring(spell.id or spellName)] = entry
   end
 end
 
@@ -150,11 +152,94 @@ local function spellHasVocation(spell, vocationIds)
 end
 
 local function getSpellIconClip(spell)
-  local iconId = tonumber(spell.clientId)
-  if not iconId then
-    return '0 0 32 32'
+  return Spells.getSpellImageClip(spell, 'Default')
+end
+
+local function clearSpellDragHighlight()
+  if spellDragHighlight and not spellDragHighlight:isDestroyed() then
+    spellDragHighlight:setBorderWidth(0)
+    spellDragHighlight:setBorderColor('alpha')
   end
-  return Spells.getImageClip(iconId, 'Default')
+  spellDragHighlight = nil
+end
+
+local function destroySpellDragPreview()
+  if spellDragPreview and not spellDragPreview:isDestroyed() then
+    spellDragPreview:destroy()
+  end
+  spellDragPreview = nil
+end
+
+local function restoreSpellDragCursor()
+  if modules.client_options and modules.client_options.getOption('nativeCursor') then
+    g_window.restoreMouseCursor()
+  else
+    g_mouse.popCursor('target')
+  end
+end
+
+local function updateSpellDragHighlight(mousePos)
+  clearSpellDragHighlight()
+  local root = modules.game_interface and modules.game_interface.getRootPanel()
+  if not root then
+    return
+  end
+
+  local clickedWidget = root:recursiveGetChildByPos(mousePos, false)
+  if not clickedWidget or not clickedWidget:backwardsGetWidgetById('tabBar') then
+    return
+  end
+
+  spellDragHighlight = clickedWidget
+  spellDragHighlight:setBorderWidth(1)
+  spellDragHighlight:setBorderColor('white')
+end
+
+local function setupSpellDrag(widget, spell)
+  widget.spellData = spell
+
+  widget.onDragEnter = function(self, mousePos)
+    selectSpellWidget(widget)
+    destroySpellDragPreview()
+
+    local root = modules.game_interface and modules.game_interface.getRootPanel()
+    if not root then
+      return false
+    end
+
+    spellDragPreview = g_ui.createWidget('UIWidget', root)
+    spellDragPreview:setSize({ width = 32, height = 32 })
+    spellDragPreview:setImageSource(SpelllistSettings['Default'].iconFile)
+    spellDragPreview:setImageClip(getSpellIconClip(spell))
+    spellDragPreview:setPhantom(true)
+    spellDragPreview:setPosition({ x = mousePos.x - 16, y = mousePos.y - 16 })
+
+    if modules.client_options and modules.client_options.getOption('nativeCursor') then
+      g_window.setSystemCursor('cross')
+    else
+      g_mouse.pushCursor('target')
+    end
+    return true
+  end
+
+  widget.onDragMove = function(self, mousePos)
+    if spellDragPreview and not spellDragPreview:isDestroyed() then
+      spellDragPreview:setPosition({ x = mousePos.x - 16, y = mousePos.y - 16 })
+    end
+    updateSpellDragHighlight(mousePos)
+    return true
+  end
+
+  widget.onDragLeave = function(self, droppedWidget, mousePos)
+    destroySpellDragPreview()
+    clearSpellDragHighlight()
+    restoreSpellDragCursor()
+
+    if modules.game_actionbar and modules.game_actionbar.tryAssignSpellFromDrop then
+      modules.game_actionbar.tryAssignSpellFromDrop(mousePos, spell)
+    end
+    return true
+  end
 end
 
 local function getSpellsPanel()
@@ -443,6 +528,11 @@ function terminate()
   Keybind.delete('Windows', 'Show/hide spell list')
   saveConfig()
   releaseSearchFocus()
+  if spellDragPreview then
+    destroySpellDragPreview()
+    clearSpellDragHighlight()
+    restoreSpellDragCursor()
+  end
   if t_spelllist then
     t_spelllist:destroy()
     t_spelllist = nil
@@ -663,6 +753,8 @@ function onConfigureList()
         return openContextMenu(mousePos)
       end
     end
+
+    setupSpellDrag(widget, spell)
   end
 
   applySearchFilter()
@@ -812,7 +904,7 @@ function matchFilter(spell)
     return false
   end
   if not getSpellOption('showUnkownSpells') then
-    local id = tostring(spell.clientId or spell.id or '')
+    local id = tostring(spell.id or '')
     if id ~= '' and not learnedSpells[id] and next(learnedSpells) ~= nil then
       return false
     end

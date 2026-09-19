@@ -324,10 +324,9 @@ local function renderSlotOnWidget(widget, slotData, isMainButton, slotIndex)
     elseif slotData["chatText"] then
         local spellData, param = Spells.getSpellDataByParamWords(slotData["chatText"]:lower())
         if spellData then
-            local spellId = spellData.clientId
-            if spellId then
+            local clip = Spells.getSpellImageClip(spellData, 'Default')
+            if clip then
                 local source = SpelllistSettings['Default'].iconFile
-                local clip = Spells.getImageClip(spellId, 'Default')
                 widget.item.text:setText("")
                 widget.item.text:setImageSource(source)
                 widget.item.text:setImageClip(clip)

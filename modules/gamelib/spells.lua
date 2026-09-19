@@ -161,13 +161,11 @@ SpellInfo = {
         ['Practice Healing'] = {id = 166, name = 'Practice Healing', words = 'exura dis', type = 'Instant', level = 1, mana = 5, soul = 0, maglevel = 0, icon = '', clientId = 127, group = {[2] = 1000}, needTarget = false, parameter = false, range = -1, exhaustion = 1000, premium = false, vocations = {0}, special = false, source = 0},
         ['Practise Fire Wave'] = {id = 167, name = 'Practise Fire Wave', words = 'exevo dis flam hur', type = 'Instant', level = 1, mana = 5, soul = 0, maglevel = 0, icon = '', clientId = 128, group = {[1] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 4000, premium = false, vocations = {0}, special = false, source = 0},
         ["Apprentice's Strike"] = {id = 169, name = "Apprentice's Strike", words = 'exori min flam', type = 'Instant', level = 8, mana = 6, soul = 0, maglevel = 0, icon = '', clientId = 126, group = {[1] = 2000}, needTarget = false, parameter = false, range = 3, exhaustion = 2000, premium = false, vocations = {1, 2, 5, 6}, special = false, source = 0},
-        ['Bruise Bane'] = {id = 170, name = 'Bruise Bane', words = 'exura infir ico', type = 'Instant', level = 1, mana = 10, soul = 0, maglevel = 0, icon = '', clientId = 134, group = {[2] = 1000}, needTarget = false, parameter = false, range = -1, exhaustion = 1000, premium = false, vocations = {4, 8}, special = false, source = 0},
-        -- id 171 - 172?
-        ["Magic Patch"] = { id = 172, name = "Magic Patch", words = "exura infir", type = "Instant", level = 1, mana = 6, soul = 0, icon = "magicpatch", group = { [2] = 1000 }, needTarget = false, parameter = false, range = 0, exhaustion = 1000, premium = false, vocations = { 1, 2, 3, 5, 6, 7, 9, 10 } },
-        ['Chill Out'] = {id = 173, name = 'Chill Out', words = 'exevo infir frigo hur', type = 'Instant', level = 1, mana = 8, soul = 0, maglevel = 0, icon = '', clientId = 135, group = {[1] = 2000}, needTarget = false, parameter = false, range = 1, exhaustion = 4000, premium = false, vocations = {2, 6}, special = false, source = 0},
-        -- Two id 174?
-        ['Magic Patch'] = {id = 174, name = 'Magic Patch', words = 'exura infir', type = 'Instant', level = 1, mana = 6, soul = 0, maglevel = 0, icon = '', clientId = 133, group = {[2] = 1000}, needTarget = false, parameter = false, range = -1, exhaustion = 1000, premium = false, vocations = {1, 2, 3, 5, 6, 7, 9, 10}, special = false, source = 0},
-        ['Mud Attack'] = {id = 174, name = 'Mud Attack', words = 'exori infir tera', type = 'Instant', level = 1, mana = 6, soul = 0, maglevel = 0, icon = '', clientId = 136, group = {[1] = 2000}, needTarget = false, parameter = false, range = 3, exhaustion = 2000, premium = false, vocations = {2, 6}, special = false, source = 0},
+        ['Bruise Bane'] = {id = 170, name = 'Bruise Bane', words = 'exura infir ico', type = 'Instant', level = 1, mana = 10, soul = 0, maglevel = 0, icon = '', clientId = 131, group = {[2] = 1000}, needTarget = false, parameter = false, range = -1, exhaustion = 1000, premium = false, vocations = {4, 8}, special = false, source = 0},
+        -- id 171?
+        ['Mud Attack'] = {id = 172, name = 'Mud Attack', words = 'exori infir tera', type = 'Instant', level = 1, mana = 6, soul = 0, maglevel = 0, icon = '', clientId = 133, group = {[1] = 2000}, needTarget = false, parameter = false, range = 3, exhaustion = 2000, premium = false, vocations = {2, 6}, special = false, source = 0},
+        ['Chill Out'] = {id = 173, name = 'Chill Out', words = 'exevo infir frigo hur', type = 'Instant', level = 1, mana = 8, soul = 0, maglevel = 0, icon = '', clientId = 132, group = {[1] = 2000}, needTarget = false, parameter = false, range = 1, exhaustion = 4000, premium = false, vocations = {2, 6}, special = false, source = 0},
+        ['Magic Patch'] = {id = 174, name = 'Magic Patch', words = 'exura infir', type = 'Instant', level = 1, mana = 6, soul = 0, maglevel = 0, icon = '', clientId = 130, group = {[2] = 1000}, needTarget = false, parameter = false, range = -1, exhaustion = 1000, premium = false, vocations = {1, 2, 3, 5, 6, 7, 9, 10}, special = false, source = 0},
         -- Two id 175?
         ['Arrow Call'] = {id = 176, name = 'Arrow Call', words = 'exevo infir con', type = 'Conjure', level = 1, mana = 10, soul = 1, maglevel = 0, icon = '', clientId = 137, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 2000, premium = false, vocations = {3, 7}, special = false, source = 0},
         ['Buzz'] = {id = 177, name = 'Buzz', words = 'exori infir vis', type = 'Instant', level = 1, mana = 6, soul = 0, maglevel = 0, icon = '', clientId = 132, group = {[1] = 2000}, needTarget = false, parameter = false, range = 3, exhaustion = 2000, premium = false, vocations = {1, 5}, special = false, source = 0},
@@ -193,8 +191,8 @@ SpellInfo = {
         ['Divine Grenade'] = {id = 258, name = 'Divine Grenade', words = 'exevo tempo mas san', type = 'Instant', level = 300, mana = 160, soul = 0, maglevel = 0, icon = '', clientId = 155, group = {[1] = 2000}, needTarget = true, parameter = false, range = 7, exhaustion = 1000, premium = true, vocations = {3, 7}, special = true, source = 0},
         ['Great Death Beam'] = {id = 260, name = 'Great Death Beam', words = 'exevo max mort', type = 'Instant', level = 300, mana = 140, soul = 0, maglevel = 0, icon = '', clientId = 157, group = {[1] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 10000, premium = false, vocations = {1, 5}, special = true, source = 0},
         ["Executioner's Throw"] = {id = 261, name = "Executioner's Throw", words = 'exori amp kor', type = 'Instant', level = 300, mana = 225, soul = 0, maglevel = 0, icon = '', clientId = 152, group = {[1] = 2000}, needTarget = true, parameter = false, range = 5, exhaustion = 18000, premium = true, vocations = {4, 8}, special = true, source = 0},
-        ['Ice Burst'] = {id = 262, name = 'Ice Burst', words = 'exevo ulus frigo', type = 'Instant', level = 300, mana = 230, soul = 0, maglevel = 0, icon = '', clientId = 153, group = {[1] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 22000, premium = true, vocations = {2, 6}, special = true, source = 0},
-        ['Terra Burst'] = {id = 263, name = 'Terra Burst', words = 'exevo ulus tera', type = 'Instant', level = 300, mana = 230, soul = 0, maglevel = 0, icon = '', clientId = 154, group = {[1] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 22000, premium = true, vocations = {2, 6}, special = true, source = 0},
+        ['Ice Burst'] = {id = 262, name = 'Ice Burst', words = 'exevo ulus frigo', type = 'Instant', level = 300, mana = 230, soul = 0, maglevel = 0, icon = '', clientId = 154, group = {[1] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 22000, premium = true, vocations = {2, 6}, special = true, source = 0},
+        ['Terra Burst'] = {id = 263, name = 'Terra Burst', words = 'exevo ulus tera', type = 'Instant', level = 300, mana = 230, soul = 0, maglevel = 0, icon = '', clientId = 153, group = {[1] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 22000, premium = true, vocations = {2, 6}, special = true, source = 0},
         ['Avatar of Steel'] = {id = 264, name = 'Avatar of Steel', words = 'uteta res eq', type = 'Instant', level = 300, mana = 800, soul = 0, maglevel = 0, icon = '', clientId = 148, group = {[3] = 2000}, needTarget = false, parameter = true, range = -1, exhaustion = 7200000, premium = true, vocations = {4, 8}, special = true, source = 0},
         ['Avatar of Light'] = {id = 265, name = 'Avatar of Light', words = 'uteta res sac', type = 'Instant', level = 300, mana = 1500, soul = 0, maglevel = 0, icon = '', clientId = 150, group = {[3] = 2000}, needTarget = false, parameter = true, range = -1, exhaustion = 7200000, premium = true, vocations = {3, 7}, special = true, source = 0},
         ['Avatar of Storm'] = {id = 266, name = 'Avatar of Storm', words = 'uteta res ven', type = 'Instant', level = 300, mana = 2200, soul = 0, maglevel = 0, icon = '', clientId = 151, group = {[3] = 2000}, needTarget = false, parameter = true, range = -1, exhaustion = 7200000, premium = true, vocations = {1, 5}, special = true, source = 0},
@@ -226,6 +224,26 @@ SpellInfo = {
         ['Spiritual Outburst'] = { id = 295, name = 'Spiritual Outburst', words = 'exori gran mas nia', type = 'Instant', level = 300, mana = 425, soul = 0, maglevel = 0, icon = '', clientId = 183, group = { [1] = 2000 }, needTarget = false, parameter = false, range = -1, exhaustion = 60000, premium = true, vocations = {9, 10}, special = false, source = 0, },
         ['Mass Spirit Mend'] = { id = 296, name = 'Mass Spirit Mend', words = 'exura mas nia', type = 'Instant', level = 150, mana = 250, soul = 0, maglevel = 0, icon = '', clientId = 184, group = { [2] = 2000 }, needTarget = false, parameter = false, range = -1, exhaustion = 8000, premium = true, vocations = {9, 10}, special = false, source = 0, },
         ['Restore Balance'] = { id = 297, name = 'Restore Balance', words = 'exura tio sio', type = 'Instant', level = 18, mana = 120, soul = 0, maglevel = 0, icon = '', clientId = 185, group = { [2] = 1000 }, needTarget = true, parameter = true, range = -1, exhaustion = 2000, premium = true, vocations = {9, 10}, special = false, source = 0, },
+        ['Find Fiend'] = {id = 248, name = 'Find Fiend', words = 'exiva moe res', type = 'Instant', level = 25, mana = 20, soul = 0, maglevel = 0, icon = '', clientId = 147, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 2000, premium = false, vocations = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10}, special = false, source = 0},
+        ['Lesser Ethereal Spear'] = {id = 270, name = 'Lesser Ethereal Spear', words = 'exori infir con', type = 'Instant', level = 1, mana = 6, soul = 0, maglevel = 0, icon = '', clientId = 159, group = {[1] = 2000}, needTarget = true, parameter = false, range = 7, exhaustion = 8000, premium = false, vocations = {3, 7}, special = false, source = 0},
+        ['Lesser Front Sweep'] = {id = 271, name = 'Lesser Front Sweep', words = 'exori infir min', type = 'Instant', level = 1, mana = 6, soul = 0, maglevel = 0, icon = '', clientId = 160, group = {[1] = 2000}, needTarget = false, parameter = false, range = 1, exhaustion = 6000, premium = false, vocations = {4, 8}, special = false, source = 0},
+        ['Lesser Mystic Repulse'] = {id = 298, name = 'Lesser Mystic Repulse', words = 'exori infir amp pug', type = 'Instant', level = 6, mana = 30, soul = 0, maglevel = 0, icon = '', clientId = 183, group = {[1] = 2000}, needTarget = true, parameter = false, range = 7, exhaustion = 20000, premium = false, vocations = {9, 10}, special = false, source = 0},
+        ['Thousand Fist Blows'] = {id = 301, name = 'Thousand Fist Blows', words = 'exori mas amp pug', type = 'Instant', level = 120, mana = 145, soul = 0, maglevel = 0, icon = '', clientId = 184, group = {[1] = 2000}, needTarget = true, parameter = false, range = 7, exhaustion = 12000, premium = false, vocations = {9, 10}, special = false, source = 0},
+        ['Divine Barrage'] = {id = 302, name = 'Divine Barrage', words = 'exori dir san', type = 'Instant', level = 70, mana = 175, soul = 0, maglevel = 0, icon = '', clientId = 185, group = {[1] = 2000}, needTarget = false, parameter = false, range = 7, exhaustion = 4000, premium = false, vocations = {3, 7}, special = false, source = 0},
+        ['Ethereal Barrage'] = {id = 303, name = 'Ethereal Barrage', words = 'exori dir moe', type = 'Instant', level = 60, mana = 135, soul = 0, maglevel = 0, icon = '', clientId = 186, group = {[1] = 2000}, needTarget = false, parameter = false, range = 7, exhaustion = 4000, premium = false, vocations = {3, 7}, special = false, source = 0},
+        ['Master of Flames'] = {id = 304, name = 'Master of Flames', words = 'uteta flam', type = 'Instant', level = 20, mana = 400, soul = 0, maglevel = 0, icon = '', clientId = 187, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 30000, premium = false, vocations = {5}, special = false, source = 0},
+        ['Master of Thunder'] = {id = 305, name = 'Master of Thunder', words = 'uteta vis', type = 'Instant', level = 20, mana = 400, soul = 0, maglevel = 0, icon = '', clientId = 188, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 30000, premium = false, vocations = {5}, special = false, source = 0},
+        ['Master of Decay'] = {id = 306, name = 'Master of Decay', words = 'uteta mort', type = 'Instant', level = 20, mana = 400, soul = 0, maglevel = 0, icon = '', clientId = 189, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 30000, premium = false, vocations = {5}, special = false, source = 0},
+        ['Shared Conservation'] = {id = 309, name = 'Shared Conservation', words = 'utura sio', type = 'Instant', level = 20, mana = 400, soul = 0, maglevel = 0, icon = '', clientId = 191, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 10000, premium = false, vocations = {6}, special = false, source = 0},
+        ['Death Echo'] = {id = 310, name = 'Death Echo', words = 'exevo mort ora', type = 'Instant', level = 120, mana = 155, soul = 0, maglevel = 0, icon = '', clientId = 192, group = {[1] = 2000}, needTarget = false, parameter = false, range = 7, exhaustion = 6000, premium = false, vocations = {1, 5}, special = false, source = 0},
+        ['Aura of Exposed Weakness'] = {id = 311, name = 'Aura of Exposed Weakness', words = 'exori moe tempo', type = 'Instant', level = 175, mana = 1500, soul = 0, maglevel = 0, icon = '', clientId = 199, group = {[3] = 2000, [6] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 30000, premium = false, vocations = {1, 5}, special = false, source = 0},
+        ['Aura of Sapped Strength'] = {id = 312, name = 'Aura of Sapped Strength', words = 'exori kor tempo', type = 'Instant', level = 175, mana = 1500, soul = 0, maglevel = 0, icon = '', clientId = 200, group = {[3] = 2000, [6] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 30000, premium = false, vocations = {1, 5}, special = false, source = 0},
+        ['Divine Defiance'] = {id = 314, name = 'Divine Defiance', words = 'utori hur', type = 'Instant', level = 20, mana = 250, soul = 0, maglevel = 0, icon = '', clientId = 194, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 10000, premium = false, vocations = {3, 7}, special = false, source = 0},
+        ['Shield Bash'] = {id = 315, name = 'Shield Bash', words = 'exori ico scu', type = 'Instant', level = 18, mana = 30, soul = 0, maglevel = 0, icon = '', clientId = 195, group = {[1] = 2000}, needTarget = true, parameter = false, range = 1, exhaustion = 4000, premium = false, vocations = {4, 8}, special = false, source = 0},
+        ['Shield Slam'] = {id = 316, name = 'Shield Slam', words = 'exori scu', type = 'Instant', level = 30, mana = 110, soul = 0, maglevel = 0, icon = '', clientId = 196, group = {[1] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 6000, premium = false, vocations = {4, 8}, special = false, source = 0},
+        ['Forked Glacier'] = {id = 317, name = 'Forked Glacier', words = 'exevo fur frigo', type = 'Instant', level = 90, mana = 180, soul = 0, maglevel = 0, icon = '', clientId = 197, group = {[1] = 2000, [4] = 6000}, needTarget = false, parameter = false, range = 7, exhaustion = 6000, premium = false, vocations = {2, 6}, special = false, source = 0},
+        ['Forked Thorns'] = {id = 318, name = 'Forked Thorns', words = 'exevo fur tera', type = 'Instant', level = 80, mana = 180, soul = 0, maglevel = 0, icon = '', clientId = 198, group = {[1] = 2000, [4] = 6000}, needTarget = false, parameter = false, range = 7, exhaustion = 6000, premium = false, vocations = {2, 6}, special = false, source = 0},
+        ['Elemental Synthesis'] = {id = 319, name = 'Elemental Synthesis', words = 'utito dru', type = 'Instant', level = 20, mana = 400, soul = 0, maglevel = 0, icon = '', clientId = 190, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 10000, premium = false, vocations = {6}, special = false, source = 0},
     }
 }
 
@@ -342,16 +360,6 @@ function Spells.getSpellByClientId(id)
         end
     end
     return nil
-end
-
-function Spells.getSpellIconIds()
-    local ids = {}
-    for profile, data in pairs(SpellInfo) do
-        for k, spell in pairs(data) do
-            table.insert(ids, spell.id)
-        end
-    end
-    return ids
 end
 
 function Spells.getSpellProfileById(id)
@@ -752,26 +760,56 @@ function Spells.populateSpellListAsync(spellList, config)
     addEvent(processBatch)
 end
 
-function Spells.getIconFileByProfile(profile)
-    return SpelllistSettings[profile]['iconFile']
+-- 0-based icon strip index in spell-icons-32x32.png.
+function Spells.resolveSpellIconIndex(spell)
+    if not spell then
+        return 0
+    end
+
+    local spellId = tonumber(spell.id)
+    if spellId and SpellIconsFirstIsZero and SpellIconsFirstIsZero[spellId] ~= nil then
+        return SpellIconsFirstIsZero[spellId]
+    end
+
+    local clientId = tonumber(spell.clientId)
+    if clientId then
+        return clientId
+    end
+
+    return 0
 end
 
 function Spells.getImageClip(indexClip, profile)
     if profile == nil then
         profile = "Default"
     end
-    return indexClip * SpelllistSettings[profile].iconSize.width .. " 0 " .. SpelllistSettings[profile].iconSize.width .. " " .. SpelllistSettings[profile].iconSize.height
+    local index = tonumber(indexClip) or 0
+    return index * SpelllistSettings[profile].iconSize.width .. " 0 " .. SpelllistSettings[profile].iconSize.width .. " " .. SpelllistSettings[profile].iconSize.height
 end
 
--- Compatibility helper used by Astra-style UIs / cyclopedia.
--- Fonticak icons are a horizontal strip; same math as getImageClip.
+function Spells.getSpellImageClip(spell, profile)
+    return Spells.getImageClip(Spells.resolveSpellIconIndex(spell), profile or "Default")
+end
+
+-- 1-based icon id (Crystal-style lookup tables).
 function Spells.getImageClipNormal(id, profile)
-    return Spells.getImageClip(id, profile)
+    if profile == nil then
+        profile = "Default"
+    end
+    local iconId = tonumber(id) or 1
+    local w = SpelllistSettings[profile].iconSize.width
+    local h = SpelllistSettings[profile].iconSize.height
+    return (iconId - 1) * w .. " 0 " .. w .. " " .. h
 end
 
 function Spells.getImageClipCooldown(indexClip, profile)
     if profile == nil then
         profile = "Default"
     end
-    return indexClip * SpelllistSettings[profile].iconSizeCooldown.width .. " 0 " .. SpelllistSettings[profile].iconSizeCooldown.width .. " " .. SpelllistSettings[profile].iconSizeCooldown.height
+    local index = tonumber(indexClip) or 0
+    return index * SpelllistSettings[profile].iconSizeCooldown.width .. " 0 " .. SpelllistSettings[profile].iconSizeCooldown.width .. " " .. SpelllistSettings[profile].iconSizeCooldown.height
+end
+
+function Spells.getSpellCooldownImageClip(spell, profile)
+    return Spells.getImageClipCooldown(Spells.resolveSpellIconIndex(spell), profile or "Default")
 end

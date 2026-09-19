@@ -1350,13 +1350,8 @@ function updateButton(button)
     if sendText then
         local spellData, param = Spells.getSpellDataByParamWords(sendText:lower())
         if spellData then
-            local spellId = spellData.clientId
-            if not spellId then
-                print("Warning Spell ID not found L734 modules/game_actionbar/logics/ActionButtonLogic.lua")
-                return
-            end
             local source = SpelllistSettings['Default'].iconFile
-            local clip = Spells.getImageClip(spellId, 'Default')
+            local clip = Spells.getSpellImageClip(spellData, 'Default')
 
             button.item.text:setImageSource(source)
             button.item.text:setImageClip(clip)
@@ -1588,6 +1583,81 @@ function tryAssignActionButtonFromDrop(mousePos, draggedWidget, item)
     end
 
     assignItem(button, itemId, itemTier)
+    return true
+end
+
+--- Tries to assign a spell from the spell list drag-and-drop
+function tryAssignSpellFromDrop(mousePos, spellData)
+    if not hasAnyActiveActionBar() or not spellData or not gameRootPanel then
+        return false
+    end
+    if dragButton then
+        return false
+    end
+
+    local spellText = spellData.words or spellData.name
+    if not spellText or spellText == '' then
+        return false
+    end
+
+    local clickedWidget = gameRootPanel:recursiveGetChildByPos(mousePos, false)
+    if not clickedWidget then
+        return false
+    end
+
+    if clickedWidget:getParent() then
+        local parentId = clickedWidget:getParent():getId() or ""
+        local targetIndex = tonumber(string.match(parentId, "^actionButton(%d)$"))
+        if targetIndex and targetIndex >= 1 and targetIndex <= 3 then
+            local panel = clickedWidget:getParent():getParent()
+            if panel and panel.button then
+                local button = panel.button
+                local actionbar = button:getParent() and button:getParent():getParent()
+                if not actionbar or not actionbar:isVisible() or actionbar.locked then
+                    return false
+                end
+
+                local barID, buttonID = string.match(button:getId(), "(.*)%.(.*)")
+                if not barID or ApiJson.isBarLocked(tonumber(barID)) then
+                    return false
+                end
+
+                ApiJson.createOrUpdateMultiText(tonumber(barID), tonumber(buttonID), targetIndex, spellText, true)
+                if updateMultiButtonState then
+                    updateMultiButtonState(button)
+                end
+                if assignMultiAction then
+                    assignMultiAction(button, true)
+                end
+                ApiJson.saveData()
+                return true
+            end
+        end
+    end
+
+    local tabBar = clickedWidget:backwardsGetWidgetById("tabBar")
+    if not tabBar or not tabBar:isVisible() then
+        return false
+    end
+
+    local button = getButtonFromWidget(clickedWidget)
+    if not button or not button:isVisible() then
+        return false
+    end
+
+    local actionBar = tabBar:getParent()
+    if not actionBar or not actionBar:isVisible() or actionBar.locked then
+        return false
+    end
+
+    local barID, buttonID = string.match(button:getId(), "(.*)%.(.*)")
+    if not barID or ApiJson.isBarLocked(tonumber(barID)) then
+        return false
+    end
+
+    ApiJson.createOrUpdateText(tonumber(barID), tonumber(buttonID), spellText, true)
+    updateButton(button)
+    ApiJson.saveData()
     return true
 end
 
