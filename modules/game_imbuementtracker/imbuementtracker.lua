@@ -153,15 +153,9 @@ function toggle()
         imbuementTrackerButton:setOn(false)
         imbuementTracker:close()
     else
-        if not imbuementTracker:getParent() then
-            local panel = modules.game_interface.findContentPanelAvailable(imbuementTracker, imbuementTracker:getMinimumHeight())
-            if not panel then
-                return
-            end
-
-            panel:addChild(imbuementTracker)
+        if not imbuementTracker:open() then
+            return
         end
-        imbuementTracker:open()
         imbuementTrackerButton:setOn(true)
         -- updateHeight()
     end

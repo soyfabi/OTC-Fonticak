@@ -427,10 +427,13 @@ function BattleListManager:createWindowForInstance(instance)
     
     newWindow:setup()
     
-    local panel = modules.game_interface.findContentPanelAvailable(newWindow, newWindow:getMinimumHeight())
-    if panel then
-        panel:addChild(newWindow)
-        newWindow:open()
+    if not newWindow:open() then
+        newWindow:destroy()
+        instance.window = nil
+        if instance.id ~= 0 then
+            BattleListManager.instances[instance.id] = nil
+        end
+        return
     end
     
     -- Set initial scrollbar position for new instances (filters visible by default)
@@ -2800,16 +2803,9 @@ function toggle() -- Close/Open the battle window or Pressing Ctrl + B
             connecting()
         end
         
-        if not battleWindow:getParent() then
-            local panel = modules.game_interface
-                .findContentPanelAvailable(battleWindow, battleWindow:getMinimumHeight())
-            if not panel then
-                return
-            end
-
-            panel:addChild(battleWindow)
+        if not battleWindow:open() then
+            return
         end
-        battleWindow:open()
     end
 end
 

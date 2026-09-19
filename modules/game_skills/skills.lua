@@ -1904,16 +1904,6 @@ function toggle()
 	if skillsButton:isOn() then
 		skillsWindow:closeAndForgetLayout()
 	else
-		if not skillsWindow:getParent() then
-			local panel = modules.game_interface.findContentPanelAvailable(skillsWindow, skillsWindow:getMinimumHeight())
-
-			if not panel then
-				return
-			end
-
-			panel:addChild(skillsWindow)
-		end
-
 		local toggleFilterButton = skillsWindow:recursiveGetChildById("toggleFilterButton")
 
 		if toggleFilterButton then
@@ -1940,7 +1930,9 @@ function toggle()
 			end
 		end
 
-		skillsWindow:open()
+		if not skillsWindow:open() then
+			return
+		end
 		updateHeight()
 	end
 

@@ -69,6 +69,26 @@ local function eraseFloatingPosition(widget)
     end
 end
 
+local function gameInterface()
+    return modules.game_interface
+end
+
+local function ensureSidebarPlacement(widget, minContentHeight, silent)
+    local gi = gameInterface()
+    if not gi or not gi.ensureMiniWindowSidebarPlacement then
+        return true
+    end
+    return gi.ensureMiniWindowSidebarPlacement(widget, minContentHeight, silent)
+end
+
+local function needsSidebarPlacementOnOpen(widget)
+    local parent = widget:getParent()
+    if not parent or parent:isDestroyed() then
+        return true
+    end
+    return parent:getClassName() == 'UIMiniWindowContainer'
+end
+
 local function readFloatingPosition(widget)
     local node = g_settings.getNode(FLOATING_SETTINGS_NODE)
     local key = floatingStoreKey()
@@ -101,22 +121,9 @@ function UIMiniWindow:dockToSidebar()
         return
     end
 
-    local panel
-    if modules.game_interface and modules.game_interface.findContentPanelAvailable then
-        panel = modules.game_interface.findContentPanelAvailable(self, self:getMinimumHeight())
-    end
-    if (not panel or panel:isDestroyed()) and modules.game_interface and modules.game_interface.getRightPanel then
-        panel = modules.game_interface.getRightPanel()
-    end
-    if not panel or panel:isDestroyed() then
+    if not ensureSidebarPlacement(self) then
         return
     end
-
-    if parent then
-        parent:removeChild(self)
-    end
-    panel:addChild(self)
-    self:saveParent(panel)
     self:fitOnParent()
 end
 
@@ -279,6 +286,12 @@ function UIMiniWindow.create()
 end
 
 function UIMiniWindow:open(dontSave)
+    if not dontSave and not self._restoringOnStart and needsSidebarPlacementOnOpen(self) then
+        if not ensureSidebarPlacement(self) then
+            return false
+        end
+    end
+
     self:setVisible(true)
     if not dontSave then
         self:setSettings({
@@ -289,6 +302,7 @@ function UIMiniWindow:open(dontSave)
         playOpenHighlight(self)
     end
     signalcall(self.onOpen, self)
+    return true
 end
 
 function UIMiniWindow:close(dontSave)

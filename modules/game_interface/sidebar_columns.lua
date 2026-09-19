@@ -45,6 +45,34 @@ local function isSidebarPanelOpen(panel)
     return visibleSidebarWidth(panel) > 0
 end
 
+function isEligibleSidebarPanel(panel)
+    return panel and not panel:isDestroyed()
+        and panel:getClassName() == 'UIMiniWindowContainer'
+        and isSidebarPanelOpen(panel)
+        and panel:isOn()
+end
+
+function getMiniWindowSidebarPanelsInOrder()
+    local panels = {}
+
+    local function append(panel)
+        if isEligibleSidebarPanel(panel) then
+            panels[#panels + 1] = panel
+        end
+    end
+
+    append(gameRightPanel)
+    for _, panel in ipairs(gameRightExtraPanels or {}) do
+        append(panel)
+    end
+    append(gameLeftPanel)
+    for _, panel in ipairs(gameLeftExtraPanels or {}) do
+        append(panel)
+    end
+
+    return panels
+end
+
 local function getSideExtraPanelList(side)
     return side == 'left' and gameLeftExtraPanels or gameRightExtraPanels
 end

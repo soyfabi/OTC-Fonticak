@@ -1221,21 +1221,9 @@ function toggleTracker()
 	if preyTracker:isVisible() then
 		preyTracker:close(true)
 	else
-		local parent = preyTracker:getParent()
-		local root = g_ui.getRootWidget()
-		local docked = parent and parent ~= root and parent:getClassName() == "UIMiniWindowContainer"
-
-		if not docked then
-			local panel = modules.game_interface.findContentPanelAvailable(preyTracker, preyTracker:getMinimumHeight())
-
-			if not panel then
-				return
-			end
-
-			panel:addChild(preyTracker)
+		if not preyTracker:open() then
+			return
 		end
-
-		preyTracker:open()
 		preyTracker:getParent():moveChildToIndex(preyTracker, #preyTracker:getParent():getChildren())
 	end
 

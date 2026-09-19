@@ -1155,11 +1155,6 @@ function onContainerOpen(container, previousContainer)
         end
     end
 
-    if not previousContainer then
-        local panel = modules.game_interface.findContentPanelAvailable(containerWindow, cellSize.height)
-        panel:addChild(containerWindow)
-    end
-
     -- Set the initial height only when the container window is first opened. If
     -- the window is reused, preserve any height selected manually by the player.
     -- Re-measure chrome after parenting so padding/title match the live layout
@@ -1176,7 +1171,15 @@ function onContainerOpen(container, previousContainer)
             local numColumns = math.max(layout:getNumColumns(), 1)
             rows = math.max(math.ceil(container:getItemsCount() / numColumns), 1)
         end
-        containerWindow:setHeight(getContainerRowsHeight(cellSize, step, rows) + chromeHeight)
+        rows = math.min(rows, numLines)
+        local contentHeight = getContainerRowsHeight(cellSize, step, rows)
+        local windowHeight = contentHeight + chromeHeight
+
+        if not modules.game_interface.ensureMiniWindowSidebarPlacement(containerWindow, contentHeight) then
+            g_game.close(container)
+            return
+        end
+        containerWindow:setHeight(windowHeight)
     end
 
     containerWindow:setup()
