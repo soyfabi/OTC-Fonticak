@@ -2190,6 +2190,26 @@ function displayNoSidebarSpaceMessage()
     end
 end
 
+function getMiniWindowContentsInsets(widget)
+    local contentsPanel = widget and widget:getChildById('contentsPanel')
+    if not contentsPanel then
+        return 0
+    end
+    return contentsPanel:getMarginTop() + contentsPanel:getMarginBottom() +
+        contentsPanel:getPaddingTop() + contentsPanel:getPaddingBottom()
+end
+
+function normalizeMiniWindowPlacementContentHeight(widget, minContentHeight)
+    if minContentHeight ~= nil then
+        return minContentHeight
+    end
+    local minTotal = widget:getMinimumHeight()
+    if minTotal <= 0 then
+        return 0
+    end
+    return math.max(0, minTotal - getMiniWindowContentsInsets(widget))
+end
+
 local function panelFitsContent(panel, child, minContentHeight)
     return isEligibleSidebarPanel(panel)
         and panel:fits(child, minContentHeight, 0) >= 0
@@ -2218,8 +2238,12 @@ function ensureMiniWindowSidebarPlacement(widget, minContentHeight, silent)
         return false
     end
 
-    minContentHeight = minContentHeight or widget:getMinimumHeight()
     local parent = widget:getParent()
+    if parent and parent:getClassName() == 'UIMiniWindowContainer' and widget:isVisible() then
+        return true
+    end
+
+    minContentHeight = normalizeMiniWindowPlacementContentHeight(widget, minContentHeight)
 
     if parent and parent:getClassName() == 'UIMiniWindowContainer'
         and panelFitsContent(parent, widget, minContentHeight) then

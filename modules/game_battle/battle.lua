@@ -2798,13 +2798,12 @@ function toggle() -- Close/Open the battle window or Pressing Ctrl + B
     if battleButton:isOn() then
         battleWindow:close()
     else
-        -- Ensure events are connected when opening the main battle window
-        if g_game.isOnline() then
-            connecting()
-        end
-        
         if not battleWindow:open() then
             return
+        end
+
+        if g_game.isOnline() then
+            connecting()
         end
     end
 end

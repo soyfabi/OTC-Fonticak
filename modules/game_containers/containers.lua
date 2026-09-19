@@ -1175,7 +1175,9 @@ function onContainerOpen(container, previousContainer)
         local contentHeight = getContainerRowsHeight(cellSize, step, rows)
         local windowHeight = contentHeight + chromeHeight
 
-        if not modules.game_interface.ensureMiniWindowSidebarPlacement(containerWindow, contentHeight) then
+        local gi = modules.game_interface
+        local placementContentHeight = windowHeight - gi.getMiniWindowContentsInsets(containerWindow)
+        if not gi.ensureMiniWindowSidebarPlacement(containerWindow, placementContentHeight) then
             g_game.close(container)
             return
         end

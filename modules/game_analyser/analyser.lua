@@ -495,7 +495,11 @@ function onOpen()
 end
 
 function show()
-  analyserMiniWindow:open()
+  if not analyserMiniWindow:open() then
+    analyserMiniWindow.isOpen = false
+    analyserButton:setOn(false)
+    return
+  end
   analyserMiniWindow.isOpen = true
   analyserButton:setOn(true)
 end

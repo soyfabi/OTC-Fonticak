@@ -114,16 +114,19 @@ end
 function UIMiniWindow:dockToSidebar()
     removeEvent(self._floatRestoreEvent)
     self._floatRestoreEvent = nil
-    self.floating = nil
 
     local parent = self:getParent()
     if parent and parent:getClassName() == 'UIMiniWindowContainer' then
         return
     end
 
+    local wasFloating = self.floating
     if not ensureSidebarPlacement(self) then
+        self.floating = wasFloating
         return
     end
+
+    self.floating = nil
     self:fitOnParent()
 end
 
@@ -1279,7 +1282,8 @@ end
 
 function UIMiniWindow:fitOnParent()
     local parent = self:getParent()
-    if self:isVisible() and parent and parent:getClassName() == 'UIMiniWindowContainer' then
+    if self:isVisible() and parent and parent:getClassName() == 'UIMiniWindowContainer'
+        and not parent._fitAllInProgress then
         parent:fitAll(self)
     end
 end
