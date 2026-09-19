@@ -71,6 +71,126 @@ local function getQuickLootFilterItemName(itemId)
 	return ("item #" .. tostring(itemId)):lower()
 end
 
+local QUICKLOOT_EXPORT_DIR = '/configs/export/quickloot'
+local QUICKLOOT_EXPORT_VERSION = 1
+
+local function ensureQuickLootExportDir()
+	if not g_resources.directoryExists(QUICKLOOT_EXPORT_DIR) then
+		g_resources.makeDir(QUICKLOOT_EXPORT_DIR)
+	end
+end
+
+local function sanitizeQuickLootFileName(name)
+	name = name and name:gsub('%.json$', '') or ''
+	name = name:gsub('[\\/:*?"<>|]', '_'):gsub('^%s+', ''):gsub('%s+$', '')
+	if name == '' then
+		return nil
+	end
+	return name .. '.json'
+end
+
+local function defaultQuickLootExportFileName()
+	local player = g_game.getLocalPlayer()
+	local charName = player and player:getName() or 'quickloot'
+	charName = charName:lower():gsub('%s+', '_')
+	return string.format('%s_quickloot_%s.json', charName, os.date('%Y%m%d_%H%M%S'))
+end
+
+local QUICKLOOT_INPUTBOX_WIDTH = 480
+
+local function finalizeQuickLootInputBox(inputBox)
+	if not inputBox then
+		return
+	end
+
+	inputBox:setWidth(QUICKLOOT_INPUTBOX_WIDTH)
+	local contentWidth = QUICKLOOT_INPUTBOX_WIDTH - 20
+
+	for _, child in ipairs(inputBox:getChildren()) do
+		local className = child:getClassName()
+		if className == 'Label' then
+			child:setFixedSize(false)
+			child:setTextWrap(true)
+			child:setWidth(contentWidth)
+			child:setHeight(child:getTextSize().height + 2)
+		elseif className == 'TextEdit' or className == 'ComboBox' then
+			child:setWidth(contentWidth)
+		end
+	end
+end
+
+local function ensureLootListsStructure()
+	QuickLoot.data = QuickLoot.data or {}
+	QuickLoot.data.loots = QuickLoot.data.loots or {}
+	if type(QuickLoot.data.loots[1]) ~= 'table' then
+		QuickLoot.data.loots[1] = {}
+	end
+	if type(QuickLoot.data.loots[2]) ~= 'table' then
+		QuickLoot.data.loots[2] = {}
+	end
+end
+
+local function buildLootListExportEntries(itemIds)
+	local entries = {}
+	for _, itemId in ipairs(itemIds or {}) do
+		itemId = tonumber(itemId)
+		if itemId and itemId > 0 then
+			table.insert(entries, {
+				id = itemId,
+				name = getQuickLootFilterItemName(itemId)
+			})
+		end
+	end
+	table.sort(entries, function(a, b)
+		return a.id < b.id
+	end)
+	return entries
+end
+
+local function parseLootListImportEntries(entries)
+	local itemIds = {}
+	local seen = {}
+	if type(entries) ~= 'table' then
+		return itemIds
+	end
+
+	for _, entry in ipairs(entries) do
+		local itemId = tonumber(type(entry) == 'table' and entry.id or entry)
+		if itemId and itemId > 0 and not seen[itemId] then
+			seen[itemId] = true
+			table.insert(itemIds, itemId)
+		end
+	end
+
+	return itemIds
+end
+
+local function syncLootListsWithServer()
+	ensureLootListsStructure()
+	g_game.requestQuickLootBlackWhiteList(getFilter(1), #QuickLoot.data.loots[1], QuickLoot.data.loots[1])
+	g_game.requestQuickLootBlackWhiteList(getFilter(2), #QuickLoot.data.loots[2], QuickLoot.data.loots[2])
+end
+
+local function showQuickLootTransferMessage(title, message)
+	if displayInfoBox then
+		displayInfoBox(title, message)
+	else
+		g_logger.info("[%s] %s", title, message)
+	end
+end
+
+local function listQuickLootExportFiles()
+	ensureQuickLootExportDir()
+	local files = {}
+	for _, file in ipairs(g_resources.listDirectoryFiles(QUICKLOOT_EXPORT_DIR)) do
+		if file:match('%.json$') then
+			table.insert(files, file)
+		end
+	end
+	table.sort(files)
+	return files
+end
+
 function QuickLoot.getConfiguredLootFlags(itemId)
 	if not itemId or itemId <= 0 then
 		return 0, 0
@@ -324,7 +444,7 @@ function quickLootController:onInit()
     QuickLoot.data = {
         filter = 1,
         loots = {
-            [0] = {},
+            {},
             {}
         }
     }
@@ -528,6 +648,8 @@ function QuickLoot.Define()
                 }
             }
         end
+
+        ensureLootListsStructure()
     end
 
     function QuickLoot.save()
@@ -939,5 +1061,179 @@ function QuickLoot.Define()
 
         hideModal(quickLootController.ui)
         quickLootController.ui:hide()
+    end
+
+    function QuickLoot.applyImportedLootLists(skipped, accepted)
+        ensureLootListsStructure()
+        QuickLoot.data.loots[1] = skipped or {}
+        QuickLoot.data.loots[2] = accepted or {}
+        syncLootListsWithServer()
+        QuickLoot.save()
+        QuickLoot.loadFilterItems()
+        refreshCyclopediaQuickLootCheck()
+    end
+
+    function QuickLoot.exportLootLists()
+        if not g_game.isOnline() then
+            return
+        end
+
+        ensureLootListsStructure()
+        ensureQuickLootExportDir()
+
+        local suggested = defaultQuickLootExportFileName():gsub('%.json$', '')
+        local inputBox = displayInputBox(tr('Export Loot'), tr('File name (saved in configs/export/quickloot):'), function(name)
+            local fileName = sanitizeQuickLootFileName(name) or defaultQuickLootExportFileName()
+            local player = g_game.getLocalPlayer()
+            local payload = {
+                version = QUICKLOOT_EXPORT_VERSION,
+                type = 'quickloot',
+                character = player and player:getName() or '',
+                exportedAt = os.date('!%Y-%m-%dT%H:%M:%SZ'),
+                skipped = buildLootListExportEntries(QuickLoot.data.loots[1]),
+                accepted = buildLootListExportEntries(QuickLoot.data.loots[2])
+            }
+
+            local ok, encoded = pcall(function()
+                return json.encode(payload, 2)
+            end)
+            if not ok or not encoded then
+                showQuickLootTransferMessage(tr('Export Loot'), tr('Could not encode loot list.'))
+                return
+            end
+
+            local path = QUICKLOOT_EXPORT_DIR .. '/' .. fileName
+            local writeOk, writeErr = pcall(function()
+                return g_resources.writeFileContents(path, encoded)
+            end)
+            if writeOk and writeErr then
+                showQuickLootTransferMessage(
+                    tr('Export Loot'),
+                    tr('Exported %d skipped and %d accepted items to:\n%s', #payload.skipped, #payload.accepted, path)
+                )
+            else
+                showQuickLootTransferMessage(tr('Export Loot'), tr('Could not save file:\n%s', tostring(writeErr)))
+            end
+        end, nil, suggested)
+        finalizeQuickLootInputBox(inputBox)
+    end
+
+    local function applyImportedLootFile(fileName)
+        local path = QUICKLOOT_EXPORT_DIR .. '/' .. fileName
+        if not g_resources.fileExists(path) then
+            showQuickLootTransferMessage(tr('Import Loot'), tr('File not found.'))
+            return
+        end
+
+        local status, contents = pcall(function()
+            return g_resources.readFileContents(path)
+        end)
+        if not status or not contents then
+            showQuickLootTransferMessage(tr('Import Loot'), tr('Could not read file.'))
+            return
+        end
+
+        local decodeOk, payload = pcall(function()
+            return json.decode(contents)
+        end)
+        if not decodeOk or type(payload) ~= 'table' then
+            showQuickLootTransferMessage(tr('Import Loot'), tr('Invalid JSON file.'))
+            return
+        end
+
+        local skipped = parseLootListImportEntries(payload.skipped)
+        local accepted = parseLootListImportEntries(payload.accepted)
+        if #skipped == 0 and #accepted == 0 then
+            showQuickLootTransferMessage(tr('Import Loot'), tr('No loot entries found in file.'))
+            return
+        end
+
+        QuickLoot.applyImportedLootLists(skipped, accepted)
+        showQuickLootTransferMessage(
+            tr('Import Loot'),
+            tr('Imported %d skipped and %d accepted items.', #skipped, #accepted)
+        )
+    end
+
+    function QuickLoot.importLootLists()
+        if not g_game.isOnline() then
+            return
+        end
+
+        local files = listQuickLootExportFiles()
+        if #files == 0 then
+            showQuickLootTransferMessage(tr('Import Loot'), tr('No JSON files found in configs/export/quickloot.'))
+            return
+        end
+
+        local inputBox = UIInputBox.create(tr('Import Loot'), function(option)
+            local fileName = option
+            if type(option) == 'table' then
+                fileName = option.text or option
+            end
+            if not fileName or fileName == '' then
+                return
+            end
+
+            local skippedCount = 0
+            local acceptedCount = 0
+            local path = QUICKLOOT_EXPORT_DIR .. '/' .. fileName
+            if g_resources.fileExists(path) then
+                local decodeOk, payload = pcall(function()
+                    return json.decode(g_resources.readFileContents(path))
+                end)
+                if decodeOk and type(payload) == 'table' then
+                    skippedCount = #parseLootListImportEntries(payload.skipped)
+                    acceptedCount = #parseLootListImportEntries(payload.accepted)
+                end
+            end
+
+            local function confirmImport()
+                applyImportedLootFile(fileName)
+            end
+
+            if displayGeneralBox then
+                local box
+                local accept = function()
+                    if box then
+                        box:destroy()
+                    end
+                    confirmImport()
+                end
+                local cancel = function()
+                    if box then
+                        box:destroy()
+                    end
+                end
+                box = displayGeneralBox(
+                    tr('Confirm Import'),
+                    tr('Import %d skipped and %d accepted items?\n\nThis will replace your current loot lists.', skippedCount, acceptedCount),
+                    {
+                        { text = tr('Cancel'), callback = cancel },
+                        { text = tr('Import'), callback = accept },
+                        anchor = AnchorHorizontalCenter,
+                    },
+                    accept,
+                    cancel
+                )
+            else
+                confirmImport()
+            end
+        end)
+        inputBox:addLabel(tr('Choose a JSON file from configs/export/quickloot:'))
+        inputBox:addComboBox(nil, unpack(files))
+        inputBox:display()
+        finalizeQuickLootInputBox(inputBox)
+    end
+
+    function QuickLoot.openExportFolder()
+        ensureQuickLootExportDir()
+        local writeDir = g_resources.getWriteDir() or ''
+        if writeDir == '' then
+            showQuickLootTransferMessage(tr('Open Folder'), tr('Could not resolve the client data folder.'))
+            return
+        end
+        local directory = (writeDir .. QUICKLOOT_EXPORT_DIR):gsub('[/\\]+', '\\')
+        g_platform.openDir(directory)
     end
 end

@@ -302,8 +302,7 @@ return {
                 end
                 delayWidget:setEnabled(true)
                 delayWidget:setOpacity(1.0)
-                -- Red when using default (slider locked); orange when custom delay is active.
-                delayWidget:setColor(value and '#ff4444ff' or '#df9f4fff')
+                delayWidget:setColor(modules.client_options.getKeyboardDelayTextColor(delay, value))
             end
         end
     },
@@ -315,7 +314,7 @@ return {
             local delayWidget = panels.generalPanel:recursiveGetChildById('keyboardDelay')
             if delayWidget then
                 local useDefault = options.useDefaultKeyboardDelay and options.useDefaultKeyboardDelay.value
-                delayWidget:setColor(useDefault and '#ff4444ff' or '#df9f4fff')
+                delayWidget:setColor(modules.client_options.getKeyboardDelayTextColor(value, useDefault))
             end
             if options.useDefaultKeyboardDelay and options.useDefaultKeyboardDelay.value then
                 return
