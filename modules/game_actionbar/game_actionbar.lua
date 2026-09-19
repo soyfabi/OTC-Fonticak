@@ -1079,6 +1079,9 @@ function updateInventoryItems(_)
                 if needsInventoryRefreshOutsideItemCache(button.cache) then
                     updated[button] = true
                     updateButtonState(button)
+                    if refreshOpenMultiActionPanel then
+                        refreshOpenMultiActionPanel(button)
+                    end
                 end
                 ::continue::
             end
@@ -1095,6 +1098,10 @@ function updateInventoryItems(_)
             if (button.cache.itemId and button.cache.itemId ~= 0)
                 or needsInventoryRefreshOutsideItemCache(button.cache) then
                 updateButtonState(button)
+                if hasMultiActions and hasMultiActions(button.cache.multiActions)
+                    and refreshOpenMultiActionPanel then
+                    refreshOpenMultiActionPanel(button)
+                end
             end
             ::continue::
         end

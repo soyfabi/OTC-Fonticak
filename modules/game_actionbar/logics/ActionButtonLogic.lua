@@ -533,6 +533,17 @@ function onExecuteAction(button, isPress)
         modules.game_console.getConsole():setText(button.cache.param)
         modules.game_console.getConsole():setCursorPos(#button.cache.param)
     end
+
+    local multiParent = button.parentButton
+    if not multiParent and button.cache and hasMultiActions and hasMultiActions(button.cache.multiActions) then
+        multiParent = button
+    end
+    if multiParent and updateMultiButtonState and action ~= 0 then
+        updateMultiButtonState(multiParent)
+        if refreshOpenMultiActionPanel then
+            refreshOpenMultiActionPanel(multiParent)
+        end
+    end
 end
 
 --- Translates hotkey text for display

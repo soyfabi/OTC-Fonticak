@@ -217,6 +217,10 @@ local function findNextAvailableAction(multiActions, button)
             local itemId = data["useObject"]
             local upgradeTier = data["upgradeTier"] or 0
             local itemCount = player and player:getInventoryCount(itemId, upgradeTier) or 0
+            local useTypeName = localGetActionName(data["useType"]) or "Use"
+            local isEquipAction = (UseTypes[useTypeName] or UseTypes["Use"]) == UseTypes["Equip"]
+            local isEquipped = player and player:hasEquippedItemId(itemId, upgradeTier)
+            local isAvailable = itemCount > 0 or (isEquipAction and isEquipped)
             if not firstValidAction then
                 firstValidAction = data
                 firstValidActionIndex = i
@@ -228,17 +232,17 @@ local function findNextAvailableAction(multiActions, button)
                 local groupCooldownRemaining = getSpellGroupCooldownRemaining(runeSpellData)
                 local totalCooldownRemaining = math.max(spellCooldownRemaining, groupCooldownRemaining)
 
-                if totalCooldownRemaining <= 0 and itemCount > 0 then
+                if totalCooldownRemaining <= 0 and isAvailable then
                     if not bestAction then
                         bestAction = data
                         bestActionIndex = i
                     end
-                elseif itemCount > 0 and totalCooldownRemaining < closestCooldownTime then
+                elseif isAvailable and totalCooldownRemaining < closestCooldownTime then
                     closestCooldownTime = totalCooldownRemaining
                     closestCooldownAction = data
                     closestCooldownActionIndex = i
                 end
-            elseif itemCount > 0 then
+            elseif isAvailable then
                 if not bestAction then
                     bestAction = data
                     bestActionIndex = i
@@ -290,6 +294,7 @@ local function renderSlotOnWidget(widget, slotData, isMainButton, slotIndex)
         widget.cache.actionType = UseTypes[useTypeName] or UseTypes["Use"]
 
         local itemCount = player and player:getInventoryCount(widget.cache.itemId, widget.cache.upgradeTier) or 0
+        local isEquipped = player and player:hasEquippedItemId(widget.cache.itemId, widget.cache.upgradeTier)
         widget.item:setItemCount(math.max(itemCount, 0))
         if widget.item.setDisplayCount and modules.client_options.getOption('showHKObjectsBars') then
             widget.item:setDisplayCount(itemCount)
@@ -297,14 +302,15 @@ local function renderSlotOnWidget(widget, slotData, isMainButton, slotIndex)
             widget.item:clearDisplayCount()
         end
         if widget.item.gray then
-            widget.item.gray:setVisible(itemCount == 0)
+            widget.item.gray:setVisible(itemCount == 0 and not isEquipped)
         end
         if widget.item.text and widget.item.text.gray then
-            widget.item.text.gray:setVisible(itemCount == 0)
+            widget.item.text.gray:setVisible(itemCount == 0 and not isEquipped)
         end
         if widget.cache.actionType == UseTypes["Equip"] then
-            local equipped = player and player:hasEquippedItemId(widget.cache.itemId, widget.cache.upgradeTier)
-            applyActionButtonSlotClip(widget, equipped)
+            applyActionButtonSlotClip(widget, isEquipped)
+        elseif widget.cache.equippedVisual then
+            applyActionButtonSlotClip(widget, false)
         end
 
         local runeSpellData = Spells.getRuneSpellByItem(widget.cache.itemId)
@@ -367,6 +373,24 @@ local function renderSlotOnWidget(widget, slotData, isMainButton, slotIndex)
     setupButtonTooltip(widget, false)
 end
 
+function refreshOpenMultiActionPanel(parentButton)
+    if not parentButton or not multiPanel or multiPanel:isDestroyed() then
+        return
+    end
+    if multiPanel.button ~= parentButton or not parentButton.cache or not parentButton.cache.multiActions then
+        return
+    end
+
+    for k = 1, 3 do
+        local actionButton = multiPanel:recursiveGetChildById("actionButton" .. k)
+        local data = parentButton.cache.multiActions[k]
+        if actionButton and data and not table.empty(data) then
+            actionButton.cache = getButtonCache(actionButton)
+            renderSlotOnWidget(actionButton, data, false, k)
+        end
+    end
+end
+
 function updateMultiButtonState(button)
     if not button or not button.item or not player or not button.cache then
         return
@@ -397,9 +421,20 @@ function updateMultiButtonState(button)
         if action["useObject"] and button.cache.itemId == action["useObject"] then
             local useTypeName = localGetActionName(action["useType"]) or "Use"
             if button.cache.actionType == (UseTypes[useTypeName] or UseTypes["Use"]) then
+                if button.cache.actionType == UseTypes["Equip"] then
+                    local tier = button.cache.upgradeTier or 0
+                    local equipped = player:hasEquippedItemId(button.cache.itemId, tier)
+                    applyActionButtonSlotClip(button, equipped)
+                end
+                refreshOpenMultiActionPanel(button)
                 return
             end
         end
+    end
+
+    if button.cache.activeMultiIndex and button.cache.activeMultiIndex ~= actionIndex then
+        button.cache.pendingEquipVisual = nil
+        button.cache.pendingEquipVisualUntil = nil
     end
 
     removeCooldown(button)
