@@ -232,6 +232,8 @@ function controllerVip:onInit()
 		newWindowButton:setVisible(false)
 	end
 
+	vipWindow:updateMiniWindowHeaderLayout()
+
 	if g_game.isOnline() then
 		vipWindow:setupOnStart()
 	end

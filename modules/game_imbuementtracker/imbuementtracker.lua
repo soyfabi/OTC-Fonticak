@@ -114,6 +114,7 @@ function initialize()
     end
 
     imbuementTracker:setup()
+    imbuementTracker:updateMiniWindowHeaderLayout()
     imbuementTracker:hide()
 
     if g_game.isOnline() then

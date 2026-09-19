@@ -1,6 +1,73 @@
 -- /*=============================================
 -- =            util             =
 -- =============================================*/
+local SLOT_IMG_FILLED = '/images/game/actionbar/slot-actionbar-filled'
+local SLOT_CLIP_FILLED_NORMAL = '0 0 34 34'
+local SLOT_CLIP_FILLED_PRESSED = '0 34 34 34'
+local SLOT_COLOR_FILLED_NORMAL = '#ffffff'
+local SLOT_COLOR_FILLED_EQUIPPED = '#d8d8d8'
+local EQUIP_VISUAL_PENDING_MS = 800
+
+local function clearPendingEquipVisual(cache)
+    if not cache then
+        return
+    end
+    cache.pendingEquipVisual = nil
+    cache.pendingEquipVisualUntil = nil
+end
+
+local function resolveEquipButtonVisual(button, isItemEquipped)
+    local cache = button and button.cache
+    if not cache or cache.pendingEquipVisual == nil then
+        return isItemEquipped
+    end
+
+    if isItemEquipped == cache.pendingEquipVisual then
+        clearPendingEquipVisual(cache)
+        return isItemEquipped
+    end
+
+    if cache.pendingEquipVisualUntil and g_clock.millis() < cache.pendingEquipVisualUntil then
+        return cache.pendingEquipVisual
+    end
+
+    clearPendingEquipVisual(cache)
+    return isItemEquipped
+end
+
+--- Applies the filled action slot frame clip (normal or pressed/equipped).
+function applyActionButtonSlotClip(button, pressed)
+    if not button or button:isDestroyed() or not button.item or button.item:isDestroyed() then
+        return
+    end
+
+    if not button.item:isOn() then
+        return
+    end
+
+    if button.cache and button.cache.equippedVisual == pressed then
+        return
+    end
+
+    button.item:setImageSource(SLOT_IMG_FILLED)
+    button.item:setImageClip(pressed and SLOT_CLIP_FILLED_PRESSED or SLOT_CLIP_FILLED_NORMAL)
+    button.item:setImageColor(pressed and SLOT_COLOR_FILLED_EQUIPPED or SLOT_COLOR_FILLED_NORMAL)
+    button.item:setChecked(pressed)
+
+    if button.cache then
+        button.cache.equippedVisual = pressed
+    end
+end
+
+local function setPendingEquipVisual(button, equipped)
+    if not button or not button.cache then
+        return
+    end
+    button.cache.pendingEquipVisual = equipped
+    button.cache.pendingEquipVisualUntil = g_clock.millis() + EQUIP_VISUAL_PENDING_MS
+    applyActionButtonSlotClip(button, equipped)
+end
+
 --- checks if string is empty
 local function string_empty(str)
     return #str == 0
@@ -411,7 +478,9 @@ function onExecuteAction(button, isPress)
             and not player:hasEquippedItemId(button.cache.itemId, tier) then
             return
         end
+        local isEquipped = player:hasEquippedItemId(button.cache.itemId, tier)
         g_game.equipItemId(button.cache.itemId, tier)
+        setPendingEquipVisual(button, not isEquipped)
     end
 
     if action == UseTypes["Use"] and button.item then
@@ -463,6 +532,17 @@ function onExecuteAction(button, isPress)
     elseif action == UseTypes["chatText"] then
         modules.game_console.getConsole():setText(button.cache.param)
         modules.game_console.getConsole():setCursorPos(#button.cache.param)
+    end
+
+    local multiParent = button.parentButton
+    if not multiParent and button.cache and hasMultiActions and hasMultiActions(button.cache.multiActions) then
+        multiParent = button
+    end
+    if multiParent and updateMultiButtonState and action ~= 0 then
+        updateMultiButtonState(multiParent)
+        if refreshOpenMultiActionPanel then
+            refreshOpenMultiActionPanel(multiParent)
+        end
     end
 end
 
@@ -531,6 +611,7 @@ function updateButtonState(button)
     elseif isEquipmentPresetCache and isEquipmentPresetCache(button.cache) then
         if button.item.gray then button.item.gray:setVisible(false) end
         setupButtonTooltip(button, false)
+        applyActionButtonSlotClip(button, isEquipmentSetFullyActive(button.cache))
     elseif button.cache.itemId ~= 0 then
         local tier = 0
         if g_game.getFeature(GameThingUpgradeClassification) then
@@ -545,10 +626,11 @@ function updateButtonState(button)
             button.item.gray:setVisible(itemCount == 0)
         end
 
-        if g_game.getFeature(GameEnterGameShowAppearance) then
-            if button.cache.actionType == UseTypes["Equip"] then
-                button.item:setChecked(itemCount ~= 0 and isItemEquipped)
-            end
+        if button.cache.actionType == UseTypes["Equip"] then
+            applyActionButtonSlotClip(button, resolveEquipButtonVisual(button, isItemEquipped))
+        elseif button.cache.equippedVisual then
+            clearPendingEquipVisual(button.cache)
+            applyActionButtonSlotClip(button, false)
         end
         if button.item.setDisplayCount then
             if modules.client_options.getOption('showHKObjectsBars') then
@@ -711,6 +793,8 @@ function resetButtonCache(button)
     c.equipmentDescription = nil
     c.equipmentTypeIndex = nil
     c.isEquipmentPreset = false
+    c.equippedVisual = nil
+    clearPendingEquipVisual(c)
     if button.equipmentTypeIcon then
         button.equipmentTypeIcon:setVisible(false)
     end

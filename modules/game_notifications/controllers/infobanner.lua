@@ -248,6 +248,38 @@ local function refreshAdvanceText(item)
     end
 end
 
+local function parseBestiaryCreatureNameFromDescription(desc)
+    if not desc or desc == "" then
+        return nil
+    end
+
+    local creatureName = desc:match(" for (.+)'%s*$") or desc:match(" for (.+)$")
+    if creatureName then
+        creatureName = creatureName:gsub("^['\"%s]+", ""):gsub("['\"%s%.]+$", "")
+    end
+    return creatureName ~= "" and creatureName or nil
+end
+
+local function openBestiaryFromBanner(extraData)
+    if not extraData then
+        return false
+    end
+
+    local cyclopedia = modules.game_cyclopedia
+    if not cyclopedia then
+        return false
+    end
+
+    if cyclopedia.openBestiaryByRaceIdOrName then
+        return cyclopedia.openBestiaryByRaceIdOrName(extraData.raceId, extraData.creatureName)
+    end
+    if cyclopedia.Cyclopedia and cyclopedia.Cyclopedia.openBestiaryByRaceIdOrName then
+        return cyclopedia.Cyclopedia.openBestiaryByRaceIdOrName(extraData.raceId, extraData.creatureName)
+    end
+
+    return false
+end
+
 local function shouldSkipRecentClientEvent(key)
     if not key then
         return false
@@ -459,6 +491,9 @@ function notificationsController:onClientEvent(eventCat, ...)
         if popupTemplate.hasRaceId then
             extraData.raceId = raceId
             extraData.outfit = raceOutfit or (protoData and raceId and protoData[raceId])
+            extraData.isBestiaryBanner = eventCat == eventCategory.CLIENT_EVENT_TYPE_BESTIARY
+            extraData.creatureName = (raceOutfit and raceOutfit.name)
+                or parseBestiaryCreatureNameFromDescription(description)
         end
 
     elseif eventCat == eventCategory.CLIENT_EVENT_TYPE_ACHIEVEMENT then
@@ -506,6 +541,55 @@ function notificationsController:ensure()
     }
     self.widgets.fadeTexts = { self.widgets.title, self.widgets.desc }
     self.widgets.fadeIcons = { self.widgets.icon, self.widgets.icon2, self.widgets.icon3, self.widgets.append }
+end
+
+function notificationsController:clearBannerClick()
+    if self.widgets and self.widgets.clickLayer and not self.widgets.clickLayer:isDestroyed() then
+        self.widgets.clickLayer:destroy()
+        self.widgets.clickLayer = nil
+    end
+end
+
+function notificationsController:bindBannerClick(data)
+    self:clearBannerClick()
+
+    local extraData = data and data.extraData
+    if not extraData or not extraData.isBestiaryBanner then
+        return
+    end
+
+    local raceId = extraData.raceId
+    local creatureName = extraData.creatureName or (extraData.outfit and extraData.outfit.name)
+    if (not raceId or raceId <= 0) and (not creatureName or creatureName == "") then
+        return
+    end
+
+    extraData.creatureName = creatureName
+
+    local clickLayer = g_ui.createWidget('UIWidget', self.ui)
+    clickLayer:setId('bestiaryClickLayer')
+    clickLayer:addAnchor(AnchorLeft, 'parent', AnchorLeft)
+    clickLayer:addAnchor(AnchorRight, 'parent', AnchorRight)
+    clickLayer:addAnchor(AnchorTop, 'parent', AnchorTop)
+    clickLayer:addAnchor(AnchorBottom, 'parent', AnchorBottom)
+    clickLayer:setFocusable(false)
+    clickLayer:setPhantom(false)
+    clickLayer:raise()
+
+    clickLayer.onMousePress = function(widget, mousePos, mouseButton)
+        return mouseButton == MouseLeftButton
+    end
+    clickLayer.onMouseRelease = function(widget, mousePos, mouseButton)
+        if mouseButton ~= MouseLeftButton then
+            return false
+        end
+
+        openBestiaryFromBanner(extraData)
+        self:close()
+        return true
+    end
+
+    self.widgets.clickLayer = clickLayer
 end
 
 function notificationsController:updateBannerPosition()
@@ -611,6 +695,7 @@ function notificationsController:setPaperSize(width)
 end
 
 function notificationsController:resetBanner()
+    self:clearBannerClick()
     local w = self.ui
     -- Start off-screen to the left and invisible; slide+fade brings it to center.
     w:setOpacity(0)
@@ -750,6 +835,8 @@ function notificationsController:processNext()
             end
         end
     end
+
+    self:bindBannerClick(data)
 
     self.state = "opening"
     self:slideFadeIn()
@@ -968,6 +1055,7 @@ function notificationsController:exit()
 end
 
 function notificationsController:hideImmediate()
+    self:clearBannerClick()
     self:cancelEvent()
     if self.ui and not self.ui:isDestroyed() then
         self.ui:destroy()

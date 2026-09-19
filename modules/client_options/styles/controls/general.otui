@@ -23,7 +23,7 @@ UIWidget
       
     OptionsComboBox
       id: mouseControlMode
-      width: 120
+      width: 140
       margin-left: 10
       anchors.verticalCenter: prev.verticalCenter
       anchors.left: prev.right
@@ -71,7 +71,7 @@ UIWidget
       color: #df9f4fff
       !text: tr('Keyboard Delay: 120 ms')
       &minimumScrollValue: 10
-      &maximumScrollValue: 250
+      &maximumScrollValue: 1000
       &scrollSize: 21
       @onSetup: |
         local value = modules.client_options.getOption('keyboardDelay')
@@ -79,7 +79,7 @@ UIWidget
         self:setText(tr('Keyboard Delay: %s ms', value))
         self:setEnabled(true)
         self:setOpacity(1.0)
-        self:setColor(useDefault and '#ff4444ff' or '#df9f4fff')
+        self:setColor(modules.client_options.getKeyboardDelayTextColor(value, useDefault))
         local valueBar = self:recursiveGetChildById('valueBar')
         if valueBar then
           valueBar:setEnabled(not useDefault)

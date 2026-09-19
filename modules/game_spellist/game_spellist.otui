@@ -127,14 +127,16 @@ MiniWindow
     anchors.top: minimizeButton.top
     anchors.right: minimizeButton.left
     margin-right: 3
+    margin-top: 0
     size: 12 12
+    image-size: 14 14
     image-source: /images/ui/miniwindow_buttons
-    image-clip: 113 1 12 12
+    image-clip: 112 0 14 14
     @onClick: modules.game_spellist.onExtraMenu()
     $hover:
-      image-clip: 113 15 12 12
+      image-clip: 112 14 14 14
     $pressed:
-      image-clip: 113 29 12 12
+      image-clip: 112 28 14 14
 
   Panel
     id: infoPanel

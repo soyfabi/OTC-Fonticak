@@ -1,5 +1,8 @@
 &var-cip-font: verdana-11px-antialised
 
+QuickLootQtButton < QtButton
+  font: Verdana Bold-11px
+
 WindowHigh
   id: main
   !text: tr('Manage Containers')
@@ -341,13 +344,44 @@ WindowHigh
     margin-bottom: 1
     step: 48
 
-  Button
+  QuickLootQtButton
+    id: openFolderButton
+    !text: tr('Open Folder')
+    !tooltip: tr('Open the folder where loot JSON files are saved.')
+    anchors.bottom: parent.bottom
+    anchors.right: exportLootButton.left
+    margin-right: 6
+    height: 20
+    width: 100
+    @onClick: QuickLoot.openExportFolder()
+
+  QuickLootQtButton
+    id: exportLootButton
+    !text: tr('Export Loot')
+    anchors.bottom: parent.bottom
+    anchors.right: importLootButton.left
+    margin-right: 6
+    height: 20
+    width: 98
+    @onClick: QuickLoot.exportLootLists()
+
+  QuickLootQtButton
+    id: importLootButton
+    !text: tr('Import Loot')
+    anchors.bottom: parent.bottom
+    anchors.right: closeButton.left
+    margin-right: 6
+    height: 20
+    width: 98
+    @onClick: QuickLoot.importLootLists()
+
+  QuickLootQtButton
     id: closeButton
     !text: tr('Close')
     anchors.bottom: parent.bottom
     anchors.right: parent.right
     height: 20
-    width: 43
+    width: 50
     @onClick: QuickLoot.toggle()
 
   HorizontalSeparator

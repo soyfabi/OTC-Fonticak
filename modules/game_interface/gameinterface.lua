@@ -247,7 +247,7 @@ function bindKeys()
         local positionOffset = map:getPositionOffset(mousePos)
         local lookThing = tile:getTopLookThingEx(positionOffset)
         local creatureThing = tile:getTopCreatureEx(positionOffset)
-        if creatureThing then
+        if creatureThing and creatureThing:isPlayer() and not creatureThing:isLocalPlayer() then
             g_game.inspectCharacter(creatureThing:getId(), InspectCreaturesTypes.INSPECT_CREATURE)
         elseif lookThing and lookThing:isItem() and not lookThing:isNotMoveable() then
             g_game.inspectionNormalObject(lookThing:getPosition())
@@ -1019,13 +1019,9 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
         end, shortcut)
         local clientVersion = g_game.getClientVersion()
         local canInspect = lookThing:isItem() and not lookThing:isNotMoveable()
-        if modules.game_inspect and (lookThing:isCreature() or canInspect) then
+        if modules.game_inspect and canInspect then
             menu:addOption(tr('Inspect'), function()
-                if lookThing:isCreature() then
-                    g_game.inspectCharacter(lookThing:getId(), InspectCreaturesTypes.INSPECT_CREATURE)
-                elseif canInspect then
-                    g_game.inspectionNormalObject(lookThing:getPosition())
-                end
+                g_game.inspectionNormalObject(lookThing:getPosition())
             end, '(Ctrl+I)')
         end
         if lookThing:isItem() and lookThing:isPickupable() and not lookThing:isNotMoveable()
@@ -1229,6 +1225,23 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
                 end)
             else
                 menu:addSeparator()
+                local cyclopedia = modules.game_cyclopedia
+                local cyc = cyclopedia and cyclopedia.Cyclopedia
+                local isUnlocked = cyclopedia and cyclopedia.isBestiaryCreatureUnlocked
+                    and cyclopedia.isBestiaryCreatureUnlocked(creatureThing)
+                if not isUnlocked and cyclopedia and cyclopedia.ensureBestiaryCreatureLookup then
+                    cyclopedia.ensureBestiaryCreatureLookup(creatureThing)
+                    isUnlocked = cyclopedia.isBestiaryCreatureUnlocked(creatureThing)
+                end
+                if isUnlocked then
+                    menu:addOption(tr('Open Bestiary'), function()
+                        if cyclopedia.openBestiaryCreature then
+                            cyclopedia.openBestiaryCreature(creatureThing)
+                        elseif cyc and cyc.openBestiaryCreature then
+                            cyc.openBestiaryCreature(creatureThing)
+                        end
+                    end)
+                end
                 menu:addOption(tr('Copy Name'), function()
                     g_window.setClipboardText(creatureThing:getName())
                 end)
@@ -1370,6 +1383,13 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
         markLookCombo()
         g_game.look(lookThing)
         return true
+    end
+
+    if mouseButton == MouseRightButton and keyboardModifiers == KeyboardCtrlModifier then
+        if lookThing or useThing or creatureThing then
+            createThingMenu(menuPosition, lookThing, useThing, creatureThing)
+            return true
+        end
     end
 
     -- Leftover left release after a look combo (or fast dual-release race).
