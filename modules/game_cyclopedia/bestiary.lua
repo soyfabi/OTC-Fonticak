@@ -484,17 +484,12 @@ function loadBestiaryUnlockCache()
 	end
 end
 
-function rememberBestiaryUnlock(raceId, progress, outfit)
-	if not raceId or raceId <= 0 then
-		return
+local function normalizeBestiaryCacheNumber(value)
+	local number = tonumber(value)
+	if not number or number < 0 then
+		return 0
 	end
-
-	cacheBestiaryUnlockEntry({
-		raceId = raceId,
-		progress = progress or 1,
-		kills = 1,
-		outfit = outfit
-	})
+	return number
 end
 
 local function cacheBestiaryUnlockEntry(entry)
@@ -503,20 +498,24 @@ local function cacheBestiaryUnlockEntry(entry)
 	end
 
 	local cached = bestiaryUnlockCache[entry.raceId]
+	local entryKills = normalizeBestiaryCacheNumber(entry.kills)
+	local entryProgress = normalizeBestiaryCacheNumber(entry.progress)
+
 	if cached then
-		local cachedKills = cached.kills or 0
-		local cachedProgress = cached.progress or 0
-		local entryKills = entry.kills or 0
-		local entryProgress = entry.progress or 0
-		if entryKills <= cachedKills and entryProgress <= cachedProgress and not entry.outfit then
+		entryKills = math.max(entryKills, normalizeBestiaryCacheNumber(cached.kills))
+		entryProgress = math.max(entryProgress, normalizeBestiaryCacheNumber(cached.progress))
+
+		if entryKills == normalizeBestiaryCacheNumber(cached.kills)
+			and entryProgress == normalizeBestiaryCacheNumber(cached.progress)
+			and not entry.outfit then
 			return
 		end
 	end
 
 	bestiaryUnlockCache[entry.raceId] = {
 		raceId = entry.raceId,
-		progress = entry.progress or (cached and cached.progress) or 0,
-		kills = entry.kills or (cached and cached.kills) or 0,
+		progress = entryProgress,
+		kills = entryKills,
 		outfit = entry.outfit or (cached and cached.outfit)
 	}
 
@@ -532,6 +531,19 @@ local function cacheBestiaryUnlockEntry(entry)
 	indexBestiaryUnlockName(entry.raceId, outfitName)
 
 	saveBestiaryUnlockCacheSoon()
+end
+
+function rememberBestiaryUnlock(raceId, progress, outfit)
+	if not raceId or raceId <= 0 then
+		return
+	end
+
+	cacheBestiaryUnlockEntry({
+		raceId = raceId,
+		progress = progress or 1,
+		kills = 1,
+		outfit = outfit
+	})
 end
 
 local function isBestiaryCreatureUnlockedByName(creatureName)

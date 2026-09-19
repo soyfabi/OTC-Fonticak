@@ -73,6 +73,7 @@ end
 
 local QUICKLOOT_EXPORT_DIR = '/configs/export/quickloot'
 local QUICKLOOT_EXPORT_VERSION = 1
+local QUICKLOOT_LOOTS_FORMAT = 2
 
 local function ensureQuickLootExportDir()
 	if not g_resources.directoryExists(QUICKLOOT_EXPORT_DIR) then
@@ -128,6 +129,103 @@ local function ensureLootListsStructure()
 	if type(QuickLoot.data.loots[2]) ~= 'table' then
 		QuickLoot.data.loots[2] = {}
 	end
+	QuickLoot.data.lootsFormat = QUICKLOOT_LOOTS_FORMAT
+end
+
+local function copyQuickLootIdList(source)
+	local copy = {}
+	if type(source) ~= 'table' then
+		return copy
+	end
+	for _, itemId in ipairs(source) do
+		table.insert(copy, itemId)
+	end
+	return copy
+end
+
+local function getLegacyQuickLootList(loots, index)
+	if type(loots) ~= 'table' then
+		return nil
+	end
+	local value = loots[index] or loots[tostring(index)]
+	if type(value) == 'table' then
+		return value
+	end
+	return nil
+end
+
+local function migrateLegacyQuickLootSettings(data)
+	if type(data) ~= 'table' then
+		return false
+	end
+
+	data.loots = data.loots or {}
+	if data.lootsFormat == QUICKLOOT_LOOTS_FORMAT then
+		return false
+	end
+
+	local legacySkipped = getLegacyQuickLootList(data.loots, 0)
+	if not legacySkipped then
+		data.lootsFormat = QUICKLOOT_LOOTS_FORMAT
+		return false
+	end
+
+	local legacyAccepted = getLegacyQuickLootList(data.loots, 1)
+	data.loots[1] = copyQuickLootIdList(legacySkipped)
+	data.loots[2] = copyQuickLootIdList(legacyAccepted)
+	data.loots[0] = nil
+	data.loots['0'] = nil
+	data.lootsFormat = QUICKLOOT_LOOTS_FORMAT
+	return true
+end
+
+local function isSafeQuickLootExportFileName(fileName)
+	if type(fileName) ~= 'string' or fileName == '' then
+		return false
+	end
+	if fileName:find('%.%.', 1, true) or fileName:find('/', 1, true) or fileName:find('\\', 1, true) then
+		return false
+	end
+	return fileName:match('^[^\\/]+%.json$') ~= nil
+end
+
+local function resolveQuickLootImportFileName(fileName, allowedFiles)
+	if not isSafeQuickLootExportFileName(fileName) then
+		return nil
+	end
+
+	for _, allowed in ipairs(allowedFiles or {}) do
+		if allowed == fileName then
+			return fileName
+		end
+	end
+
+	return nil
+end
+
+local function validateQuickLootImportPayload(payload)
+	if type(payload) ~= 'table' then
+		return false, tr('Invalid JSON file.')
+	end
+
+	if payload.type and payload.type ~= 'quickloot' then
+		return false, tr('Incompatible loot file type.')
+	end
+
+	local version = tonumber(payload.version)
+	if version and version > QUICKLOOT_EXPORT_VERSION then
+		return false, tr('Unsupported loot file version.')
+	end
+
+	if payload.skipped ~= nil and type(payload.skipped) ~= 'table' then
+		return false, tr('Invalid skipped list.')
+	end
+
+	if payload.accepted ~= nil and type(payload.accepted) ~= 'table' then
+		return false, tr('Invalid accepted list.')
+	end
+
+	return true
 end
 
 local function buildLootListExportEntries(itemIds)
@@ -649,7 +747,11 @@ function QuickLoot.Define()
             }
         end
 
+        local migrated = migrateLegacyQuickLootSettings(QuickLoot.data)
         ensureLootListsStructure()
+        if migrated then
+            QuickLoot.save()
+        end
     end
 
     function QuickLoot.save()
@@ -1118,8 +1220,14 @@ function QuickLoot.Define()
         finalizeQuickLootInputBox(inputBox)
     end
 
-    local function applyImportedLootFile(fileName)
-        local path = QUICKLOOT_EXPORT_DIR .. '/' .. fileName
+    local function applyImportedLootFile(fileName, allowedFiles)
+        local resolvedName = resolveQuickLootImportFileName(fileName, allowedFiles)
+        if not resolvedName then
+            showQuickLootTransferMessage(tr('Import Loot'), tr('Invalid or unauthorized file name.'))
+            return
+        end
+
+        local path = QUICKLOOT_EXPORT_DIR .. '/' .. resolvedName
         if not g_resources.fileExists(path) then
             showQuickLootTransferMessage(tr('Import Loot'), tr('File not found.'))
             return
@@ -1136,17 +1244,19 @@ function QuickLoot.Define()
         local decodeOk, payload = pcall(function()
             return json.decode(contents)
         end)
-        if not decodeOk or type(payload) ~= 'table' then
+        if not decodeOk then
             showQuickLootTransferMessage(tr('Import Loot'), tr('Invalid JSON file.'))
+            return
+        end
+
+        local validPayload, payloadError = validateQuickLootImportPayload(payload)
+        if not validPayload then
+            showQuickLootTransferMessage(tr('Import Loot'), payloadError)
             return
         end
 
         local skipped = parseLootListImportEntries(payload.skipped)
         local accepted = parseLootListImportEntries(payload.accepted)
-        if #skipped == 0 and #accepted == 0 then
-            showQuickLootTransferMessage(tr('Import Loot'), tr('No loot entries found in file.'))
-            return
-        end
 
         QuickLoot.applyImportedLootLists(skipped, accepted)
         showQuickLootTransferMessage(
@@ -1171,25 +1281,31 @@ function QuickLoot.Define()
             if type(option) == 'table' then
                 fileName = option.text or option
             end
-            if not fileName or fileName == '' then
+
+            local resolvedName = resolveQuickLootImportFileName(fileName, files)
+            if not resolvedName then
+                showQuickLootTransferMessage(tr('Import Loot'), tr('Invalid or unauthorized file name.'))
                 return
             end
 
             local skippedCount = 0
             local acceptedCount = 0
-            local path = QUICKLOOT_EXPORT_DIR .. '/' .. fileName
+            local path = QUICKLOOT_EXPORT_DIR .. '/' .. resolvedName
             if g_resources.fileExists(path) then
                 local decodeOk, payload = pcall(function()
                     return json.decode(g_resources.readFileContents(path))
                 end)
-                if decodeOk and type(payload) == 'table' then
-                    skippedCount = #parseLootListImportEntries(payload.skipped)
-                    acceptedCount = #parseLootListImportEntries(payload.accepted)
+                if decodeOk then
+                    local validPayload = validateQuickLootImportPayload(payload)
+                    if validPayload then
+                        skippedCount = #parseLootListImportEntries(payload.skipped)
+                        acceptedCount = #parseLootListImportEntries(payload.accepted)
+                    end
                 end
             end
 
             local function confirmImport()
-                applyImportedLootFile(fileName)
+                applyImportedLootFile(resolvedName, files)
             end
 
             if displayGeneralBox then
