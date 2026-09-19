@@ -1076,10 +1076,14 @@ function updateInventoryItems(_)
                 if updated[button] or not button.cache then
                     goto continue
                 end
-                if needsInventoryRefreshOutsideItemCache(button.cache) then
+
+                local cache = button.cache
+                local hasItem = cache.itemId and cache.itemId ~= 0
+                local needsExtraRefresh = needsInventoryRefreshOutsideItemCache(cache)
+                if hasItem or needsExtraRefresh then
                     updated[button] = true
                     updateButtonState(button)
-                    if refreshOpenMultiActionPanel then
+                    if needsExtraRefresh and refreshOpenMultiActionPanel then
                         refreshOpenMultiActionPanel(button)
                     end
                 end
