@@ -136,6 +136,8 @@ function init()
         lockButton:setMarginTop(0)
     end
 
+    unjustifiedPointsWindow:updateMiniWindowHeaderLayout()
+
     if unjustifiedPointsButton then
         unjustifiedPointsButton:setOn(true)
     end

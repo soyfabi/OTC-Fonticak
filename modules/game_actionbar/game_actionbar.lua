@@ -1044,22 +1044,70 @@ function onMultiUseCooldown(multiUseCooldown)
 end
 
 function updateInventoryItems(_)
+    local updated = {}
     local refreshed = false
+
+    local function needsInventoryRefreshOutsideItemCache(cache)
+        if not cache then
+            return false
+        end
+        if isEquipmentPresetCache and isEquipmentPresetCache(cache) then
+            return true
+        end
+        if hasMultiActions and hasMultiActions(cache.multiActions) then
+            return true
+        end
+        return false
+    end
+
     for _, widgetList in pairs(cachedItemWidget) do
         for _, widget in pairs(widgetList) do
-            updateButtonState(widget)
             refreshed = true
+            if not updated[widget] then
+                updated[widget] = true
+                updateButtonState(widget)
+            end
         end
     end
 
-    -- Fallback for login/reconnect when the item cache is still empty
-    if not refreshed then
+    if refreshed then
         for _, actionbar in pairs(activeActionBars) do
             for _, button in pairs(actionbar.tabBar:getChildren()) do
-                if button.cache and button.cache.itemId and button.cache.itemId ~= 0 then
+                if updated[button] or not button.cache then
+                    goto continue
+                end
+
+                local cache = button.cache
+                local hasItem = cache.itemId and cache.itemId ~= 0
+                local needsExtraRefresh = needsInventoryRefreshOutsideItemCache(cache)
+                if hasItem or needsExtraRefresh then
+                    updated[button] = true
                     updateButtonState(button)
+                    if needsExtraRefresh and refreshOpenMultiActionPanel then
+                        refreshOpenMultiActionPanel(button)
+                    end
+                end
+                ::continue::
+            end
+        end
+        return
+    end
+
+    -- Fallback for login/reconnect when the item cache is still empty
+    for _, actionbar in pairs(activeActionBars) do
+        for _, button in pairs(actionbar.tabBar:getChildren()) do
+            if not button.cache then
+                goto continue
+            end
+            if (button.cache.itemId and button.cache.itemId ~= 0)
+                or needsInventoryRefreshOutsideItemCache(button.cache) then
+                updateButtonState(button)
+                if hasMultiActions and hasMultiActions(button.cache.multiActions)
+                    and refreshOpenMultiActionPanel then
+                    refreshOpenMultiActionPanel(button)
                 end
             end
+            ::continue::
         end
     end
 end

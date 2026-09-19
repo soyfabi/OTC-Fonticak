@@ -1403,6 +1403,18 @@ function getKeyboardDelay()
     return getOption('keyboardDelay') or 120
 end
 
+function getKeyboardDelayTextColor(delay, useDefault)
+    if useDefault then
+        return '#ff4444ff'
+    end
+    if delay < 50 then
+        return '#ff4444ff'
+    elseif delay >= 250 then
+        return '#ffffffff'
+    end
+    return '#df9f4fff'
+end
+
 function show()
     controller.ui:show()
     controller.ui:raise()

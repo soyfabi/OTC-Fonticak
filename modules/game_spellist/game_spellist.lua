@@ -360,12 +360,23 @@ local function setupSearch()
   end
 end
 
-local function hideUnusedMiniWindowButtons()
-  for _, buttonId in ipairs({ 'toggleFilterButton', 'contextMenuButton', 'newWindowButton', 'lockButton' }) do
+local function setupMiniWindowButtons()
+  for _, buttonId in ipairs({ 'toggleFilterButton', 'contextMenuButton', 'newWindowButton' }) do
     local button = t_spelllist:getChildById(buttonId)
     if button then
       button:hide()
     end
+  end
+
+  local lockButton = t_spelllist:getChildById('lockButton')
+  local menuButton = t_spelllist:getChildById('menuButton')
+  if lockButton and menuButton then
+    lockButton:show()
+    lockButton:breakAnchors()
+    lockButton:addAnchor(AnchorTop, menuButton:getId(), AnchorTop)
+    lockButton:addAnchor(AnchorRight, menuButton:getId(), AnchorLeft)
+    lockButton:setMarginRight(2)
+    lockButton:setMarginTop(0)
   end
 end
 
@@ -381,7 +392,7 @@ function init()
   t_spelllist:setup()
   t_spelllist:hide()
 
-  hideUnusedMiniWindowButtons()
+  setupMiniWindowButtons()
 
   local scrollbar = t_spelllist:getChildById('miniwindowScrollBar')
   if scrollbar then

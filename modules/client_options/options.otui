@@ -311,7 +311,7 @@ MainWindow
     id: openConfigDirButton
     !text: tr('Open Folder')
     !tooltip: tr('Open the client data folder where configs are saved.')
-    size: 80 20
+    size: 100 20
     anchors.left: prev.right
     anchors.bottom: parent.bottom
     margin-left: 4

@@ -1675,7 +1675,7 @@ local function hasAnyPresetItemEquipped(cache)
     return false
 end
 
-local function isEquipmentSetFullyActive(cache)
+function isEquipmentSetFullyActive(cache)
     if not isEquipmentPresetCache(cache) then
         return false
     end
@@ -1887,7 +1887,7 @@ function executeEquipmentPreset(button)
 
     startEquipmentSetActionCooldown()
     startEquipmentSetDynamicQueue(button.cache, mode, function()
-        if button and not button:isDestroyed() and updateButtonState then
+        if button and not button:isDestroyed() then
             updateButtonState(button)
         end
     end)
@@ -1900,7 +1900,6 @@ function loadEquipmentPresetDisplay(button)
     button.cache.actionType = UseTypes["Equip"]
     button.item:setItemId(0, true)
     button.item:setOn(true)
-    button.item:setChecked(false)
     if button.item.gray then button.item.gray:setVisible(false) end
     if button.item.text then
         button.item.text:setText("")

@@ -156,7 +156,6 @@ UIWidget
     Label
       anchors.left: parent.left
       anchors.verticalCenter: parent.verticalCenter
-      text-offset: 0 3
       font: verdana-11px-monochrome
       !text: tr('Type to search for a hotkey:')
     

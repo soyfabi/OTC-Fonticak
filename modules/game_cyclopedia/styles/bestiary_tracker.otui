@@ -93,7 +93,7 @@ BestiaryTrackerMini < MiniWindow
     margin-right: 85
     font: verdana-11px-monochrome
     height: 13
-    !text: tr('Bestiary Tracker')
+    !text: tr('Bestiary Tr...')
     color: #9d9d9dff
 
   MiniWindowContents

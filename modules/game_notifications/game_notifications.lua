@@ -356,5 +356,12 @@ function showBestiaryProgress(raceId, progress, raceOutfit)
         [4] = "the completed Bestiary entry" .. nameSuffix
     })[progress] or string.format("Bestiary stage %s%s", tostring(progress), nameSuffix)
 
+    local cyclopedia = modules.game_cyclopedia
+    if cyclopedia and cyclopedia.rememberBestiaryUnlock then
+        cyclopedia.rememberBestiaryUnlock(raceId, progress, raceOutfit)
+    elseif cyclopedia and cyclopedia.Cyclopedia and cyclopedia.Cyclopedia.rememberBestiaryUnlock then
+        cyclopedia.Cyclopedia.rememberBestiaryUnlock(raceId, progress, raceOutfit)
+    end
+
     showBestiaryBanner(raceId, progressText, raceOutfit)
 end

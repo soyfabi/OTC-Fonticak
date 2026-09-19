@@ -262,6 +262,9 @@ function onCyclopediaGameStart()
 	if registerBestiaryProtocol then
 		registerBestiaryProtocol()
 	end
+	if loadBestiaryUnlockCache then
+		loadBestiaryUnlockCache()
+	end
 	if restoreBestiaryTracker then
 		restoreBestiaryTracker()
 	end
@@ -336,6 +339,46 @@ function show(type)
 
 	window:raise()
 	window:focus()
+end
+
+function Cyclopedia.openBestiaryMonster(raceId)
+	if openBestiaryMonster then
+		return openBestiaryMonster(raceId)
+	end
+	return false
+end
+
+function Cyclopedia.openBestiaryByRaceIdOrName(raceId, creatureName)
+	if openBestiaryByRaceIdOrName then
+		return openBestiaryByRaceIdOrName(raceId, creatureName)
+	end
+	return false
+end
+
+function Cyclopedia.rememberBestiaryUnlock(raceId, progress, outfit)
+	if rememberBestiaryUnlock then
+		rememberBestiaryUnlock(raceId, progress, outfit)
+	end
+end
+
+function Cyclopedia.openBestiaryCreature(creature)
+	if openBestiaryCreature then
+		return openBestiaryCreature(creature)
+	end
+	return false
+end
+
+function Cyclopedia.isBestiaryCreatureUnlocked(creature)
+	if isBestiaryCreatureUnlocked then
+		return isBestiaryCreatureUnlocked(creature)
+	end
+	return false
+end
+
+function Cyclopedia.ensureBestiaryCreatureLookup(creature)
+	if ensureBestiaryCreatureLookup then
+		ensureBestiaryCreatureLookup(creature)
+	end
 end
 
 function toggleTracker()
