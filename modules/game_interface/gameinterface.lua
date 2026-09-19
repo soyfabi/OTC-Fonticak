@@ -1014,6 +1014,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
         menu:addOption(tr('Look'), function()
             g_game.look(lookThing)
         end, shortcut)
+        local clientVersion = g_game.getClientVersion()
         local canInspectItem = lookThing:isItem() and not lookThing:isNotMoveable()
         if modules.game_inspect and canInspectItem then
             menu:addOption(tr('Inspect'), function()
