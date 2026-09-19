@@ -144,6 +144,46 @@ local OPEN_HIGHLIGHT_HOLD_TIME = 90
 local OPEN_HIGHLIGHT_FADE_TIME = 420
 local OPEN_HIGHLIGHT_DEBOUNCE_TIME = 120
 local OPEN_HIGHLIGHT_LOGIN_SUPPRESSION_TIME = 2000
+local LOCK_BORDER_COLOR = '#ff4444'
+local LOCK_BORDER_WIDTH = 1
+
+local function clearLockBorderVisual(miniwindow)
+	if not miniwindow then
+		return
+	end
+
+	local overlay = miniwindow._lockBorderOverlay
+	if overlay and not overlay:isDestroyed() then
+		overlay:destroy()
+	end
+	miniwindow._lockBorderOverlay = nil
+	miniwindow:setBorderWidth(0)
+	miniwindow:setBorderColor('alpha')
+end
+
+local function applyLockBorderVisual(miniwindow, locked)
+	if not miniwindow or miniwindow:isDestroyed() then
+		return
+	end
+
+	clearLockBorderVisual(miniwindow)
+
+	if not locked then
+		return
+	end
+
+	local overlay = g_ui.createWidget('UIWidget', miniwindow)
+	overlay:setId('miniwindowLockBorder')
+	overlay._miniwindowLockBorder = true
+	overlay:setPhantom(true)
+	overlay:setFocusable(false)
+	overlay:setBorderColor(LOCK_BORDER_COLOR)
+	overlay:setBorderWidth(LOCK_BORDER_WIDTH)
+	overlay:fill('parent')
+	overlay:raise()
+
+	miniwindow._lockBorderOverlay = overlay
+end
 local openHighlightEnabled = g_game.isOnline()
 local openHighlightEnableEvent
 
@@ -445,6 +485,55 @@ function UIMiniWindow:setup()
             self:minimize()
         end
     end
+end
+
+function UIMiniWindow:updateMiniWindowHeaderLayout()
+    local title = self:recursiveGetChildById('miniwindowTitle')
+    if not title then
+        return
+    end
+
+    local headerButtonIds = {
+        'lockButton',
+        'newWindowButton',
+        'contextMenuButton',
+        'toggleFilterButton',
+        'minimizeButton',
+        'closeButton'
+    }
+
+    local anchorButton = self:recursiveGetChildById('closeButton')
+    for _, buttonId in ipairs(headerButtonIds) do
+        local button = self:recursiveGetChildById(buttonId)
+        if button and button:isVisible() then
+            anchorButton = button
+            break
+        end
+    end
+
+    if not anchorButton then
+        return
+    end
+
+    local marginLeft = title:getMarginLeft()
+    local marginTop = title:getMarginTop()
+    if marginTop == 0 then
+        marginTop = 2
+    end
+
+    local header = self:getChildById('miniwindowHeader')
+    title:breakAnchors()
+    if header then
+        title:addAnchor(AnchorTop, header:getId(), AnchorTop)
+        title:addAnchor(AnchorLeft, header:getId(), AnchorLeft)
+    else
+        title:addAnchor(AnchorTop, 'parent', AnchorTop)
+        title:addAnchor(AnchorLeft, 'parent', AnchorLeft)
+    end
+    title:addAnchor(AnchorRight, anchorButton:getId(), AnchorLeft)
+    title:setMarginLeft(marginLeft)
+    title:setMarginTop(marginTop)
+    title:setMarginRight(4)
 end
 
 function UIMiniWindow:setupOnStart()
@@ -1264,6 +1353,7 @@ function UIMiniWindow:lock(dontSave)
     end
     self.locked = true
     self:setDraggable(false)
+    applyLockBorderVisual(self, true)
     if not dontSave then
         self:setSettings({
             locked = true
@@ -1280,6 +1370,7 @@ function UIMiniWindow:unlock(dontSave)
     end
     self.locked = false
     self:setDraggable(true)
+    applyLockBorderVisual(self, false)
     if not dontSave then
         self:setSettings({
             locked = false
