@@ -1229,6 +1229,23 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
                 end)
             else
                 menu:addSeparator()
+                local cyclopedia = modules.game_cyclopedia
+                local cyc = cyclopedia and cyclopedia.Cyclopedia
+                local isUnlocked = cyclopedia and cyclopedia.isBestiaryCreatureUnlocked
+                    and cyclopedia.isBestiaryCreatureUnlocked(creatureThing)
+                if not isUnlocked and cyclopedia and cyclopedia.ensureBestiaryCreatureLookup then
+                    cyclopedia.ensureBestiaryCreatureLookup(creatureThing)
+                    isUnlocked = cyclopedia.isBestiaryCreatureUnlocked(creatureThing)
+                end
+                if isUnlocked then
+                    menu:addOption(tr('Open Bestiary'), function()
+                        if cyclopedia.openBestiaryCreature then
+                            cyclopedia.openBestiaryCreature(creatureThing)
+                        elseif cyc and cyc.openBestiaryCreature then
+                            cyc.openBestiaryCreature(creatureThing)
+                        end
+                    end)
+                end
                 menu:addOption(tr('Copy Name'), function()
                     g_window.setClipboardText(creatureThing:getName())
                 end)
@@ -1370,6 +1387,13 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
         markLookCombo()
         g_game.look(lookThing)
         return true
+    end
+
+    if mouseButton == MouseRightButton and keyboardModifiers == KeyboardCtrlModifier then
+        if lookThing or useThing or creatureThing then
+            createThingMenu(menuPosition, lookThing, useThing, creatureThing)
+            return true
+        end
     end
 
     -- Leftover left release after a look combo (or fast dual-release race).

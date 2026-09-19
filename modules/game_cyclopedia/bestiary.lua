@@ -47,6 +47,11 @@ local bestiarySearchEvent = nil
 local currentBestiaryCategory = nil
 local currentBestiaryRows = {}
 local currentBestiaryEntries = {}
+local bestiaryUnlockCache = {}
+local bestiaryUnlockByName = {}
+local pendingUserCategoryRequest = nil
+local pendingBestiaryLookups = {}
+local saveBestiaryUnlockCacheEvent = nil
 local bestiaryTrackerRefreshEvent = nil
 local bestiaryMonsterRefreshEvent = nil
 local syncingTrackKillsCheckbox = false
@@ -289,6 +294,423 @@ local function openBestiaryMonsterFromTracker(raceId)
 	return true
 end
 
+function openBestiaryMonster(raceId)
+	return openBestiaryMonsterFromTracker(raceId)
+end
+
+local function normalizeBestiaryCreatureName(name)
+	if not name or name == '' then
+		return ''
+	end
+	return name:lower():gsub("^%s+", ""):gsub("%s+$", "")
+end
+
+local function getOutfitLookType(outfit)
+	if not outfit then
+		return 0
+	end
+	if outfit.getId then
+		return outfit:getId()
+	end
+	return outfit.type or outfit.lookType or 0
+end
+
+local function getOutfitAuxType(outfit)
+	if not outfit then
+		return 0
+	end
+	if outfit.getAuxId then
+		return outfit:getAuxId()
+	end
+	return outfit.auxType or 0
+end
+
+local function resolveBestiaryRaceIdByName(name)
+	name = normalizeBestiaryCreatureName(name)
+	if name == '' then
+		return nil
+	end
+
+	if protoData then
+		for raceId, outfit in pairs(protoData) do
+			if outfit and outfit.name and normalizeBestiaryCreatureName(outfit.name) == name then
+				return raceId
+			end
+		end
+	end
+
+	if g_things and g_things.getRacesByName then
+		local ok, races = pcall(function()
+			return g_things.getRacesByName(name)
+		end)
+		if ok and races and #races > 0 then
+			for _, race in ipairs(races) do
+				if race.raceId and race.name and normalizeBestiaryCreatureName(race.name) == name then
+					return race.raceId
+				end
+			end
+			if races[1].raceId then
+				return races[1].raceId
+			end
+		end
+	end
+
+	return nil
+end
+
+function resolveBestiaryRaceId(creature)
+	if not creature then
+		return nil
+	end
+	if creature.isPlayer and creature:isPlayer() then
+		return nil
+	end
+	if creature.isLocalPlayer and creature:isLocalPlayer() then
+		return nil
+	end
+
+	local name = creature.getName and creature:getName() or ''
+	local raceId = resolveBestiaryRaceIdByName(name)
+	if raceId then
+		return raceId
+	end
+
+	local outfit = creature.getOutfit and creature:getOutfit()
+	if outfit and g_things and g_things.getRacesByName then
+		local lookType = getOutfitLookType(outfit)
+		local auxType = getOutfitAuxType(outfit)
+		if lookType > 0 then
+			local ok, races = pcall(function()
+				return g_things.getRacesByName("")
+			end)
+			if ok and races then
+				for _, race in ipairs(races) do
+					if race.raceId and race.outfit then
+						local raceLookType = getOutfitLookType(race.outfit)
+						local raceAuxType = getOutfitAuxType(race.outfit)
+						if raceLookType == lookType and (auxType == 0 or raceAuxType == auxType) then
+							return race.raceId
+						end
+					end
+				end
+			end
+		end
+	end
+
+	return nil
+end
+
+local function isBestiaryEntryUnlocked(entry)
+	if not entry then
+		return false
+	end
+	if entry.kills and entry.kills >= 1 then
+		return true
+	end
+	return entry.progress and entry.progress > 0
+end
+
+local function indexBestiaryUnlockName(raceId, name)
+	if not raceId or raceId <= 0 or not name or name == '' then
+		return
+	end
+	bestiaryUnlockByName[normalizeBestiaryCreatureName(name)] = raceId
+end
+
+local function getBestiaryUnlockSettingsKey()
+	local char = g_game.getCharacterName()
+	if not char or char == '' then
+		return nil
+	end
+	return 'bestiaryUnlock-' .. char
+end
+
+local function saveBestiaryUnlockCache()
+	local key = getBestiaryUnlockSettingsKey()
+	if not key then
+		return
+	end
+
+	local node = {}
+	for raceId, entry in pairs(bestiaryUnlockCache) do
+		node[tostring(raceId)] = {
+			progress = entry.progress or 0,
+			kills = entry.kills or 0,
+			name = (entry.outfit and entry.outfit.name)
+				or (protoData[raceId] and protoData[raceId].name)
+				or nil
+		}
+	end
+	g_settings.setNode(key, node)
+end
+
+local function saveBestiaryUnlockCacheSoon()
+	if saveBestiaryUnlockCacheEvent then
+		return
+	end
+	saveBestiaryUnlockCacheEvent = scheduleEvent(function()
+		saveBestiaryUnlockCacheEvent = nil
+		saveBestiaryUnlockCache()
+	end, 1000)
+end
+
+function loadBestiaryUnlockCache()
+	bestiaryUnlockCache = {}
+	bestiaryUnlockByName = {}
+	local key = getBestiaryUnlockSettingsKey()
+	if not key then
+		return
+	end
+
+	local node = g_settings.getNode(key)
+	if not node then
+		return
+	end
+
+	for raceIdStr, data in pairs(node) do
+		local raceId = tonumber(raceIdStr)
+		if raceId and data and ((data.kills or 0) >= 1 or (data.progress or 0) > 0) then
+			bestiaryUnlockCache[raceId] = {
+				raceId = raceId,
+				progress = data.progress or 0,
+				kills = data.kills or 0
+			}
+			if data.name and not (protoData[raceId] and protoData[raceId].name) then
+				protoData[raceId] = protoData[raceId] or {}
+				protoData[raceId].name = data.name
+			end
+			indexBestiaryUnlockName(raceId, data.name)
+		end
+	end
+end
+
+function rememberBestiaryUnlock(raceId, progress, outfit)
+	if not raceId or raceId <= 0 then
+		return
+	end
+
+	cacheBestiaryUnlockEntry({
+		raceId = raceId,
+		progress = progress or 1,
+		kills = 1,
+		outfit = outfit
+	})
+end
+
+local function cacheBestiaryUnlockEntry(entry)
+	if not entry or not entry.raceId or not isBestiaryEntryUnlocked(entry) then
+		return
+	end
+
+	local cached = bestiaryUnlockCache[entry.raceId]
+	if cached then
+		local cachedKills = cached.kills or 0
+		local cachedProgress = cached.progress or 0
+		local entryKills = entry.kills or 0
+		local entryProgress = entry.progress or 0
+		if entryKills <= cachedKills and entryProgress <= cachedProgress and not entry.outfit then
+			return
+		end
+	end
+
+	bestiaryUnlockCache[entry.raceId] = {
+		raceId = entry.raceId,
+		progress = entry.progress or (cached and cached.progress) or 0,
+		kills = entry.kills or (cached and cached.kills) or 0,
+		outfit = entry.outfit or (cached and cached.outfit)
+	}
+
+	if entry.outfit then
+		protoData[entry.raceId] = entry.outfit
+	elseif cached and cached.outfit then
+		protoData[entry.raceId] = cached.outfit
+	end
+
+	local outfitName = (entry.outfit and entry.outfit.name)
+		or (cached and cached.outfit and cached.outfit.name)
+		or (protoData[entry.raceId] and protoData[entry.raceId].name)
+	indexBestiaryUnlockName(entry.raceId, outfitName)
+
+	saveBestiaryUnlockCacheSoon()
+end
+
+local function isBestiaryCreatureUnlockedByName(creatureName)
+	creatureName = normalizeBestiaryCreatureName(creatureName)
+	if creatureName == '' then
+		return false
+	end
+
+	local raceId = bestiaryUnlockByName[creatureName]
+	return raceId ~= nil and isBestiaryEntryUnlocked(bestiaryUnlockCache[raceId]) or false
+end
+
+function requestBestiaryCreatureLookup(creatureName)
+	creatureName = creatureName and creatureName:gsub("^%s+", ""):gsub("%s+$", "") or ""
+	if creatureName == "" or not g_game.isOnline() then
+		return
+	end
+
+	if isBestiaryCreatureUnlockedByName(creatureName) then
+		return
+	end
+
+	local raceId = resolveBestiaryRaceIdByName(creatureName)
+	if raceId and isBestiaryMonsterUnlocked(raceId) then
+		return
+	end
+
+	local lookupKey = normalizeBestiaryCreatureName(creatureName)
+	if lookupKey == '' or pendingBestiaryLookups[lookupKey] then
+		return
+	end
+
+	pendingBestiaryLookups[lookupKey] = true
+	scheduleEvent(function()
+		pendingBestiaryLookups[lookupKey] = nil
+	end, 15000)
+
+	local protocolGame = g_game.getProtocolGame()
+	if not protocolGame then
+		pendingBestiaryLookups[lookupKey] = nil
+		return
+	end
+
+	local msg = OutputMessage.create()
+	msg:addU8(CyclopediaOpcode.Category)
+	msg:addU8(0x02)
+	msg:addString(BESTIARY_SEARCH_PREFIX .. creatureName)
+	protocolGame:send(msg)
+end
+
+function ensureBestiaryCreatureLookup(creature)
+	if not creature or isBestiaryCreatureUnlocked(creature) then
+		return
+	end
+
+	local name = creature.getName and creature:getName() or ''
+	if name == '' then
+		return
+	end
+
+	requestBestiaryCreatureLookup(name)
+end
+
+function openBestiaryByRaceIdOrName(raceId, creatureName)
+	if raceId and raceId > 0 then
+		return openBestiaryMonster(raceId)
+	end
+
+	creatureName = creatureName and creatureName:gsub("^%s+", ""):gsub("%s+$", "") or ""
+	if creatureName == '' then
+		return false
+	end
+
+	return openBestiaryMonsterByName(creatureName)
+end
+
+function isBestiaryMonsterUnlocked(raceId)
+	if not raceId or raceId <= 0 then
+		return false
+	end
+
+	if isBestiaryEntryUnlocked(bestiaryUnlockCache[raceId]) then
+		return true
+	end
+
+	if isBestiaryEntryUnlocked(currentBestiaryEntries[raceId]) then
+		return true
+	end
+
+	for i = 1, #currentMonstersList do
+		local monster = currentMonstersList[i]
+		if monster.raceId == raceId and isBestiaryEntryUnlocked(monster) then
+			return true
+		end
+	end
+
+	for i = 1, #trackerEntries do
+		local tracked = trackerEntries[i]
+		if tracked.raceId == raceId and isBestiaryEntryUnlocked(tracked) then
+			return true
+		end
+	end
+
+	return false
+end
+
+function isBestiaryCreatureUnlocked(creature)
+	if not creature then
+		return false
+	end
+	if creature.isPlayer and creature:isPlayer() then
+		return false
+	end
+	if creature.isLocalPlayer and creature:isLocalPlayer() then
+		return false
+	end
+	if creature.isNpc and creature:isNpc() then
+		return false
+	end
+
+	local raceId = resolveBestiaryRaceId(creature)
+	if raceId then
+		return isBestiaryMonsterUnlocked(raceId)
+	end
+
+	local name = creature.getName and creature:getName() or ''
+	return isBestiaryCreatureUnlockedByName(name)
+end
+
+function openBestiaryMonsterByName(creatureName)
+	creatureName = creatureName and creatureName:gsub("^%s+", ""):gsub("%s+$", "") or ""
+	if creatureName == "" then
+		return false
+	end
+
+	local raceId = resolveBestiaryRaceIdByName(creatureName)
+	if raceId then
+		return openBestiaryMonster(raceId)
+	end
+
+	if modules.game_cyclopedia and modules.game_cyclopedia.show then
+		modules.game_cyclopedia.show("bestiary")
+	end
+
+	local protocolGame = g_game.getProtocolGame()
+	if not protocolGame then
+		return false
+	end
+
+	local msg = OutputMessage.create()
+	msg:addU8(CyclopediaOpcode.Category)
+	msg:addU8(0x02)
+	msg:addString(BESTIARY_SEARCH_PREFIX .. creatureName)
+	protocolGame:send(msg)
+	return true
+end
+
+function openBestiaryCreature(creature)
+	if not creature then
+		return false
+	end
+	if creature.isPlayer and creature:isPlayer() then
+		return false
+	end
+	if creature.isLocalPlayer and creature:isLocalPlayer() then
+		return false
+	end
+	if creature.isNpc and creature:isNpc() then
+		return false
+	end
+
+	local raceId = resolveBestiaryRaceId(creature)
+	if not raceId or not isBestiaryMonsterUnlocked(raceId) then
+		return false
+	end
+
+	return openBestiaryMonster(raceId)
+end
+
 local function bindBestiaryTrackerEntryClick(widget, raceId)
 	if not widget then
 		return
@@ -494,6 +916,8 @@ local function applyBestiaryProgressUpdate(entry)
 		return
 	end
 
+	cacheBestiaryUnlockEntry(entry)
+
 	if entry.outfit then
 		protoData[entry.raceId] = entry.outfit
 	end
@@ -577,6 +1001,15 @@ end
 
 function onBestiaryGameEnd()
 	stopBestiaryMonsterRefresh()
+	if saveBestiaryUnlockCacheEvent then
+		removeEvent(saveBestiaryUnlockCacheEvent)
+		saveBestiaryUnlockCacheEvent = nil
+	end
+	saveBestiaryUnlockCache()
+	bestiaryUnlockCache = {}
+	bestiaryUnlockByName = {}
+	pendingUserCategoryRequest = nil
+	pendingBestiaryLookups = {}
 	if bestiaryTrackerRefreshEvent then
 		removeEvent(bestiaryTrackerRefreshEvent)
 		bestiaryTrackerRefreshEvent = nil
@@ -728,17 +1161,25 @@ function registerBestiaryProtocol()
 	
 	registerOpcode(BestiaryOverview, function(protocol, msg)
 		local raceName, raceSize = msg:getString(), msg:getU16()
-		currentMonstersList = {}
-		currentMonsterListPage = 1
+		local monstersList = {}
 
 		for i = 1, raceSize do
-			currentMonstersList[i] = readBestiaryOverviewEntry(msg)
+			local entry = readBestiaryOverviewEntry(msg)
+			monstersList[i] = entry
+			cacheBestiaryUnlockEntry(entry)
 		end
 
 		if not isBestiaryView() or not bestiaryCSelecter then
 			return
 		end
 
+		if pendingUserCategoryRequest and pendingUserCategoryRequest ~= raceName then
+			return
+		end
+		pendingUserCategoryRequest = nil
+
+		currentMonstersList = monstersList
+		currentMonsterListPage = 1
 		currentBestiaryCategory = raceName
 		currentBestiaryRows = {}
 		currentBestiaryEntries = {}
@@ -1469,7 +1910,7 @@ function updateBestiaryTracker(msg)
 		local raceId = msg:getU16()
 		local raceOutfit = readCyclopediaCreatureOutfit(msg)
 		protoData[raceId] = raceOutfit
-		trackerEntries[#trackerEntries + 1] = {
+		local entry = {
 			raceId = raceId,
 			outfit = raceOutfit,
 			kills = msg:getU32(),
@@ -1478,6 +1919,8 @@ function updateBestiaryTracker(msg)
 			toKill = msg:getU16(),
 			progress = msg:getU8()
 		}
+		trackerEntries[#trackerEntries + 1] = entry
+		cacheBestiaryUnlockEntry(entry)
 		trackedCreatures[raceId] = true
 	end
 
@@ -1676,6 +2119,7 @@ local bestiaryTable = {
 }
 
 function requestBestiaryCategoryData(catName)
+	pendingUserCategoryRequest = catName
 
 	local protocolGame = g_game.getProtocolGame()
 	if protocolGame then
