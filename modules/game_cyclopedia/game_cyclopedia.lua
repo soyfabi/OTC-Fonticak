@@ -171,6 +171,7 @@ function init()
 	end
 
 	g_ui.importStyle('styles/bestiary_tracker')
+	g_ui.importStyle('styles/cyclopedia_map_widgets')
 	window 	   = g_ui.displayUI('game_cyclopedia')
 	
 	cyclopediaButton = modules.client_topmenu.addRightGameToggleButton('cyclopediaButton', tr('Cyclopedia'), '/images/topbuttons/ciclopedia', toggle, false, 8)
@@ -219,6 +220,9 @@ function terminate()
 
 	if Cyclopedia.Items and Cyclopedia.Items.terminate then
 		Cyclopedia.Items.terminate()
+	end
+	if Cyclopedia and Cyclopedia.clearMapUI then
+		Cyclopedia.clearMapUI()
 	end
 	
 	-- Hooked opcodes
@@ -278,6 +282,9 @@ function onCyclopediaGameEnd()
 	if Cyclopedia.Items and Cyclopedia.Items.saveJson then
 		Cyclopedia.Items.saveJson()
 	end
+	if Cyclopedia and Cyclopedia.clearMapUI then
+		Cyclopedia.clearMapUI()
+	end
 	if window then
 		window:hide()
 	end
@@ -289,14 +296,16 @@ function onCyclopediaGameEnd()
 	end
 end
 
-function toggle()
-	if window:isVisible() then
+function toggle(type)
+	if window:isVisible() and not type then
 		setItemsTabLayout(false)
 		window:hide()
 	else
-		tabStack = {}
-		updateBackButton()
-		show("bestiary") -- We init on bestiary
+		if not window:isVisible() then
+			tabStack = {}
+			updateBackButton()
+		end
+		show(type or "bestiary")
 	end
 end
 
@@ -409,6 +418,10 @@ end
 function toggleWindow(type, isBackNavigation)
 	if currentType == type then
 		return
+	end
+
+	if currentType == "map" and Cyclopedia and Cyclopedia.clearMapUI then
+		Cyclopedia.clearMapUI()
 	end
 
 	if not isBackNavigation and currentType then

@@ -1,0 +1,15 @@
+MarkListItem < ButtonBox
+  icon-size: 11 11
+  icon-offset: 3 3
+
+RoundedCheckBox < CheckBoxCircle
+  size: 16 16
+  text-offset: 18 1
+  color: #dfdfdf
+
+  $checked !disabled:
+    image-clip: 0 12 12 12
+
+  $checked disabled:
+    image-clip: 0 24 12 12
+    change-cursor-image: false

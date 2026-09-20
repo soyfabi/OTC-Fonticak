@@ -40,6 +40,9 @@ public:
 
     virtual void buildHardwareMipmaps();
 
+    // Flags mipmaps for deferred upload/filter setup (safe before GL texture exists).
+    void enableMipmaps();
+
     virtual void setSmooth(bool smooth);
     virtual void setRepeat(bool repeat);
     void setUpsideDown(bool upsideDown);

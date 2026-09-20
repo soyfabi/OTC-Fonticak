@@ -24,6 +24,7 @@
 
 #include "declarations.h"
 #include <framework/ui/uiwidget.h>
+#include <algorithm>
 
 class UIMinimap final : public UIWidget
 {
@@ -49,8 +50,14 @@ public:
     int8_t getMinZoom() { return m_minZoom; }
     int8_t getMaxZoom() { return m_maxZoom; }
     float getScale() { return m_scale; }
+    void setScale(const float scale) { m_scale = std::max<float>(scale, 0.01f); }
 
-    void anchorPosition(const UIWidgetPtr& anchoredWidget, Fw::AnchorEdge anchoredEdge, const Position& hookedPosition, Fw::AnchorEdge hookedEdge);
+    void setFloorSeparatorOpacity(float opacity) { m_floorSeparatorOpacity = std::clamp<float>(opacity, 0.f, 1.f); }
+    float getFloorSeparatorOpacity() { return m_floorSeparatorOpacity; }
+    void setSatelliteMode(bool enabled) { m_satelliteMode = enabled; }
+    bool isSatelliteMode() { return m_satelliteMode; }
+
+    void anchorPosition(const UIWidgetPtr& anchoredWidget, Fw::AnchorEdge anchoredEdge, const Position& hookedPosition, const Fw::AnchorEdge hookedEdge);
     void fillPosition(const UIWidgetPtr& anchoredWidget, const Position& hookedPosition);
     void centerInPosition(const UIWidgetPtr& anchoredWidget, const Position& hookedPosition);
 
@@ -66,4 +73,6 @@ private:
     int8_t m_zoom{ 0 };
     int8_t m_minZoom{ -5 };
     int8_t m_maxZoom{ 5 };
+    float m_floorSeparatorOpacity{ 1.f };
+    bool m_satelliteMode{ false };
 };

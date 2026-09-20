@@ -188,7 +188,6 @@ CyclopediaWindow
 
     UIButton
       id: map
-      visible: false
       anchors.top: prev.top
       anchors.left: prev.right
       margin-left: 1

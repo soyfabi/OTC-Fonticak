@@ -27,6 +27,11 @@ function UIMinimap:onSetup()
 end
 
 function UIMinimap:onDestroy()
+    if self._smoothZoomEvent then
+        removeEvent(self._smoothZoomEvent)
+        self._smoothZoomEvent = nil
+    end
+
     for _, widget in pairs(self.alternatives) do
         widget:destroy()
     end
@@ -46,9 +51,166 @@ function UIMinimap:onVisibilityChange()
 end
 
 function UIMinimap:onCameraPositionChange(cameraPos)
-    if self.cross then
-        self:setCrossPosition(self.cross.pos)
+    self:updateCrossVisibility()
+end
+
+function UIMinimap:isCyclopediaMap()
+    local parent = self:getParent()
+    return parent and parent:getId() == "MapBase"
+end
+
+local function positionCrossAtTile(minimap, cross, displayPos)
+    cross:breakAnchors()
+    minimap:anchorPosition(cross, AnchorRight, displayPos, AnchorHorizontalCenter)
+    minimap:anchorPosition(cross, AnchorBottom, displayPos, AnchorVerticalCenter)
+end
+
+function UIMinimap:updateCrossVisibility()
+    local cross = self.cross
+    if not cross or not cross.pos then
+        return
     end
+
+    local cameraPos = self:getCameraPosition()
+    if not cameraPos then
+        cross:hide()
+        return
+    end
+
+    local playerZ = cross.pos.z
+    local viewZ = cameraPos.z
+    local displayPos = {
+        x = cross.pos.x,
+        y = cross.pos.y,
+        z = viewZ
+    }
+
+    if not self:isCyclopediaMap() then
+        if viewZ ~= playerZ then
+            cross:hide()
+            return
+        end
+
+        cross:setOpacity(1)
+        cross:show()
+        positionCrossAtTile(self, cross, displayPos)
+        return
+    end
+
+    if viewZ < 0 or viewZ > 15 then
+        cross:hide()
+        return
+    end
+
+    cross:setOpacity(viewZ == playerZ and 1 or 0.25)
+    cross:show()
+    positionCrossAtTile(self, cross, displayPos)
+end
+
+function UIMinimap:getVisibleTileBounds()
+    local cameraPos = self:getCameraPosition()
+    if not cameraPos then
+        return nil
+    end
+
+    local padding = self:getPaddingRect()
+    if not padding or padding.width <= 0 or padding.height <= 0 then
+        return nil
+    end
+
+    local topLeft = self:getTilePosition({
+        x = padding.x,
+        y = padding.y
+    })
+    local bottomRight = self:getTilePosition({
+        x = padding.x + padding.width - 1,
+        y = padding.y + padding.height - 1
+    })
+
+    if not topLeft or not bottomRight then
+        return nil
+    end
+
+    local margin = 4
+    return {
+        minX = math.min(topLeft.x, bottomRight.x) - margin,
+        maxX = math.max(topLeft.x, bottomRight.x) + margin,
+        minY = math.min(topLeft.y, bottomRight.y) - margin,
+        maxY = math.max(topLeft.y, bottomRight.y) + margin,
+        z = cameraPos.z
+    }
+end
+
+function UIMinimap:setLevelSeparatorIntensity(value)
+    if not self.setFloorSeparatorOpacity then
+        return
+    end
+
+    if value < 0 then
+        self:setFloorSeparatorOpacity(0)
+        return
+    end
+
+    self:setFloorSeparatorOpacity(value)
+end
+
+function UIMinimap:smoothZoomBy(step, mousePos)
+    if not self.setScale or step == 0 then
+        return step > 0 and self:zoomIn() or self:zoomOut()
+    end
+
+    local targetZoom = self:getZoom() + step
+    if targetZoom < self:getMinZoom() or targetZoom > self:getMaxZoom() then
+        return false
+    end
+
+    if self._smoothZoomEvent then
+        removeEvent(self._smoothZoomEvent)
+        self._smoothZoomEvent = nil
+    end
+
+    local startScale = self:getScale()
+    if not self:setZoom(targetZoom) then
+        return false
+    end
+
+    local targetScale = self:getScale()
+    self:setScale(startScale)
+
+    if self.onSmoothZoomScaleChange then
+        self:onSmoothZoomScaleChange(self:getScale())
+    end
+
+    local startedAt = g_clock.millis()
+    local duration = 300
+
+    local function animate()
+        if self:isDestroyed() then
+            return
+        end
+
+        local progress = math.min(1, (g_clock.millis() - startedAt) / duration)
+        local eased = progress * progress * progress * (progress * (progress * 6 - 15) + 10)
+
+        self:setScale(startScale * math.pow(targetScale / startScale, eased))
+
+        if self.onSmoothZoomScaleChange then
+            self:onSmoothZoomScaleChange(self:getScale())
+        end
+
+        if progress < 1 then
+            self._smoothZoomEvent = scheduleEvent(animate, 16)
+        else
+            self:setScale(targetScale)
+            if self.onSmoothZoomScaleChange then
+                self:onSmoothZoomScaleChange(self:getScale())
+            end
+            self._smoothZoomEvent = nil
+        end
+    end
+
+    self._smoothZoomEvent = scheduleEvent(animate, 16)
+    return true
 end
 
 function UIMinimap:hideFloor()
@@ -128,21 +290,25 @@ function UIMinimap:setCrossPosition(pos)
     local cross = self.cross
     if not self.cross then
         cross = g_ui.createWidget('MinimapCross', self)
-        if self:getParent():getId() == "MapBase" then
-            cross:setIcon('/game_cyclopedia/images/icon-map-player')
-        else
-            cross:setIcon('/game_cyclopedia/images/icon-map-player-green')
-        end
+        cross:setImageSource('')
+        cross:setIcon('/game_cyclopedia/images/icon-map-player-green')
         self.cross = cross
     end
 
-    pos.z = self:getCameraPosition().z
-    cross.pos = pos
-    if pos then
-        self:centerInPosition(cross, pos)
-    else
+    if not pos then
+        cross.pos = nil
         cross:breakAnchors()
+        cross:hide()
+        return
     end
+
+    cross.pos = {
+        x = pos.x,
+        y = pos.y,
+        z = pos.z
+    }
+    cross:setTooltip(tr('You are here'))
+    self:updateCrossVisibility()
 end
 
 function UIMinimap:addFlag(pos, icon, description, temporary)
@@ -267,8 +433,16 @@ end
 function UIMinimap:onMouseWheel(mousePos, direction)
     local keyboardModifiers = g_keyboard.getModifiers()
     if direction == MouseWheelUp and keyboardModifiers == KeyboardNoModifier then
+        if self:isCyclopediaMap() then
+            self:smoothZoomBy(1, mousePos)
+            return true
+        end
         self:zoomIn()
     elseif direction == MouseWheelDown and keyboardModifiers == KeyboardNoModifier then
+        if self:isCyclopediaMap() then
+            self:smoothZoomBy(-1, mousePos)
+            return true
+        end
         self:zoomOut()
     elseif direction == MouseWheelDown and keyboardModifiers == KeyboardCtrlModifier then
         self:floorUp(1)
