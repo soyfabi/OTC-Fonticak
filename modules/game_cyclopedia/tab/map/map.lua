@@ -10,7 +10,6 @@ local LAYER_FLOOR_MIN = 0
 local LAYER_FLOOR_MAX = 15
 local LEVEL_SEPARATOR_MIDDLE_FLOOR = 7
 local DEFAULT_LEVEL_SEPARATOR = 0
-local CYCLOPEDIA_MAP_ZOOM_OFFSET = 0
 -- scale 0.5: viewport ~982x826 tiles, full LOD + city names + POI (see applyCyclopediaDefaultZoom)
 local CYCLOPEDIA_MAP_DEFAULT_ZOOM = -1
 -- which tile set is currently loaded - so we do not reload them on every refresh
@@ -78,10 +77,6 @@ local function syncCyclopediaSatelliteMode(minimap, tilesDir)
 
 	return cyclopediaSatelliteReady
 end
-local MINIMAP_DRAW_MODE_NORMAL = 0
-local MINIMAP_DRAW_MODE_CYCLOPEDIA = 1
-local CYCLOPEDIA_VIEW_SURFACE = 0
-local CYCLOPEDIA_VIEW_MAP = 1
 local CYCLOPEDIA_AREA_TYPE_AREA = 1
 local CYCLOPEDIA_AREA_TYPE_SUBAREA = 2
 local CYCLOPEDIA_MAP_OPCODE = 219
@@ -110,8 +105,6 @@ local CYCLOPEDIA_LABEL_PRELOAD_TILES = 64
 local CYCLOPEDIA_BG_SURFACE_Z7 = "#284da6"
 local CYCLOPEDIA_BG_MAP_Z7 = "#336699"
 local CYCLOPEDIA_GROUND_FLOOR = 7
-local dragStartMouseY = 0
-local dragStartMargin = 0
 local mapPositionConnected, areaLabelData
 local areaDataById = {}
 local areaLabelWidgets = {}
@@ -447,23 +440,7 @@ local function updateAreaLabelAppearance()
 end
 
 local function getAreaData(areaId)
-	local data = areaDataById[areaId]
-
-	if data then
-		return data
-	end
-
-	if areaId == 0 or not g_minimap.getCyclopediaAreaName then
-		return nil
-	end
-
-	local parentId = g_minimap.getCyclopediaParentAreaId and g_minimap.getCyclopediaParentAreaId(areaId) or 0
-
-	return {
-		id = areaId,
-		name = g_minimap.getCyclopediaAreaName(areaId),
-		areaType = parentId ~= 0 and CYCLOPEDIA_AREA_TYPE_SUBAREA or CYCLOPEDIA_AREA_TYPE_AREA
-	}
+	return areaDataById[areaId]
 end
 
 local function applyAreaPanelState(panel, data)
@@ -676,12 +653,7 @@ local function setSelectedArea(areaId, skipConfigurationSave)
 	if data and data.areaType == CYCLOPEDIA_AREA_TYPE_AREA then
 		selectedParentAreaId = areaId
 	elseif data and data.areaType == CYCLOPEDIA_AREA_TYPE_SUBAREA and data.parentAreaId then
-		-- we take the parent from OUR OWN data (setupCyclopediaAreas stores parentAreaId).
-		-- g_minimap.getCyclopediaParentAreaId is a function from the ported client that our
-		-- engine does not have, so that branch never worked and the subarea was left without a region.
 		selectedParentAreaId = data.parentAreaId
-	elseif areaId ~= 0 and g_minimap.getCyclopediaParentAreaId then
-		selectedParentAreaId = g_minimap.getCyclopediaParentAreaId(areaId)
 	else
 		selectedParentAreaId = 0
 	end
@@ -690,26 +662,18 @@ local function setSelectedArea(areaId, skipConfigurationSave)
 		sendCyclopediaMapAction(CYCLOPEDIA_MAP_ACTION_SELECT, areaId)
 	end
 
-	local minimap = getCyclopediaMinimap()
-
-	if minimap and minimap.setHighlightedArea then
-		minimap:setHighlightedArea(areaId)
-	elseif cyclopediaSatelliteReady and minimap and g_satelliteMap and g_satelliteMap.clearHighlight then
-		-- our exe has no UIMinimap:setHighlightedArea - we highlight via g_satelliteMap
-		-- using subarea masks (satellite/zones/<sid>.png); C++ pulses the alpha like the original
+	if g_satelliteMap and g_satelliteMap.clearHighlight then
 		g_satelliteMap.clearHighlight()
 
-		local data = areaDataById[areaId]
+		local highlightData = areaDataById[areaId]
 
-		if data and data.maskRects then
+		if cyclopediaSatelliteReady and highlightData and highlightData.maskRects then
 			g_satelliteMap.setHighlightColor("#FFD400")
 
-			for _, m in ipairs(data.maskRects) do
+			for _, m in ipairs(highlightData.maskRects) do
 				g_satelliteMap.addHighlightMask(m.x, m.y, m.w, m.h, m.sid)
 			end
 		end
-	elseif g_satelliteMap and g_satelliteMap.clearHighlight then
-		g_satelliteMap.clearHighlight()
 	end
 
 	updateAreaInfoPanel()
@@ -894,6 +858,32 @@ local function refreshAreaLabels()
 		end
 	end
 
+	for id, entry in pairs(areaLabelWidgets) do
+		local data = entry.data
+
+		if not data then
+			areaLabelWidgets[id] = nil
+		else
+			local pos = data.position
+			local displayPos = isAreaLabelAvailableOnFloor(pos.z, bounds.z) and getAreaLabelDisplayPosition(pos, bounds.z) or nil
+			local inRange = displayPos
+				and displayPos.x >= bounds.minX - CYCLOPEDIA_LABEL_PRELOAD_TILES
+				and displayPos.x <= bounds.maxX + CYCLOPEDIA_LABEL_PRELOAD_TILES
+				and displayPos.y >= bounds.minY - CYCLOPEDIA_LABEL_PRELOAD_TILES
+				and displayPos.y <= bounds.maxY + CYCLOPEDIA_LABEL_PRELOAD_TILES
+
+			if not inRange then
+				local label = entry.widget
+
+				if label and not label:isDestroyed() then
+					label:destroy()
+				end
+
+				areaLabelWidgets[id] = nil
+			end
+		end
+	end
+
 	updateAreaLabelAppearance()
 	hideOverlappingAreaLabels()
 end
@@ -970,6 +960,10 @@ local function clearCyclopediaAreaState()
 	cyclopediaSatelliteReady = false
 	lastLoadedSatelliteDir = nil
 
+	if g_satelliteMap and g_satelliteMap.clearHighlight then
+		g_satelliteMap.clearHighlight()
+	end
+
 	clearAreaLabelWidgets()
 
 	areaLabelData = nil
@@ -1045,22 +1039,9 @@ local function setupCyclopediaAreas()
 	areaLabelData = {}
 	areaDataById = {}
 
-	if g_minimap.getCyclopediaAreaLabels then
-		for _, row in ipairs(g_minimap.getCyclopediaAreaLabels()) do
-			local data = {
-				id = row[1],
-				name = row[2],
-				position = row[3],
-				areaType = row[4]
-			}
-
-			areaLabelData[#areaLabelData + 1] = data
-			areaDataById[data.id] = data
-		end
-	elseif SatelliteZones then
-		-- our exe has no getCyclopediaAreaLabels: we build area/subarea labels from our
-		-- own SatelliteZones (zones_data.lua). The AREA label is clickable (setSelectedArea
-		-- -> unlocks respawn donations), the SUBAREA one is descriptive only.
+	if SatelliteZones then
+		-- Build area/subarea labels from SatelliteZones (zones_data.lua). The AREA label is
+		-- clickable (setSelectedArea -> unlocks respawn donations); SUBAREA labels are descriptive.
 		local areaAccum = {}
 
 		for i, z in ipairs(SatelliteZones) do
@@ -1221,17 +1202,13 @@ local function setupCyclopediaAreas()
 				local areaId = 0
 
 				if tile then
-					if g_minimap.getCyclopediaSubareaAt then
-						areaId = g_minimap.getCyclopediaSubareaAt(tile) or 0
-					end
-
-					if areaId == 0 then
-						areaId = cyclopediaAreaIdAtTile(tile)
-					end
+					areaId = cyclopediaAreaIdAtTile(tile)
 				end
 
 				if areaId > 0 then
 					setSelectedArea(areaId)
+
+					return true
 				end
 			end
 
@@ -1260,20 +1237,6 @@ local function setupCyclopediaAreas()
 	refreshAreaLabels()
 end
 
-local function getMainMinimapZoom()
-	if not modules.game_minimap or not modules.game_minimap.getMiniMapUi then
-		return nil
-	end
-
-	local mainMinimap = modules.game_minimap.getMiniMapUi()
-
-	if mainMinimap and mainMinimap.getZoom then
-		return mainMinimap:getZoom()
-	end
-
-	return nil
-end
-
 local function applyCyclopediaDefaultZoom(minimap)
 	if not minimap or not minimap.getZoom or not minimap.setZoom then
 		return
@@ -1287,7 +1250,7 @@ local function applyCyclopediaDefaultZoom(minimap)
 	-- size of Carlin + Ab'Dendriel + Thais. It is also the LAST level at which the engine still draws
 	-- the sharpest tile LOD, city names and POI markers (satellitemap.cpp: thresholds 0.4 and 0.3).
 	local minZoom = minimap:getMinZoom()
-	local targetZoom = math.max(minZoom, CYCLOPEDIA_MAP_DEFAULT_ZOOM - CYCLOPEDIA_MAP_ZOOM_OFFSET)
+	local targetZoom = math.max(minZoom, CYCLOPEDIA_MAP_DEFAULT_ZOOM)
 
 	if targetZoom == minimap:getZoom() then
 		return
@@ -1357,23 +1320,7 @@ local function ensureMapConfigDir()
 		return LoadedPlayer:ensureCharacterDir()
 	end
 
-	local player = g_game.getLocalPlayer()
-
-	if not player then
-		return nil
-	end
-
-	pcall(function()
-		g_resources.makeDir("/characterdata")
-	end)
-
-	local characterDir = string.format("/characterdata/%d", player:getId())
-
-	pcall(function()
-		g_resources.makeDir(characterDir)
-	end)
-
-	return characterDir
+	return nil
 end
 
 local function getMapConfigFilePath()
@@ -1611,44 +1558,6 @@ function Cyclopedia.loadMapConfiguration()
 	Cyclopedia.applyCyclopediaRenderMode()
 end
 
-local function prefetchCyclopediaMapCenter()
-	local minimap = getCyclopediaMinimap()
-
-	if not minimap or not g_minimap or not g_minimap.isOfficialLoaded then
-		return
-	end
-
-	if not g_minimap.isOfficialLoaded() or not g_minimap.loadCyclopediaMapChunk then
-		return
-	end
-
-	local pos = minimap:getCameraPosition()
-
-	if not pos or pos.z > 7 then
-		return
-	end
-
-	local viewMode = CYCLOPEDIA_VIEW_SURFACE
-
-	if minimap.getCyclopediaViewMode then
-		viewMode = minimap:getCyclopediaViewMode()
-	end
-
-	if viewMode ~= CYCLOPEDIA_VIEW_SURFACE and viewMode ~= CYCLOPEDIA_VIEW_MAP then
-		return
-	end
-
-	for _, scaleFactor in ipairs({
-		64,
-		32,
-		16
-	}) do
-		if g_minimap.loadCyclopediaMapChunk(pos.x, pos.y, pos.z, scaleFactor, viewMode) then
-			break
-		end
-	end
-end
-
 function Cyclopedia.applyCyclopediaRenderMode()
 	local minimap = getCyclopediaMinimap()
 
@@ -1656,98 +1565,59 @@ function Cyclopedia.applyCyclopediaRenderMode()
 		return
 	end
 
-	-- our engine has no the ported client cyclopedia-draw mode, so we draw the map satellite-style
-	-- (data/things/<version>/satellite). NOTE: the Surface/Map View switch does NOT change the
-	-- drawing style - in Tibia it decides the FLOOR (see house.lua: isSurface = cameraZ <= 7).
-	-- Disabling the satellite for "Map View" was a bug: bare ocean remained, because the regular
-	-- minimap shows only what the player explored themselves.
-	if not minimap.setDrawMode then
-		local surfaceCheckFallback = UI and UI:recursiveGetChildById("SurfaceCheck")
-		local useSurfaceFallback = surfaceCheckFallback and surfaceCheckFallback:isChecked() or false
+	-- Surface/Map View selects the tile set and target floor, not a separate draw mode.
+	local useSurfaceFallback = isSurfaceViewSelected()
+	local tilesDir = getCyclopediaTilesDir(useSurfaceFallback)
+	local cameraPos = minimap:getCameraPosition()
 
-		-- TWO DIFFERENT TILE SETS, because the engine has no Cyclopedia drawing mode (setDrawMode is
-		-- ported client API which we do not have - that whole branch is dead).
-		-- Surface View: satellite (terrain, 2 px per tile).
-		-- Map View: classic Tibia palette with red building outlines, generated by
-		-- tools/build_mapview_tiles.py from the unused minimap-32/minimap-64 files (1 px per tile,
-		-- because the source has no minimap-16 equivalent).
-		local tilesDir = getCyclopediaTilesDir(useSurfaceFallback)
-		local cameraPos = minimap:getCameraPosition()
+	if cameraPos then
+		local player = g_game.getLocalPlayer()
+		local playerPos = player and player:getPosition()
+		local targetZ = useSurfaceFallback and 7 or (playerPos and playerPos.z or cameraPos.z)
 
-		if cameraPos then
-			local player = g_game.getLocalPlayer()
-			local playerPos = player and player:getPosition()
-			local targetZ = useSurfaceFallback and 7 or (playerPos and playerPos.z or cameraPos.z)
-
-			if targetZ ~= cameraPos.z then
-				minimap:setCameraPosition({
-					x = cameraPos.x,
-					y = cameraPos.y,
-					z = targetZ
-				})
-			end
-
-			virtualFloor = targetZ
-			refreshVirtualFloors()
+		if targetZ ~= cameraPos.z then
+			minimap:setCameraPosition({
+				x = cameraPos.x,
+				y = cameraPos.y,
+				z = targetZ
+			})
 		end
 
-		syncCyclopediaSatelliteMode(minimap, tilesDir)
-		Cyclopedia.updateLevelSeparatorState()
-
-		return
+		virtualFloor = targetZ
+		refreshVirtualFloors()
 	end
 
-	minimap:setDrawMode(MINIMAP_DRAW_MODE_CYCLOPEDIA)
-
-	local surfaceCheck = UI and UI:recursiveGetChildById("SurfaceCheck")
-	local useSurface = surfaceCheck and surfaceCheck:isChecked()
-
-	minimap:setCyclopediaViewMode(useSurface and CYCLOPEDIA_VIEW_SURFACE or CYCLOPEDIA_VIEW_MAP)
-
-	if g_minimap.isOfficialLoaded and not g_minimap.isOfficialLoaded() then
-		g_logger.warning("[Cyclopedia] Official map data not loaded (map.dat missing or corrupt)")
-	end
-
+	syncCyclopediaSatelliteMode(minimap, tilesDir)
 	Cyclopedia.updateLevelSeparatorState()
-	prefetchCyclopediaMapCenter()
 end
 
 local function onMapConfigurationChanged()
 	Cyclopedia.saveMapConfiguration()
 end
 
-function Cyclopedia.onSurfaceViewChange(widget, checked)
+local function onCyclopediaViewToggle(checked, otherCheckId)
 	if loadingMapConfig then
 		return
 	end
 
-	local mapCheck = UI and UI:recursiveGetChildById("MapCheck")
+	local otherCheck = UI and UI:recursiveGetChildById(otherCheckId)
 
-	if checked and mapCheck then
-		mapCheck:setChecked(false)
-	elseif not checked and mapCheck and not mapCheck:isChecked() then
-		mapCheck:setChecked(true)
+	if checked and otherCheck then
+		otherCheck:setChecked(false)
+	elseif not checked and otherCheck and not otherCheck:isChecked() then
+		otherCheck:setChecked(true)
 	end
 
 	Cyclopedia.applyCyclopediaRenderMode()
 	onMapConfigurationChanged()
 end
 
+function Cyclopedia.onSurfaceViewChange(widget, checked)
+	onCyclopediaViewToggle(checked, "MapCheck")
+end
+
 function Cyclopedia.onMapViewChange(widget, checked)
-	if loadingMapConfig then
-		return
-	end
-
-	local surfaceCheck = UI and UI:recursiveGetChildById("SurfaceCheck")
-
-	if checked and surfaceCheck then
-		surfaceCheck:setChecked(false)
-	elseif not checked and surfaceCheck and not surfaceCheck:isChecked() then
-		surfaceCheck:setChecked(true)
-	end
-
-	Cyclopedia.applyCyclopediaRenderMode()
-	onMapConfigurationChanged()
+	onCyclopediaViewToggle(checked, "SurfaceCheck")
 end
 
 local function getMinimapViewFloor()
@@ -1921,7 +1791,6 @@ function Cyclopedia.setVirtualFloor(target)
 	refreshVirtualFloors()
 	syncCyclopediaSatelliteMode(minimap, getCyclopediaTilesDir(isSurfaceViewSelected()))
 	Cyclopedia.updateLevelSeparatorState()
-	prefetchCyclopediaMapCenter()
 
 	if minimap.updateCrossVisibility then
 		minimap:updateCrossVisibility()
@@ -2059,7 +1928,6 @@ function Cyclopedia.centerMapAtPosition(pos, zoomDelta)
 
 	refreshVirtualFloors()
 	Cyclopedia.updateLevelSeparatorState()
-	prefetchCyclopediaMapCenter()
 
 	if minimapWidget.updateCrossVisibility then
 		minimapWidget:updateCrossVisibility()
@@ -2090,12 +1958,6 @@ function Cyclopedia.clearMapUI()
 end
 
 function initMap(contentContainer)
-	local pendingMapPosition = Cyclopedia.PendingMapPosition
-	local pendingMapZoomDelta = Cyclopedia.PendingMapZoomDelta
-
-	Cyclopedia.PendingMapPosition = nil
-	Cyclopedia.PendingMapZoomDelta = nil
-
 	Cyclopedia.clearMapUI()
 
 	UI = g_ui.loadUI("map", contentContainer)
@@ -2121,8 +1983,6 @@ function initMap(contentContainer)
 
 	mapPositionConnected = true
 
-	Cyclopedia.prevFloor = 7
-
 	Cyclopedia.loadMap()
 	hookCyclopediaMinimapFlags()
 	Cyclopedia.applyMapFlagFilter()
@@ -2143,11 +2003,7 @@ function initMap(contentContainer)
 	setupCyclopediaAreas()
 	setupLayersPanelInteraction()
 
-	if pendingMapPosition then
-		Cyclopedia.centerMapAtPosition(pendingMapPosition, pendingMapZoomDelta)
-	else
-		Cyclopedia.onUpdateCameraPosition()
-	end
+	Cyclopedia.onUpdateCameraPosition()
 
 	scheduleEvent(function()
 		if UI and getCyclopediaMinimap() then
@@ -2171,19 +2027,6 @@ function Cyclopedia.loadMap()
 	end
 
 	applyCyclopediaDefaultZoom(minimapWidget)
-end
-
-function Cyclopedia.CreateMarkItem(Data)
-	local markList = getMarkList()
-
-	if not markList then
-		return
-	end
-
-	local MarkItem = g_ui.createWidget("MarkListItem", markList)
-
-	MarkItem:setIcon("/images/game/minimap/flag" .. Data.flagId)
-	Cyclopedia.applyMapFlagFilter()
 end
 
 function Cyclopedia.toggleMapFlag(widget, checked)
@@ -2211,47 +2054,6 @@ function Cyclopedia.showAllFlags(checked)
 
 	Cyclopedia.applyMapFlagFilter()
 	onMapConfigurationChanged()
-end
-
-function Cyclopedia.moveMap(widget)
-	local minimap = getCyclopediaMinimap()
-
-	if not minimap then
-		return
-	end
-
-	local distance = 5
-	local direction = widget:getId()
-
-	if direction == "n" then
-		minimap:move(0, distance)
-	elseif direction == "ne" then
-		minimap:move(-distance, distance)
-	elseif direction == "e" then
-		minimap:move(-distance, 0)
-	elseif direction == "se" then
-		minimap:move(-distance, -distance)
-	elseif direction == "s" then
-		minimap:move(0, -distance)
-	elseif direction == "sw" then
-		minimap:move(distance, -distance)
-	elseif direction == "w" then
-		minimap:move(distance, 0)
-	elseif direction == "nw" then
-		minimap:move(distance, distance)
-	end
-end
-
-function ConvertLayer(Value)
-	if Value == 150 then
-		return 7
-	elseif Value == 300 then
-		return 15
-	elseif Value >= 1 and Value <= 300 then
-		return math.floor((Value - 1) / 20)
-	else
-		return 0
-	end
 end
 
 function Cyclopedia.onUpdateCameraPosition()
@@ -2295,7 +2097,6 @@ function Cyclopedia.onUpdateCameraPosition()
 	refreshVirtualFloors()
 	syncCyclopediaSatelliteMode(minimapWidget, getCyclopediaTilesDir(useSurface))
 	Cyclopedia.updateLevelSeparatorState()
-	prefetchCyclopediaMapCenter()
 end
 
 function Cyclopedia.resetMap()
@@ -2351,12 +2152,4 @@ function Cyclopedia.setZooom(zoom)
 	end
 
 	minimap:smoothZoomBy(zoom and 1 or -1)
-end
-
-function Cyclopedia.downLayer()
-	Cyclopedia.setVirtualFloor(virtualFloor + 1)
-end
-
-function Cyclopedia.upLayer()
-	Cyclopedia.setVirtualFloor(virtualFloor - 1)
 end

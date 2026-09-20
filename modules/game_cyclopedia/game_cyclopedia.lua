@@ -525,6 +525,11 @@ function terminate()
 	if buyWindow then
 		buyWindow:destroy()
 	end
+
+	if Cyclopedia.detailMeasureLabel and not Cyclopedia.detailMeasureLabel:isDestroyed() then
+		Cyclopedia.detailMeasureLabel:destroy()
+		Cyclopedia.detailMeasureLabel = nil
+	end
 end
 
 function getContentContainer()

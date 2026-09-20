@@ -353,13 +353,6 @@ function UIMinimap:updateFlag(flag, icon, description)
     flag:setTooltip(description)
 end
 
-function UIMinimap:addAlternativeWidget(widget, pos, maxZoom)
-    widget.pos = pos
-    widget.maxZoom = maxZoom or 0
-    widget.minZoom = minZoom
-    table.insert(self.alternatives, widget)
-end
-
 function UIMinimap:setAlternativeWidgetsVisible(show)
     local layout = self:getLayout()
     layout:disableUpdates()

@@ -765,6 +765,7 @@ UIWidget
       clipping: true
       draggable: true
       focusable: false
+      autowalk: true
       cross: true
       color: black
       // Zoom bounds chosen from the data, not by eye (scale = 2^zoom, 1 tile = scale px,

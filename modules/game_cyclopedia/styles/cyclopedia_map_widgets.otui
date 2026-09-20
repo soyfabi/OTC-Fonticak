@@ -1,7 +1,3 @@
-MarkListItem < ButtonBox
-  icon-size: 11 11
-  icon-offset: 3 3
-
 RoundedCheckBox < CheckBoxCircle
   size: 16 16
   text-offset: 18 1

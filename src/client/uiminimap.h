@@ -67,7 +67,6 @@ protected:
     void onStyleApply(std::string_view styleName, const OTMLNodePtr& styleNode) override;
 
 private:
-    Rect m_mapArea;
     Position m_cameraPosition;
     float m_scale{ 1.f };
     int8_t m_zoom{ 0 };
