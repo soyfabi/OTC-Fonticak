@@ -27,6 +27,7 @@
 #include "map.h"
 #include "mapview.h"
 #include "minimap.h"
+#include "satellitemap.h"
 #include "spriteappearances.h"
 #include "spritemanager.h"
 #include "thingtypemanager.h"
@@ -50,6 +51,7 @@ void Client::init(std::vector<std::string>& /*args*/)
     g_gameConfig.init();
     g_map.init();
     g_minimap.init();
+    g_satelliteMap.init();
     g_game.init();
     g_shaders.init();
     g_sprites.init();
@@ -67,6 +69,7 @@ void Client::terminate()
     g_game.terminate();
     g_map.terminate();
     g_minimap.terminate();
+    g_satelliteMap.terminate();
     g_things.terminate();
     g_sprites.terminate();
     g_spriteAppearances.terminate();

@@ -133,6 +133,16 @@ void Texture::buildHardwareMipmaps()
     glGenerateMipmap(GL_TEXTURE_2D);
 }
 
+void Texture::enableMipmaps()
+{
+    setProp(Prop::buildMipmaps, true);
+    setProp(Prop::hasMipMaps, true);
+    if (m_id) {
+        bind();
+        setupFilters();
+    }
+}
+
 void Texture::setSmooth(const bool smooth)
 {
     if (smooth == getProp(Prop::smooth))

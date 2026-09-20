@@ -1,4 +1,5 @@
 protoData = protoData or {}
+Cyclopedia = Cyclopedia or {}
 
 local MAX_ASSIGNED_CHARMS = 6
 
@@ -232,9 +233,6 @@ local function updateBalances()
 		else
 			widgets.echoesAmount:setText(formatNumber(echoeBalance))
 		end
-	end
-	if widgets.goldPoints then
-		widgets.goldPoints:setText(formatNumber(goldBalance))
 	end
 	if widgets.goldResetAmount then
 		widgets.goldResetAmount:setText(formatNumber(resetAllCost))
@@ -657,7 +655,6 @@ function initCharms()
 	widgets.majorMenu = charmsWindow:recursiveGetChildById('majorMenu')
 	widgets.minorMenu = charmsWindow:recursiveGetChildById('minorMenu')
 	widgets.charmListPanel = charmsWindow:recursiveGetChildById('charmListPanel')
-	widgets.goldPoints = charmsWindow:recursiveGetChildById('goldPoints')
 	widgets.charmAmount = charmsWindow:recursiveGetChildById('charmAmount')
 	widgets.echoesAmount = charmsWindow:recursiveGetChildById('echoesAmount')
 	widgets.backButton = charmsWindow:recursiveGetChildById('backButton')

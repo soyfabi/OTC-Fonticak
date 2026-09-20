@@ -1,3 +1,5 @@
+Cyclopedia = Cyclopedia or {}
+
 CyclopediaOpcode = {
 	Info = 0x39,
 	Category = 0x3A,
@@ -1542,9 +1544,6 @@ function BestiaryChangeAmount(amount, secondAmount, echoeAmount, maxCharmAmount,
 			echoesAmountBestiary:setText(formatNumber(currentEchoeBalance))
 		end
 	end
-	if goldAmountBestiary then
-		goldAmountBestiary:setText(formatNumber(currentGoldBalance))
-	end
 end
 
 function untrackAllBestiaryCreatures()
@@ -1956,9 +1955,11 @@ end
 function initBestiary(contentContainer)
 	if bestiaryPanel then
 		bestiaryPanel:show()
+
 		if #currentCategoriesList == 0 then
 			requestBestiaryData()
 		end
+
 		return
 	end
 

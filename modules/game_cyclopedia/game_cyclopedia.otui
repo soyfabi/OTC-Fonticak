@@ -188,7 +188,6 @@ CyclopediaWindow
 
     UIButton
       id: map
-      visible: false
       anchors.top: prev.top
       anchors.left: prev.right
       margin-left: 1
@@ -295,6 +294,36 @@ CyclopediaWindow
     font: verdana-11px-antialised
     enabled: false
     @onClick: toggleBack()
+
+  UIWidget
+    id: GoldBase
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    margin-bottom: 4
+    visible: false
+    image-source: /images/ui/item66
+    image-border: 10
+    size: 130 20
+
+    UIWidget
+      id: Icon
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 3
+      margin-bottom: -1
+      image-source: /images/icons/icon-goldcoin
+      !tooltip: tr("Gold Coins")
+
+    Label
+      id: Value
+      anchors.right: Icon.left
+      anchors.verticalCenter: parent.verticalCenter
+      font: verdana-11px-monochrome
+      margin-right: 2
+      margin-bottom: -2
+      !text: tr('0')
+      text-auto-resize: true
+      color: #BDBDBD
 
   HorizontalSeparator
     id: horizontalSeparator

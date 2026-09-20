@@ -84,6 +84,7 @@ UIWidget
     size: 550 117
     anchors.top: parent.top
     anchors.left: parent.left
+    margin-top: 6
     image-source: /images/ui/t2pixel-up-frame-borderimage
     image-border: 18
 
@@ -296,6 +297,7 @@ UIWidget
     size: 113 117
     anchors.top: parent.top
     anchors.right: parent.right
+    margin-top: 6
     image-source: /images/ui/2pixel-up-frame-borderimage
     image-border: 10
 
@@ -377,7 +379,7 @@ UIWidget
 
   Panel
     id: charmsPanel
-    size: 668 294
+    size: 668 288
     anchors.top: informationPanel.bottom
     anchors.left: parent.left
     margin-top: 5
@@ -434,7 +436,7 @@ UIWidget
 
     TextList
       id: charmListPanel
-      height: 243
+      height: 237
       anchors.top: optionsBar.bottom
       anchors.left: parent.left
       anchors.right: parent.right
@@ -489,6 +491,7 @@ UIWidget
 
   UIWidget
     id: blackBG01
+    visible: false
     image-source: /images/modern_ui/image1015925
     image-border: 1
     size: 96 20
@@ -518,8 +521,8 @@ UIWidget
     image-border: 1
     size: 110 20
     anchors.bottom: parent.bottom
-    anchors.left: blackBG01.right
-    margin-left: 6
+    anchors.left: parent.left
+    margin-left: 136
     margin-bottom: 1
     !tooltip: tr('Charm Points\n\nEarned by unlocking entries in the Bestiary.')
 

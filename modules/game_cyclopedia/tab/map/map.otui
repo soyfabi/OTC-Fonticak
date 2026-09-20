@@ -1,0 +1,818 @@
+&var-cip-font-new: Verdana Bold-11px
+
+CyclopediaMapAreaLabel < Label
+  font: Verdana Bold-11px-outline
+  color: #8f8f8f
+  text-auto-resize: true
+  text-align: center
+  phantom: true
+  focusable: false
+
+UIWidget
+  id: Cat4
+  anchors.fill: parent
+  visible: false
+
+  UIWidget
+    id: InformationBase
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 10
+    margin-bottom: 8
+    size: 170 415
+    padding: 5
+    image-source: /images/ui/2pixel_up_frame_borderimage
+    image-border: 5
+
+    UIWidget
+      id: FilterFrame
+      anchors.fill: parent
+      image-source: /images/ui/1pixel-down-frame
+      image-border: 10
+
+      UIScrollArea
+        id: InternalBase
+        anchors.fill: parent
+        margin: 1
+        vertical-scrollbar: FilterListScrollBar
+        layout: verticalBox
+
+        UIWidget
+          id: DisplayBase
+          margin-left: 11
+          size: 146 253
+          fixed-size: true
+          image-source: /images/ui/t2pixel-up-frame-borderimage
+          image-border: 20
+          color: #929292
+          text-offset: 0 2
+          text-align: top
+          !text: tr('Display')
+          font: verdana-11px-monochrome
+
+          UIWidget
+            id: displayToggleButton
+            size: 12 12
+            anchors.top: parent.top
+            anchors.right: parent.right
+            margin-top: 2
+            margin-right: 2
+            image-source: /game_cyclopedia/images/button-arrow-down
+            image-clip: 0 12 12 12
+            @onClick: modules.game_cyclopedia.Cyclopedia.toggleMapSection('display')
+
+          Label
+            id: filterMarksLabel
+            size: 132 24
+            anchors.top: parent.top
+            anchors.left: parent.left
+            margin-top: 17
+            margin-left: 7
+            !text: tr('Filter Marks')
+            font: $var-cip-font-new
+            color: #c0c0c0
+            text-align: center
+
+          UIWidget
+            id: MarkListFrame
+            anchors.top: filterMarksLabel.bottom
+            anchors.left: parent.left
+            margin-left: 7
+            size: 132 107
+            image-source: /images/ui/1pixel-down-frame
+
+            UIScrollArea
+              id: MarkList
+              anchors.top: parent.top
+              anchors.left: parent.left
+              anchors.right: parent.right
+              anchors.bottom: ShowAllBox.top
+              margin: 1
+              margin-bottom: 0
+              padding-left: 4
+              padding-top: 4
+              padding-bottom: 2
+              layout:
+                type: grid
+                cell-size: 16 16
+                cell-spacing: 5
+                flow: true
+
+              CheckBoxButton
+                id: 0
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 0 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 1
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 11 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 2
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 22 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 3
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 33 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 4
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 44 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 20
+                size: 16 16
+                icon: /game_cyclopedia/images/icon-map-npc
+                icon-offset: 5 3
+
+              CheckBoxButton
+                id: 5
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 55 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 6
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 66 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 7
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 77 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 8
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 88 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 9
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 99 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: passage
+                size: 16 16
+                icon: /game_cyclopedia/images/icon-map-passage-idle
+
+              CheckBoxButton
+                id: 10
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 110 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 11
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 121 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 12
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 132 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 13
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 143 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 14
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 154 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 21
+                size: 16 16
+                icon: /game_cyclopedia/images/icon-map-house
+
+              CheckBoxButton
+                id: 15
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 165 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 16
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 176 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 17
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 187 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 18
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 198 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+              CheckBoxButton
+                id: 19
+                size: 16 16
+                icon: /game_cyclopedia/images/markers
+                icon-clip: 209 0 11 11
+                @onCheckChange: modules.game_cyclopedia.Cyclopedia.toggleMapFlag(self, self:isChecked())
+
+            CheckBox
+              id: ShowAllBox
+              size: 72 14
+              anchors.bottom: parent.bottom
+              anchors.left: parent.left
+              margin-bottom: 4
+              margin-left: 5
+              font: $var-cip-font-new
+              color: #c0c0c0
+              text-align: left
+              text-offset: 15 0
+              !text: tr('Show All')
+              @onCheckChange: modules.game_cyclopedia.Cyclopedia.showAllFlags(self:isChecked())
+
+          Label
+            id: viewsLabel
+            size: 132 24
+            anchors.top: MarkListFrame.bottom
+            anchors.left: parent.left
+            margin-top: 1
+            margin-left: 7
+            !text: tr('Views')
+            font: $var-cip-font-new
+            color: #c0c0c0
+            text-align: center
+
+          UIWidget
+            id: ViewBase
+            anchors.top: viewsLabel.bottom
+            anchors.left: parent.left
+            margin-left: 7
+            size: 132 76
+            &scrollSize: 15
+            image-source: /images/ui/1pixel-down-frame
+
+            RoundedCheckBox
+              id: SurfaceCheck
+              anchors.top: parent.top
+              anchors.left: parent.left
+              margin-top: 5
+              margin-left: 5
+              !text: tr('Surface View')
+              font: $var-cip-font-new
+              color: #c0c0c0
+              text-offset: 15 0
+              text-auto-resize: true
+              checked: false
+              enabled: true
+              @onCheckChange: modules.game_cyclopedia.Cyclopedia.onSurfaceViewChange(self, self:isChecked())
+
+            RoundedCheckBox
+              id: MapCheck
+              anchors.top: SurfaceCheck.bottom
+              anchors.left: SurfaceCheck.left
+              margin-top: 6
+              !text: tr('Map View')
+              font: $var-cip-font-new
+              color: #c0c0c0
+              text-offset: 15 0
+              text-auto-resize: true
+              checked: true
+              enabled: true
+              @onCheckChange: modules.game_cyclopedia.Cyclopedia.onMapViewChange(self, self:isChecked())
+
+            Label
+              id: levelSeparatorLabel
+              anchors.top: MapCheck.bottom
+              anchors.left: parent.left
+              margin-left: 4
+              margin-top: 6
+              !text: tr('Level Separator')
+              font: $var-cip-font-new
+              color: #707070
+              text-align: left
+              text-auto-resize: true
+
+            HorizontalQtScrollBar
+              id: LevelScrollBar
+              size: 122 12
+              anchors.top: levelSeparatorLabel.bottom
+              anchors.left: parent.left
+              margin-top: 6
+              margin-left: 5
+              minimum: 0
+              maximum: 100
+              step: 10
+              value: 0
+              enabled: false
+              pixel-scroll: true
+              @onValueChange: modules.game_cyclopedia.Cyclopedia.onLevelSeparatorChange(self:getValue())
+
+        UIWidget
+          id: NavigationBase
+          margin-top: 5
+          margin-left: 11
+          size: 146 97
+          fixed-size: true
+          image-source: /images/ui/t2pixel-up-frame-borderimage
+          image-border: 20
+          color: #929292
+          text-offset: 0 2
+          text-align: top
+          !text: tr('Navigation')
+          font: verdana-11px-monochrome
+
+          UIWidget
+            id: navigationToggleButton
+            size: 12 12
+            anchors.top: parent.top
+            anchors.right: parent.right
+            margin-top: 2
+            margin-right: 2
+            image-source: /game_cyclopedia/images/button-arrow-down
+            image-clip: 0 12 12 12
+            @onClick: modules.game_cyclopedia.Cyclopedia.toggleMapSection('navigation')
+
+          UIWidget
+            id: rosePanel
+            anchors.top: parent.top
+            anchors.left: parent.left
+            margin-top: 22
+            margin-left: 39
+            size: 43 43
+
+            UIWidget
+              id: ambients
+              anchors.centerIn: parent
+              size: 31 31
+
+              UIWidget
+                id: main
+                image-source: /images/automap/timedisplay_scroll
+                anchors.left: parent.left
+                anchors.top: parent.top
+                image-clip: 100 0 24 31
+                size: 24 31
+
+              UIWidget
+                id: secondary
+                image-source: /images/automap/timedisplay_scroll
+                anchors.left: main.right
+                anchors.top: parent.top
+                image-clip: 0 0 7 31
+                size: 7 31
+
+              Button
+                image-source: /images/automap/automap_phantom
+                image-border: 0
+                padding: 0
+                anchors.fill: parent
+                @onClick: modules.game_cyclopedia.Cyclopedia.resetMap()
+                $pressed:
+                  image-source: /images/automap/automap_phantom
+                $hover !pressed:
+                  image-source: /images/automap/automap_phantom
+
+            UIWidget
+              id: rose
+              anchors.fill: parent
+              image-source: /images/automap/automap_rose
+              image-clip: 0 0 43 43
+              phantom: true
+
+            UIWidget
+              id: timedisplayGlass
+              image-source: /images/automap/timedisplay-glass
+              anchors.centerIn: parent
+              size: 43 43
+              phantom: true
+
+            UIWidget
+              image-source: /images/automap/automap_rose
+              image-clip: 14 0 15 8
+              anchors.left: parent.left
+              anchors.top: parent.top
+              margin-left: 14
+              size: 15 8
+              @onClick: modules.game_cyclopedia.Cyclopedia.onClickRoseButton('north')
+              $pressed !disabled:
+                image-clip: 57 0 15 8
+
+            UIWidget
+              image-source: /images/automap/automap_rose
+              image-clip: 28 0 15 15
+              anchors.left: parent.left
+              anchors.top: parent.top
+              margin-left: 28
+              size: 15 15
+              @onClick: modules.game_cyclopedia.Cyclopedia.onClickRoseButton('north-east')
+              $pressed !disabled:
+                image-clip: 114 0 15 15
+
+            UIWidget
+              image-source: /images/automap/automap_rose
+              image-clip: 35 14 8 15
+              anchors.left: parent.left
+              anchors.top: parent.top
+              margin-left: 35
+              margin-top: 14
+              size: 8 15
+              @onClick: modules.game_cyclopedia.Cyclopedia.onClickRoseButton('east')
+              $pressed !disabled:
+                image-clip: 164 14 8 15
+
+            UIWidget
+              image-source: /images/automap/automap_rose
+              image-clip: 28 28 15 15
+              anchors.left: parent.left
+              anchors.top: parent.top
+              margin-left: 28
+              margin-top: 28
+              size: 15 15
+              @onClick: modules.game_cyclopedia.Cyclopedia.onClickRoseButton('south-east')
+              $pressed !disabled:
+                image-clip: 200 28 15 15
+
+            UIWidget
+              image-source: /images/automap/automap_rose
+              image-clip: 14 35 15 8
+              anchors.left: parent.left
+              anchors.top: parent.top
+              margin-left: 14
+              margin-top: 35
+              size: 15 8
+              @onClick: modules.game_cyclopedia.Cyclopedia.onClickRoseButton('south')
+              $pressed !disabled:
+                image-clip: 229 35 15 8
+
+            UIWidget
+              image-source: /images/automap/automap_rose
+              image-clip: 0 28 15 15
+              anchors.left: parent.left
+              anchors.top: parent.top
+              margin-top: 28
+              size: 15 15
+              @onClick: modules.game_cyclopedia.Cyclopedia.onClickRoseButton('south-west')
+              $pressed !disabled:
+                image-clip: 258 28 15 15
+
+            UIWidget
+              image-source: /images/automap/automap_rose
+              image-clip: 0 14 8 15
+              anchors.left: parent.left
+              anchors.top: parent.top
+              margin-top: 14
+              size: 8 15
+              @onClick: modules.game_cyclopedia.Cyclopedia.onClickRoseButton('west')
+              $pressed !disabled:
+                image-clip: 301 14 8 15
+
+            UIWidget
+              image-source: /images/automap/automap_rose
+              image-clip: 0 0 15 15
+              anchors.left: parent.left
+              anchors.top: parent.top
+              size: 15 15
+              @onClick: modules.game_cyclopedia.Cyclopedia.onClickRoseButton('north-west')
+              $pressed !disabled:
+                image-clip: 344 0 15 15
+
+          MapLayerSelector
+            id: layerSelector
+            anchors.top: parent.top
+            anchors.right: parent.right
+            margin-top: 21
+            margin-right: 32
+            size: 26 68
+
+          UIWidget
+            id: navigationZoom
+            size: 44 20
+            anchors.left: parent.left
+            anchors.bottom: parent.bottom
+            margin-left: 39
+            margin-bottom: 7
+
+            Button
+              id: zoomOut
+              image-source: /images/automap/automap_buttons
+              image-clip: 0 20 20 20
+              image-border: 0
+              padding: 0
+              anchors.left: parent.left
+              anchors.bottom: parent.bottom
+              size: 20 20
+              @onClick: modules.game_cyclopedia.Cyclopedia.setZooom(false)
+              $hover !disabled:
+                image-source: /images/automap/automap_buttons
+                image-clip: 0 20 20 20
+              $pressed !disabled:
+                image-source: /images/automap/automap_buttons
+                image-clip: 20 20 20 20
+
+            Button
+              id: zoomIn
+              image-source: /images/automap/automap_buttons
+              image-clip: 0 40 20 20
+              image-border: 0
+              padding: 0
+              anchors.left: zoomOut.right
+              anchors.bottom: parent.bottom
+              margin-left: 4
+              size: 20 20
+              @onClick: modules.game_cyclopedia.Cyclopedia.setZooom(true)
+              $hover !disabled:
+                image-source: /images/automap/automap_buttons
+                image-clip: 0 40 20 20
+              $pressed !disabled:
+                image-source: /images/automap/automap_buttons
+                image-clip: 20 40 20 20
+
+        UIWidget
+          id: AreaBase
+          margin-top: 5
+          margin-left: 11
+          size: 146 0
+          fixed-size: true
+          visible: false
+          image-source: /images/ui/t2pixel-up-frame-borderimage
+          image-border: 20
+          color: #929292
+          text-offset: 0 2
+          text-align: top
+          font: verdana-11px-monochrome
+
+          UIWidget
+            id: areaToggleButton
+            size: 12 12
+            anchors.top: parent.top
+            anchors.right: parent.right
+            margin-top: 2
+            margin-right: 2
+            image-source: /game_cyclopedia/images/button-arrow-down
+            image-clip: 0 12 12 12
+            @onClick: modules.game_cyclopedia.Cyclopedia.toggleMapSection('area')
+
+          Label
+            id: areaName
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            margin-top: 20
+            margin-left: 7
+            margin-right: 7
+            height: 14
+            font: $var-cip-font-new
+            color: #c0c0c0
+            text-align: center
+
+          UIWidget
+            id: discoveryProgress
+            anchors.top: areaName.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            margin-top: 2
+            margin-left: 7
+            margin-right: 7
+            height: 20
+            image-source: /images/ui/item66
+            image-border: 10
+
+            Label
+              id: discoveryPercent
+              anchors.fill: parent
+              !text: tr('0%%')
+              font: $var-cip-font-new
+              color: #c0c0c0
+              text-align: center
+
+          Label
+            id: respawnRateTitle
+            anchors.top: discoveryProgress.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            margin-top: 3
+            margin-left: 7
+            margin-right: 7
+            height: 28
+            !text: tr('Improved Respawn\nRate')
+            font: $var-cip-font-new
+            color: #c0c0c0
+            text-align: center
+
+          UIWidget
+            id: respawnRateValue
+            anchors.top: respawnRateTitle.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            margin-left: 7
+            margin-right: 7
+            height: 20
+            image-source: /images/ui/item66
+            image-border: 10
+
+            Label
+              anchors.fill: parent
+              !text: tr('0')
+              font: $var-cip-font-new
+              color: #c0c0c0
+              text-align: center
+              text-offset: -5 0
+
+            UIWidget
+              size: 9 9
+              anchors.verticalCenter: parent.verticalCenter
+              anchors.horizontalCenter: parent.horizontalCenter
+              margin-left: 5
+              image-auto-resize: true
+              image-source: /images/icons/icon-goldcoin
+              phantom: true
+
+          UIWidget
+            id: donationRow
+            anchors.top: respawnRateValue.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            margin-top: 5
+            margin-left: 7
+            margin-right: 7
+            height: 18
+
+            TextEdit
+              id: amountEdit
+              anchors.left: parent.left
+              anchors.top: parent.top
+              size: 66 18
+              max-length: 10
+              only-number: true
+              enabled: false
+              !placeholder: tr('Amount')
+              placeholder-color: #6E706F
+              padding-right: 14
+              @onTextChange: modules.game_cyclopedia.Cyclopedia.onMapAreaAmountTextChange(self, self:getText())
+
+            UIWidget
+              size: 9 9
+              anchors.verticalCenter: amountEdit.verticalCenter
+              anchors.right: amountEdit.right
+              margin-right: 4
+              image-auto-resize: true
+              image-source: /images/icons/icon-goldcoin
+              phantom: true
+
+            Button
+              id: donateButton
+              anchors.left: amountEdit.right
+              anchors.right: parent.right
+              anchors.top: parent.top
+              margin-left: 4
+              height: 18
+              enabled: false
+              !text: tr('Donate')
+              font: $var-cip-font-new
+              @onClick: modules.game_cyclopedia.Cyclopedia.onMapAreaDonateClick()
+
+          Label
+            id: areaDescription
+            anchors.top: donationRow.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            margin-top: 7
+            margin-left: 7
+            margin-right: 7
+            height: 30
+            font: $var-cip-font-new
+            color: #c0c0c0
+            text-align: center
+            visible: false
+
+          Label
+            id: discoveryStatus
+            anchors.top: areaDescription.bottom
+            anchors.left: parent.left
+            anchors.right: parent.right
+            margin-top: 1
+            margin-left: 7
+            margin-right: 7
+            height: 16
+            !text: tr('Not discoverable.')
+            font: $var-cip-font-new
+            color: #c0c0c0
+            text-align: center
+            visible: false
+
+      VerticalQtScrollBar
+        id: FilterListScrollBar
+        anchors.top: InternalBase.top
+        anchors.right: InternalBase.right
+        anchors.bottom: InternalBase.bottom
+        margin-top: 0
+        margin-right: 0
+        margin-bottom: 0
+        step: 80
+        pixel-scroll: true
+
+  UIWidget
+    id: MapBase
+    anchors.top: InformationBase.top
+    anchors.left: InformationBase.right
+    margin-left: 6
+    margin-bottom: 25
+    size: 493 415
+    image-source: /images/ui/1pixel-down-frame
+    image-border: 10
+    UIMinimap 
+      id: minimap
+      anchors.fill: parent
+      margin: 1
+      clipping: true
+      draggable: true
+      focusable: false
+      autowalk: true
+      cross: true
+      color: black
+      // Zoom bounds chosen from the data, not by eye (scale = 2^zoom, 1 tile = scale px,
+      // drawing window ~491x413 px):
+      //   -2 = scale 0.25 -> ~1964x1652 tiles, i.e. the whole main continent. Below this
+      //        the engine drops to the worst LOD (threshold 0.15 in satellitemap.cpp) and stops
+      //        drawing city names and markers, and the world shrinks to an unreadable speck.
+      //    2 = scale 4 -> ~123x103 tiles. Above that blur begins: the satellite has 2 px per tile,
+      //        and Map View tiles only 1 px, so zoom 3-4 is already a 4-8x magnification of the source.
+      min-zoom: -2
+      max-zoom: 2
+
+MapLayerSelector < UIWidget
+  UIWidget
+    id: layersPanel
+    size: 20 68
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    margin-right: 7
+    focusable: false
+
+    UIWidget
+      id: automapLayers
+      image-source: /images/automap/automap_indicator_maplayers
+      anchors.left: parent.left
+      anchors.bottom: parent.bottom
+      image-clip: 98 0 14 67
+      size: 14 67
+      phantom: true
+
+    UIWidget
+      image-source: /images/ui/separator_vertical
+      image-border: 1
+      margin-left: 3
+      margin-top: 4
+      margin-bottom: 4
+      anchors.left: automapLayers.right 
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      width: 2
+      phantom: true
+
+    UIWidget
+      id: layersMark
+      anchors.left: prev.right
+      anchors.top: automapLayers.top
+      image-source: /images/automap/automap_indicator_slider_left
+      margin-left: -3
+      margin-top: 28
+      phantom: true
