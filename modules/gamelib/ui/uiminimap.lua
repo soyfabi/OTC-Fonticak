@@ -147,7 +147,7 @@ function UIMinimap:setLevelSeparatorIntensity(value)
     end
 
     if value < 0 then
-        self:setFloorSeparatorOpacity(0)
+        self:setFloorSeparatorOpacity(1)
         return
     end
 

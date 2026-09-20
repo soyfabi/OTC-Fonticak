@@ -2,6 +2,7 @@
 
 local UI
 local virtualFloor = 7
+local refreshVirtualFloors
 local updatingMapFlags = false
 local loadingMapConfig = false
 local MAP_CONFIG_FILE_NAME = "cyclopediaMapConfiguration.json"
@@ -20,6 +21,12 @@ local function getCyclopediaTilesDir(useSurfaceFallback)
 	local baseDir = "/things/" .. g_game.getClientVersion()
 
 	return useSurfaceFallback and baseDir or (baseDir .. "_mapview")
+end
+
+local function isSurfaceViewSelected()
+	local surfaceCheck = UI and UI:recursiveGetChildById("SurfaceCheck")
+
+	return surfaceCheck and surfaceCheck:isChecked() or false
 end
 
 local function hasCyclopediaSatelliteData(tilesDir)
@@ -43,8 +50,6 @@ local function syncCyclopediaSatelliteMode(minimap, tilesDir)
 		if g_satelliteMap and g_satelliteMap.clearHighlight then
 			g_satelliteMap.clearHighlight()
 		end
-
-		print(string.format("[CyclopediaMap] syncSatelliteMode: no satellite data for %s", tostring(tilesDir)))
 
 		return false
 	end
@@ -70,8 +75,6 @@ local function syncCyclopediaSatelliteMode(minimap, tilesDir)
 
 	cyclopediaSatelliteReady = g_satelliteMap.hasChunksForView and g_satelliteMap.hasChunksForView(floorZ) or false
 	minimap:setSatelliteMode(cyclopediaSatelliteReady)
-
-	print(string.format("[CyclopediaMap] syncSatelliteMode dir=%s ready=%s floor=%d", tilesDir, tostring(cyclopediaSatelliteReady), floorZ))
 
 	return cyclopediaSatelliteReady
 end
@@ -1475,13 +1478,7 @@ function Cyclopedia.saveMapConfiguration()
 		return
 	end
 
-	print("[CyclopediaMap] saveMapConfiguration -> " .. tostring(file))
-
-	local saved = g_resources.writeFileContents(file, contents)
-
-	if not saved then
-		print("[CyclopediaMap] saveMapConfiguration FAILED for " .. tostring(file))
-	end
+	g_resources.writeFileContents(file, contents)
 end
 
 function Cyclopedia.loadMapConfiguration()
@@ -1491,8 +1488,6 @@ function Cyclopedia.loadMapConfiguration()
 
 	local config = getDefaultMapConfiguration()
 	local file = getMapConfigFilePath()
-
-	print("[CyclopediaMap] loadMapConfiguration -> " .. tostring(file))
 
 	if file and g_resources.fileExists(file) then
 		local status, loaded = pcall(function()
@@ -1658,11 +1653,8 @@ function Cyclopedia.applyCyclopediaRenderMode()
 	local minimap = getCyclopediaMinimap()
 
 	if not minimap then
-		print("[CyclopediaMap] applyCyclopediaRenderMode: minimap missing")
 		return
 	end
-
-	print("[CyclopediaMap] applyCyclopediaRenderMode")
 
 	-- our engine has no the ported client cyclopedia-draw mode, so we draw the map satellite-style
 	-- (data/things/<version>/satellite). NOTE: the Surface/Map View switch does NOT change the
@@ -1680,9 +1672,6 @@ function Cyclopedia.applyCyclopediaRenderMode()
 		-- tools/build_mapview_tiles.py from the unused minimap-32/minimap-64 files (1 px per tile,
 		-- because the source has no minimap-16 equivalent).
 		local tilesDir = getCyclopediaTilesDir(useSurfaceFallback)
-
-		syncCyclopediaSatelliteMode(minimap, tilesDir)
-
 		local cameraPos = minimap:getCameraPosition()
 
 		if cameraPos then
@@ -1697,8 +1686,12 @@ function Cyclopedia.applyCyclopediaRenderMode()
 					z = targetZ
 				})
 			end
+
+			virtualFloor = targetZ
+			refreshVirtualFloors()
 		end
 
+		syncCyclopediaSatelliteMode(minimap, tilesDir)
 		Cyclopedia.updateLevelSeparatorState()
 
 		return
@@ -1728,8 +1721,6 @@ function Cyclopedia.onSurfaceViewChange(widget, checked)
 		return
 	end
 
-	print("[CyclopediaMap] onSurfaceViewChange checked=" .. tostring(checked))
-
 	local mapCheck = UI and UI:recursiveGetChildById("MapCheck")
 
 	if checked and mapCheck then
@@ -1746,8 +1737,6 @@ function Cyclopedia.onMapViewChange(widget, checked)
 	if loadingMapConfig then
 		return
 	end
-
-	print("[CyclopediaMap] onMapViewChange checked=" .. tostring(checked))
 
 	local surfaceCheck = UI and UI:recursiveGetChildById("SurfaceCheck")
 
@@ -1883,7 +1872,7 @@ local function setupMapConfigurationCallbacks()
 	hookConfigCheckbox(getMarkFilterButton("passage"))
 end
 
-local function refreshVirtualFloors()
+refreshVirtualFloors = function()
 	local layersMark = getLayersMark()
 
 	if not layersMark or layersMark:isDestroyed() then
@@ -1900,10 +1889,6 @@ function Cyclopedia.setVirtualFloor(target)
 
 	target = math.max(LAYER_FLOOR_MIN, math.min(LAYER_FLOOR_MAX, target))
 
-	if target == virtualFloor then
-		return
-	end
-
 	local minimap = getCyclopediaMinimap()
 
 	if not minimap then
@@ -1916,6 +1901,15 @@ function Cyclopedia.setVirtualFloor(target)
 		return
 	end
 
+	if target == cameraPos.z then
+		if virtualFloor ~= target then
+			virtualFloor = target
+			refreshVirtualFloors()
+		end
+
+		return
+	end
+
 	minimap:setCameraPosition({
 		x = cameraPos.x,
 		y = cameraPos.y,
@@ -1925,6 +1919,7 @@ function Cyclopedia.setVirtualFloor(target)
 	virtualFloor = target
 
 	refreshVirtualFloors()
+	syncCyclopediaSatelliteMode(minimap, getCyclopediaTilesDir(isSurfaceViewSelected()))
 	Cyclopedia.updateLevelSeparatorState()
 	prefetchCyclopediaMapCenter()
 
@@ -1937,7 +1932,6 @@ function Cyclopedia.applyMapFlagFilter()
 	local minimap = getCyclopediaMinimap()
 
 	if not minimap or not minimap.flags then
-		print("[CyclopediaMap] applyMapFlagFilter: minimap or flags missing")
 		return
 	end
 
@@ -1949,22 +1943,17 @@ function Cyclopedia.applyMapFlagFilter()
 		end
 	end)
 
-	local visibleCount = 0
-
 	for _, flag in pairs(minimap.flags) do
 		if flag and not flag:isDestroyed() then
 			local icon = flag.icon
 
 			if type(icon) == "number" and enabledIcons[icon] then
 				flag:show()
-				visibleCount = visibleCount + 1
 			else
 				flag:hide()
 			end
 		end
 	end
-
-	print(string.format("[CyclopediaMap] applyMapFlagFilter enabled=%d visible=%d", table.size(enabledIcons), visibleCount))
 end
 
 function Cyclopedia.syncShowAllBox()
@@ -2090,7 +2079,13 @@ function Cyclopedia.clearMapUI()
 
 	clearCyclopediaAreaState()
 
+	local root = UI
+
 	UI = nil
+
+	if root and not root:isDestroyed() then
+		root:destroy()
+	end
 end
 
 function initMap(contentContainer)
@@ -2191,11 +2186,8 @@ end
 
 function Cyclopedia.toggleMapFlag(widget, checked)
 	if updatingMapFlags or not isMapFlagFilterButton(widget) then
-		print("[CyclopediaMap] toggleMapFlag ignored id=" .. tostring(widget and widget:getId()) .. " checked=" .. tostring(checked))
 		return
 	end
-
-	print("[CyclopediaMap] toggleMapFlag id=" .. tostring(widget:getId()) .. " checked=" .. tostring(checked))
 
 	Cyclopedia.syncShowAllBox()
 	Cyclopedia.applyMapFlagFilter()
@@ -2283,15 +2275,23 @@ function Cyclopedia.onUpdateCameraPosition()
 		return
 	end
 
+	local useSurface = isSurfaceViewSelected()
+	local targetZ = useSurface and 7 or pos.z
+
 	if not minimapWidget:isDragging() and not minimapWidget.fullMapView then
-		minimapWidget:setCameraPosition(pos)
+		minimapWidget:setCameraPosition({
+			x = pos.x,
+			y = pos.y,
+			z = targetZ
+		})
 	end
 
 	minimapWidget:setCrossPosition(pos)
 
-	virtualFloor = pos.z
+	virtualFloor = targetZ
 
 	refreshVirtualFloors()
+	syncCyclopediaSatelliteMode(minimapWidget, getCyclopediaTilesDir(useSurface))
 	Cyclopedia.updateLevelSeparatorState()
 	prefetchCyclopediaMapCenter()
 end

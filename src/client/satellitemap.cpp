@@ -174,8 +174,10 @@ bool SatelliteMap::loadFloors(const std::string& assetsDir, int /*minFloor*/, in
 
 bool SatelliteMap::hasChunksForView(const int floor)
 {
-    if (!m_indexLoaded || floor < 0 || floor > 7 || floor >= static_cast<int>(m_placements.size()))
+    if (!m_indexLoaded || floor < 0 || floor >= static_cast<int>(m_placements.size()))
         return false;
+    if (floor > 7)
+        return !m_placements[floor].empty();
     // Surface view stacks the current floor over everything down to ground (7),
     // so it is available if any floor in [floor..7] carries chunks.
     for (int f = floor; f <= 7 && f < static_cast<int>(m_placements.size()); ++f)
@@ -240,7 +242,7 @@ void SatelliteMap::draw(const Rect& screenRect, const Position& mapCenter, const
     const Point off = Point((mapRect.size() * scale).toPoint() - screenRect.size().toPoint()) / 2;
     const Point base = screenRect.topLeft() - off - (mapRect.topLeft() * scale);
 
-    const Color tint = (opacity >= 1.f) ? Color::white : Color(Color::white, std::clamp(opacity, 0.f, 1.f));
+    const float separatorOpacity = std::clamp(opacity, 0.f, 1.f);
 
     // LOD: choose tile resolution by zoom (scale = screen px per world tile) so we never
     // heavily downscale (which blurs). level 2 = satellite-16 (2px/tile), 1 = satellite-32
@@ -253,10 +255,9 @@ void SatelliteMap::draw(const Rect& screenRect, const Position& mapCenter, const
     // through the transparent gaps of the floors above (surface "0+1" view). Ground is
     // drawn first (bottom), the current floor last (on top).
     const int groundFloor = std::min(7, static_cast<int>(m_placements.size()) - 1);
-    for (int f = groundFloor; f >= curZ; --f) {
-        // Draw only the LOD level matching the zoom, so detail is uniform (no low-detail base
-        // showing through). Each level is a full grid, so coverage stays complete.
-        for (const auto& p : m_placements[f]) {
+    if (curZ > groundFloor) {
+        // Deep underground: draw only the selected floor (no surface stack).
+        for (const auto& p : m_placements[curZ]) {
             if (p.layer != targetLevel)
                 continue;
             const Point tl = base + Point(p.x, p.y) * scale;
@@ -264,7 +265,6 @@ void SatelliteMap::draw(const Rect& screenRect, const Position& mapCenter, const
             const int dh = std::max(1, static_cast<int>(std::ceil(p.h * scale)));
             const Rect dest(tl, Size(dw, dh));
 
-            // Cull tiles outside the visible area (also avoids decoding their PNGs).
             if (dest.right() < screenRect.left() || dest.left() > screenRect.right() ||
                 dest.bottom() < screenRect.top() || dest.top() > screenRect.bottom())
                 continue;
@@ -274,7 +274,37 @@ void SatelliteMap::draw(const Rect& screenRect, const Position& mapCenter, const
                 continue;
 
             const auto& ts = tex->getSize();
-            g_drawPool.addTexturedRect(dest, tex, Rect(0, 0, ts.width(), ts.height()), tint);
+            g_drawPool.addTexturedRect(dest, tex, Rect(0, 0, ts.width(), ts.height()), Color::white);
+        }
+    } else {
+        // Stack floors from the ground (7) down to the current floor. Upper floors use the
+        // level-separator opacity; the current floor stays fully opaque.
+        for (int f = groundFloor; f >= curZ; --f) {
+            const float floorAlpha = (f > curZ) ? separatorOpacity : 1.f;
+            const Color tint = (floorAlpha >= 1.f) ? Color::white : Color(Color::white, floorAlpha);
+
+            // Draw only the LOD level matching the zoom, so detail is uniform (no low-detail base
+            // showing through). Each level is a full grid, so coverage stays complete.
+            for (const auto& p : m_placements[f]) {
+                if (p.layer != targetLevel)
+                    continue;
+                const Point tl = base + Point(p.x, p.y) * scale;
+                const int dw = std::max(1, static_cast<int>(std::ceil(p.w * scale)));
+                const int dh = std::max(1, static_cast<int>(std::ceil(p.h * scale)));
+                const Rect dest(tl, Size(dw, dh));
+
+                // Cull tiles outside the visible area (also avoids decoding their PNGs).
+                if (dest.right() < screenRect.left() || dest.left() > screenRect.right() ||
+                    dest.bottom() < screenRect.top() || dest.top() > screenRect.bottom())
+                    continue;
+
+                const TexturePtr& tex = getTile(p.pngId);
+                if (!tex)
+                    continue;
+
+                const auto& ts = tex->getSize();
+                g_drawPool.addTexturedRect(dest, tex, Rect(0, 0, ts.width(), ts.height()), tint);
+            }
         }
     }
 
