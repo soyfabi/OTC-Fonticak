@@ -299,6 +299,7 @@ CyclopediaWindow
     id: GoldBase
     anchors.bottom: parent.bottom
     anchors.left: parent.left
+    margin-bottom: 4
     visible: false
     image-source: /images/ui/item66
     image-border: 10

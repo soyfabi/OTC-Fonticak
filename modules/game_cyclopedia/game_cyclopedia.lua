@@ -112,7 +112,7 @@ local function onCyclopediaItemDetails(itemId)
 	end
 end
 
-local window, currentType, backButton, manageContainersButton, tabStack, goldBase
+local window, currentType, backButton, closeButton, horizontalSeparator, manageContainersButton, tabStack, goldBase
 local moneyRefreshEvent, moneyRefreshPendingEvent
 local MONEY_REFRESH_INTERVAL = 200
 local MONEY_EVENT_REFRESH_DELAY = 25
@@ -167,7 +167,11 @@ local function getCyclopediaPlayerMoney()
 		end
 	end
 
-	local total = bankGold + math.max(inventoryGold, physicalCoins)
+	-- On 8.60 the equipped-gold resource often lags after pickup/drop. Prefer the live
+	-- coin count from inventory slots and open containers; fall back to resource only
+	-- when nothing visible is counted (e.g. gold inside a closed backpack).
+	local inventoryMoney = physicalCoins > 0 and physicalCoins or inventoryGold
+	local total = bankGold + inventoryMoney
 
 	if total > 0 then
 		return total
@@ -184,21 +188,21 @@ function Cyclopedia.getPlayerMoney()
 	return getCyclopediaPlayerMoney()
 end
 
+local GOLD_BALANCE_TABS = {
+	bestiary = true,
+	charms = true,
+	map = true
+}
+
 local function updateCyclopediaMoneyDisplay()
-	if goldBase and not goldBase:isDestroyed() and goldBase:isVisible() then
-		local valueLabel = goldBase.Value
-
-		if valueLabel and not valueLabel:isDestroyed() then
-			valueLabel:setText(formatCyclopediaGold(getCyclopediaPlayerMoney()))
-		end
+	if not goldBase or goldBase:isDestroyed() or not goldBase:isVisible() then
+		return
 	end
 
-	if Cyclopedia.refreshCharmsGoldDisplay then
-		Cyclopedia.refreshCharmsGoldDisplay()
-	end
+	local valueLabel = goldBase.Value
 
-	if Cyclopedia.refreshBestiaryGoldDisplay then
-		Cyclopedia.refreshBestiaryGoldDisplay()
+	if valueLabel and not valueLabel:isDestroyed() then
+		valueLabel:setText(formatCyclopediaGold(getCyclopediaPlayerMoney()))
 	end
 end
 
@@ -211,7 +215,17 @@ function Cyclopedia.refreshMoneyDisplays(requestServerBalance)
 	updateCyclopediaMoneyDisplay()
 end
 
+local function isCyclopediaCoinItem(item)
+	if not item or not item.isItem or not item:isItem() then
+		return false
+	end
+
+	return COIN_MULTIPLIERS[item:getId()] ~= nil
+end
+
 local function scheduleCyclopediaMoneyRefresh()
+	updateCyclopediaMoneyDisplay()
+
 	if moneyRefreshPendingEvent then
 		removeEvent(moneyRefreshPendingEvent)
 	end
@@ -220,6 +234,12 @@ local function scheduleCyclopediaMoneyRefresh()
 		moneyRefreshPendingEvent = nil
 		updateCyclopediaMoneyDisplay()
 	end, MONEY_EVENT_REFRESH_DELAY)
+end
+
+local function onCyclopediaTileThingChange(tile, thing)
+	if isCyclopediaCoinItem(thing) then
+		scheduleCyclopediaMoneyRefresh()
+	end
 end
 
 local function cyclopediaMoneyRefreshTick()
@@ -261,8 +281,13 @@ function Cyclopedia.setGoldBaseVisible(visible)
 	goldBase:setVisible(visible)
 
 	if visible then
+		goldBase:raise()
 		Cyclopedia.refreshMoneyDisplays(true)
 	end
+end
+
+function Cyclopedia.setGoldBaseForTab(tabType)
+	Cyclopedia.setGoldBaseVisible(GOLD_BALANCE_TABS[tabType] == true)
 end
 
 local function onCyclopediaResourcesBalanceChange(value, oldBalance, resourceType)
@@ -289,11 +314,22 @@ local function connectCyclopediaMoneyListeners()
 	if Container then
 		connect(Container, {
 			onOpen = onCyclopediaInventoryMoneyChange,
+			onClose = onCyclopediaInventoryMoneyChange,
+			onSizeChange = onCyclopediaInventoryMoneyChange,
 			onAddItem = onCyclopediaInventoryMoneyChange,
 			onUpdateItem = onCyclopediaInventoryMoneyChange,
 			onRemoveItem = onCyclopediaInventoryMoneyChange
 		})
 	end
+
+	if g_game.enableTileThingLuaCallback then
+		g_game.enableTileThingLuaCallback(true)
+	end
+
+	connect(Tile, {
+		onAddThing = onCyclopediaTileThingChange,
+		onRemoveThing = onCyclopediaTileThingChange
+	})
 end
 
 local function disconnectCyclopediaMoneyListeners()
@@ -308,16 +344,39 @@ local function disconnectCyclopediaMoneyListeners()
 	if Container then
 		disconnect(Container, {
 			onOpen = onCyclopediaInventoryMoneyChange,
+			onClose = onCyclopediaInventoryMoneyChange,
+			onSizeChange = onCyclopediaInventoryMoneyChange,
 			onAddItem = onCyclopediaInventoryMoneyChange,
 			onUpdateItem = onCyclopediaInventoryMoneyChange,
 			onRemoveItem = onCyclopediaInventoryMoneyChange
 		})
 	end
+
+	disconnect(Tile, {
+		onAddThing = onCyclopediaTileThingChange,
+		onRemoveThing = onCyclopediaTileThingChange
+	})
 end
 
 local DEFAULT_WINDOW_SIZE = { width = 700, height = 538 }
 local ITEMS_WINDOW_SIZE = { width = 700, height = 618 }
 local ITEMS_CONTENT_MARGIN_BOTTOM = 36
+
+local function setWindowBottomBarForTab(tabType)
+	local usesOwnBottomBar = tabType == "charms" or tabType == "bestiary"
+
+	if closeButton then
+		closeButton:setVisible(not usesOwnBottomBar)
+	end
+
+	if horizontalSeparator then
+		horizontalSeparator:setVisible(not usesOwnBottomBar)
+	end
+
+	if backButton then
+		backButton:setVisible(tabType ~= "charms")
+	end
+end
 
 local function setItemsTabLayout(active)
 	if not window or not contentContainer then
@@ -402,6 +461,8 @@ function init()
 	end
 	contentContainer = window:recursiveGetChildById('contentContainer')
 	backButton = window:recursiveGetChildById('backButton')
+	closeButton = window:recursiveGetChildById('closeButton')
+	horizontalSeparator = window:recursiveGetChildById('horizontalSeparator')
 	manageContainersButton = window:recursiveGetChildById('manageContainersButton')
 	goldBase = window:recursiveGetChildById('GoldBase')
 	tabStack = {}
@@ -694,6 +755,9 @@ function toggleWindow(type, isBackNavigation)
 	elseif (type == "character") then
 		activateTab(character)
 	end
+
+	Cyclopedia.setGoldBaseForTab(type)
+	setWindowBottomBarForTab(type)
 end
 
 function isVisible()

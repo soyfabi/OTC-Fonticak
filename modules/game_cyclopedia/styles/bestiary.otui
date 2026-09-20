@@ -178,8 +178,9 @@ BestiaryMonster < UIWidget
   id: bestiaryMonster
   anchors.top: parent.top
   anchors.left: parent.left
+  margin-top: 6
   font: verdana-11px-antialised
-  size: 668 390
+  size: 668 384
   color: #909090
   text-offset: 0 6
   text-align: top
@@ -799,14 +800,14 @@ UIWidget
 
   UIWidget
     id: bestiaryContainer
-    size: 668 390
+    size: 668 384
     opacity: 1
-    image-source: /images/modern_ui/black_border
+    image-source: /images/ui/2pixel-up-frame-borderimage
     text-align: top
-    image-border: 6
-    image-border-top: 15
+    image-border: 10
     anchors.top: parent.top
     anchors.left: parent.left
+    margin-top: 6
 
     UIScrollArea
       id: bestiaryCSelecter
@@ -844,6 +845,7 @@ UIWidget
 
   UIWidget
     id: blackBG01
+    visible: false
     image-source: /images/modern_ui/image1015925
     image-border: 1
     size: 96 20
@@ -873,8 +875,8 @@ UIWidget
     image-border: 1
     size: 110 20
     anchors.bottom: parent.bottom
-    anchors.left: blackBG01.right
-    margin-left: 6
+    anchors.left: parent.left
+    margin-left: 136
     margin-bottom: 1
     !tooltip: tr('Charm Points\n\nEarned by unlocking entries in the Bestiary.')
 

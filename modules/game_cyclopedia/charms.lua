@@ -14,14 +14,6 @@ local charmBalance = 0
 local goldBalance = 0
 local resetAllCost = 0
 
-local function getLiveGoldBalance()
-	if Cyclopedia and Cyclopedia.getPlayerMoney then
-		return Cyclopedia.getPlayerMoney()
-	end
-
-	return goldBalance
-end
-
 local majorCharmIds = {
 	[0] = true, [1] = true, [2] = true, [3] = true, [4] = true, [5] = true,
 	[7] = true, [8] = true, [15] = true, [16] = true, [19] = true,
@@ -241,9 +233,6 @@ local function updateBalances()
 		else
 			widgets.echoesAmount:setText(formatNumber(echoeBalance))
 		end
-	end
-	if widgets.goldPoints then
-		widgets.goldPoints:setText(formatNumber(getLiveGoldBalance()))
 	end
 	if widgets.goldResetAmount then
 		widgets.goldResetAmount:setText(formatNumber(resetAllCost))
@@ -636,11 +625,6 @@ function initCharms()
 	if charmsWindow then
 		charmsWindow:show()
 		updateBalances()
-
-		if Cyclopedia.refreshMoneyDisplays then
-			Cyclopedia.refreshMoneyDisplays(true)
-		end
-
 		refreshCharmGrid()
 		return
 	end
@@ -671,7 +655,6 @@ function initCharms()
 	widgets.majorMenu = charmsWindow:recursiveGetChildById('majorMenu')
 	widgets.minorMenu = charmsWindow:recursiveGetChildById('minorMenu')
 	widgets.charmListPanel = charmsWindow:recursiveGetChildById('charmListPanel')
-	widgets.goldPoints = charmsWindow:recursiveGetChildById('goldPoints')
 	widgets.charmAmount = charmsWindow:recursiveGetChildById('charmAmount')
 	widgets.echoesAmount = charmsWindow:recursiveGetChildById('echoesAmount')
 	widgets.backButton = charmsWindow:recursiveGetChildById('backButton')
@@ -733,16 +716,6 @@ function initCharms()
 	updateBalances()
 	loadCharmMenu('major')
 	requestBestiaryInfo()
-end
-
-function Cyclopedia.refreshCharmsGoldDisplay()
-	if not isCharmsView() or not charmsWindow or charmsWindow:isDestroyed() then
-		return
-	end
-
-	if widgets.goldPoints then
-		widgets.goldPoints:setText(formatNumber(getLiveGoldBalance()))
-	end
 end
 
 function resetCharmsData()
