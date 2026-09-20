@@ -1,3 +1,5 @@
+Cyclopedia = Cyclopedia or {}
+
 CyclopediaOpcode = {
 	Info = 0x39,
 	Category = 0x3A,
@@ -1543,7 +1545,21 @@ function BestiaryChangeAmount(amount, secondAmount, echoeAmount, maxCharmAmount,
 		end
 	end
 	if goldAmountBestiary then
-		goldAmountBestiary:setText(formatNumber(currentGoldBalance))
+		local money = (Cyclopedia and Cyclopedia.getPlayerMoney and Cyclopedia.getPlayerMoney()) or currentGoldBalance
+
+		goldAmountBestiary:setText(formatNumber(money))
+	end
+end
+
+function Cyclopedia.refreshBestiaryGoldDisplay()
+	if not isBestiaryView() then
+		return
+	end
+
+	if goldAmountBestiary then
+		local money = (Cyclopedia and Cyclopedia.getPlayerMoney and Cyclopedia.getPlayerMoney()) or currentGoldBalance
+
+		goldAmountBestiary:setText(formatNumber(money))
 	end
 end
 
@@ -1956,9 +1972,15 @@ end
 function initBestiary(contentContainer)
 	if bestiaryPanel then
 		bestiaryPanel:show()
+
+		if Cyclopedia.refreshBestiaryGoldDisplay then
+			Cyclopedia.refreshBestiaryGoldDisplay()
+		end
+
 		if #currentCategoriesList == 0 then
 			requestBestiaryData()
 		end
+
 		return
 	end
 

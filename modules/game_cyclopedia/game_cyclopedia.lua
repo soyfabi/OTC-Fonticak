@@ -112,7 +112,208 @@ local function onCyclopediaItemDetails(itemId)
 	end
 end
 
-local window, currentType, backButton, manageContainersButton, tabStack
+local window, currentType, backButton, manageContainersButton, tabStack, goldBase
+local moneyRefreshEvent, moneyRefreshPendingEvent
+local MONEY_REFRESH_INTERVAL = 200
+local MONEY_EVENT_REFRESH_DELAY = 25
+
+local COIN_MULTIPLIERS = {
+	[3031] = 1,
+	[2148] = 1,
+	[3035] = 100,
+	[2152] = 100,
+	[3043] = 10000,
+	[2160] = 10000
+}
+
+local function formatCyclopediaGold(value)
+	if Cyclopedia.formatGold then
+		return Cyclopedia.formatGold(value)
+	end
+
+	return comma_value(value or 0)
+end
+
+local function getCyclopediaPlayerMoney()
+	local player = g_game.getLocalPlayer()
+
+	if not player then
+		return 0
+	end
+
+	local bankGold = player:getResourceBalance(ResourceBank or 0) or 0
+	local inventoryGold = player:getResourceBalance(ResourceInventary or 1) or 0
+	local physicalCoins = 0
+
+	for _, container in pairs(g_game.getContainers()) do
+		for _, item in pairs(container:getItems()) do
+			local mult = COIN_MULTIPLIERS[item:getId()]
+
+			if mult then
+				physicalCoins = physicalCoins + ((item:getCount() or 1) * mult)
+			end
+		end
+	end
+
+	for slot = InventorySlotFirst or 1, InventorySlotLast or 10 do
+		local item = player:getInventoryItem(slot)
+
+		if item then
+			local mult = COIN_MULTIPLIERS[item:getId()]
+
+			if mult then
+				physicalCoins = physicalCoins + ((item:getCount() or 1) * mult)
+			end
+		end
+	end
+
+	local total = bankGold + math.max(inventoryGold, physicalCoins)
+
+	if total > 0 then
+		return total
+	end
+
+	if player.getTotalMoney then
+		return player:getTotalMoney() or 0
+	end
+
+	return 0
+end
+
+function Cyclopedia.getPlayerMoney()
+	return getCyclopediaPlayerMoney()
+end
+
+local function updateCyclopediaMoneyDisplay()
+	if goldBase and not goldBase:isDestroyed() and goldBase:isVisible() then
+		local valueLabel = goldBase.Value
+
+		if valueLabel and not valueLabel:isDestroyed() then
+			valueLabel:setText(formatCyclopediaGold(getCyclopediaPlayerMoney()))
+		end
+	end
+
+	if Cyclopedia.refreshCharmsGoldDisplay then
+		Cyclopedia.refreshCharmsGoldDisplay()
+	end
+
+	if Cyclopedia.refreshBestiaryGoldDisplay then
+		Cyclopedia.refreshBestiaryGoldDisplay()
+	end
+end
+
+function Cyclopedia.refreshMoneyDisplays(requestServerBalance)
+	if requestServerBalance and g_game.requestResource then
+		g_game.requestResource(ResourceBank or 0)
+		g_game.requestResource(ResourceInventary or 1)
+	end
+
+	updateCyclopediaMoneyDisplay()
+end
+
+local function scheduleCyclopediaMoneyRefresh()
+	if moneyRefreshPendingEvent then
+		removeEvent(moneyRefreshPendingEvent)
+	end
+
+	moneyRefreshPendingEvent = scheduleEvent(function()
+		moneyRefreshPendingEvent = nil
+		updateCyclopediaMoneyDisplay()
+	end, MONEY_EVENT_REFRESH_DELAY)
+end
+
+local function cyclopediaMoneyRefreshTick()
+	moneyRefreshEvent = nil
+
+	if not window or window:isDestroyed() or not window:isVisible() then
+		return
+	end
+
+	updateCyclopediaMoneyDisplay()
+	moneyRefreshEvent = scheduleEvent(cyclopediaMoneyRefreshTick, MONEY_REFRESH_INTERVAL)
+end
+
+local function startCyclopediaMoneyRefresh()
+	if moneyRefreshEvent then
+		return
+	end
+
+	moneyRefreshEvent = scheduleEvent(cyclopediaMoneyRefreshTick, MONEY_REFRESH_INTERVAL)
+end
+
+local function stopCyclopediaMoneyRefresh()
+	if moneyRefreshEvent then
+		removeEvent(moneyRefreshEvent)
+		moneyRefreshEvent = nil
+	end
+
+	if moneyRefreshPendingEvent then
+		removeEvent(moneyRefreshPendingEvent)
+		moneyRefreshPendingEvent = nil
+	end
+end
+
+function Cyclopedia.setGoldBaseVisible(visible)
+	if not goldBase or goldBase:isDestroyed() then
+		return
+	end
+
+	goldBase:setVisible(visible)
+
+	if visible then
+		Cyclopedia.refreshMoneyDisplays(true)
+	end
+end
+
+local function onCyclopediaResourcesBalanceChange(value, oldBalance, resourceType)
+	if resourceType ~= nil and resourceType ~= 0 and resourceType ~= 1 then
+		return
+	end
+
+	scheduleCyclopediaMoneyRefresh()
+end
+
+local function onCyclopediaInventoryMoneyChange()
+	scheduleCyclopediaMoneyRefresh()
+end
+
+local function connectCyclopediaMoneyListeners()
+	connect(g_game, {
+		onResourcesBalanceChange = onCyclopediaResourcesBalanceChange
+	})
+
+	connect(LocalPlayer, {
+		onInventoryChange = onCyclopediaInventoryMoneyChange
+	})
+
+	if Container then
+		connect(Container, {
+			onOpen = onCyclopediaInventoryMoneyChange,
+			onAddItem = onCyclopediaInventoryMoneyChange,
+			onUpdateItem = onCyclopediaInventoryMoneyChange,
+			onRemoveItem = onCyclopediaInventoryMoneyChange
+		})
+	end
+end
+
+local function disconnectCyclopediaMoneyListeners()
+	disconnect(g_game, {
+		onResourcesBalanceChange = onCyclopediaResourcesBalanceChange
+	})
+
+	disconnect(LocalPlayer, {
+		onInventoryChange = onCyclopediaInventoryMoneyChange
+	})
+
+	if Container then
+		disconnect(Container, {
+			onOpen = onCyclopediaInventoryMoneyChange,
+			onAddItem = onCyclopediaInventoryMoneyChange,
+			onUpdateItem = onCyclopediaInventoryMoneyChange,
+			onRemoveItem = onCyclopediaInventoryMoneyChange
+		})
+	end
+end
 
 local DEFAULT_WINDOW_SIZE = { width = 700, height = 538 }
 local ITEMS_WINDOW_SIZE = { width = 700, height = 618 }
@@ -183,7 +384,13 @@ function init()
 		if cyclopediaButton then
 			cyclopediaButton:setOn(visible)
 		end
-		if not visible then
+
+		if visible then
+			Cyclopedia.refreshMoneyDisplays(true)
+			startCyclopediaMoneyRefresh()
+		else
+			stopCyclopediaMoneyRefresh()
+
 			if Cyclopedia.onItemsTabHidden then
 				Cyclopedia.onItemsTabHidden()
 			end
@@ -196,6 +403,7 @@ function init()
 	contentContainer = window:recursiveGetChildById('contentContainer')
 	backButton = window:recursiveGetChildById('backButton')
 	manageContainersButton = window:recursiveGetChildById('manageContainersButton')
+	goldBase = window:recursiveGetChildById('GoldBase')
 	tabStack = {}
 	buttonSelection = window:recursiveGetChildById('buttonSelection')
 		items = buttonSelection:recursiveGetChildById('items')
@@ -206,9 +414,16 @@ function init()
 		character = buttonSelection:recursiveGetChildById('character')
 
 	modules.game_cyclopedia.Cyclopedia = Cyclopedia
+
+	if g_game.isOnline() then
+		connectCyclopediaMoneyListeners()
+	end
 end
 
 function terminate()
+	stopCyclopediaMoneyRefresh()
+	disconnectCyclopediaMoneyListeners()
+
 	disconnect(g_game, {
 		onGameStart = onCyclopediaGameStart,
 		onGameEnd = onCyclopediaGameEnd,
@@ -260,6 +475,8 @@ function getCurrentType()
 end
 
 function onCyclopediaGameStart()
+	connectCyclopediaMoneyListeners()
+
 	if LoadedPlayer and LoadedPlayer.cacheFromLocalPlayer then
 		LoadedPlayer:cacheFromLocalPlayer()
 	end
@@ -279,6 +496,9 @@ function onCyclopediaGameStart()
 end
 
 function onCyclopediaGameEnd()
+	stopCyclopediaMoneyRefresh()
+	disconnectCyclopediaMoneyListeners()
+
 	if Cyclopedia.Items and Cyclopedia.Items.saveJson then
 		Cyclopedia.Items.saveJson()
 	end

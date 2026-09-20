@@ -2086,6 +2086,10 @@ function Cyclopedia.clearMapUI()
 	if root and not root:isDestroyed() then
 		root:destroy()
 	end
+
+	if Cyclopedia.setGoldBaseVisible then
+		Cyclopedia.setGoldBaseVisible(false)
+	end
 end
 
 function initMap(contentContainer)
@@ -2153,6 +2157,10 @@ function initMap(contentContainer)
 			Cyclopedia.applyMapFlagFilter()
 		end
 	end, 100)
+
+	if Cyclopedia.setGoldBaseVisible then
+		Cyclopedia.setGoldBaseVisible(true)
+	end
 end
 
 function Cyclopedia.loadMap()

@@ -1,4 +1,5 @@
 protoData = protoData or {}
+Cyclopedia = Cyclopedia or {}
 
 local MAX_ASSIGNED_CHARMS = 6
 
@@ -12,6 +13,14 @@ local selectedMenu = 'major'
 local charmBalance = 0
 local goldBalance = 0
 local resetAllCost = 0
+
+local function getLiveGoldBalance()
+	if Cyclopedia and Cyclopedia.getPlayerMoney then
+		return Cyclopedia.getPlayerMoney()
+	end
+
+	return goldBalance
+end
 
 local majorCharmIds = {
 	[0] = true, [1] = true, [2] = true, [3] = true, [4] = true, [5] = true,
@@ -234,7 +243,7 @@ local function updateBalances()
 		end
 	end
 	if widgets.goldPoints then
-		widgets.goldPoints:setText(formatNumber(goldBalance))
+		widgets.goldPoints:setText(formatNumber(getLiveGoldBalance()))
 	end
 	if widgets.goldResetAmount then
 		widgets.goldResetAmount:setText(formatNumber(resetAllCost))
@@ -627,6 +636,11 @@ function initCharms()
 	if charmsWindow then
 		charmsWindow:show()
 		updateBalances()
+
+		if Cyclopedia.refreshMoneyDisplays then
+			Cyclopedia.refreshMoneyDisplays(true)
+		end
+
 		refreshCharmGrid()
 		return
 	end
@@ -719,6 +733,16 @@ function initCharms()
 	updateBalances()
 	loadCharmMenu('major')
 	requestBestiaryInfo()
+end
+
+function Cyclopedia.refreshCharmsGoldDisplay()
+	if not isCharmsView() or not charmsWindow or charmsWindow:isDestroyed() then
+		return
+	end
+
+	if widgets.goldPoints then
+		widgets.goldPoints:setText(formatNumber(getLiveGoldBalance()))
+	end
 end
 
 function resetCharmsData()

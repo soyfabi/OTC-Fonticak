@@ -3,7 +3,7 @@ Module
   description: Game cyclopedia
   author: Reddington#9222
   sandboxed: true
-  scripts: [ charms, bestiary, game_cyclopedia, tab/items/items, tab/map/zones_data, tab/map/map ]
+  scripts: [ game_cyclopedia, charms, bestiary, tab/items/items, tab/map/zones_data, tab/map/map ]
   autoload: true
   autoload-priority: 1001
   @onLoad: init()
