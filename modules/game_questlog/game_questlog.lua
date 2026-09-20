@@ -815,17 +815,9 @@ local function toggleTracker()
 			trackerMiniWindow:close()
 		end
 	else
-		if not trackerMiniWindow:getParent() then
-			local panel = modules.game_interface.findContentPanelAvailable(trackerMiniWindow, trackerMiniWindow:getMinimumHeight())
-
-			if not panel then
-				return
-			end
-
-			panel:addChild(trackerMiniWindow)
+		if not trackerMiniWindow:open() then
+			return
 		end
-
-		trackerMiniWindow:open()
 	end
 end
 

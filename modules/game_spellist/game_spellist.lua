@@ -559,14 +559,9 @@ function toggle()
     setButtonOn(false)
     return
   end
-  if not t_spelllist:getParent() then
-    local panel = modules.game_interface.findContentPanelAvailable(t_spelllist, t_spelllist:getMinimumHeight())
-    if not panel then
-      return
-    end
-    panel:addChild(t_spelllist)
+  if not t_spelllist:open() then
+    return
   end
-  t_spelllist:open()
   setButtonOn(true)
   onConfigureList()
 end
@@ -592,10 +587,7 @@ function online()
     t_spelllist:setupOnStart()
   end
   if t_spelllist and t_spelllist:isVisible() and not t_spelllist:getParent() then
-    local panel = modules.game_interface.findContentPanelAvailable(t_spelllist, t_spelllist:getMinimumHeight())
-    if panel then
-      panel:addChild(t_spelllist)
-    end
+    modules.game_interface.ensureMiniWindowSidebarPlacement(t_spelllist, nil, true)
   end
   setButtonOn(t_spelllist and t_spelllist:isVisible())
   onConfigureList()

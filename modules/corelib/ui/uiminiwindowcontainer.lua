@@ -72,6 +72,17 @@ UIMiniWindowContainer.isSidebarFreeSpaceWidget = isSidebarFreeSpaceWidget
 UIMiniWindowContainer.isSidebarPlaceholderWidget = isSidebarPlaceholderWidget
 UIMiniWindowContainer.isSidebarSystemWidget = isSidebarSystemWidget
 
+local function sumVisibleChildrenHeight(children)
+    local sumHeight = 0
+    for i = 1, #children do
+        local child = children[i]
+        if child:isVisible() and not isSidebarSystemWidget(child) then
+            sumHeight = sumHeight + child:getHeight()
+        end
+    end
+    return sumHeight
+end
+
 local function shouldManageSidebarFreeSpace(container)
     if not container or container:isDestroyed() or not container:isVisible() then
         return false
@@ -203,12 +214,19 @@ function UIMiniWindowContainer:refreshSidebarFreeSpace()
 end
 
 function UIMiniWindowContainer:fitAll(noRemoveChild)
-    if not self:isVisible() then
+    if self._fitAllInProgress then
         return
     end
 
-    if self.ignoreFillAll then
+    if not self:isVisible() or self.ignoreFillAll then
         return
+    end
+
+    self._fitAllInProgress = true
+
+    local function finish()
+        self._fitAllInProgress = nil
+        self:refreshSidebarFreeSpace()
     end
 
     if not noRemoveChild then
@@ -221,61 +239,83 @@ function UIMiniWindowContainer:fitAll(noRemoveChild)
         end
 
         if not noRemoveChild then
-            self:refreshSidebarFreeSpace()
+            finish()
             return
         end
     end
 
-    local sumHeight = 0
     local children = self:getChildren()
-    for i = 1, #children do
-        if children[i]:isVisible() and not isSidebarSystemWidget(children[i]) then
-            sumHeight = sumHeight + children[i]:getHeight()
-        end
-    end
-
+    local sumHeight = sumVisibleChildrenHeight(children)
     local selfHeight = self:getHeight() - (self:getPaddingTop() + self:getPaddingBottom())
     if sumHeight <= selfHeight then
-        self:refreshSidebarFreeSpace()
+        finish()
         return
     end
 
     local removeChildren = {}
+    local neededReduction = sumHeight - selfHeight
 
-    -- try to resize noRemoveChild
-    local maximumHeight = selfHeight - (sumHeight - noRemoveChild:getHeight())
-    if noRemoveChild:isResizeable() and noRemoveChild:getMinimumHeight() <= maximumHeight then
-        sumHeight = sumHeight - noRemoveChild:getHeight() + maximumHeight
-        addEvent(function()
-            noRemoveChild:setHeight(maximumHeight)
-        end)
+    if neededReduction > 0 then
+        for i = #children, 1, -1 do
+            if neededReduction <= 0 then
+                break
+            end
+
+            local child = children[i]
+            if child ~= noRemoveChild and not isSidebarSystemWidget(child) and child:isVisible()
+                and child:isResizeable() then
+                local curH = child:getHeight()
+                local minH = child:getMinimumHeight()
+                local avail = math.max(0, curH - minH)
+
+                if avail > 0 then
+                    local reduceBy = math.min(avail, neededReduction)
+                    local newH = curH - reduceBy
+
+                    neededReduction = neededReduction - reduceBy
+                    child:setHeight(newH)
+                end
+            end
+        end
     end
 
-    -- try to remove no-save widget
-    for i = #children, 1, -1 do
-        if sumHeight <= selfHeight then
-            break
-        end
-
-        local child = children[i]
-        if child ~= noRemoveChild and not isSidebarSystemWidget(child) and not child.save then
-            local childHeight = child:getHeight()
-            sumHeight = sumHeight - childHeight
-            table.insert(removeChildren, child)
+    if neededReduction > 0 and noRemoveChild and noRemoveChild:isResizeable() then
+        local curH = noRemoveChild:getHeight()
+        local minH = noRemoveChild:getMinimumHeight()
+        local newH = math.max(minH, curH - neededReduction)
+        if newH < curH then
+            noRemoveChild:setHeight(newH)
+            neededReduction = neededReduction - (curH - newH)
         end
     end
 
-    -- try to remove save widget
-    for i = #children, 1, -1 do
-        if sumHeight <= selfHeight then
-            break
+    sumHeight = sumVisibleChildrenHeight(children)
+
+    if sumHeight > selfHeight then
+        for i = #children, 1, -1 do
+            if sumHeight <= selfHeight then
+                break
+            end
+
+            local child = children[i]
+            if child ~= noRemoveChild and not isSidebarSystemWidget(child) and not child.save then
+                local childHeight = child:getHeight()
+                sumHeight = sumHeight - childHeight
+                table.insert(removeChildren, child)
+            end
         end
 
-        local child = children[i]
-        if child ~= noRemoveChild and not isSidebarSystemWidget(child) and child:isVisible() then
-            local childHeight = child:getHeight()
-            sumHeight = sumHeight - childHeight
-            table.insert(removeChildren, child)
+        for i = #children, 1, -1 do
+            if sumHeight <= selfHeight then
+                break
+            end
+
+            local child = children[i]
+            if child ~= noRemoveChild and not isSidebarSystemWidget(child) and child:isVisible() then
+                local childHeight = child:getHeight()
+                sumHeight = sumHeight - childHeight
+                table.insert(removeChildren, child)
+            end
         end
     end
 
@@ -283,7 +323,7 @@ function UIMiniWindowContainer:fitAll(noRemoveChild)
         removeChildren[i]:close()
     end
 
-    self:refreshSidebarFreeSpace()
+    finish()
 end
 
 function UIMiniWindowContainer:redistributeChildrenWidths()
@@ -329,8 +369,11 @@ function UIMiniWindowContainer:fits(child, minContentHeight, maxContentHeight)
     end
 
     local containerPanel = child:getChildById('contentsPanel')
-    local indispensableHeight = containerPanel:getMarginTop() + containerPanel:getMarginBottom() +
-        containerPanel:getPaddingTop() + containerPanel:getPaddingBottom()
+    local indispensableHeight = 0
+    if containerPanel then
+        indispensableHeight = containerPanel:getMarginTop() + containerPanel:getMarginBottom() +
+            containerPanel:getPaddingTop() + containerPanel:getPaddingBottom()
+    end
 
     local totalHeight = 0
     local children = self:getChildren()
@@ -340,15 +383,25 @@ function UIMiniWindowContainer:fits(child, minContentHeight, maxContentHeight)
         end
     end
 
-    local available = self:getHeight() - (self:getPaddingTop() + self:getPaddingBottom()) - totalHeight
+    local selfHeight = self:getHeight() - (self:getPaddingTop() + self:getPaddingBottom())
+    local available = selfHeight - totalHeight
+
+    if child:getParent() == self and child:isVisible() then
+        return available
+    end
+
+    local requiredHeight = minContentHeight + indispensableHeight
+    if child:getHeight() > 0 then
+        requiredHeight = math.max(requiredHeight, child:getHeight())
+    end
 
     if maxContentHeight > 0 and available >= (maxContentHeight + indispensableHeight) then
         return maxContentHeight + indispensableHeight
-    elseif available >= (minContentHeight + indispensableHeight) then
+    elseif available >= requiredHeight then
         return available
-    else
-        return -1
     end
+
+    return -1
 end
 
 function UIMiniWindowContainer:onDrop(widget, mousePos)

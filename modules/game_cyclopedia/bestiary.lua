@@ -1807,8 +1807,8 @@ function requestBestiaryTrackerToggle(raceId)
 	local protocolGame = g_game.getProtocolGame()
 	if protocolGame and raceId and raceId > 0 then
 		local window = ensureBestiaryTrackerWindow()
-		if window then
-			window:open()
+		if window and not window:open() then
+			return
 		end
 		local msg = OutputMessage.create()
 		msg:addU8(CyclopediaOpcode.Tracker)
@@ -1887,8 +1887,8 @@ function toggleBestiaryTracker()
 	if window then
 		if window:isVisible() then
 			window:close()
-		else
-			window:open()
+		elseif not window:open() then
+			return
 		end
 	end
 end

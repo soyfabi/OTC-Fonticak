@@ -2184,18 +2184,89 @@ function getBottomSplitter()
     return bottomSplitter
 end
 
-function findContentPanelAvailable(child, minContentHeight)
-    if gameSelectedPanel and gameSelectedPanel:isVisible() and gameSelectedPanel:fits(child, minContentHeight, 0) >= 0 then
+function displayNoSidebarSpaceMessage()
+    if modules.game_textmessage and modules.game_textmessage.displayFailureMessage then
+        modules.game_textmessage.displayFailureMessage(tr('There is no space in the sidebar column.'))
+    end
+end
+
+function getMiniWindowContentsInsets(widget)
+    local contentsPanel = widget and widget:getChildById('contentsPanel')
+    if not contentsPanel then
+        return 0
+    end
+    return contentsPanel:getMarginTop() + contentsPanel:getMarginBottom() +
+        contentsPanel:getPaddingTop() + contentsPanel:getPaddingBottom()
+end
+
+function normalizeMiniWindowPlacementContentHeight(widget, minContentHeight)
+    if minContentHeight ~= nil then
+        return minContentHeight
+    end
+    local minTotal = widget:getMinimumHeight()
+    if minTotal <= 0 then
+        return 0
+    end
+    return math.max(0, minTotal - getMiniWindowContentsInsets(widget))
+end
+
+local function panelFitsContent(panel, child, minContentHeight)
+    return isEligibleSidebarPanel(panel)
+        and panel:fits(child, minContentHeight, 0) >= 0
+end
+
+function findContentPanelAvailable(child, minContentHeight, requireAvailable)
+    if panelFitsContent(gameSelectedPanel, child, minContentHeight) then
         return gameSelectedPanel
     end
 
-    for k, v in pairs(panelsList) do
-        if v.panel ~= gameSelectedPanel and v.panel:isVisible() and v.panel:fits(child, minContentHeight, 0) >= 0 then
-            return v.panel
+    for _, panel in ipairs(getMiniWindowSidebarPanelsInOrder()) do
+        if panel ~= gameSelectedPanel and panelFitsContent(panel, child, minContentHeight) then
+            return panel
         end
     end
 
-    return gameSelectedPanel
+    if requireAvailable then
+        return nil
+    end
+
+    return gameSelectedPanel or gameRightPanel
+end
+
+function ensureMiniWindowSidebarPlacement(widget, minContentHeight, silent)
+    if not widget or widget:isDestroyed() then
+        return false
+    end
+
+    local parent = widget:getParent()
+    if parent and parent:getClassName() == 'UIMiniWindowContainer' and widget:isVisible() then
+        return true
+    end
+
+    minContentHeight = normalizeMiniWindowPlacementContentHeight(widget, minContentHeight)
+
+    if parent and parent:getClassName() == 'UIMiniWindowContainer'
+        and panelFitsContent(parent, widget, minContentHeight) then
+        return true
+    end
+
+    local panel = findContentPanelAvailable(widget, minContentHeight, true)
+    if not panel then
+        if not silent then
+            displayNoSidebarSpaceMessage()
+        end
+        return false
+    end
+
+    if parent ~= panel then
+        if parent then
+            parent:removeChild(widget)
+        end
+        panel:addChild(widget)
+        widget:saveParent(panel)
+    end
+
+    return true
 end
 
 function nextViewMode()

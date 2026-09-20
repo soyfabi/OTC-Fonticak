@@ -475,14 +475,9 @@ function toggle()
     analyserButton:setOn(false)
     analyserMiniWindow.isOpen = false
   else
-    if not analyserMiniWindow:getParent() then
-      local panel = modules.game_interface.findContentPanelAvailable(analyserMiniWindow, analyserMiniWindow:getMinimumHeight())
-      if not panel then
-        return
-      end
-      panel:addChild(analyserMiniWindow)
+    if not analyserMiniWindow:open() then
+      return
     end
-    analyserMiniWindow:open()
     analyserMiniWindow.isOpen = true
     analyserButton:setOn(true)
   end
@@ -500,7 +495,11 @@ function onOpen()
 end
 
 function show()
-  analyserMiniWindow:open()
+  if not analyserMiniWindow:open() then
+    analyserMiniWindow.isOpen = false
+    analyserButton:setOn(false)
+    return
+  end
   analyserMiniWindow.isOpen = true
   analyserButton:setOn(true)
 end
@@ -520,8 +519,11 @@ function toggleAnalysers(buttonId)
       toggleBossCDFocus(false)
     end
   else
+    if not widget:open() then
+      widget.isOpen = false
+      return
+    end
     widget.isOpen = true
-    widget:open()
 
     if buttonId == 'impactButton' then
       ImpactAnalyser:checkAnchos()
@@ -540,16 +542,10 @@ function toggleAnalysers(buttonId)
       XPAnalyser:forceUpdateUI()  -- Update UI with any accumulated XP data
     end
 
-    -- Properly assign widget to a panel if it doesn't have a parent
-    if not widget:getParent() then
-      local panel = modules.game_interface.findContentPanelAvailable(widget, widget:getMinimumHeight())
-      if not panel then
-        return
-      end
-      panel:addChild(widget)
+    local parent = widget:getParent()
+    if parent then
+      parent:moveChildToIndex(widget, #parent:getChildren())
     end
-    
-    widget:getParent():moveChildToIndex(widget, #widget:getParent():getChildren())
     buttonWidget:setOn(true)
   end
 end

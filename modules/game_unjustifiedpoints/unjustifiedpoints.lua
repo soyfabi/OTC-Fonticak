@@ -185,15 +185,9 @@ function toggle()
         unjustifiedPointsWindow:close()
         unjustifiedPointsButton:setOn(false)
     else
-        if not unjustifiedPointsWindow:getParent() then
-            local panel = modules.game_interface.findContentPanelAvailable(unjustifiedPointsWindow, unjustifiedPointsWindow:getMinimumHeight())
-            if not panel then
-                return
-            end
-
-            panel:addChild(unjustifiedPointsWindow)
+        if not unjustifiedPointsWindow:open() then
+            return
         end
-        unjustifiedPointsWindow:open()
         unjustifiedPointsButton:setOn(true)
     end
 end

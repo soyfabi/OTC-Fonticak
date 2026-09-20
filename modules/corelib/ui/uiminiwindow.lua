@@ -69,6 +69,26 @@ local function eraseFloatingPosition(widget)
     end
 end
 
+local function gameInterface()
+    return modules.game_interface
+end
+
+local function ensureSidebarPlacement(widget, minContentHeight, silent)
+    local gi = gameInterface()
+    if not gi or not gi.ensureMiniWindowSidebarPlacement then
+        return true
+    end
+    return gi.ensureMiniWindowSidebarPlacement(widget, minContentHeight, silent)
+end
+
+local function needsSidebarPlacementOnOpen(widget)
+    local parent = widget:getParent()
+    if not parent or parent:isDestroyed() then
+        return true
+    end
+    return parent:getClassName() == 'UIMiniWindowContainer'
+end
+
 local function readFloatingPosition(widget)
     local node = g_settings.getNode(FLOATING_SETTINGS_NODE)
     local key = floatingStoreKey()
@@ -94,29 +114,19 @@ end
 function UIMiniWindow:dockToSidebar()
     removeEvent(self._floatRestoreEvent)
     self._floatRestoreEvent = nil
-    self.floating = nil
 
     local parent = self:getParent()
     if parent and parent:getClassName() == 'UIMiniWindowContainer' then
         return
     end
 
-    local panel
-    if modules.game_interface and modules.game_interface.findContentPanelAvailable then
-        panel = modules.game_interface.findContentPanelAvailable(self, self:getMinimumHeight())
-    end
-    if (not panel or panel:isDestroyed()) and modules.game_interface and modules.game_interface.getRightPanel then
-        panel = modules.game_interface.getRightPanel()
-    end
-    if not panel or panel:isDestroyed() then
+    local wasFloating = self.floating
+    if not ensureSidebarPlacement(self) then
+        self.floating = wasFloating
         return
     end
 
-    if parent then
-        parent:removeChild(self)
-    end
-    panel:addChild(self)
-    self:saveParent(panel)
+    self.floating = nil
     self:fitOnParent()
 end
 
@@ -279,6 +289,12 @@ function UIMiniWindow.create()
 end
 
 function UIMiniWindow:open(dontSave)
+    if not dontSave and not self._restoringOnStart and needsSidebarPlacementOnOpen(self) then
+        if not ensureSidebarPlacement(self) then
+            return false
+        end
+    end
+
     self:setVisible(true)
     if not dontSave then
         self:setSettings({
@@ -289,6 +305,7 @@ function UIMiniWindow:open(dontSave)
         playOpenHighlight(self)
     end
     signalcall(self.onOpen, self)
+    return true
 end
 
 function UIMiniWindow:close(dontSave)
@@ -1265,7 +1282,8 @@ end
 
 function UIMiniWindow:fitOnParent()
     local parent = self:getParent()
-    if self:isVisible() and parent and parent:getClassName() == 'UIMiniWindowContainer' then
+    if self:isVisible() and parent and parent:getClassName() == 'UIMiniWindowContainer'
+        and not parent._fitAllInProgress then
         parent:fitAll(self)
     end
 end

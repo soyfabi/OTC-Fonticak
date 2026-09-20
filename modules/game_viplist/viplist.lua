@@ -553,17 +553,9 @@ function toggle()
 	if vipButton:isOn() then
 		vipWindow:closeAndForgetLayout()
 	else
-		if not vipWindow:getParent() then
-			local panel = modules.game_interface.findContentPanelAvailable(vipWindow, vipWindow:getMinimumHeight())
-
-			if not panel then
-				return
-			end
-
-			panel:addChild(vipWindow)
+		if not vipWindow:open() then
+			return
 		end
-
-		vipWindow:open()
 	end
 
 	syncVipMainPanelButton()
