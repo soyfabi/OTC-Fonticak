@@ -705,25 +705,20 @@ void LocalPlayer::setImbuements(double lifeLeech, double manaLeech, double critC
     callLuaField("onImbuementsChange", lifeLeech, manaLeech, critChance, critDamage, onslaught);
 }
 
-void LocalPlayer::setDefenseInfo(uint16_t defense, uint16_t armor, double mitigation, double dodge, uint16_t damageReflection)
+void LocalPlayer::setDefenseInfo(uint16_t defense, uint16_t armor, uint16_t mantra, double mitigation, double dodge, uint16_t damageReflection)
 {
-    if (m_defense == defense && m_armor == armor && m_mitigation == mitigation &&
+    if (m_defense == defense && m_armor == armor && m_mantra == mantra && m_mitigation == mitigation &&
         m_dodge == dodge && m_damageReflection == damageReflection)
         return;
 
-    const uint16_t oldDefense = m_defense;
-    const uint16_t oldArmor = m_armor;
-    const double oldMitigation = m_mitigation;
-    const double oldDodge = m_dodge;
-    const uint16_t oldDamageReflection = m_damageReflection;
-
     m_defense = defense;
     m_armor = armor;
+    m_mantra = mantra;
     m_mitigation = mitigation;
     m_dodge = dodge;
     m_damageReflection = damageReflection;
 
-    callLuaField("onDefenseInfoChange", defense, armor, mitigation, dodge, damageReflection);
+    callLuaField("onDefenseInfoChange", defense, armor, mitigation, dodge, damageReflection, mantra);
 }
 
 void LocalPlayer::setCombatAbsorbValues(const std::map<uint8_t, double>& absorbValues)
@@ -731,7 +726,6 @@ void LocalPlayer::setCombatAbsorbValues(const std::map<uint8_t, double>& absorbV
     if (m_combatAbsorbValues == absorbValues)
         return;
 
-    const auto oldAbsorbValues = m_combatAbsorbValues;
     m_combatAbsorbValues = absorbValues;
 
     callLuaField("onCombatAbsorbValuesChange", absorbValues);
@@ -741,10 +735,6 @@ void LocalPlayer::setForgeBonuses(double momentum, double transcendence, double 
 {
     if (m_momentum == momentum && m_transcendence == transcendence && m_amplification == amplification)
         return;
-
-    const double oldMomentum = m_momentum;
-    const double oldTranscendence = m_transcendence;
-    const double oldAmplification = m_amplification;
 
     m_momentum = momentum;
     m_transcendence = transcendence;

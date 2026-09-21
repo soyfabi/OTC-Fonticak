@@ -4,7 +4,7 @@ Module
   author: baxnie, edubart
   website: https://github.com/edubart/otclient
   sandboxed: true
-  scripts: [ skills ]
+  scripts: [ skills_constants, skills_extended, skills_hover, skills ]
   @onLoad: init()
   @onUnload: terminate()
   dependencies:
