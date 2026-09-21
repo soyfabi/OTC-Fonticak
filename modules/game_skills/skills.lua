@@ -2185,12 +2185,46 @@ local function releaseHandCursor(widget)
 	widget.cursorPushed = false
 end
 
+local function pushHandCursor(widget)
+	if widget.cursorPushed or not modules.client_options then
+		return
+	end
+
+	local nativeCursor = modules.client_options.getOption("nativeCursor")
+	local animatedCursor = modules.client_options.getOption("showAnimatedCursor")
+
+	if animatedCursor and not nativeCursor then
+		g_mouse.pushCursor("pointerbutton")
+		widget.cursorPushed = true
+	elseif nativeCursor then
+		g_window.setSystemCursor("hand")
+		widget.cursorPushed = true
+	end
+end
+
 local function applyHandCursorHover(widget, hovered)
 	if widget.cursorPushed == nil then
 		widget.cursorPushed = false
 	end
 
-	UIButton.onHoverChange(widget, hovered)
+	if modules.game_clienthelp and modules.game_clienthelp.isClientHelpActive() then
+		return
+	end
+
+	if not modules.client_options then
+		return
+	end
+
+	if g_ui.getDraggingWidget() or g_ui.isMouseGrabbed() then
+		releaseHandCursor(widget)
+		return
+	end
+
+	if hovered then
+		pushHandCursor(widget)
+	else
+		releaseHandCursor(widget)
+	end
 end
 
 function onSkillRowHoverChange(widget, hovered)
@@ -2198,9 +2232,7 @@ function onSkillRowHoverChange(widget, hovered)
 		applyHandCursorHover(widget, hovered)
 	else
 		releaseHandCursor(widget)
-		UIWidget.onHoverChange(widget, hovered)
 	end
-
 end
 
 function onXpBoostHoverChange(widget, hovered)
