@@ -711,13 +711,6 @@ void LocalPlayer::setDefenseInfo(uint16_t defense, uint16_t armor, uint16_t mant
         m_dodge == dodge && m_damageReflection == damageReflection)
         return;
 
-    const uint16_t oldDefense = m_defense;
-    const uint16_t oldArmor = m_armor;
-    const uint16_t oldMantra = m_mantra;
-    const double oldMitigation = m_mitigation;
-    const double oldDodge = m_dodge;
-    const uint16_t oldDamageReflection = m_damageReflection;
-
     m_defense = defense;
     m_armor = armor;
     m_mantra = mantra;
@@ -733,7 +726,6 @@ void LocalPlayer::setCombatAbsorbValues(const std::map<uint8_t, double>& absorbV
     if (m_combatAbsorbValues == absorbValues)
         return;
 
-    const auto oldAbsorbValues = m_combatAbsorbValues;
     m_combatAbsorbValues = absorbValues;
 
     callLuaField("onCombatAbsorbValuesChange", absorbValues);
@@ -743,10 +735,6 @@ void LocalPlayer::setForgeBonuses(double momentum, double transcendence, double 
 {
     if (m_momentum == momentum && m_transcendence == transcendence && m_amplification == amplification)
         return;
-
-    const double oldMomentum = m_momentum;
-    const double oldTranscendence = m_transcendence;
-    const double oldAmplification = m_amplification;
 
     m_momentum = momentum;
     m_transcendence = transcendence;

@@ -5,317 +5,7 @@ skillsButton = nil
 skillsSettings = nil
 
 local ExpRating = {}
-local updateExperienceRate, lastDefenseInfo, lastForgeInfo, lastAbsorbValues, lastMagicLevelBonuses, lastOffenceInfo, syncSkillsMainPanelButton
-local wheelSkillStatsActive = false
-local wheelSkillStatsHeightEvent = nil
-local SKILL_POSITIVE_COLOR = "#2EEA32"
-local SKILL_NEGATIVE_COLOR = "#D33C3C"
-local SKILL_VALUE_COLOR = "#FFEA79"
-
-local WHEEL_ABSORB_NAME_TO_ID = {
-	physical = 0,
-	fire = 1,
-	earth = 2,
-	energy = 3,
-	ice = 4,
-	holy = 5,
-	death = 6,
-	healing = 7,
-	drown = 8,
-	lifedrain = 9,
-	manadrain = 10
-}
-
-local function canShowExtendedCombatStats()
-	return g_game.getClientVersion() >= 1412 or wheelSkillStatsActive
-end
-
-local function mapWheelAbsorbs(absorbs)
-	if type(absorbs) ~= "table" then
-		return {}
-	end
-
-	local mapped = {}
-
-	for name, value in pairs(absorbs) do
-		local id = WHEEL_ABSORB_NAME_TO_ID[name]
-
-		if id ~= nil then
-			mapped[id] = value
-		end
-	end
-
-	return mapped
-end
-
-local OFFENCE_BAR_STATS_IDS = {
-	"skillId7",
-	"skillId8",
-	"skillId9",
-	"skillId10",
-	"skillId11",
-	"skillId12",
-	"skillId13",
-	"skillId14",
-	"skillId15",
-	"skillId16"
-}
-local EXTENDED_OFFENCE_STATS = {
-	"criticalHit",
-	"damageHealing",
-	"attackValue",
-	"convertedDamage",
-	"convertedElement",
-	"lifeLeech",
-	"manaLeech",
-	"criticalChance",
-	"criticalExtraDamage",
-	"onslaught"
-}
-
-local EXTENDED_DEFENCE_STATS = {
-	"physicalResist",
-	"fireResist",
-	"earthResist",
-	"energyResist",
-	"IceResist",
-	"HolyResist",
-	"deathResist",
-	"HealingResist",
-	"drowResist",
-	"lifedrainResist",
-	"manadRainResist",
-	"defenceValue",
-	"armorValue",
-	"mantraValue",
-	"mitigation",
-	"dodge",
-	"damageReflection"
-}
-
-local function scheduleWheelSkillStatsHeightUpdate()
-	if wheelSkillStatsHeightEvent then
-		removeEvent(wheelSkillStatsHeightEvent)
-		wheelSkillStatsHeightEvent = nil
-	end
-
-	wheelSkillStatsHeightEvent = scheduleEvent(function()
-		wheelSkillStatsHeightEvent = nil
-		updateHeight()
-	end, 50)
-end
-
-local function areOffenceStatsEnabled()
-	local char = g_game.getCharacterName()
-
-	if not char or not skillSettings or not skillSettings[char] then
-		return true
-	end
-
-	return skillSettings[char].offenceStats_visible ~= false
-end
-
-local function areDefenceStatsEnabled()
-	local char = g_game.getCharacterName()
-
-	if not char or not skillSettings or not skillSettings[char] then
-		return true
-	end
-
-	return skillSettings[char].defenceStats_visible ~= false
-end
-
-local function hideAllOffenceStatsWidgets()
-	if not skillsWindow then
-		return
-	end
-
-	for _, skillId in pairs(OFFENCE_BAR_STATS_IDS) do
-		local skill = skillsWindow:recursiveGetChildById(skillId)
-
-		if skill then
-			skill:setVisible(false)
-		end
-	end
-
-	for _, skillId in pairs(EXTENDED_OFFENCE_STATS) do
-		local skill = skillsWindow:recursiveGetChildById(skillId)
-
-		if skill then
-			skill:setVisible(false)
-		end
-	end
-
-	local separator = skillsWindow:recursiveGetChildById("separadorOnOffenceInfoChange")
-
-	if separator then
-		separator:setVisible(false)
-	end
-end
-
-local function updateOffenceSeparatorVisibility()
-	if not skillsWindow or not areOffenceStatsEnabled() then
-		return
-	end
-
-	local separator = skillsWindow:recursiveGetChildById("separadorOnOffenceInfoChange")
-
-	if separator then
-		separator:setVisible(areOffenceStatsVisible())
-	end
-end
-
-local function refreshOffenceStatsFromCache()
-	local player = g_game.getLocalPlayer()
-
-	if not player or not lastOffenceInfo then
-		return
-	end
-
-	if lastOffenceInfo.flatBonus ~= nil then
-		onFlatDamageHealingChange(player, lastOffenceInfo.flatBonus)
-	end
-
-	if lastOffenceInfo.attackValue ~= nil then
-		onAttackInfoChange(player, lastOffenceInfo.attackValue, lastOffenceInfo.attackElement)
-	end
-
-	if lastOffenceInfo.convertedDamage ~= nil then
-		onConvertedDamageChange(player, lastOffenceInfo.convertedDamage, lastOffenceInfo.convertedElement or 0)
-	end
-
-	if lastOffenceInfo.imbuements then
-		local imbuements = lastOffenceInfo.imbuements
-
-		onImbuementsChange(player, imbuements.lifeLeech, imbuements.manaLeech, imbuements.critChance, imbuements.critDamage, imbuements.onslaught)
-	end
-end
-
-local function hideAllDefenceStatsWidgets()
-	if not skillsWindow then
-		return
-	end
-
-	for _, skillId in pairs(EXTENDED_DEFENCE_STATS) do
-		local skill = skillsWindow:recursiveGetChildById(skillId)
-
-		if skill then
-			skill:setVisible(false)
-		end
-	end
-
-	local separator = skillsWindow:recursiveGetChildById("separadorOnDefenseInfoChange")
-
-	if separator then
-		separator:setVisible(false)
-	end
-end
-
-local function refreshDefenceStatsFromCache()
-	local player = g_game.getLocalPlayer()
-
-	if not player or not lastDefenseInfo then
-		return
-	end
-
-	onDefenseInfoChange(player, lastDefenseInfo[1], lastDefenseInfo[2], lastDefenseInfo[3], lastDefenseInfo[4], lastDefenseInfo[5], lastDefenseInfo[6])
-
-	if lastAbsorbValues then
-		onCombatAbsorbValuesChange(player, lastAbsorbValues)
-	end
-end
-
-local function hideOffenceStatsInSkillsBar()
-	if not skillsWindow then
-		return
-	end
-
-	for _, id in pairs(OFFENCE_BAR_STATS_IDS) do
-		local w = skillsWindow:recursiveGetChildById(id)
-
-		if w then
-			w:setVisible(false)
-		end
-	end
-end
-
-local function applyExtendedCombatVisibilitySettings()
-	local char = g_game.getCharacterName()
-
-	if not char or not skillSettings or not skillSettings[char] then
-		return
-	end
-
-	if not wheelSkillStatsActive and g_game.getClientVersion() < 1412 then
-		return
-	end
-
-	local settings = skillSettings[char]
-
-	hideOffenceStatsInSkillsBar()
-
-	if settings.offenceStats_visible == false then
-		hideAllOffenceStatsWidgets()
-	end
-
-	if settings.defenceStats_visible == false then
-		hideAllDefenceStatsWidgets()
-	end
-
-	if settings.miscStats_visible ~= nil then
-		local mGroup = settings.miscStats_visible
-		local sep = skillsWindow:recursiveGetChildById("separadorOnForgeBonusesChange")
-
-		if sep then
-			sep:setVisible(mGroup)
-		end
-
-		if not mGroup then
-			for _, id in pairs({
-				"momentum",
-				"transcendence",
-				"amplification"
-			}) do
-				local w = skillsWindow:recursiveGetChildById(id)
-
-				if w then
-					w:setVisible(false)
-				end
-			end
-		end
-	end
-end
-
-local function onWheelSkillStats(protocol, opcode, data)
-	if type(data) ~= "table" then
-		return
-	end
-
-	wheelSkillStatsActive = true
-	applyExtendedCombatVisibilitySettings()
-
-	local player = g_game.getLocalPlayer()
-
-	if not player then
-		return
-	end
-
-	onFlatDamageHealingChange(player, data.damageAndHealing or 0)
-	onAttackInfoChange(player, data.attackValue or 0, data.attackElement or 0)
-	onConvertedDamageChange(player, data.convertedValue or 0, data.convertedElement or 0)
-	onImbuementsChange(player, data.lifeLeech or 0, data.manaLeech or 0, data.criticalChance or 0, data.criticalDamage or 0, data.onslaught or 0)
-	onDefenseInfoChange(player, data.defense or 0, data.armor or 0, data.mitigation or 0, data.dodge or 0, data.damageReflection or 0, data.mantra or 0)
-	onCombatAbsorbValuesChange(player, mapWheelAbsorbs(data.absorbs))
-	scheduleWheelSkillStatsHeightUpdate()
-end
-
-local function syncOffenceExtraSkillRows()
-	if g_game.getClientVersion() < 1412 or not skillsWindow then
-		return
-	end
-
-	hideOffenceStatsInSkillsBar()
-end
+local updateExperienceRate, lastMagicLevelBonuses, syncSkillsMainPanelButton
 
 local function setupStoreBoostRow()
 	if not skillsWindow then
@@ -548,10 +238,7 @@ function terminate()
 		xpBoostCountdownEvent = nil
 	end
 
-	if wheelSkillStatsHeightEvent then
-		removeEvent(wheelSkillStatsHeightEvent)
-		wheelSkillStatsHeightEvent = nil
-	end
+	clearWheelSkillStatsState()
 
 	skillsWindow:destroy()
 	skillsButton:destroy()
@@ -856,7 +543,7 @@ function areDefenceStatsVisible()
 		end
 	end
 
-	local separator = skillsWindow and skillsWindow:recursiveGetChildById("separadorOnDefenseInfoChange")
+	local separator = skillsWindow and skillsWindow:recursiveGetChildById(SKILLS_SEPARATOR_IDS.defense)
 
 	if separator and separator:isVisible() then
 		return true
@@ -885,14 +572,7 @@ function toggleDefenceStatsVisibility()
 end
 
 function areMiscStatsVisible()
-	local miscStats = {
-		"momentum",
-		"transcendence",
-		"amplification",
-		"separadorOnForgeBonusesChange"
-	}
-
-	for _, skillId in pairs(miscStats) do
+	for _, skillId in pairs(EXTENDED_MISC_STATS) do
 		local skill = skillsWindow:recursiveGetChildById(skillId)
 
 		if skill and skill:isVisible() then
@@ -900,24 +580,24 @@ function areMiscStatsVisible()
 		end
 	end
 
+	local separator = skillsWindow and skillsWindow:recursiveGetChildById(SKILLS_SEPARATOR_IDS.misc)
+
+	if separator and separator:isVisible() then
+		return true
+	end
+
 	return false
 end
 
 function toggleMiscStatsVisibility()
-	local miscStats = {
-		"momentum",
-		"transcendence",
-		"amplification",
-		"separadorOnForgeBonusesChange"
-	}
 	local shouldShow = not areMiscStatsVisible()
 
-	for _, skillId in pairs(miscStats) do
-		local skill = skillsWindow:recursiveGetChildById(skillId)
+	setSkillsWidgetsVisible(skillsWindow, EXTENDED_MISC_STATS, shouldShow)
 
-		if skill then
-			skill:setVisible(shouldShow)
-		end
+	local separator = skillsWindow and skillsWindow:recursiveGetChildById(SKILLS_SEPARATOR_IDS.misc)
+
+	if separator then
+		separator:setVisible(shouldShow)
 	end
 
 	local char = g_game.getCharacterName()
@@ -1683,91 +1363,10 @@ function refresh()
 	updateHeight()
 
 	if g_game.getClientVersion() < 1412 then
-		local offenceStats = {
-			"skillId7",
-			"skillId8",
-			"skillId9",
-			"skillId10",
-			"skillId11",
-			"skillId12",
-			"skillId13",
-			"skillId14",
-			"skillId15",
-			"skillId16"
-		}
-
-		for _, skillId in pairs(offenceStats) do
-			local skill = skillsWindow:recursiveGetChildById(skillId)
-
-			if skill then
-				skill:hide()
-			end
-		end
-
-		local defenceStats = {
-			"physicalResist",
-			"fireResist",
-			"earthResist",
-			"energyResist",
-			"IceResist",
-			"HolyResist",
-			"deathResist",
-			"HealingResist",
-			"drowResist",
-			"lifedrainResist",
-			"manadRainResist",
-			"defenceValue",
-			"armorValue",
-			"mantraValue",
-			"mitigation",
-			"dodge",
-			"damageReflection",
-			"separadorOnDefenseInfoChange"
-		}
-
-		for _, skillId in pairs(defenceStats) do
-			local skill = skillsWindow:recursiveGetChildById(skillId)
-
-			if skill then
-				skill:hide()
-			end
-		end
-
-		local miscStats = {
-			"momentum",
-			"transcendence",
-			"amplification",
-			"separadorOnForgeBonusesChange"
-		}
-
-		for _, skillId in pairs(miscStats) do
-			local skill = skillsWindow:recursiveGetChildById(skillId)
-
-			if skill then
-				skill:hide()
-			end
-		end
-
-		local additionalSeparators = {
-			"criticalHit",
-			"damageHealing",
-			"attackValue",
-			"convertedDamage",
-			"convertedElement",
-			"lifeLeech",
-			"manaLeech",
-			"criticalChance",
-			"criticalExtraDamage",
-			"onslaught"
-		}
-
-		for _, separatorId in pairs(additionalSeparators) do
-			local separator = skillsWindow:recursiveGetChildById(separatorId)
-
-			if separator then
-				separator:hide()
-			end
-		end
+		hideSkillsWidgets(skillsWindow, OFFENCE_BAR_STATS_IDS)
+		hideSkillsWidgetGroup(skillsWindow, EXTENDED_DEFENCE_STATS, SKILLS_SEPARATOR_IDS.defense)
+		hideSkillsWidgetGroup(skillsWindow, EXTENDED_MISC_STATS, SKILLS_SEPARATOR_IDS.misc)
+		hideSkillsWidgets(skillsWindow, EXTENDED_OFFENCE_STATS)
 
 		local function hideUnnamedSeparators(widget)
 			if not widget then
@@ -1904,91 +1503,13 @@ function updateHeight()
 	skillsWindow:fitOnParent()
 end
 
-local EXTENDED_DEFENCE_STATS = {
-	"physicalResist",
-	"fireResist",
-	"earthResist",
-	"energyResist",
-	"IceResist",
-	"HolyResist",
-	"deathResist",
-	"HealingResist",
-	"drowResist",
-	"lifedrainResist",
-	"manadRainResist",
-	"defenceValue",
-	"armorValue",
-	"mantraValue",
-	"mitigation",
-	"dodge",
-	"damageReflection",
-	"separadorOnDefenseInfoChange"
-}
-local EXTENDED_MISC_STATS = {
-	"momentum",
-	"transcendence",
-	"amplification",
-	"separadorOnForgeBonusesChange"
-}
-local PROGRESS_BAR_SKILL_IDS = {
-	"level",
-	"stamina",
-	"offlineTraining",
-	"magiclevel",
-	"skillId0",
-	"skillId1",
-	"skillId2",
-	"skillId3",
-	"skillId4",
-	"skillId5",
-	"skillId6"
-}
+local function resetLocalSkillSessionState()
+	ExpRating = {}
+	skillRawPercents = {}
+	lastMagicLevelBonuses = nil
 
-local function resetExtendedStats()
 	if not skillsWindow then
 		return
-	end
-
-	for _, id in pairs(EXTENDED_OFFENCE_STATS) do
-		local skill = skillsWindow:recursiveGetChildById(id)
-
-		if skill then
-			local valueWidget = skill:getChildById("value")
-
-			if valueWidget then
-				valueWidget:setText("0")
-			end
-
-			skill:hide()
-		end
-	end
-
-	for _, id in pairs(EXTENDED_DEFENCE_STATS) do
-		local skill = skillsWindow:recursiveGetChildById(id)
-
-		if skill then
-			local valueWidget = skill:getChildById("value")
-
-			if valueWidget then
-				valueWidget:setText("0")
-			end
-
-			skill:hide()
-		end
-	end
-
-	for _, id in pairs(EXTENDED_MISC_STATS) do
-		local skill = skillsWindow:recursiveGetChildById(id)
-
-		if skill then
-			local valueWidget = skill:getChildById("value")
-
-			if valueWidget then
-				valueWidget:setText("0")
-			end
-
-			skill:hide()
-		end
 	end
 
 	for _, id in pairs(PROGRESS_BAR_SKILL_IDS) do
@@ -2002,23 +1523,10 @@ local function resetExtendedStats()
 			end
 		end
 	end
-
-	ExpRating = {}
-	skillRawPercents = {}
-	lastDefenseInfo = nil
-	lastForgeInfo = nil
-	lastAbsorbValues = nil
-	lastMagicLevelBonuses = nil
-	lastOffenceInfo = nil
 end
 
 function offline()
-	wheelSkillStatsActive = false
-
-	if wheelSkillStatsHeightEvent then
-		removeEvent(wheelSkillStatsHeightEvent)
-		wheelSkillStatsHeightEvent = nil
-	end
+	clearWheelSkillStatsState()
 	skillPercentInstant = false
 	if skillsWindow then
 		local contents = skillsWindow:recursiveGetChildById('contentsPanel') or skillsWindow
@@ -2041,7 +1549,8 @@ function offline()
 	end
 
 	stopFoodRegenerationTicker()
-	resetExtendedStats()
+	resetExtendedCombatPanel()
+	resetLocalSkillSessionState()
 	g_settings.setNode("skills-hide", skillSettings)
 end
 
@@ -2158,119 +1667,6 @@ end
 
 function onMiniWindowClose()
 	syncSkillsMainPanelButton()
-end
-
-local SKILL_HAND_CURSOR_IDS = {
-	magiclevel = true,
-	skillId0 = true,
-	skillId1 = true,
-	skillId2 = true,
-	skillId3 = true,
-	skillId4 = true,
-	skillId5 = true,
-	skillId6 = true
-}
-
-local function releaseHandCursor(widget)
-	if not widget.cursorPushed then
-		return
-	end
-
-	if modules.client_options and modules.client_options.getOption("nativeCursor") then
-		g_window.restoreMouseCursor()
-	else
-		g_mouse.popCursor("pointerbutton")
-	end
-
-	widget.cursorPushed = false
-end
-
-local function pushHandCursor(widget)
-	if widget.cursorPushed or not modules.client_options then
-		return
-	end
-
-	local nativeCursor = modules.client_options.getOption("nativeCursor")
-	local animatedCursor = modules.client_options.getOption("showAnimatedCursor")
-
-	if animatedCursor and not nativeCursor then
-		g_mouse.pushCursor("pointerbutton")
-		widget.cursorPushed = true
-	elseif nativeCursor then
-		g_window.setSystemCursor("hand")
-		widget.cursorPushed = true
-	end
-end
-
-local function applyHandCursorHover(widget, hovered)
-	if widget.cursorPushed == nil then
-		widget.cursorPushed = false
-	end
-
-	if modules.game_clienthelp and modules.game_clienthelp.isClientHelpActive() then
-		return
-	end
-
-	if not modules.client_options then
-		return
-	end
-
-	if g_ui.getDraggingWidget() or g_ui.isMouseGrabbed() then
-		releaseHandCursor(widget)
-		return
-	end
-
-	if hovered then
-		pushHandCursor(widget)
-	else
-		releaseHandCursor(widget)
-	end
-end
-
-function onSkillRowHoverChange(widget, hovered)
-	if SKILL_HAND_CURSOR_IDS[widget:getId()] then
-		applyHandCursorHover(widget, hovered)
-	else
-		releaseHandCursor(widget)
-	end
-end
-
-function onXpBoostHoverChange(widget, hovered)
-	applyHandCursorHover(widget, hovered)
-end
-
-function bindSkillsHoverHandlers()
-	if not skillsWindow or skillsWindow:isDestroyed() then
-		return
-	end
-
-	local contentsPanel = skillsWindow:getChildById("contentsPanel")
-	if not contentsPanel then
-		return
-	end
-
-	local function walk(widget)
-		if widget:getClassName() == "UIButton" then
-			widget.onHoverChange = onSkillRowHoverChange
-			if widget.cursorPushed == nil then
-				widget.cursorPushed = false
-			end
-		end
-
-		for _, child in ipairs(widget:getChildren()) do
-			walk(child)
-		end
-	end
-
-	walk(contentsPanel)
-
-	local xpBoostButton = skillsWindow:recursiveGetChildById("xpBoostButton")
-	if xpBoostButton then
-		xpBoostButton.onHoverChange = onXpBoostHoverChange
-		if xpBoostButton.cursorPushed == nil then
-			xpBoostButton.cursorPushed = false
-		end
-	end
 end
 
 function onSkillButtonClick(button)
@@ -2982,20 +2378,6 @@ function onImbuementsChange(localPlayer, lifeLeech, manaLeech, critChance, critD
 	updateHeight()
 end
 
-local combatIdToWidgetId = {
-	[0] = "physicalResist",
-	"fireResist",
-	"earthResist",
-	"energyResist",
-	"IceResist",
-	"HolyResist",
-	"deathResist",
-	"HealingResist",
-	"drowResist",
-	"lifedrainResist",
-	"manadRainResist"
-}
-
 function onMagicLevelBonusesChange(localPlayer, bonuses)
 	lastMagicLevelBonuses = bonuses
 
@@ -3011,7 +2393,7 @@ function onCombatAbsorbValuesChange(localPlayer, absorbValues)
 		return
 	end
 
-	for id, widgetId in pairs(combatIdToWidgetId) do
+	for id, widgetId in pairs(COMBAT_ABSORB_WIDGET_IDS) do
 		local skill = skillsWindow:recursiveGetChildById(widgetId)
 
 		if skill then
@@ -3030,28 +2412,9 @@ function onCombatAbsorbValuesChange(localPlayer, absorbValues)
 end
 
 function updateDefenceSeparatorVisibility()
-	local defenceWidgetIds = {
-		"physicalResist",
-		"fireResist",
-		"earthResist",
-		"energyResist",
-		"IceResist",
-		"HolyResist",
-		"deathResist",
-		"HealingResist",
-		"drowResist",
-		"lifedrainResist",
-		"manadRainResist",
-		"defenceValue",
-		"armorValue",
-		"mantraValue",
-		"mitigation",
-		"dodge",
-		"damageReflection"
-	}
 	local anyVisible = false
 
-	for _, wid in pairs(defenceWidgetIds) do
+	for _, wid in pairs(EXTENDED_DEFENCE_STATS) do
 		local w = skillsWindow:recursiveGetChildById(wid)
 
 		if w and w:isVisible() then
@@ -3061,7 +2424,7 @@ function updateDefenceSeparatorVisibility()
 		end
 	end
 
-	local sep = skillsWindow:recursiveGetChildById("separadorOnDefenseInfoChange")
+	local sep = skillsWindow:recursiveGetChildById(SKILLS_SEPARATOR_IDS.defense)
 
 	if sep then
 		sep:setVisible(anyVisible)
@@ -3105,13 +2468,7 @@ function onForgeBonusesChange(localPlayer, momentum, transcendence, amplificatio
 		return
 	end
 
-	lastForgeInfo = {
-		momentum,
-		transcendence,
-		amplification
-	}
-
-	skillsWindow:recursiveGetChildById("separadorOnForgeBonusesChange"):setVisible(true)
+	skillsWindow:recursiveGetChildById(SKILLS_SEPARATOR_IDS.misc):setVisible(true)
 
 	local momentumTooltip = "During combat, you have a " .. formatForgePercentText(momentum) .. " chance to trigger Momentum,\nwhich reduces all spell cooldowns by 2 seconds."
 	local transcendenceTooltip = "During combat, you have a +" .. math.floor(transcendence * 10000) / 100 .. "% chance to trigger\nTranscendence, which transforms your character into a vocation-\nspecific avatar for 7 seconds. " .. "While in this form, you will benefit\nfrom a 15% damage reduction and guaranteed critical hits that \ndeal an additional 15% damage."
