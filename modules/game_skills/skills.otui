@@ -357,7 +357,8 @@ MiniWindow
       SkillValueLabel
         margin-right: 15
       ImageAbsorb
-        margin-top: -2
+        anchors.verticalCenter: parent.verticalCenter
+        margin-top: 0
 
     SmallSkillButton
       visible: false
@@ -367,7 +368,8 @@ MiniWindow
       SkillValueLabel
         margin-right: 15
       ImageAbsorb
-        margin-top: -2
+        anchors.verticalCenter: parent.verticalCenter
+        margin-top: 0
 
     SmallSkillButton
       id: lifeLeech
@@ -564,7 +566,7 @@ MiniWindow
       visible: false
       margin-top: -2
       SkillNameLabel
-        !text: tr('Defence Value')
+        !text: tr('Defense Value')
         margin-left: -3
       SkillValueLabel
       margin-right: 9
@@ -603,7 +605,7 @@ MiniWindow
       id: dodge
       visible: false
       SkillNameLabel
-        !text: tr('Dodge')
+        !text: tr('Ruse')
         margin-left: -3
       SkillValueLabel
         margin-top: -2
@@ -762,7 +764,7 @@ SkillsListSubMenu < PopupMenu
 
   SkillsSubMenuOption
     id: showDefenceStats
-    !text: tr('Defence Stats')
+    !text: tr('Defense Stats')
 
   SkillsSubMenuOption
     id: showMiscStats

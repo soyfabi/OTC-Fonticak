@@ -7,6 +7,7 @@ SkillButton < UIButton
   height: 21
   margin-bottom: 1
   &onClick: onSkillButtonClick
+  @onHoverChange: modules.game_skills.onSkillRowHoverChange(self, self:isHovered())
 
 SmallSkillButton < SkillButton
   height: 14
@@ -21,6 +22,8 @@ SkillNameLabel < GameLabel
   anchors.bottom: parent.bottom
   margin-right: 3
   color: $var-text-cip-color
+  phantom: true
+  focusable: false
 
 SkillValueLabel < GameLabel
   id: value
@@ -34,6 +37,8 @@ SkillValueLabel < GameLabel
   margin-top: 1
   margin-right: 1
   color: $var-text-cip-color
+  phantom: true
+  focusable: false
 
 ImageSkill < UIWidget
   id: icon
@@ -48,9 +53,12 @@ ImageAbsorb < UIWidget
   id: icon
   size: 9 9
   width: 9
-  margin-top: 2
+  height: 9
+  margin-right: 1
   anchors.right: parent.right
-  anchors.top: parent.top
+  anchors.verticalCenter: parent.verticalCenter
+  image-size: 9 9
+  image-smooth: false
   phantom: false
 
 BoostIcon < UIWidget
@@ -95,5 +103,6 @@ XpBoostButton < UIWidget
     anchors.horizontalCenter: parent.horizontalCenter
     anchors.verticalCenter: parent.verticalCenter
     @onClick: modules.game_store.openPremiumBoost()
+    @onHoverChange: modules.game_skills.onXpBoostHoverChange(self, self:isHovered())
     $pressed:
       image-source: /images/ui/button-storexp-pressed

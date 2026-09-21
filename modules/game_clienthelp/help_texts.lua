@@ -144,7 +144,7 @@ ClientHelpTexts = {
     text = tr('Balanced mode is a compromise between offence and defence. Your character deals and receives a moderate amount of damage and has an average chance to block with the shield.')
   },
   combatDefense = {
-    title = tr('Full Defence'),
+    title = tr('Full Defense'),
     text = tr('In full defence mode your character focuses on defence. You receive less damage and have a better chance to block with your shield, but your attacks deal less damage.')
   },
   combatStand = {

@@ -260,7 +260,7 @@ PerkVisualData = {
 -- Perk Text Data (names and descriptions)
 PerkTextData = {
     [PERK_WEAPON_ATTACK]             = {name = "Attack Damage", desc = "+%d attack"},
-    [PERK_SHIELD_DEFENSE]            = {name = "Defence", desc = "+%d defence"},
+    [PERK_SHIELD_DEFENSE]            = {name = "Defense", desc = "+%d defense"},
     [PERK_WEAPON_DEFENSE]            = {name = "Weapon Shield Mod", desc = "+%d defence modifier"},
     [PERK_SKILL_BONUS]               = {name = "Skill Bonus", desc = "+%d %s"},
     [PERK_MAGIC_BONUS]               = {name = "Special Magic Boost", desc = "+%d %s Magic Level"},
