@@ -298,10 +298,6 @@ controller:registerEvents(g_game, {
         if version >= 1410 then
             g_game.disableFeature(GameAdditionalSkills)
             g_game.disableFeature(GameForgeSkillStats)
-            -- Protocol 8.60 servers do not append native character skill stats to 0xA1.
-            if g_game.getProtocolVersion() > 1098 then
-                g_game.enableFeature(GameCharacterSkillStats)
-            end
         end
 
         if version >= 1500 then

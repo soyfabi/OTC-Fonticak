@@ -7,7 +7,7 @@ skillsSettings = nil
 local ExpRating = {}
 local updateExperienceRate, lastDefenseInfo, lastForgeInfo, lastAbsorbValues, lastMagicLevelBonuses, lastOffenceInfo, syncSkillsMainPanelButton
 local wheelSkillStatsActive = false
-local applyingWheelAbsorbs = false
+local wheelSkillStatsHeightEvent = nil
 local SKILL_POSITIVE_COLOR = "#2EEA32"
 local SKILL_NEGATIVE_COLOR = "#D33C3C"
 local SKILL_VALUE_COLOR = "#FFEA79"
@@ -48,34 +48,6 @@ local function mapWheelAbsorbs(absorbs)
 	return mapped
 end
 
-local function onWheelSkillStats(protocol, opcode, data)
-	if type(data) ~= "table" then
-		return
-	end
-
-	wheelSkillStatsActive = true
-
-	local player = g_game.getLocalPlayer()
-
-	if not player then
-		return
-	end
-
-	onFlatDamageHealingChange(player, data.damageAndHealing or 0)
-	onAttackInfoChange(player, data.attackValue or 0, data.attackElement or 0)
-
-	if (data.convertedValue or 0) ~= 0 then
-		onConvertedDamageChange(player, data.convertedValue, data.convertedElement or 0)
-	end
-
-	onImbuementsChange(player, data.lifeLeech or 0, data.manaLeech or 0, data.criticalChance or 0, data.criticalDamage or 0, data.onslaught or 0)
-	onDefenseInfoChange(player, data.defense or 0, data.armor or 0, data.mitigation or 0, data.dodge or 0, data.damageReflection or 0, data.mantra or 0)
-	applyingWheelAbsorbs = true
-	onCombatAbsorbValuesChange(player, mapWheelAbsorbs(data.absorbs))
-	applyingWheelAbsorbs = false
-	scheduleEvent(updateHeight, 50)
-end
-
 local OFFENCE_BAR_STATS_IDS = {
 	"skillId7",
 	"skillId8",
@@ -101,6 +73,38 @@ local EXTENDED_OFFENCE_STATS = {
 	"onslaught"
 }
 
+local EXTENDED_DEFENCE_STATS = {
+	"physicalResist",
+	"fireResist",
+	"earthResist",
+	"energyResist",
+	"IceResist",
+	"HolyResist",
+	"deathResist",
+	"HealingResist",
+	"drowResist",
+	"lifedrainResist",
+	"manadRainResist",
+	"defenceValue",
+	"armorValue",
+	"mantraValue",
+	"mitigation",
+	"dodge",
+	"damageReflection"
+}
+
+local function scheduleWheelSkillStatsHeightUpdate()
+	if wheelSkillStatsHeightEvent then
+		removeEvent(wheelSkillStatsHeightEvent)
+		wheelSkillStatsHeightEvent = nil
+	end
+
+	wheelSkillStatsHeightEvent = scheduleEvent(function()
+		wheelSkillStatsHeightEvent = nil
+		updateHeight()
+	end, 50)
+end
+
 local function areOffenceStatsEnabled()
 	local char = g_game.getCharacterName()
 
@@ -109,6 +113,16 @@ local function areOffenceStatsEnabled()
 	end
 
 	return skillSettings[char].offenceStats_visible ~= false
+end
+
+local function areDefenceStatsEnabled()
+	local char = g_game.getCharacterName()
+
+	if not char or not skillSettings or not skillSettings[char] then
+		return true
+	end
+
+	return skillSettings[char].defenceStats_visible ~= false
 end
 
 local function hideAllOffenceStatsWidgets()
@@ -166,14 +180,48 @@ local function refreshOffenceStatsFromCache()
 		onAttackInfoChange(player, lastOffenceInfo.attackValue, lastOffenceInfo.attackElement)
 	end
 
-	if lastOffenceInfo.convertedDamage ~= nil and lastOffenceInfo.convertedDamage ~= 0 then
-		onConvertedDamageChange(player, lastOffenceInfo.convertedDamage, lastOffenceInfo.convertedElement)
+	if lastOffenceInfo.convertedDamage ~= nil then
+		onConvertedDamageChange(player, lastOffenceInfo.convertedDamage, lastOffenceInfo.convertedElement or 0)
 	end
 
 	if lastOffenceInfo.imbuements then
 		local imbuements = lastOffenceInfo.imbuements
 
 		onImbuementsChange(player, imbuements.lifeLeech, imbuements.manaLeech, imbuements.critChance, imbuements.critDamage, imbuements.onslaught)
+	end
+end
+
+local function hideAllDefenceStatsWidgets()
+	if not skillsWindow then
+		return
+	end
+
+	for _, skillId in pairs(EXTENDED_DEFENCE_STATS) do
+		local skill = skillsWindow:recursiveGetChildById(skillId)
+
+		if skill then
+			skill:setVisible(false)
+		end
+	end
+
+	local separator = skillsWindow:recursiveGetChildById("separadorOnDefenseInfoChange")
+
+	if separator then
+		separator:setVisible(false)
+	end
+end
+
+local function refreshDefenceStatsFromCache()
+	local player = g_game.getLocalPlayer()
+
+	if not player or not lastDefenseInfo then
+		return
+	end
+
+	onDefenseInfoChange(player, lastDefenseInfo[1], lastDefenseInfo[2], lastDefenseInfo[3], lastDefenseInfo[4], lastDefenseInfo[5], lastDefenseInfo[6])
+
+	if lastAbsorbValues then
+		onCombatAbsorbValuesChange(player, lastAbsorbValues)
 	end
 end
 
@@ -189,6 +237,76 @@ local function hideOffenceStatsInSkillsBar()
 			w:setVisible(false)
 		end
 	end
+end
+
+local function applyExtendedCombatVisibilitySettings()
+	local char = g_game.getCharacterName()
+
+	if not char or not skillSettings or not skillSettings[char] then
+		return
+	end
+
+	if not wheelSkillStatsActive and g_game.getClientVersion() < 1412 then
+		return
+	end
+
+	local settings = skillSettings[char]
+
+	hideOffenceStatsInSkillsBar()
+
+	if settings.offenceStats_visible == false then
+		hideAllOffenceStatsWidgets()
+	end
+
+	if settings.defenceStats_visible == false then
+		hideAllDefenceStatsWidgets()
+	end
+
+	if settings.miscStats_visible ~= nil then
+		local mGroup = settings.miscStats_visible
+		local sep = skillsWindow:recursiveGetChildById("separadorOnForgeBonusesChange")
+
+		if sep then
+			sep:setVisible(mGroup)
+		end
+
+		if not mGroup then
+			for _, id in pairs({
+				"momentum",
+				"transcendence",
+				"amplification"
+			}) do
+				local w = skillsWindow:recursiveGetChildById(id)
+
+				if w then
+					w:setVisible(false)
+				end
+			end
+		end
+	end
+end
+
+local function onWheelSkillStats(protocol, opcode, data)
+	if type(data) ~= "table" then
+		return
+	end
+
+	wheelSkillStatsActive = true
+	applyExtendedCombatVisibilitySettings()
+
+	local player = g_game.getLocalPlayer()
+
+	if not player then
+		return
+	end
+
+	onFlatDamageHealingChange(player, data.damageAndHealing or 0)
+	onAttackInfoChange(player, data.attackValue or 0, data.attackElement or 0)
+	onConvertedDamageChange(player, data.convertedValue or 0, data.convertedElement or 0)
+	onImbuementsChange(player, data.lifeLeech or 0, data.manaLeech or 0, data.criticalChance or 0, data.criticalDamage or 0, data.onslaught or 0)
+	onDefenseInfoChange(player, data.defense or 0, data.armor or 0, data.mitigation or 0, data.dodge or 0, data.damageReflection or 0, data.mantra or 0)
+	onCombatAbsorbValuesChange(player, mapWheelAbsorbs(data.absorbs))
+	scheduleWheelSkillStatsHeightUpdate()
 end
 
 local function syncOffenceExtraSkillRows()
@@ -428,6 +546,11 @@ function terminate()
 	if xpBoostCountdownEvent then
 		removeEvent(xpBoostCountdownEvent)
 		xpBoostCountdownEvent = nil
+	end
+
+	if wheelSkillStatsHeightEvent then
+		removeEvent(wheelSkillStatsHeightEvent)
+		wheelSkillStatsHeightEvent = nil
 	end
 
 	skillsWindow:destroy()
@@ -725,28 +848,7 @@ function toggleOffenceStatsVisibility()
 end
 
 function areDefenceStatsVisible()
-	local defenceStats = {
-		"physicalResist",
-		"fireResist",
-		"earthResist",
-		"energyResist",
-		"IceResist",
-		"HolyResist",
-		"deathResist",
-		"HealingResist",
-		"drowResist",
-		"lifedrainResist",
-		"manadRainResist",
-		"defenceValue",
-		"armorValue",
-		"mantraValue",
-		"mitigation",
-		"dodge",
-		"damageReflection",
-		"separadorOnDefenseInfoChange"
-	}
-
-	for _, skillId in pairs(defenceStats) do
+	for _, skillId in pairs(EXTENDED_DEFENCE_STATS) do
 		local skill = skillsWindow:recursiveGetChildById(skillId)
 
 		if skill and skill:isVisible() then
@@ -754,54 +856,17 @@ function areDefenceStatsVisible()
 		end
 	end
 
+	local separator = skillsWindow and skillsWindow:recursiveGetChildById("separadorOnDefenseInfoChange")
+
+	if separator and separator:isVisible() then
+		return true
+	end
+
 	return false
 end
 
 function toggleDefenceStatsVisibility()
-	local allDefenceWidgets = {
-		"physicalResist",
-		"fireResist",
-		"earthResist",
-		"energyResist",
-		"IceResist",
-		"HolyResist",
-		"deathResist",
-		"HealingResist",
-		"drowResist",
-		"lifedrainResist",
-		"manadRainResist",
-		"defenceValue",
-		"armorValue",
-		"mantraValue",
-		"mitigation",
-		"dodge",
-		"damageReflection",
-		"separadorOnDefenseInfoChange"
-	}
 	local shouldShow = not areDefenceStatsVisible()
-
-	if shouldShow then
-		local player = g_game.getLocalPlayer()
-
-		if player and lastDefenseInfo then
-			onDefenseInfoChange(player, lastDefenseInfo[1], lastDefenseInfo[2], lastDefenseInfo[3], lastDefenseInfo[4], lastDefenseInfo[5], lastDefenseInfo[6])
-		end
-
-		if player and lastAbsorbValues then
-			onCombatAbsorbValuesChange(player, lastAbsorbValues)
-		end
-	else
-		for _, skillId in pairs(allDefenceWidgets) do
-			local skill = skillsWindow:recursiveGetChildById(skillId)
-
-			if skill then
-				skill:setVisible(false)
-			end
-		end
-
-		updateHeight()
-	end
-
 	local char = g_game.getCharacterName()
 
 	if not skillSettings[char] then
@@ -809,8 +874,14 @@ function toggleDefenceStatsVisibility()
 	end
 
 	skillSettings[char].defenceStats_visible = shouldShow
-
 	g_settings.setNode("skills-hide", skillSettings)
+
+	if shouldShow then
+		refreshDefenceStatsFromCache()
+	else
+		hideAllDefenceStatsWidgets()
+		updateHeight()
+	end
 end
 
 function areMiscStatsVisible()
@@ -1780,71 +1851,7 @@ function loadSkillsVisibilitySettings()
 		end
 	end
 
-	if g_game.getClientVersion() >= 1412 then
-		hideOffenceStatsInSkillsBar()
-
-		if settings.offenceStats_visible == false then
-			hideAllOffenceStatsWidgets()
-		end
-
-		if settings.defenceStats_visible ~= nil then
-			local defGroup = settings.defenceStats_visible
-
-			if not defGroup then
-				local allDefenceWidgets = {
-					"physicalResist",
-					"fireResist",
-					"earthResist",
-					"energyResist",
-					"IceResist",
-					"HolyResist",
-					"deathResist",
-					"HealingResist",
-					"drowResist",
-					"lifedrainResist",
-					"manadRainResist",
-					"defenceValue",
-					"armorValue",
-					"mantraValue",
-					"mitigation",
-					"dodge",
-					"damageReflection",
-					"separadorOnDefenseInfoChange"
-				}
-
-				for _, id in pairs(allDefenceWidgets) do
-					local w = skillsWindow:recursiveGetChildById(id)
-
-					if w then
-						w:setVisible(false)
-					end
-				end
-			end
-		end
-
-		if settings.miscStats_visible ~= nil then
-			local mGroup = settings.miscStats_visible
-			local sep = skillsWindow:recursiveGetChildById("separadorOnForgeBonusesChange")
-
-			if sep then
-				sep:setVisible(mGroup)
-			end
-
-			if not mGroup then
-				for _, id in pairs({
-					"momentum",
-					"transcendence",
-					"amplification"
-				}) do
-					local w = skillsWindow:recursiveGetChildById(id)
-
-					if w then
-						w:setVisible(false)
-					end
-				end
-			end
-		end
-	end
+	applyExtendedCombatVisibilitySettings()
 end
 
 local function getSkillsContentHeight()
@@ -2007,6 +2014,11 @@ end
 
 function offline()
 	wheelSkillStatsActive = false
+
+	if wheelSkillStatsHeightEvent then
+		removeEvent(wheelSkillStatsHeightEvent)
+		wheelSkillStatsHeightEvent = nil
+	end
 	skillPercentInstant = false
 	if skillsWindow then
 		local contents = skillsWindow:recursiveGetChildById('contentsPanel') or skillsWindow
@@ -2961,15 +2973,11 @@ function onMagicLevelBonusesChange(localPlayer, bonuses)
 end
 
 function onCombatAbsorbValuesChange(localPlayer, absorbValues)
-	if not canShowExtendedCombatStats() then
-		return
-	end
-
-	if wheelSkillStatsActive and not applyingWheelAbsorbs then
-		return
-	end
-
 	lastAbsorbValues = absorbValues
+
+	if not canShowExtendedCombatStats() or not areDefenceStatsEnabled() then
+		return
+	end
 
 	for id, widgetId in pairs(combatIdToWidgetId) do
 		local skill = skillsWindow:recursiveGetChildById(widgetId)
@@ -3029,10 +3037,6 @@ function updateDefenceSeparatorVisibility()
 end
 
 function onDefenseInfoChange(localPlayer, defense, armor, mitigation, dodge, damageReflection, mantra)
-	if not canShowExtendedCombatStats() then
-		return
-	end
-
 	mantra = mantra or 0
 
 	lastDefenseInfo = {
@@ -3043,6 +3047,10 @@ function onDefenseInfoChange(localPlayer, defense, armor, mitigation, dodge, dam
 		damageReflection,
 		mantra
 	}
+
+	if not canShowExtendedCombatStats() or not areDefenceStatsEnabled() then
+		return
+	end
 
 	local defenseToolstip = "This is your protection against all physical attacks in close combat\nas well as all distance physical attacks. The higher the defence value,\nthe less damage you will take from melee physical hits.\nThe defence value is calculated from your shield and/or weapon defence\nand the corresponding skill. Careful!\nYour defence value protects you only from hits of two creatures in a single round."
 	local armorToolstip = "This shows how well your armor protects you\nfrom all physical attacks."
