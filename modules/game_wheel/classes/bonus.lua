@@ -140,6 +140,10 @@ end
 local function secondSpellIsUnlocked(attribute)
   return WheelOfDestiny.isLitFull(attribute[1]) and WheelOfDestiny.isLitFull(attribute[2])
 end
+local WHEEL_GRADE_I_LOCKED = string.char(194)
+local WHEEL_GRADE_I_UNLOCKED = string.char(206)
+local WHEEL_GRADE_II_LOCKED = string.char(195)
+local WHEEL_GRADE_II_UNLOCKED = string.char(207)
 
 function getDedicationBonus(index)
 	local bonus = WheelBonus[index - 1]
@@ -246,15 +250,15 @@ function getConvictionBonusTooltip(index)
 		elseif vocation == PALADIN then
 			local t = {}
 			  if not firstSpellIsUnlocked(attribute) then
-				  setStringColor(t, "�", "white")
-			  else
-				  setStringColor(t, "�", "white")
-			  end
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
 			  setStringColor(t, " Enables the casting of support spells while active and Focus secondary group cooldown -8s\n", "#707070")
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, " -6s Cooldown; distance skill bonus increased by +5%", "#707070")
 			return t
@@ -316,15 +320,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Front Sweep\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Adds 5% life leech to this\nspell\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +14% Base Damage", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -332,15 +336,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Sharpshooter\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Enables the casting of\nsupport spells while activ...\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": -6s Cooldown; distance\nskill bonus increased by ...", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -348,15 +352,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Focus Spells\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +8% Base Damage for Hell's\nCore and Rage of the Skies\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": -4s Cooldown; Focus\nsecondary group cooldow...", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -364,15 +368,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Strong Ice Wave\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Adds 3% mana leech to\nthis spell\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +8% Base Damage", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -380,15 +384,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Aug. Chained Penance\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Jumps to +1 additional\ntarget\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +18% Base Damage", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -398,15 +402,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Groundshaker\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +12.5% Base Damage\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": -2s Cooldown", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -414,15 +418,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Aug. Strong Ethereal Spear\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": -2s Cooldown\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +380% Base Damage", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -430,15 +434,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Magic Shield\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Enhanced effect\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": -6s Cooldown", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -446,15 +450,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Mass Healing\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +5% Base Healing\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Affected area enlarged", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -462,15 +466,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Mass Spirit Mend\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +8% Base Healing\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Affected area enlarged", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -480,15 +484,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Aug. Chivalrous Challenge\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": -20 Mana Cost\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Jumps to +1 additional\ntarget", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -496,15 +500,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Divine Dazzle\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Jumps to +1 additional\ntarget\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Duration increased; -4s\nCooldown", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -512,15 +516,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Sap Strength\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Affected area enlarged\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Damage reduction\nincreased", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -528,15 +532,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Nature's Embrace\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +11% Base Healing\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": -10s Cooldown", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -544,15 +548,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Mystic Repulse\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": -4s Cooldown\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +40% Base Damage", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -562,15 +566,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Aug. Intense Wound Cleansing\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +125% Base Healing\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": -300s Cooldown", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -578,15 +582,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Swift Foot\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Focus secondary group\ncooldown -8s. Attacks an...\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": -6s Cooldown and the\ndamage dealt is no longe...", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -594,15 +598,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Energy Wave\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +5% Base Damage\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Affected area enlarged", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -610,15 +614,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Terra Wave\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +5% Base Damage\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Adds 5% life leech to this\nspell", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -626,15 +630,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Flurry of Blows\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Adds 5% life leech to this\n spell\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +15% Base Damage", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -644,15 +648,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Fierce Berserk\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": -30 Mana Cost\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +10% Base Damage", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -660,15 +664,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Divine Caldera\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": -20 Mana Cost\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +8.5% Base Damage", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -676,15 +680,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Great Fire Wave\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Adds 15% critical extra\ndamage for this spell and...\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +5% Base Damage", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -692,15 +696,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Augmented Heal Friend\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": -10 Mana Cost\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": +5% Base Healing", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -708,15 +712,15 @@ function getConvictionBonus(index, fullMessage)
 			local t = {}
 			setStringColor(t, "Aug. Sweeping Takedown\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Adds 3% mana leech to\nthis spell\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(t, "�", "white")
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, ": Adds 25% critical extra \ndamage for this spell and ...", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
@@ -934,16 +938,16 @@ function getConvictionPerks()
 			  end
 			  local message = {}
 			  if not firstSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
 			  setStringColor(message, "Adds 5% life leech to this spell\n", "#3F3F3F")
 			  if not secondSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
 			  setStringColor(message, "+8% Base Damage", "#3f3f3f")
 			  convictions[t].tooltip = message
 		  elseif vocation == PALADIN then
@@ -958,16 +962,16 @@ function getConvictionPerks()
 			  end
 			  local message = {}
 			  if not firstSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
 			  setStringColor(message, "Enables the casting of support spells while active and Focus\nsecondary group cooldown -8s\n", "#3F3F3F")
 			  if not secondSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
 			  setStringColor(message, "-6s Cooldown; distance skill bonus increased by +5%", "#3F3F3F")
 			  convictions[t].tooltip = message
 		  elseif vocation == SORCERER then
@@ -982,16 +986,16 @@ function getConvictionPerks()
 			  end
 			  local message = {}
 			  if not firstSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
 			  setStringColor(message, "+8% Base Damage for Hell's Core and Rage of the Skies\n", "#3F3F3F")
 			  if not secondSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
 			  setStringColor(message, "-4s Cooldown; Focus secondary group cooldown -4s for Hell's\nCore and Rage of the Skies", "#3F3F3F")
 			  convictions[t].tooltip = message
 		  elseif vocation == DRUID then
@@ -1006,16 +1010,16 @@ function getConvictionPerks()
 			  end
 			  local message = {}
 			  if not firstSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
 			  setStringColor(message, "Adds 3% mana leech to this spell\n", "#3F3F3F")
 			  if not secondSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
 			  setStringColor(message, "+8% Base Damage", "#3F3F3F")
 			  convictions[t].tooltip = message
 		  elseif vocation == MONK then
@@ -1030,16 +1034,16 @@ function getConvictionPerks()
 			  end
 			  local message = {}
 			  if not firstSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
 			  setStringColor(message, "Adds 3% mana leech to this spell\n", "#3F3F3F")
 			  if not secondSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
 			  setStringColor(message, "Adds 25% critical extra damage", "#3F3F3F")
 			  convictions[t].tooltip = message
 		  end
@@ -1056,16 +1060,16 @@ function getConvictionPerks()
 			  end
 			  local message = {}
 			  if not firstSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
 			  setStringColor(message, "+12.5% Base Damage\n", "#3F3F3F")
 			  if not secondSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
 			  setStringColor(message, "-2s Cooldown", "#3F3F3F")
 			  convictions[t].tooltip = message
 		  elseif vocation == PALADIN then
@@ -1080,17 +1084,17 @@ function getConvictionPerks()
 			  end
 			  local message = {}
 			  if not firstSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
 			  setStringColor(message, "-2s Cooldown\n", "#3F3F3F")
 			  if not secondSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
-			  setStringColor(message, "+8% Base Damage", "#3F3F3F")
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
+			  setStringColor(message, "+380% Base Damage", "#3F3F3F")
 			  convictions[t].tooltip = message
 		  elseif vocation == SORCERER then
 			  if not convictions[t] then
@@ -1104,16 +1108,16 @@ function getConvictionPerks()
 			  end
 			  local message = {}
 			  if not firstSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
 			  setStringColor(message, "Enhanced effect\n", "#3F3F3F")
 			  if not secondSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
 			  setStringColor(message, "-6s Cooldown", "#3F3F3F")
 			  convictions[t].tooltip = message
 		  elseif vocation == DRUID then
@@ -1128,16 +1132,16 @@ function getConvictionPerks()
 			  end
 			  local message = {}
 			  if not firstSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
 			  setStringColor(message, "+5% Base Healing\n", "#3F3F3F")
 			  if not secondSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
 			  setStringColor(message, "Affected area enlarged", "#3F3F3F")
 			  convictions[t].tooltip = message
 		  elseif vocation == MONK then
@@ -1152,16 +1156,16 @@ function getConvictionPerks()
 			  end
 			  local message = {}
 			  if not firstSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
 			  setStringColor(message, "+8% Base Healing\n", "#3F3F3F")
 			  if not secondSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
 			  setStringColor(message, "Affected area enlarged", "#3F3F3F")
 			  convictions[t].tooltip = message
 		  end
@@ -1178,16 +1182,16 @@ function getConvictionPerks()
 			  end
 			  local message = {}
 			  if not firstSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
 			  setStringColor(message, "-20 Mana Cost\n", "#3F3F3F")
 			  if not secondSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
 			  setStringColor(message, "Jumps to +1 additional target", "#3F3F3F")
 			  convictions[t].tooltip = message
 		  elseif vocation == PALADIN then
@@ -1202,16 +1206,16 @@ function getConvictionPerks()
 			  end
 			  local message = {}
 			  if not firstSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
 			  setStringColor(message, "Jumps to +1 additional target\n", "#3F3F3F")
 			  if not secondSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
 			  setStringColor(message, "Duration increased; -4s Cooldown", "#3F3F3F")
 			  convictions[t].tooltip = message
 		  elseif vocation == SORCERER then
@@ -1226,16 +1230,16 @@ function getConvictionPerks()
 			  end
 			  local message = {}
 			  if not firstSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
 			  setStringColor(message, "Affected area enlarged\n", "#3F3F3F")
 			  if not secondSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
 			  setStringColor(message, "Damage reduction increased", "#3F3F3F")
 			  convictions[t].tooltip = message
 		  elseif vocation == DRUID then
@@ -1250,10 +1254,10 @@ function getConvictionPerks()
 			  end
 			  local message = {}
 			  if not firstSpellIsUnlocked(attribute) then
-				  setStringColor(message, "�", "white")
-			  else
-				  setStringColor(message, "�", "white")
-			  end
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
 			  setStringColor(message, "+11% Base Healing\n", "#3F3F3F")
 			  setStringColor(message, ": -10s Cooldown", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			convictions[t].tooltip = message
@@ -1269,15 +1273,15 @@ function getConvictionPerks()
 			end
 			local message = {}
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(message, "-4s Cooldown\n", "#3F3F3F")
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(message, "+40% Base Damage", "#3F3F3F")
 			convictions[t].tooltip = message
@@ -1295,15 +1299,15 @@ function getConvictionPerks()
 			end
 			local message = {}
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(message, "+10% Base Healing\n", "#3F3F3F")
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(message, "-300s Cooldown", "#3F3F3F")
 			convictions[t].tooltip = message
@@ -1319,15 +1323,15 @@ function getConvictionPerks()
 			end
 			local message = {}
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(message, "Focus secondary group cooldown -8s. Attacks and spells are\nenabled but dealt damage is reduced by 50%.\n", "#3F3F3F")
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(message, "-6s Cooldown and the damage dealt is no longer reduced.", "#3F3F3F")
 			convictions[t].tooltip = message
@@ -1343,15 +1347,15 @@ function getConvictionPerks()
 			end
 			local message = {}
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(message, "+5% Base Damage\n", "#3F3F3F")
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(message, "Affected area enlarged", "#3F3F3F")
 			convictions[t].tooltip = message
@@ -1367,15 +1371,15 @@ function getConvictionPerks()
 			end
 			local message = {}
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(message, "+5% Base Damage\n", "#3F3F3F")
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(message, "Adds 5% life leech to this spell", "#3F3F3F")
 			convictions[t].tooltip = message
@@ -1391,15 +1395,15 @@ function getConvictionPerks()
 			end
 			local message = {}
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(message, "Adds 5% life leech to this spell", "#3F3F3F")
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(message, "+15% Base Damage", "#3F3F3F")
 			convictions[t].tooltip = message
@@ -1417,15 +1421,15 @@ function getConvictionPerks()
 			end
 			local message = {}
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(message, "-30 Mana Cost\n", "#3F3F3F")
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(message, "+10% Base Damage", "#3F3F3F")
 			convictions[t].tooltip = message
@@ -1441,15 +1445,15 @@ function getConvictionPerks()
 			end
 			local message = {}
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(message, "-20 Mana Cost\n", "#3F3F3F")
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(message, "+8.5% Base Damage", "#3F3F3F")
 			convictions[t].tooltip = message
@@ -1465,15 +1469,15 @@ function getConvictionPerks()
 			end
 			local message = {}
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(message, "Adds 15% critical extra damage for this spell and grants a 10%\nchance (non-cumulative) for a critical hit.\n", "#3F3F3F")
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(message, "+5% Base Damage", "#3F3F3F")
 			convictions[t].tooltip = message
@@ -1489,15 +1493,15 @@ function getConvictionPerks()
 			end
 			local message = {}
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(message, "-10 Mana Cost\n", "#3F3F3F")
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(message, "+5% Base Healing", "#3F3F3F")
 			convictions[t].tooltip = message
@@ -1513,15 +1517,15 @@ function getConvictionPerks()
 			end
 			local message = {}
 			if not firstSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
 			setStringColor(message, "Adds 3% mana leech to this spell\n", "#3F3F3F")
 			if not secondSpellIsUnlocked(attribute) then
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
 			else
-				setStringColor(message, "�", "white")
+				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(message, "Adds 25% critical extra damage for this spell and grants a 10% chance (non-cumulative) for a critical hit.", "#3F3F3F")
 			convictions[t].tooltip = message

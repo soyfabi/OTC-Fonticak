@@ -132,8 +132,12 @@ local function onDestinyWheel(...)
   WheelOfDestiny.onDestinyWheel(...)
 end
 
+local WHEEL_FONT_OTFONT = '/fonts/otfont/Verdana Bold-11px-wheel.otfont'
+
 function init()
   loadConfigJson()
+
+  g_fonts.importFont(WHEEL_FONT_OTFONT)
 
   connect(g_game, {
     onGameEnd = onGameEnd,

@@ -855,7 +855,7 @@ local spellsByVocation = {
         { level = 45, spell = "exeta con" },
         { level = 50, spell = "exevo mas san" },
         { level = 55, spell = "utamo tempo san" },
-        { level = 60, spell = "utito tempo san" },
+        { level = 60, spell = "utori con" },
         { level = 60, spell = "exura gran san" },
         { level = 150, spell = "exevo gran con grav" },
     },

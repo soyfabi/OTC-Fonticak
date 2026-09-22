@@ -17,6 +17,80 @@ local pendingTransitionEvent = nil
 local pendingTransitionText = nil
 local pendingSpecialTransitionEvent = nil
 
+local DEFAULT_TOOLTIP_FONT = 'Verdana Bold-11px'
+local WHEEL_TOOLTIP_FONT = 'Verdana Bold-11px-wheel'
+local WHEEL_FONT_OTFONT = '/fonts/otfont/Verdana Bold-11px-wheel.otfont'
+
+local function ensureWheelTooltipFontLoaded()
+    if g_fonts.fontExists(WHEEL_TOOLTIP_FONT) then
+        return true
+    end
+    return g_fonts.importFont(WHEEL_FONT_OTFONT)
+end
+
+local function isColoredTextColorToken(value)
+    if type(value) ~= 'string' then
+        return false
+    end
+    if value:match('^#(%x+)$') then
+        return true
+    end
+    local named = {
+        alpha = true, black = true, white = true, red = true, darkRed = true,
+        green = true, darkGreen = true, blue = true, darkBlue = true,
+        pink = true, darkPink = true, yellow = true, darkYellow = true,
+        teal = true, darkTeal = true, gray = true, darkGray = true,
+        lightGray = true, orange = true
+    }
+    return named[value] == true
+end
+
+local function isColoredTextTable(value)
+    if type(value) ~= 'table' or #value == 0 then
+        return false
+    end
+
+    local first = value[1]
+    if type(first) ~= 'string' then
+        return false
+    end
+
+    if first:sub(1, 1) == '{' then
+        return true
+    end
+
+    return type(value[2]) == 'string' and isColoredTextColorToken(value[2])
+end
+
+local function getWidgetTooltipFont(widget)
+    if not widget then
+        return nil
+    end
+
+    if widget.tooltipFont and widget.tooltipFont:len() > 0 then
+        return widget.tooltipFont
+    end
+
+    local parent = widget:getParent()
+    if parent and parent ~= widget then
+        return getWidgetTooltipFont(parent)
+    end
+
+    return nil
+end
+
+local function applyTooltipFont(fontName)
+    if not toolTipLabel then
+        return
+    end
+
+    local resolvedFont = fontName or DEFAULT_TOOLTIP_FONT
+    if resolvedFont == WHEEL_TOOLTIP_FONT then
+        ensureWheelTooltipFontLoaded()
+    end
+    toolTipLabel:setFont(resolvedFont)
+end
+
 -- private functions
 local function moveToolTip(first)
     if not first and (not toolTipLabel:isVisible() or toolTipLabel:getOpacity() < 0.01) then
@@ -181,8 +255,13 @@ local function getWidgetTooltipContent(widget)
     local tooltipWidget = widget:getChildById('toolTipWidget')
     local source = tooltipWidget or widget
 
-    if source.tooltip and source.tooltip:len() > 0 then
-        return source.tooltip, 'display'
+    if source.tooltip then
+        if isColoredTextTable(source.tooltip) then
+            return source.tooltip, 'colored_table'
+        end
+        if type(source.tooltip) == 'string' and source.tooltip:len() > 0 then
+            return source.tooltip, 'display'
+        end
     end
     if source.specialtooltip then
         return source.specialtooltip, 'special'
@@ -230,11 +309,13 @@ local function displayWidgetTooltip(widget)
     currentHoveredWidget = widget
 
     if contentType == 'display' then
-        g_tooltip.display(content)
+        g_tooltip.display(content, getWidgetTooltipFont(widget))
     elseif contentType == 'special' then
         g_tooltip.displaySpecial(content)
     elseif contentType == 'colored' then
-        g_tooltip.parseColoreDisplay(content)
+        g_tooltip.parseColoreDisplay(content, getWidgetTooltipFont(widget))
+    elseif contentType == 'colored_table' then
+        g_tooltip.displayColoredTable(content, getWidgetTooltipFont(widget))
     end
     return true
 end
@@ -363,6 +444,9 @@ local function onWidgetStyleApply(widget, styleName, styleNode)
     if styleNode['tooltip-delay'] then
         widget.tooltipDelay = tonumber(styleNode['tooltip-delay'])
     end
+    if styleNode['tooltip-font'] then
+        widget.tooltipFont = styleNode['tooltip-font']
+    end
 
     local tooltipWidget = widget:getChildById('toolTipWidget')
     if widget:getId() == 'toolTipWidget' then
@@ -381,6 +465,10 @@ local function onWidgetStyleApply(widget, styleName, styleNode)
         if widget.parseColoreDisplay then
             tooltipWidget.parseColoreDisplay = widget.parseColoreDisplay
             widget.parseColoreDisplay = nil
+        end
+        if widget.tooltipFont then
+            tooltipWidget.tooltipFont = widget.tooltipFont
+            widget.tooltipFont = nil
         end
         if tooltipWidget.tooltip or tooltipWidget.specialtooltip or widget.parseColoreDisplay then
             tooltipWidget:setOpacity(1)
@@ -464,12 +552,16 @@ function g_tooltip.terminate()
     g_tooltip = nil
 end
 
-function g_tooltip.display(text)
+function g_tooltip.display(text, fontName)
     if not text then
         return
     end
 
     if type(text) == "table" then
+        if isColoredTextTable(text) then
+            g_tooltip.displayColoredTable(text, fontName)
+            return
+        end
         g_tooltip.displaySpecial(text)
         return
     end
@@ -486,6 +578,8 @@ function g_tooltip.display(text)
     if not toolTipLabel then
         return
     end
+
+    applyTooltipFont(fontName or DEFAULT_TOOLTIP_FONT)
 
     cancelPendingHide()
     cancelPendingTransition()
@@ -556,13 +650,15 @@ function g_tooltip.display(text)
     end
 end
 
-function g_tooltip.parseColoreDisplay(text)
+function g_tooltip.parseColoreDisplay(text, fontName)
     if text == nil or text:len() == 0 then
         return
     end
     if not toolTipLabel then
         return
     end
+
+    applyTooltipFont(fontName or DEFAULT_TOOLTIP_FONT)
 
     cancelPendingHide()
     cancelPendingTransition()
@@ -580,7 +676,8 @@ function g_tooltip.parseColoreDisplay(text)
 
         pendingTransitionEvent = scheduleEvent(function()
             pendingTransitionEvent = nil
-            toolTipLabel:parseColoredText(text)
+            applyTooltipFont(fontName or DEFAULT_TOOLTIP_FONT)
+            toolTipLabel:parseColoredText(text, '#3f3f3f')
             toolTipLabel:resizeToText()
             toolTipLabel:resize(toolTipLabel:getWidth() + 4, toolTipLabel:getHeight() + 4)
             toolTipLabel:show()
@@ -592,7 +689,7 @@ function g_tooltip.parseColoreDisplay(text)
         end, fadeOutTime)
     else
         g_effects.cancelFade(toolTipLabel)
-        toolTipLabel:parseColoredText(text)
+        toolTipLabel:parseColoredText(text, '#3f3f3f')
         toolTipLabel:resizeToText()
         toolTipLabel:resize(toolTipLabel:getWidth() + 4, toolTipLabel:getHeight() + 4)
         toolTipLabel:show()
@@ -602,6 +699,53 @@ function g_tooltip.parseColoreDisplay(text)
         moveToolTip(true)
         g_effects.fadeIn(toolTipLabel, 70)
         startTrackingMouseMove()
+    end
+end
+
+function g_tooltip.displayColoredTable(text, fontName)
+    if not text or not toolTipLabel then
+        return
+    end
+
+    local resolvedFont = fontName or WHEEL_TOOLTIP_FONT
+    ensureWheelTooltipFontLoaded()
+    applyTooltipFont(resolvedFont)
+
+    cancelPendingHide()
+    cancelPendingTransition()
+    if pendingHideScheduleEvent then
+        removeEvent(pendingHideScheduleEvent)
+        pendingHideScheduleEvent = nil
+    end
+
+    local function showColoredTooltip()
+        applyTooltipFont(resolvedFont)
+        toolTipLabel:setColoredText(text)
+        toolTipLabel:resizeToText()
+        toolTipLabel:resize(toolTipLabel:getWidth() + 4, toolTipLabel:getHeight() + 4)
+        toolTipLabel:show()
+        toolTipLabel:raise()
+        toolTipLabel:enable()
+        toolTipLabel:setOpacity(0)
+        moveToolTip(true)
+        g_effects.fadeIn(toolTipLabel, 70)
+        startTrackingMouseMove()
+    end
+
+    local isCurrentlyVisible = toolTipLabel:isVisible() and toolTipLabel:getOpacity() > 0.05
+
+    if isCurrentlyVisible then
+        local fadeOutTime = 70
+        g_effects.fadeOut(toolTipLabel, fadeOutTime)
+        startTrackingMouseMove()
+
+        pendingTransitionEvent = scheduleEvent(function()
+            pendingTransitionEvent = nil
+            showColoredTooltip()
+        end, fadeOutTime)
+    else
+        g_effects.cancelFade(toolTipLabel)
+        showColoredTooltip()
     end
 end
 

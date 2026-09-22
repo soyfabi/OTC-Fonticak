@@ -214,7 +214,7 @@ MAP_ICON_INDEX: Dict[str, Tuple[Optional[int], Optional[int]]] = {
     "utamo tempo": (121, 132),
     "utito tempo": (95, 133),
     "utamo tempo san": (118, 134),
-    "utito tempo san": (120, 135),
+    "utori con": (120, 135),
     "utori flam": (54, 138),
     "utori mort": (53, 139),
     "utori vis": (55, 140),

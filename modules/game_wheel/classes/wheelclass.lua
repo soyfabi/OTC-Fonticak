@@ -29,6 +29,35 @@ WheelOfDestiny.currentPreset = {}
 
 WheelOfDestiny.mouseIndex = 0
 
+local WHEEL_UI_FONT = 'Verdana Bold-11px-wheel'
+local WHEEL_FONT_OTFONT = '/fonts/otfont/Verdana Bold-11px-wheel.otfont'
+
+local function ensureWheelFontLoaded()
+  if g_fonts.fontExists(WHEEL_UI_FONT) then
+    return true
+  end
+  return g_fonts.importFont(WHEEL_FONT_OTFONT)
+end
+
+local function applyWheelFont(widget)
+  ensureWheelFontLoaded()
+  if widget and widget.setFont then
+    widget:setFont(WHEEL_UI_FONT)
+  end
+end
+
+local function applyWheelTooltip(widget, tooltip)
+  if not widget then
+    return
+  end
+  widget.tooltipFont = WHEEL_UI_FONT
+  if type(tooltip) == 'table' then
+    widget.tooltip = tooltip
+  elseif tooltip ~= nil and tooltip ~= '' then
+    widget:setTooltip(tooltip)
+  end
+end
+
 WheelOfDestiny.revealedGems = {}
 
 local openWheel = nil
@@ -453,15 +482,17 @@ function WheelOfDestiny.onMouseMove(widget, position, offset)
   end
 
   local conviction = getConvictionBonus(index, true)
+  local convictionWidget = wheelOfDestinyWindow.info.tabContent.information.tabContent.conviction2
+  applyWheelFont(convictionWidget)
   if type(conviction) == "string" then
-    wheelOfDestinyWindow.info.tabContent.information.tabContent.conviction2:setText(conviction)
+    convictionWidget:setText(conviction)
     if WheelOfDestiny.pointInvested[index] >= bonus.maxPoints then
-      wheelOfDestinyWindow.info.tabContent.information.tabContent.conviction2:setColor("#c0c0c0")
+      convictionWidget:setColor("#c0c0c0")
     else
-      wheelOfDestinyWindow.info.tabContent.information.tabContent.conviction2:setColor("#707070")
+      convictionWidget:setColor("#707070")
     end
   elseif type(conviction) == "table" then
-    wheelOfDestinyWindow.info.tabContent.information.tabContent.conviction2:setColoredText(conviction)
+    convictionWidget:setColoredText(conviction)
   end
 
   wheelPanel.focusSelectedWheel:setVisible(true)
@@ -1218,22 +1249,25 @@ function WheelOfDestiny.configureDedication(index)
 end
 
 function WheelOfDestiny.configureConviction(index)
+  ensureWheelFontLoaded()
   local bonus = WheelBonus[index - 1]
   local conviction = getConvictionBonus(index)
 
   local tooltip = getConvictionBonusTooltip(index)
+  local convictionWidget = wheelOfDestinyWindow.selection.tabContent.conviction
+  applyWheelFont(convictionWidget)
   if type(conviction) == "string" then
-    wheelOfDestinyWindow.selection.tabContent.conviction:setTooltip(tooltip)
-    wheelOfDestinyWindow.selection.tabContent.conviction:setText(conviction)
+    applyWheelTooltip(convictionWidget, tooltip)
+    convictionWidget:setText(conviction)
 
     if WheelOfDestiny.pointInvested[index] >= bonus.maxPoints then
-      wheelOfDestinyWindow.selection.tabContent.conviction:setColor("#c0c0c0")
+      convictionWidget:setColor("#c0c0c0")
     else
-      wheelOfDestinyWindow.selection.tabContent.conviction:setColor("#707070")
+      convictionWidget:setColor("#707070")
     end
   elseif type(conviction) == "table" then
-    wheelOfDestinyWindow.selection.tabContent.conviction:setTooltip(tooltip)
-    wheelOfDestinyWindow.selection.tabContent.conviction:setColoredText(conviction)
+    applyWheelTooltip(convictionWidget, tooltip)
+    convictionWidget:setColoredText(conviction)
   end
 
 end
@@ -1277,6 +1311,7 @@ function WheelOfDestiny.configureDedicationPerk()
 end
 
 function WheelOfDestiny.configureConvictionPerk()
+  ensureWheelFontLoaded()
   wheelOfDestinyWindow.convictionPerks.tabContent:destroyChildren()
   wheelOfDestinyWindow.convictionPerks.tabContentScroll:setVisible(false)
 
@@ -1295,7 +1330,8 @@ function WheelOfDestiny.configureConvictionPerk()
       widget.value:setVisible(false)
     end
     if i.tooltip then
-      widget.info:setTooltip(i.tooltip)
+      widget.info:setVisible(true)
+      applyWheelTooltip(widget.info, i.tooltip)
     else
       widget.info:setVisible(false)
     end
@@ -1343,7 +1379,7 @@ function WheelOfDestiny.configureVessels()
 
     if data.tooltip then
       widget.info:setVisible(true)
-      widget.info:setTooltip(data.tooltip)
+      applyWheelTooltip(widget.info,data.tooltip)
     end
   end
 
@@ -1473,7 +1509,7 @@ function WheelOfDestiny.configureSummary()
       widget.value:setText((cap > 0 and "+" or "") .. cap)
     elseif t == "Mitigation Mult." then
       widget.value:setText(string.format("%.2f%%", mitigation))
-      widget.info:setTooltip('Increase your mitigation multiplicatively.')
+      applyWheelTooltip(widget.info,'Increase your mitigation multiplicatively.')
       widget.info:setVisible(true)
     elseif t == "Life Leech" then
       local lifeleech = convictions[4]
@@ -1522,7 +1558,7 @@ function WheelOfDestiny.configureSummary()
       widget.perk:setText(c.perk)
       widget.value:setVisible(false)
       widget.info:setVisible(true)
-      widget.info:setTooltip(c.tooltip)
+      applyWheelTooltip(widget.info,c.tooltip)
       hasCreated = true
     elseif t == "special_2" then
       local c = convictions[2]
@@ -1534,7 +1570,7 @@ function WheelOfDestiny.configureSummary()
       widget.perk:setText(c.perk)
       widget.value:setVisible(false)
       widget.info:setVisible(true)
-      widget.info:setTooltip(c.tooltip)
+      applyWheelTooltip(widget.info,c.tooltip)
       hasCreated = true
     elseif t == "skill" then
       local c = convictions[3]
@@ -1546,7 +1582,7 @@ function WheelOfDestiny.configureSummary()
       widget.perk:setText(c.perk)
       widget.value:setText(c.stringPoint)
       widget.info:setVisible(true)
-      widget.info:setTooltip(c.tooltip)
+      applyWheelTooltip(widget.info,c.tooltip)
       hasCreated = true
     end
     ::label::
@@ -1576,7 +1612,7 @@ function WheelOfDestiny.configureSummary()
 
     widget.perk:setText(c.perk)
     widget.value:setText(c.stringPoint)
-    widget.info:setTooltip(c.tooltip)
+    applyWheelTooltip(widget.info,c.tooltip)
     widget.info:setVisible(true)
     hasCreated = true
     ::label::
@@ -1596,7 +1632,7 @@ function WheelOfDestiny.configureSummary()
 
     if data.tooltip then
       widget.info:setVisible(true)
-      widget.info:setTooltip(data.tooltip)
+      applyWheelTooltip(widget.info,data.tooltip)
     end
 
     local value = tostring(data.value)
@@ -1669,7 +1705,7 @@ function WheelOfDestiny.configureSummary()
   else
     widget.value:setText("Locked")
   end
-  widget.info:setTooltip(m2)
+  applyWheelTooltip(widget.info,m2)
 
   local m1, m2 = getPassiveInfo(2)
   local passive = WheelOfDestiny.passivePoints[2]
@@ -1686,7 +1722,7 @@ function WheelOfDestiny.configureSummary()
   else
     widget.value:setText("Locked")
   end
-  widget.info:setTooltip(m2)
+  applyWheelTooltip(widget.info,m2)
   ------------------
   local m1, m2 = getPassiveInfo(1)
   local passive = WheelOfDestiny.passivePoints[1]
@@ -1702,7 +1738,7 @@ function WheelOfDestiny.configureSummary()
   else
     widget.value:setText("Locked")
   end
-  widget.info:setTooltip(m2)
+  applyWheelTooltip(widget.info,m2)
   ------------------
   local m1, m2 = getPassiveInfo(3)
   local passive = WheelOfDestiny.passivePoints[3]
@@ -1719,7 +1755,7 @@ function WheelOfDestiny.configureSummary()
   else
     widget.value:setText("Locked")
   end
-  widget.info:setTooltip(m2)
+  applyWheelTooltip(widget.info,m2)
 
   local bonus = getVesselBonus()
   for _, data in pairs(bonus) do
@@ -1735,7 +1771,7 @@ function WheelOfDestiny.configureSummary()
 
     if data.tooltip then
       widget.info:setVisible(true)
-      widget.info:setTooltip(data.tooltip)
+      applyWheelTooltip(widget.info,data.tooltip)
     end
 
     local value = tostring(data.value)
@@ -1770,7 +1806,7 @@ function WheelOfDestiny.configureSummary()
 
     if data.tooltip then
       widget.info:setVisible(true)
-      widget.info:setTooltip(data.tooltip)
+      applyWheelTooltip(widget.info,data.tooltip)
     end
 
     local value = tostring(data.value)
@@ -1810,7 +1846,7 @@ function WheelOfDestiny.configureSummary()
     end
     widget.perk:setText(c.perk)
     widget.value:setText(c.stringPoint)
-    widget.info:setTooltip(c.tooltip)
+    applyWheelTooltip(widget.info,c.tooltip)
     widget.info:setVisible(true)
     hasCreated = true
     ::label::
