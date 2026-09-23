@@ -18,8 +18,6 @@ local pendingTransitionText = nil
 local pendingSpecialTransitionEvent = nil
 
 local DEFAULT_TOOLTIP_FONT = 'Verdana Bold-11px'
-local WHEEL_TOOLTIP_FONT = 'Verdana Bold-11px-wheel'
-local WHEEL_FONT_OTFONT = '/fonts/otfont/Verdana Bold-11px-wheel.otfont'
 local WHEEL_GRADE_ICON_SOURCE = '/images/game/wheel/icons-spell-grades'
 local WHEEL_GRADE_CLIPS = {
     ['\1'] = '0 0 22 15',
@@ -31,13 +29,6 @@ local WHEEL_GRADE_ICON_WIDTH = 22
 local WHEEL_GRADE_ICON_HEIGHT = 15
 local WHEEL_GRADE_LINE_HEIGHT = 17
 local WHEEL_GRADE_ICON_GAP = 4
-
-local function ensureWheelTooltipFontLoaded()
-    if g_fonts.fontExists(WHEEL_TOOLTIP_FONT) then
-        return true
-    end
-    return g_fonts.importFont(WHEEL_FONT_OTFONT)
-end
 
 local function isColoredTextColorToken(value)
     if type(value) ~= 'string' then
@@ -175,10 +166,40 @@ local function fillWheelGradeRows(parent, lines, textColorFallback)
     return maxW, y
 end
 
+local function stripWheelGradeMarkers(text)
+    if type(text) ~= 'string' then
+        return ''
+    end
+    return text:gsub('[\1-\4]', '')
+end
+
+local function renderWheelGradesAsText(widget, data)
+    if not widget.setColoredText then
+        return
+    end
+
+    local plain = {}
+    for i = 1, #data, 2 do
+        local text = stripWheelGradeMarkers(tostring(data[i] or ''))
+        if text ~= '' then
+            plain[#plain + 1] = text
+            plain[#plain + 1] = data[i + 1] or '#c0c0c0'
+        end
+    end
+
+    widget:setColoredText(plain)
+end
+
 function g_tooltip.renderWheelGrades(widget, data)
     if not widget or widget:isDestroyed() or type(data) ~= 'table' then
         return
     end
+
+    if not widget.destroyChildren or widget:getClassName() == 'UILabel' then
+        renderWheelGradesAsText(widget, data)
+        return
+    end
+
     widget:destroyChildren()
     if widget.setText then
         widget:setText('')
@@ -208,11 +229,7 @@ local function applyTooltipFont(fontName)
         return
     end
 
-    local resolvedFont = fontName or DEFAULT_TOOLTIP_FONT
-    if resolvedFont == WHEEL_TOOLTIP_FONT then
-        ensureWheelTooltipFontLoaded()
-    end
-    toolTipLabel:setFont(resolvedFont)
+    toolTipLabel:setFont(fontName or DEFAULT_TOOLTIP_FONT)
 end
 
 -- private functions
@@ -840,8 +857,7 @@ function g_tooltip.displayColoredTable(text, fontName)
         return
     end
 
-    local resolvedFont = fontName or WHEEL_TOOLTIP_FONT
-    ensureWheelTooltipFontLoaded()
+    local resolvedFont = fontName or DEFAULT_TOOLTIP_FONT
     applyTooltipFont(resolvedFont)
 
     cancelPendingHide()

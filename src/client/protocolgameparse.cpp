@@ -6951,7 +6951,7 @@ void ProtocolGame::parseWeaponProficiencyInfoBatch(const InputMessagePtr& msg)
     }
 }
 
-// 0x5F - parse destiny wheel window
+// 0x5F - parse destiny wheel window (Fonticak custom 8.60, see server wheel.lua sendWheelWindow)
 void ProtocolGame::parseOpenWheelWindow(const InputMessagePtr& msg)
 {
     // Player ID
@@ -6987,7 +6987,7 @@ void ProtocolGame::parseOpenWheelWindow(const InputMessagePtr& msg)
         static_cast<int>(points),
         static_cast<int>(extraPoints)));
 
-    // Points por slot (37 slots fixos, igual ao servidor de 0 a 36)
+    // 36 wheel slots (WHEEL_SLOT_COUNT on server)
     std::vector<uint16_t> pointInvested;
     pointInvested.reserve(36);
 
@@ -7009,24 +7009,12 @@ void ProtocolGame::parseOpenWheelWindow(const InputMessagePtr& msg)
     g_logger.debug(fmt::format("[Wheel C++ Parse] scrollCount={}", static_cast<int>(scrollCount)));
 
     for (uint16_t i = 0; i < scrollCount; ++i) {
-        uint16_t itemId = msg->getU16();
-        // Em protocolos 1500+ o servidor envia 1 byte extra (extraPoints)
-        uint8_t extraPoints = 0;
-        if (g_game.getProtocolVersion() >= 1500 && msg->getUnreadSize() > 0) {
-            extraPoints = msg->getU8();
-        }
+        const uint16_t itemId = msg->getU16();
         usedPromotionScrolls.push_back(itemId);
 
-        g_logger.debug(fmt::format("  [Scroll {}] id={} extraPoints={}",
+        g_logger.debug(fmt::format("  [Scroll {}] id={}",
             static_cast<int>(i),
-            static_cast<int>(itemId),
-            static_cast<int>(extraPoints)));
-    }
-
-    uint8_t hasMonkQuest = 0;
-    if (g_game.getProtocolVersion() >= 1500 && msg->getUnreadSize() > 0) {
-        hasMonkQuest = msg->getU8();
-        g_logger.debug(fmt::format("[Wheel C++ Parse] hasMonkQuest lido (valor={})", static_cast<int>(hasMonkQuest)));
+            static_cast<int>(itemId)));
     }
 
     // Gems ativas (equipadas)
@@ -7045,12 +7033,12 @@ void ProtocolGame::parseOpenWheelWindow(const InputMessagePtr& msg)
     g_logger.debug(fmt::format("[Wheel C++ Parse] revealedGemCount={}", static_cast<int>(revealedCount)));
 
     for (uint16_t i = 0; i < revealedCount; ++i) {
-        GemData gem;
-        gem.gemID = msg->getU16();          // ID único da gema
-        gem.locked = msg->getU8();          // Status bloqueada/desbloqueada
-        gem.gemDomain = msg->getU8();       // Afinidade elemental
-        gem.gemType = msg->getU8();         // Qualidade (Lesser, Regular, Greater, Supreme)
-        gem.lesserBonus = msg->getU8();     // Primeiro modificador
+        GemData gem{};
+        gem.gemID = msg->getU16();          // 0-based index in revealed list
+        gem.locked = msg->getU8();
+        gem.gemDomain = msg->getU8();
+        gem.gemType = msg->getU8();
+        gem.lesserBonus = msg->getU8();
 
         if (gem.gemType >= Otc::WheelGemQuality_Regular)
             gem.regularBonus = msg->getU8();
@@ -7094,12 +7082,6 @@ void ProtocolGame::parseOpenWheelWindow(const InputMessagePtr& msg)
         supremeUpgraded[pos] = val;
         g_logger.debug(fmt::format("  [SupremeUpgrade {}] pos={} val={}",
             static_cast<int>(i), static_cast<int>(pos), static_cast<int>(val)));
-    }
-
-    // Campo adicional (desde Canary 15.10+)
-    if (g_game.getProtocolVersion() >= 1510 && msg->getUnreadSize() >= 1) {
-        uint8_t earnedFromAchievements = msg->getU8();
-        g_logger.debug(fmt::format("[Wheel C++ Parse] earnedFromAchievements={}", static_cast<int>(earnedFromAchievements)));
     }
 
     // Verifica se sobraram bytes após o parse

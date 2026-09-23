@@ -140,7 +140,7 @@ end
 local function secondSpellIsUnlocked(attribute)
   return WheelOfDestiny.isLitFull(attribute[1]) and WheelOfDestiny.isLitFull(attribute[2])
 end
--- Control bytes, rendered as images (icons-spell-grades), not font glyphs.
+-- Marker bytes rendered as UIImage icons via g_tooltip.renderWheelGrades.
 local WHEEL_GRADE_I_LOCKED = "\1"
 local WHEEL_GRADE_I_UNLOCKED = "\2"
 local WHEEL_GRADE_II_LOCKED = "\3"

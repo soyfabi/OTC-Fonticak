@@ -7,7 +7,7 @@ PerksPanel < Panel
     anchors.top: parent.top
     anchors.left: parent.left
     text-align: topleft
-    font: Verdana Bold-11px-wheel
+    font: Verdana Bold-11px
     color: #c0c0c0
     text-auto-resize: true
   Label
@@ -28,7 +28,6 @@ PerksPanel < Panel
     margin-top: 2
     image-source: /images/game/wheel/show-gui-help-grey
     !tooltip: tr('Increase your mitigation multiplicatively.')
-    tooltip-font: Verdana Bold-11px-wheel
     visible: false
 
 PresetLabel < Panel
@@ -98,7 +97,7 @@ Panel
         anchors.horizontalCenter: parent.horizontalCenter
         margin-top: 4
         margin-right: 4
-        font: Verdana Bold-11px-wheel
+        font: Verdana Bold-11px
         color: #c0c0c0
         !text: tr('Vessel contains no gem')
         text-align: center
@@ -111,7 +110,6 @@ Panel
         margin-right: 5
         image-source: /images/game/wheel/show-gui-help-grey
         !tooltip: tr('Gems can be revealed within the Gem Atelier. Different gem\nqualities yield different amounts of mods:\n* Lesser gem: one basic mod\n* Regular gem: two basic mods\n* Greater gem: two basic mods and one supreme mod')
-        tooltip-font: Verdana Bold-11px-wheel
 
       UILabel
         id: modification0
@@ -168,7 +166,6 @@ Panel
         margin-right: 5
         image-source: /images/game/wheel/show-gui-help-grey
         !tooltip: tr('')
-        tooltip-font: Verdana Bold-11px-wheel
 
       UILabel
         id: VRBonus
@@ -241,7 +238,6 @@ Panel
         margin-top: 1
         image-source: /images/game/wheel/show-gui-help-grey
         !tooltip: tr('toDo')
-        tooltip-font: Verdana Bold-11px-wheel
       Label
         id: dedication
         size: 185 29
@@ -269,18 +265,16 @@ Panel
         anchors.right: parent.right
         margin-top: 1
         image-source: /images/game/wheel/show-gui-help-grey
-        tooltip-font: Verdana Bold-11px-wheel
       UIWidget
         id: conviction
         size: 185 80
         text-align: topleft
-        font: Verdana Bold-11px-wheel
+        font: Verdana Bold-11px
         color: #c0c0c0
         anchors.top: prev.bottom
         anchors.left: parent.left
         anchors.right: parent.right
         tooltip-delayed: true
-        tooltip-font: Verdana Bold-11px-wheel
         margin-top: 4
 
       Button
@@ -522,11 +516,11 @@ Panel
             anchors.left: prev.left
             margin-top: 3
             margin-left: 48
-          Label
+          UIWidget
             id: conviction2
             size: 185 105
             text-align: topleft
-            font: Verdana Bold-11px-wheel
+            font: Verdana Bold-11px
             color: #c0c0c0
             anchors.top: prev.bottom
             anchors.left: parent.left
@@ -881,7 +875,6 @@ Panel
           margin-top: 2
           image-source: /images/game/wheel/show-gui-help-grey
           !tooltip: tr('Increase your mitigation multiplicatively.')
-          tooltip-font: Verdana Bold-11px-wheel
 
   Panel
     id: convictionPerks
@@ -1025,7 +1018,6 @@ Panel
         margin-top: 2
         image-source: /images/game/wheel/show-gui-help-grey
         !tooltip: tr('Unlocked Revelation Perks grant a bonus to all damage and \nhealing:\n* Stage 1 grants a bonus of +4 damage and healing\n* Stage 2 increases this bonus to +9\n* Stage 3 increases this bonus to +20')
-        tooltip-font: Verdana Bold-11px-wheel
       Panel
         id: avatar
         anchors.top: prev.bottom
@@ -1059,7 +1051,6 @@ Panel
         margin-top: 2
         image-source: /images/game/wheel/show-gui-help-grey
         !tooltip: tr('Transforms you into a\npowerful form that reduces\ndamage taken and increases\ndamage dealt.')
-        tooltip-font: Verdana Bold-11px-wheel
 
       Panel
         id: spell1
@@ -1094,7 +1085,6 @@ Panel
         margin-top: 2
         image-source: /images/game/wheel/show-gui-help-grey
         !tooltip: tr('Increase your mitigation multiplicatively.')
-        tooltip-font: Verdana Bold-11px-wheel
 
       Panel
         id: spell2
@@ -1129,7 +1119,6 @@ Panel
         margin-top: 2
         image-source: /images/game/wheel/show-gui-help-grey
         !tooltip: tr('Increase your mitigation multiplicatively.')
-        tooltip-font: Verdana Bold-11px-wheel
 
       Panel
         id: spell3
@@ -1164,7 +1153,6 @@ Panel
         margin-top: 2
         image-source: /images/game/wheel/show-gui-help-grey
         !tooltip: tr('Increase your mitigation multiplicatively.')
-        tooltip-font: Verdana Bold-11px-wheel
 
   UIWidget
     id: wheelPanel

@@ -28,7 +28,51 @@ GemSwitchPrice = {
   [2] = 1000000   -- Greater
 }
 
+local function releaseGemHoverCursor(widget)
+	if not widget or not widget.gemCursorPushed then
+		return
+	end
+
+	if modules.client_options and modules.client_options.getOption('nativeCursor') then
+		g_window.restoreMouseCursor()
+	else
+		g_mouse.popCursor('pointer')
+	end
+
+	widget.gemCursorPushed = false
+end
+
+local function pushGemHoverCursor(widget)
+	if not widget or widget.gemCursorPushed or not modules.client_options then
+		return
+	end
+
+	if modules.client_options.getOption('nativeCursor') then
+		g_window.setSystemCursor('hand')
+		widget.gemCursorPushed = true
+	else
+		g_mouse.pushCursor('pointer')
+		widget.gemCursorPushed = true
+	end
+end
+
+function GemAtelier.releaseAllHoverCursors(widget)
+	widget = widget or gemAtelierWindow
+	if not widget then
+		return
+	end
+
+	if widget.gemCursorPushed then
+		releaseGemHoverCursor(widget)
+	end
+
+	for _, child in pairs(widget:getChildren()) do
+		GemAtelier.releaseAllHoverCursors(child)
+	end
+end
+
 function GemAtelier.resetFields()
+	GemAtelier.releaseAllHoverCursors()
 	lockedOnly = false
 	sortQuality = 1
 	sortAffinity = 1
@@ -125,13 +169,15 @@ function GemAtelier.redirectToGem(gemData)
 		end
 
 		local widget = g_ui.createWidget('GemPanel', gemList)
+		if not widget then
+			goto continue
+		end
+
 		local success = GemAtelier.setupGemWidget(widget, data)
 		
 		if success then
 			currentGemList[#currentGemList + 1] = data
-			if widget then
-				widget.gemIndex = #currentGemList
-			end
+			widget.gemIndex = #currentGemList
 			gemCount = gemCount + 1
 
 			if data.gemID == gemData.gemID then
@@ -209,13 +255,15 @@ function GemAtelier.showGems(selectFirst, lastIndex)
 		end
 
 		local widget = g_ui.createWidget('GemPanel', gemList)
+		if not widget then
+			goto continue
+		end
+
 		local success = GemAtelier.setupGemWidget(widget, data)
 		
 		if success then
 			currentGemList[#currentGemList + 1] = data
-			if widget then
-				widget.gemIndex = #currentGemList
-			end
+			widget.gemIndex = #currentGemList
 			gemCount = gemCount + 1
 		else
 			widget:destroy()
@@ -1278,6 +1326,7 @@ function GemAtelier.onModRedirect(self)
 
 	Workshop.setCurrentPage(pageIndex)
 	Workshop.showFragmentList(true, false, false, "", focusIndex)
+	GemAtelier.releaseAllHoverCursors()
 	gemAtelierWindow:hide()
 	fragmentWindow:show(true)
     gemMenuButton:setChecked(false)
@@ -1289,12 +1338,24 @@ function GemAtelier.onHoverGem(self, hovered)
 	if not hoverWidget then
 		return true
 	end
+
+	if self.gemCursorPushed == nil then
+		self.gemCursorPushed = false
+	end
+
+	if g_ui.getDraggingWidget() or g_ui.isMouseGrabbed() then
+		releaseGemHoverCursor(self)
+		hoverWidget:setVisible(false)
+		return true
+	end
+
 	hoverWidget:setVisible(hovered)
 	hoverWidget:setImageClip(self.currentTier and (200 + self.currentTier * 50 .. " 0 50 50") or "0 0 50 50")
+
 	if hovered then
-		g_mouse.pushCursor('pointer')
+		pushGemHoverCursor(self)
 	else
-		g_mouse.popCursor('pointer')
+		releaseGemHoverCursor(self)
 	end
 end
 

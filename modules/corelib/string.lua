@@ -129,29 +129,6 @@ function setStringColor(t, text, color)
     table.insert(t, color)
 end
 
-function coloredTableToTooltipString(data)
-    if type(data) ~= 'table' or #data == 0 then
-        return ''
-    end
-
-    local parts = {}
-    for i = 1, #data, 2 do
-        local text = tostring(data[i] or ''):gsub('}', '')
-        local color = data[i + 1]
-        if type(color) ~= 'string' or color:len() == 0 then
-            color = '#ffffff'
-        end
-        parts[#parts + 1] = '{' .. text .. ', ' .. color .. '}'
-    end
-    return table.concat(parts)
-end
-
-function setStringFont(t, text, color, font)
-  table.insert(t, text)
-  table.insert(t, color)
-  table.insert(t, font)
-end
-
 function string.pack_custom(format, ...)
   local args = {...}
   local result = {}

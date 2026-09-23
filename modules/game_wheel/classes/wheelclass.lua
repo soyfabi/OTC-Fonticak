@@ -29,28 +29,10 @@ WheelOfDestiny.currentPreset = {}
 
 WheelOfDestiny.mouseIndex = 0
 
-local WHEEL_UI_FONT = 'Verdana Bold-11px-wheel'
-local WHEEL_FONT_OTFONT = '/fonts/otfont/Verdana Bold-11px-wheel.otfont'
-
-local function ensureWheelFontLoaded()
-  if g_fonts.fontExists(WHEEL_UI_FONT) then
-    return true
-  end
-  return g_fonts.importFont(WHEEL_FONT_OTFONT)
-end
-
-local function applyWheelFont(widget)
-  ensureWheelFontLoaded()
-  if widget and widget.setFont then
-    widget:setFont(WHEEL_UI_FONT)
-  end
-end
-
 local function applyWheelTooltip(widget, tooltip)
   if not widget then
     return
   end
-  widget.tooltipFont = WHEEL_UI_FONT
   if type(tooltip) == 'table' then
     widget.tooltip = tooltip
   elseif tooltip ~= nil and tooltip ~= '' then
@@ -483,7 +465,6 @@ function WheelOfDestiny.onMouseMove(widget, position, offset)
 
   local conviction = getConvictionBonus(index, true)
   local convictionWidget = wheelOfDestinyWindow.info.tabContent.information.tabContent.conviction2
-  applyWheelFont(convictionWidget)
   if type(conviction) == "string" then
     convictionWidget:destroyChildren()
     convictionWidget:setText(conviction)
@@ -1250,13 +1231,11 @@ function WheelOfDestiny.configureDedication(index)
 end
 
 function WheelOfDestiny.configureConviction(index)
-  ensureWheelFontLoaded()
   local bonus = WheelBonus[index - 1]
   local conviction = getConvictionBonus(index)
 
   local tooltip = getConvictionBonusTooltip(index)
   local convictionWidget = wheelOfDestinyWindow.selection.tabContent.conviction
-  applyWheelFont(convictionWidget)
   if type(conviction) == "string" then
     applyWheelTooltip(convictionWidget, tooltip)
     convictionWidget:destroyChildren()
@@ -1313,7 +1292,6 @@ function WheelOfDestiny.configureDedicationPerk()
 end
 
 function WheelOfDestiny.configureConvictionPerk()
-  ensureWheelFontLoaded()
   wheelOfDestinyWindow.convictionPerks.tabContent:destroyChildren()
   wheelOfDestinyWindow.convictionPerks.tabContentScroll:setVisible(false)
 

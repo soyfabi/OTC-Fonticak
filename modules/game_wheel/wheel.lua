@@ -132,12 +132,8 @@ local function onDestinyWheel(...)
   WheelOfDestiny.onDestinyWheel(...)
 end
 
-local WHEEL_FONT_OTFONT = '/fonts/otfont/Verdana Bold-11px-wheel.otfont'
-
 function init()
   loadConfigJson()
-
-  g_fonts.importFont(WHEEL_FONT_OTFONT)
 
   connect(g_game, {
     onGameEnd = onGameEnd,
@@ -219,6 +215,9 @@ function toggle()
     wheelWindow:focus()
     loadMenu('wheelMenu')
     if gemAtelierWindow:isVisible() then
+      if GemAtelier and GemAtelier.releaseAllHoverCursors then
+        GemAtelier.releaseAllHoverCursors()
+      end
       gemAtelierWindow:hide()
     end
     if fragmentWindow:isVisible() then
@@ -302,6 +301,9 @@ function loadMenu(menuId)
     wheelOfDestinyWindow:hide()
   end
   if gemAtelierWindow:isVisible() then
+    if GemAtelier and GemAtelier.releaseAllHoverCursors then
+      GemAtelier.releaseAllHoverCursors()
+    end
     gemAtelierWindow:hide()
   end
   if newPresetWindow:isVisible() then
@@ -316,6 +318,9 @@ function loadMenu(menuId)
   fragmentMenuButton = wheelWindow.optionsTabBar:getChildById('fragmentMenu')
 
   if menuId == 'wheelMenu' then
+    if GemAtelier and GemAtelier.releaseAllHoverCursors then
+      GemAtelier.releaseAllHoverCursors()
+    end
     gemAtelierWindow:hide()
     fragmentWindow:hide()
     wheelPanel = wheelOfDestinyWindow:getChildById('wheelPanel')
