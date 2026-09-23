@@ -20,6 +20,13 @@ local pendingSpecialTransitionEvent = nil
 local DEFAULT_TOOLTIP_FONT = 'Verdana Bold-11px'
 local WHEEL_TOOLTIP_FONT = 'Verdana Bold-11px-wheel'
 local WHEEL_FONT_OTFONT = '/fonts/otfont/Verdana Bold-11px-wheel.otfont'
+local WHEEL_GRADE_ICON_SOURCE = '/images/game/wheel/icons-spell-grades'
+local WHEEL_GRADE_CLIPS = {
+    ['\1'] = '0 0 22 15',
+    ['\2'] = '44 0 22 15',
+    ['\3'] = '22 0 22 15',
+    ['\4'] = '66 0 22 15',
+}
 
 local function ensureWheelTooltipFontLoaded()
     if g_fonts.fontExists(WHEEL_TOOLTIP_FONT) then
@@ -60,6 +67,117 @@ local function isColoredTextTable(value)
     end
 
     return type(value[2]) == 'string' and isColoredTextColorToken(value[2])
+end
+
+function g_tooltip.coloredTableHasGradeIcons(data)
+    if type(data) ~= 'table' then
+        return false
+    end
+    for i = 1, #data, 2 do
+        local text = data[i]
+        if type(text) == 'string' and text:find('[\1-\4]') then
+            return true
+        end
+    end
+    return false
+end
+
+local function parseWheelGradeLines(data)
+    local lines = {}
+    local line = { icon = nil, segments = {} }
+
+    local function pushLine()
+        if line.icon or #line.segments > 0 then
+            lines[#lines + 1] = line
+        end
+        line = { icon = nil, segments = {} }
+    end
+
+    for i = 1, #data, 2 do
+        local text = tostring(data[i] or '')
+        local color = data[i + 1] or '#c0c0c0'
+        local pos = 1
+        while pos <= #text do
+            local nl = text:find('\n', pos, true)
+            local chunkEnd = nl and (nl - 1) or #text
+            local chunk = text:sub(pos, chunkEnd)
+            while #chunk > 0 and WHEEL_GRADE_CLIPS[chunk:sub(1, 1)] do
+                line.icon = chunk:sub(1, 1)
+                chunk = chunk:sub(2)
+            end
+            if chunk ~= '' then
+                line.segments[#line.segments + 1] = { text = chunk, color = color }
+            end
+            if nl then
+                pushLine()
+                pos = nl + 1
+            else
+                break
+            end
+        end
+    end
+    pushLine()
+    return lines
+end
+
+local function fillWheelGradeRows(parent, lines, textColorFallback)
+    local y = 0
+    local lineH = 14
+    local maxW = 0
+    for _, line in ipairs(lines) do
+        local x = 2
+        if line.icon and WHEEL_GRADE_CLIPS[line.icon] then
+            local icon = g_ui.createWidget('UIWidget', parent)
+            icon:setPhantom(true)
+            icon:setSize({ width = 14, height = 14 })
+            icon:addAnchor(AnchorTop, 'parent', AnchorTop)
+            icon:addAnchor(AnchorLeft, 'parent', AnchorLeft)
+            icon:setMarginTop(y)
+            icon:setMarginLeft(x)
+            icon:setImageSource(WHEEL_GRADE_ICON_SOURCE)
+            icon:setImageClip(WHEEL_GRADE_CLIPS[line.icon])
+            x = x + 16
+        end
+
+        local text = ''
+        local color = textColorFallback or '#c0c0c0'
+        for _, seg in ipairs(line.segments) do
+            text = text .. seg.text
+            if seg.color and seg.color ~= 'white' then
+                color = seg.color
+            end
+        end
+
+        if text ~= '' then
+            local label = g_ui.createWidget('UILabel', parent)
+            label:setPhantom(true)
+            label:setFont('Verdana Bold-11px')
+            label:setColor(color)
+            label:setText(text)
+            label:setTextAlign(AlignLeft)
+            label:addAnchor(AnchorTop, 'parent', AnchorTop)
+            label:addAnchor(AnchorLeft, 'parent', AnchorLeft)
+            label:setMarginTop(y)
+            label:setMarginLeft(x)
+            label:resizeToText()
+            maxW = math.max(maxW, x + label:getWidth())
+        else
+            maxW = math.max(maxW, x)
+        end
+        y = y + lineH
+    end
+    return maxW, y
+end
+
+function g_tooltip.renderWheelGrades(widget, data)
+    if not widget or widget:isDestroyed() or type(data) ~= 'table' then
+        return
+    end
+    widget:destroyChildren()
+    if widget.setText then
+        widget:setText('')
+    end
+    fillWheelGradeRows(widget, parseWheelGradeLines(data), '#c0c0c0')
 end
 
 local function getWidgetTooltipFont(widget)
@@ -257,6 +375,9 @@ local function getWidgetTooltipContent(widget)
 
     if source.tooltip then
         if isColoredTextTable(source.tooltip) then
+            if g_tooltip.coloredTableHasGradeIcons(source.tooltip) then
+                return source.tooltip, 'grade_icons'
+            end
             return source.tooltip, 'colored_table'
         end
         if type(source.tooltip) == 'string' and source.tooltip:len() > 0 then
@@ -316,6 +437,8 @@ local function displayWidgetTooltip(widget)
         g_tooltip.parseColoreDisplay(content, getWidgetTooltipFont(widget))
     elseif contentType == 'colored_table' then
         g_tooltip.displayColoredTable(content, getWidgetTooltipFont(widget))
+    elseif contentType == 'grade_icons' then
+        g_tooltip.displayWheelGrades(content)
     end
     return true
 end
@@ -559,7 +682,11 @@ function g_tooltip.display(text, fontName)
 
     if type(text) == "table" then
         if isColoredTextTable(text) then
-            g_tooltip.displayColoredTable(text, fontName)
+            if g_tooltip.coloredTableHasGradeIcons(text) then
+                g_tooltip.displayWheelGrades(text)
+            else
+                g_tooltip.displayColoredTable(text, fontName)
+            end
             return
         end
         g_tooltip.displaySpecial(text)
@@ -746,6 +873,50 @@ function g_tooltip.displayColoredTable(text, fontName)
     else
         g_effects.cancelFade(toolTipLabel)
         showColoredTooltip()
+    end
+end
+
+function g_tooltip.displayWheelGrades(data)
+    if not SpecialToolTipLabel or type(data) ~= 'table' then
+        return
+    end
+
+    cancelPendingHide()
+    cancelPendingSpecialTransition()
+    if pendingSpecialHideScheduleEvent then
+        removeEvent(pendingSpecialHideScheduleEvent)
+        pendingSpecialHideScheduleEvent = nil
+    end
+    if toolTipLabel then
+        g_effects.cancelFade(toolTipLabel)
+        toolTipLabel:hide()
+    end
+
+    local function applyGradeContent()
+        SpecialToolTipLabel:destroyChildren()
+        local width, height = fillWheelGradeRows(SpecialToolTipLabel, parseWheelGradeLines(data), '#3f3f3f')
+        SpecialToolTipLabel:resize(math.max(width + 8, 40), math.max(height + 4, 16))
+        SpecialToolTipLabel:show()
+        SpecialToolTipLabel:raise()
+        SpecialToolTipLabel:enable()
+        SpecialToolTipLabel:setOpacity(0)
+        moveSpecialToolTip(true)
+        g_effects.fadeIn(SpecialToolTipLabel, 70)
+        startTrackingSpecialMouseMove()
+    end
+
+    local isCurrentlyVisible = SpecialToolTipLabel:isVisible() and SpecialToolTipLabel:getOpacity() > 0.05
+    if isCurrentlyVisible then
+        local fadeOutTime = 70
+        g_effects.fadeOut(SpecialToolTipLabel, fadeOutTime)
+        startTrackingSpecialMouseMove()
+        pendingSpecialTransitionEvent = scheduleEvent(function()
+            pendingSpecialTransitionEvent = nil
+            applyGradeContent()
+        end, fadeOutTime)
+    else
+        g_effects.cancelFade(SpecialToolTipLabel)
+        applyGradeContent()
     end
 end
 

@@ -485,6 +485,7 @@ function WheelOfDestiny.onMouseMove(widget, position, offset)
   local convictionWidget = wheelOfDestinyWindow.info.tabContent.information.tabContent.conviction2
   applyWheelFont(convictionWidget)
   if type(conviction) == "string" then
+    convictionWidget:destroyChildren()
     convictionWidget:setText(conviction)
     if WheelOfDestiny.pointInvested[index] >= bonus.maxPoints then
       convictionWidget:setColor("#c0c0c0")
@@ -492,7 +493,7 @@ function WheelOfDestiny.onMouseMove(widget, position, offset)
       convictionWidget:setColor("#707070")
     end
   elseif type(conviction) == "table" then
-    convictionWidget:setColoredText(conviction)
+    g_tooltip.renderWheelGrades(convictionWidget, conviction)
   end
 
   wheelPanel.focusSelectedWheel:setVisible(true)
@@ -1258,6 +1259,7 @@ function WheelOfDestiny.configureConviction(index)
   applyWheelFont(convictionWidget)
   if type(conviction) == "string" then
     applyWheelTooltip(convictionWidget, tooltip)
+    convictionWidget:destroyChildren()
     convictionWidget:setText(conviction)
 
     if WheelOfDestiny.pointInvested[index] >= bonus.maxPoints then
@@ -1267,7 +1269,7 @@ function WheelOfDestiny.configureConviction(index)
     end
   elseif type(conviction) == "table" then
     applyWheelTooltip(convictionWidget, tooltip)
-    convictionWidget:setColoredText(conviction)
+    g_tooltip.renderWheelGrades(convictionWidget, conviction)
   end
 
 end
