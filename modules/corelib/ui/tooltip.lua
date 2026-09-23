@@ -27,6 +27,10 @@ local WHEEL_GRADE_CLIPS = {
     ['\3'] = '22 0 22 15',
     ['\4'] = '66 0 22 15',
 }
+local WHEEL_GRADE_ICON_WIDTH = 22
+local WHEEL_GRADE_ICON_HEIGHT = 15
+local WHEEL_GRADE_LINE_HEIGHT = 17
+local WHEEL_GRADE_ICON_GAP = 4
 
 local function ensureWheelTooltipFontLoaded()
     if g_fonts.fontExists(WHEEL_TOOLTIP_FONT) then
@@ -122,21 +126,23 @@ end
 
 local function fillWheelGradeRows(parent, lines, textColorFallback)
     local y = 0
-    local lineH = 14
     local maxW = 0
     for _, line in ipairs(lines) do
         local x = 2
+        local textOffsetY = y
         if line.icon and WHEEL_GRADE_CLIPS[line.icon] then
             local icon = g_ui.createWidget('UIWidget', parent)
             icon:setPhantom(true)
-            icon:setSize({ width = 14, height = 14 })
+            icon:setSize({ width = WHEEL_GRADE_ICON_WIDTH, height = WHEEL_GRADE_ICON_HEIGHT })
             icon:addAnchor(AnchorTop, 'parent', AnchorTop)
             icon:addAnchor(AnchorLeft, 'parent', AnchorLeft)
             icon:setMarginTop(y)
             icon:setMarginLeft(x)
             icon:setImageSource(WHEEL_GRADE_ICON_SOURCE)
             icon:setImageClip(WHEEL_GRADE_CLIPS[line.icon])
-            x = x + 16
+            icon:setImageSmooth(true)
+            x = x + WHEEL_GRADE_ICON_WIDTH + WHEEL_GRADE_ICON_GAP
+            textOffsetY = y + 1
         end
 
         local text = ''
@@ -157,14 +163,14 @@ local function fillWheelGradeRows(parent, lines, textColorFallback)
             label:setTextAlign(AlignLeft)
             label:addAnchor(AnchorTop, 'parent', AnchorTop)
             label:addAnchor(AnchorLeft, 'parent', AnchorLeft)
-            label:setMarginTop(y)
+            label:setMarginTop(textOffsetY)
             label:setMarginLeft(x)
             label:resizeToText()
             maxW = math.max(maxW, x + label:getWidth())
         else
             maxW = math.max(maxW, x)
         end
-        y = y + lineH
+        y = y + WHEEL_GRADE_LINE_HEIGHT
     end
     return maxW, y
 end
