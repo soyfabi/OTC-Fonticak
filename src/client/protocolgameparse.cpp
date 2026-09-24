@@ -4345,7 +4345,7 @@ CreaturePtr ProtocolGame::getCreature(const InputMessagePtr& msg, int type) cons
                 if ((id == m_localPlayer->getId()) ||
                     // fixes a bug server side bug where GameInit is not sent and local player id is unknown
                     (creatureType == Proto::CreatureTypePlayer && !m_localPlayer->getId() && name == m_localPlayer->getName())) {
-                    creature = m_localPlayer;
+                    creature = m_localPlayer->static_self_cast<Creature>();
                 } else {
                     switch (creatureType) {
                         case Proto::CreatureTypePlayer:

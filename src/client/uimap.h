@@ -36,6 +36,7 @@ public:
 
     void movePixels(int x, int y);
     void followCreature(const CreaturePtr& creature);
+    void setControlsDrawPool(bool controls);
     void setCameraPosition(const Position& pos);
     void lockVisibleFloor(int floor);
     void unlockVisibleFloor();
