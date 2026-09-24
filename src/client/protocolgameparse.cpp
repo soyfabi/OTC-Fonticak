@@ -7006,6 +7006,12 @@ void ProtocolGame::parseOpenWheelWindow(const InputMessagePtr& msg)
     // Promotion scrolls
     std::vector<uint16_t> usedPromotionScrolls;
     uint16_t scrollCount = msg->getU16();
+    const uint16_t maxScrollsByBuffer = msg->getUnreadSize() / 2;
+    if (scrollCount > maxScrollsByBuffer) {
+        g_logger.warning(fmt::format("[Wheel C++ Parse] scrollCount={} exceeds buffer (max {}), clamping",
+            static_cast<int>(scrollCount), static_cast<int>(maxScrollsByBuffer)));
+        scrollCount = maxScrollsByBuffer;
+    }
     g_logger.debug(fmt::format("[Wheel C++ Parse] scrollCount={}", static_cast<int>(scrollCount)));
 
     for (uint16_t i = 0; i < scrollCount; ++i) {
@@ -7020,6 +7026,13 @@ void ProtocolGame::parseOpenWheelWindow(const InputMessagePtr& msg)
     // Gems ativas (equipadas)
     std::vector<uint16_t> equipedGems;
     uint8_t activeGemCount = msg->getU8();
+    constexpr uint8_t kMaxActiveGems = 4;
+    const uint8_t maxActiveByBuffer = static_cast<uint8_t>(std::min<uint16_t>(msg->getUnreadSize() / 2, kMaxActiveGems));
+    if (activeGemCount > maxActiveByBuffer) {
+        g_logger.warning(fmt::format("[Wheel C++ Parse] activeGemCount={} invalid (max {}), clamping",
+            static_cast<int>(activeGemCount), static_cast<int>(maxActiveByBuffer)));
+        activeGemCount = maxActiveByBuffer;
+    }
     g_logger.debug(fmt::format("[Wheel C++ Parse] activeGemCount={}", static_cast<int>(activeGemCount)));
     for (uint8_t i = 0; i < activeGemCount; ++i) {
         uint16_t gemIndex = msg->getU16();
@@ -7030,9 +7043,22 @@ void ProtocolGame::parseOpenWheelWindow(const InputMessagePtr& msg)
     // Gems reveladas (atelier)
     std::vector<GemData> atelierGems;
     uint16_t revealedCount = msg->getU16();
+    constexpr uint16_t kMaxRevealedGems = 225;
+    const uint16_t maxRevealByBuffer = msg->getUnreadSize() / 6;
+    if (revealedCount > kMaxRevealedGems || revealedCount > maxRevealByBuffer) {
+        g_logger.warning(fmt::format("[Wheel C++ Parse] revealedGemCount={} invalid (max {} / buffer {}), clamping",
+            static_cast<int>(revealedCount), kMaxRevealedGems, static_cast<int>(maxRevealByBuffer)));
+        revealedCount = std::min<uint16_t>(revealedCount, std::min(kMaxRevealedGems, maxRevealByBuffer));
+    }
     g_logger.debug(fmt::format("[Wheel C++ Parse] revealedGemCount={}", static_cast<int>(revealedCount)));
 
     for (uint16_t i = 0; i < revealedCount; ++i) {
+        if (msg->getUnreadSize() < 6) {
+            g_logger.warning(fmt::format("[Wheel C++ Parse] truncated revealed gem {} ({} bytes left), stopping gem list",
+                static_cast<int>(i), static_cast<int>(msg->getUnreadSize())));
+            break;
+        }
+
         GemData gem{};
         gem.gemID = msg->getU16();          // 0-based index in revealed list
         gem.locked = msg->getU8();
@@ -7040,9 +7066,9 @@ void ProtocolGame::parseOpenWheelWindow(const InputMessagePtr& msg)
         gem.gemType = msg->getU8();
         gem.lesserBonus = msg->getU8();
 
-        if (gem.gemType >= Otc::WheelGemQuality_Regular)
+        if (gem.gemType >= Otc::WheelGemQuality_Regular && msg->getUnreadSize() > 0)
             gem.regularBonus = msg->getU8();
-        if (gem.gemType >= Otc::WheelGemQuality_Greater)
+        if (gem.gemType >= Otc::WheelGemQuality_Greater && msg->getUnreadSize() > 0)
             gem.supremeBonus = msg->getU8();
 
         atelierGems.push_back(gem);
@@ -7063,6 +7089,12 @@ void ProtocolGame::parseOpenWheelWindow(const InputMessagePtr& msg)
     // Basic upgrades
     std::map<uint8_t, uint8_t> basicUpgraded;
     uint8_t basicCount = msg->getU8(); // geralmente 0x2E (46)
+    constexpr uint8_t kMaxBasicGrades = 46;
+    const uint16_t maxBasicByBuffer = msg->getUnreadSize() / 2;
+    if (basicCount > kMaxBasicGrades || basicCount > maxBasicByBuffer) {
+        g_logger.warning(fmt::format("[Wheel C++ Parse] basicUpgraded count={} invalid, clamping", static_cast<int>(basicCount)));
+        basicCount = static_cast<uint8_t>(std::min<uint16_t>(basicCount, std::min<uint16_t>(kMaxBasicGrades, maxBasicByBuffer)));
+    }
     g_logger.debug(fmt::format("[Wheel C++ Parse] basicUpgraded count={}", static_cast<int>(basicCount)));
     for (uint8_t i = 0; i < basicCount; ++i) {
         uint8_t pos = msg->getU8();
@@ -7075,6 +7107,12 @@ void ProtocolGame::parseOpenWheelWindow(const InputMessagePtr& msg)
     // Supreme upgrades
     std::map<uint8_t, uint8_t> supremeUpgraded;
     uint8_t supCount = msg->getU8(); // geralmente 0x17 (23)
+    constexpr uint8_t kMaxSupremeGrades = 23;
+    const uint16_t maxSupByBuffer = msg->getUnreadSize() / 2;
+    if (supCount > kMaxSupremeGrades || supCount > maxSupByBuffer) {
+        g_logger.warning(fmt::format("[Wheel C++ Parse] supremeUpgraded count={} invalid, clamping", static_cast<int>(supCount)));
+        supCount = static_cast<uint8_t>(std::min<uint16_t>(supCount, std::min<uint16_t>(kMaxSupremeGrades, maxSupByBuffer)));
+    }
     g_logger.debug(fmt::format("[Wheel C++ Parse] supremeUpgraded count={}", static_cast<int>(supCount)));
     for (uint8_t i = 0; i < supCount; ++i) {
         uint8_t pos = msg->getU8();
@@ -7084,24 +7122,8 @@ void ProtocolGame::parseOpenWheelWindow(const InputMessagePtr& msg)
             static_cast<int>(i), static_cast<int>(pos), static_cast<int>(val)));
     }
 
-    // Verifica se sobraram bytes após o parse
-    const uint16_t unread = msg->getUnreadSize();
-    if (unread > 0) {
-        std::ostringstream hexDump;
-        hexDump << std::hex << std::setfill('0');
-        std::vector<uint8_t> leftover;
-
-        // Lê os bytes restantes sem estourar o buffer
-        for (uint16_t i = 0; i < unread; ++i) {
-            uint8_t b = msg->getU8();
-            leftover.push_back(b);
-            hexDump << std::setw(2) << static_cast<int>(b) << " ";
-        }
-
-        // Log detalhado
-        g_logger.warning(fmt::format("[Wheel C++ Parse] Restaram {} bytes após parseOpenWheelWindow (descartados).", unread));
-        g_logger.warning(fmt::format("[Wheel C++ Parse] Bytes extras (hex): {}", hexDump.str()));
-    }
+    // Do not consume trailing bytes here: multiple opcodes often share one network
+    // message (e.g. 0x40 NewPing right after 0x5F). The main parse loop must read them.
 
     // Callback Lua
     g_lua.callGlobalField("g_game", "onDestinyWheel",

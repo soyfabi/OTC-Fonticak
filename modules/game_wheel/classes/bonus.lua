@@ -794,6 +794,9 @@ function getConvictionPerks()
 	local convictions = {}
   
 	local vocation = WheelOfDestiny.vocationId
+	if not vocation or vocation == 0 then
+		return convictions
+	end
 	local order = {
 	  ["special_1"] = 1,
 	  ["special_2"] = 2,
@@ -828,16 +831,28 @@ function getConvictionPerks()
 	  end
   
 	  if bonus.conviction ==  "special_1" then
-		  convictions[t] = {perk = attribute[vocation][1], tooltip = attribute[vocation][2]}
+		  local attr = attribute and attribute[vocation]
+		  if attr then
+		    convictions[t] = {perk = attr[1], tooltip = attr[2]}
+		  end
 	  elseif bonus.conviction ==  "special_2" then
-		  convictions[t] = {perk = attribute[vocation][1], tooltip = attribute[vocation][2]}
+		  local attr = attribute and attribute[vocation]
+		  if attr then
+		    convictions[t] = {perk = attr[1], tooltip = attr[2]}
+		  end
 	  elseif bonus.conviction ==  "special_3" then
 		  if vocation == MONK then
-			  convictions[t] = {perk = attribute[vocation][1], tooltip = attribute[vocation][2]}
+			  local attr = attribute and attribute[vocation]
+			  if attr then
+			    convictions[t] = {perk = attr[1], tooltip = attr[2]}
+			  end
 		  end
 	  elseif bonus.conviction ==  "special_4" then
 		  if vocation == MONK then
-			  convictions[t] = {perk = attribute[vocation][1], tooltip = attribute[vocation][2]}
+			  local attr = attribute and attribute[vocation]
+			  if attr then
+			    convictions[t] = {perk = attr[1], tooltip = attr[2]}
+			  end
 		  end
 	  elseif bonus.conviction ==  "manaleech" then
 		if not convictions[t] then

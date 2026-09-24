@@ -30,6 +30,12 @@ local WHEEL_GRADE_ICON_HEIGHT = 15
 local WHEEL_GRADE_LINE_HEIGHT = 17
 local WHEEL_GRADE_ICON_GAP = 4
 
+-- Wheel slot panels are too small for anchored grade-row children; use colored text.
+local WHEEL_INLINE_GRADE_WIDGET_IDS = {
+    conviction = true,
+    conviction2 = true,
+}
+
 local function isColoredTextColorToken(value)
     if type(value) ~= 'string' then
         return false
@@ -123,6 +129,9 @@ local function fillWheelGradeRows(parent, lines, textColorFallback)
         local textOffsetY = y
         if line.icon and WHEEL_GRADE_CLIPS[line.icon] then
             local icon = g_ui.createWidget('UIWidget', parent)
+            if not icon then
+                textOffsetY = y
+            else
             icon:setPhantom(true)
             icon:setSize({ width = WHEEL_GRADE_ICON_WIDTH, height = WHEEL_GRADE_ICON_HEIGHT })
             icon:addAnchor(AnchorTop, 'parent', AnchorTop)
@@ -134,6 +143,7 @@ local function fillWheelGradeRows(parent, lines, textColorFallback)
             icon:setImageSmooth(true)
             x = x + WHEEL_GRADE_ICON_WIDTH + WHEEL_GRADE_ICON_GAP
             textOffsetY = y + 1
+            end
         end
 
         local text = ''
@@ -147,6 +157,10 @@ local function fillWheelGradeRows(parent, lines, textColorFallback)
 
         if text ~= '' then
             local label = g_ui.createWidget('UILabel', parent)
+            if not label then
+                y = y + WHEEL_GRADE_LINE_HEIGHT
+                goto next_line
+            end
             label:setPhantom(true)
             label:setFont('Verdana Bold-11px')
             label:setColor(color)
@@ -161,6 +175,7 @@ local function fillWheelGradeRows(parent, lines, textColorFallback)
         else
             maxW = math.max(maxW, x)
         end
+        ::next_line::
         y = y + WHEEL_GRADE_LINE_HEIGHT
     end
     return maxW, y
@@ -174,10 +189,6 @@ local function stripWheelGradeMarkers(text)
 end
 
 local function renderWheelGradesAsText(widget, data)
-    if not widget.setColoredText then
-        return
-    end
-
     local plain = {}
     for i = 1, #data, 2 do
         local text = stripWheelGradeMarkers(tostring(data[i] or ''))
@@ -187,11 +198,32 @@ local function renderWheelGradesAsText(widget, data)
         end
     end
 
-    widget:setColoredText(plain)
+    if widget.setColoredText then
+        widget:setColoredText(plain)
+        return
+    end
+
+    if widget.setText then
+        local chunks = {}
+        for i = 1, #plain, 2 do
+            chunks[#chunks + 1] = plain[i]
+        end
+        widget:setText(table.concat(chunks, ''))
+    end
 end
 
 function g_tooltip.renderWheelGrades(widget, data)
     if not widget or widget:isDestroyed() or type(data) ~= 'table' then
+        return
+    end
+
+    local widgetId = widget.getId and widget:getId() or ''
+    if WHEEL_INLINE_GRADE_WIDGET_IDS[widgetId] then
+        widget:destroyChildren()
+        if widget.setText then
+            widget:setText('')
+        end
+        renderWheelGradesAsText(widget, data)
         return
     end
 
@@ -204,7 +236,14 @@ function g_tooltip.renderWheelGrades(widget, data)
     if widget.setText then
         widget:setText('')
     end
-    fillWheelGradeRows(widget, parseWheelGradeLines(data), '#c0c0c0')
+    local ok, err = pcall(function()
+        fillWheelGradeRows(widget, parseWheelGradeLines(data), '#c0c0c0')
+    end)
+    if not ok then
+        g_logger.warning('[Wheel tooltip] grade row render failed, using text fallback: ' .. tostring(err))
+        widget:destroyChildren()
+        renderWheelGradesAsText(widget, data)
+    end
 end
 
 local function getWidgetTooltipFont(widget)
