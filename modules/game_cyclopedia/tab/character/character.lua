@@ -2842,39 +2842,28 @@ function Cyclopedia.configureCharacterCategories()
 			icon = "/images/icons/icon-character-generalstats",
 			text = "General Stats",
 			subCategories = function()
-				local categories = {
+				return {
 					{
 						open = "CharacterStats",
 						icon = "/images/icons/icon-character-generalstats-overview",
 						text = "Character Stats"
-					}
-				}
-
-				if g_game.getClientVersion() < 1410 then
-					table.insert(categories, {
-						open = "CombatStats",
-						icon = "/images/icons/icon-character-generalstats-offence",
-						text = "Combat Stats"
-					})
-				else
-					table.insert(categories, {
+					},
+					{
 						open = "OffenceStats",
 						icon = "/images/icons/icon-character-generalstats-offence",
 						text = "Offence Stats"
-					})
-					table.insert(categories, {
+					},
+					{
 						open = "DefenceStats",
 						icon = "/images/icons/icon-character-generalstats-defence",
 						text = "Defence Stats"
-					})
-					table.insert(categories, {
+					},
+					{
 						open = "MiscStats",
 						icon = "/images/icons/icon-character-generalstats-misc",
 						text = "Misc. Stats"
-					})
-				end
-
-				return categories
+					}
+				}
 			end
 		},
 		{
