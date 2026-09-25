@@ -2,6 +2,7 @@ Cyclopedia = Cyclopedia or {}
 
 local DETAIL_LABEL_COLUMN_WIDTH = 150
 local DETAIL_ROW_HEIGHT = 20
+local ensureCyclopediaTabContent
 
 local function measureDetailRowHeight(value, valueWidth)
 	if not Cyclopedia.detailMeasureLabel then
@@ -1252,7 +1253,7 @@ function emptyContentContainer()
 	end
 end
 
-local function ensureCyclopediaTabContent(type)
+function ensureCyclopediaTabContent(type)
 	if not contentContainer then
 		return
 	end
