@@ -1,5 +1,21 @@
 &var-cip-font-new: Verdana Bold-11px-new
 &var-cip-font-lowspace: Verdana Bold-11-px-lowspace
+&character-item-store-icon-size: 13 11
+&character-item-store-icon-clip: 0 0 26 22
+&character-item-store-icon-display: 13 11
+&character-item-store-icon-source: /images/ui/miniStoreIcon
+
+CharacterItemMiniStoreBadge < UIWidget
+  id: storeIcon
+  size: $character-item-store-icon-size
+  margin-bottom: 1
+  margin-right: 1
+  image-source: $character-item-store-icon-source
+  image-clip: $character-item-store-icon-clip
+  image-size: $character-item-store-icon-display
+  phantom: true
+  focusable: false
+  visible: false
 
 HouseIcon < UIWidget
   //image-source: /game_cyclopedia/images/house-owner-icon
@@ -315,6 +331,10 @@ CharacterGridItem < UIWidget
     visible: false
     image-smooth: true
 
+  CharacterItemMiniStoreBadge
+    anchors.bottom: ItemBackground.bottom
+    anchors.right: ItemBackground.right
+
   Label
     id: amount
     !text: tr('0')
@@ -367,6 +387,10 @@ CharacterListItem < UIWidget
     focusable: false
     visible: false
     image-smooth: true
+
+  CharacterItemMiniStoreBadge
+    anchors.bottom: ItemBackground.bottom
+    anchors.right: ItemBackground.right
 
   Label
     id: name
@@ -1829,6 +1853,10 @@ InventoryItemCyclopedia < Item
     if icon then
       icon:setVisible(false)
     end
+
+  CharacterItemMiniStoreBadge
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
 
 HeadSlot < InventoryItemCyclopedia
   id: slot1

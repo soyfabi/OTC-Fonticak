@@ -12,7 +12,7 @@ UIWidget
     margin-top: 10
     image-source: /images/ui/popupwindow-sem-borda-interna
     image-border: 20
-    size: 164 148
+    size: 154 142
     font: $var-cip-font-new
     color: #929292
     text-offset: 0 0
@@ -21,6 +21,18 @@ UIWidget
     change-cursor-image: true
     cursor: pointer
     @onClick: modules.game_cyclopedia.Cyclopedia.selectCharacterPage()
+
+    UIWidget
+      id: innerFrame
+      anchors.fill: parent
+      margin-top: 5
+      margin-left: 5
+      margin-right: 5
+      margin-bottom: 5
+      image-source: /images/ui/1pixel-down-frame
+      image-border: 5
+      phantom: true
+      focusable: false
 
     UIWidget
       id: nameHeader
@@ -63,7 +75,9 @@ UIWidget
       height: 28
       margin-left: 8
       margin-right: 8
-      margin-bottom: 12
+      margin-bottom: 10
+      image-source: /images/ui/2pixel-up-frame-borderimage-dark
+      image-border: 3
 
       Label
         id: InfoLabel
@@ -256,10 +270,11 @@ UIWidget
 
   UIWidget
     id: CharacterStats
-    size: 494 415
     anchors.top: CharacterBase.top
     anchors.left: CharacterBase.right
-    margin-left: 11
+    anchors.bottom: OptionsBase.bottom
+    anchors.right: parent.right
+    margin-left: 10
     visible: false
     image-source: /images/ui/1pixel-down-frame
     image-border: 1
@@ -300,8 +315,8 @@ UIWidget
       margin-right: 6
       margin-top: 12
       SkillNameLabel
-        !text: tr('Experience')
-        color: #C0C0C0
+        !text: tr('XP')
+        color: #1bd625ff
       SkillValueLabel
         color: #C0C0C0
 
@@ -314,7 +329,7 @@ UIWidget
       margin-right: 6
       SkillNameLabel
         !text: tr('XP Gain Rate')
-        color: #C0C0C0
+        color: #ffea79
       SkillValueLabel
         color: #C0C0C0
 
@@ -694,21 +709,27 @@ UIWidget
         anchors.right: parent.right
         background-color: #00C000
 
-    Label
-      !text: tr('Account Badges')
-      font: $var-cip-font-new
-      color: #C0C0C0
-      margin-top: 4
+    UIWidget
+      id: badgesLabelRow
+      height: 14
       anchors.top: skillId6.bottom
       anchors.left: separator.left
       anchors.right: parent.right
-      margin-left: 72
+      margin-top: 4
+
+      Label
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        margin-left: 1
+        font: $var-cip-font-new
+        color: #C0C0C0
+        !text: tr('Account Badges')
+        text-auto-resize: true
 
     UIScrollArea
       id: ListBadge
-      vertical-scrollbar: ListBadgeScrollbar
       size: 237 138
-      anchors.top: prev.bottom
+      anchors.top: badgesLabelRow.bottom
       anchors.left: separator.left
       margin-top: 5
       margin-left: 6
@@ -723,16 +744,6 @@ UIWidget
         cell-spacing-width: 10
         flow: true
         fit-children: false
-        
-
-    VerticalQtScrollBar
-      id: ListBadgeScrollbar
-      anchors.top: ListBadge.top
-      anchors.right: ListBadge.right
-      anchors.bottom: ListBadge.bottom
-      margin: 1
-      step: 5
-      pixel-scroll: true
 
   BorderBox
     id: CombatStats
@@ -1873,9 +1884,7 @@ UIWidget
 
     UIWidget
       id: ListBase
-      size: 494 415
-      anchors.top: parent.top
-      anchors.left: parent.left
+      anchors.fill: parent
       image-source: /images/ui/1pixel-down-frame
       image-border: 1
 
@@ -2348,9 +2357,10 @@ UIWidget
 
     MiniPanel
       id: AvailableTitlesPanel
-      size: 494 361
       anchors.top: CurrentTitlePanel.bottom
       anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
       margin-top: 6
       !text: tr('Available Character Titles')
       font: $var-cip-font-new
@@ -2578,10 +2588,11 @@ UIWidget
 
   UIWidget
     id: OffenceStats
-    size: 494 415
     anchors.top: CharacterBase.top
     anchors.left: CharacterBase.right
-    margin-left: 11
+    anchors.bottom: OptionsBase.bottom
+    anchors.right: parent.right
+    margin-left: 10
     visible: false
     image-source: /images/ui/1pixel-down-frame
     image-border: 1
@@ -2623,10 +2634,11 @@ UIWidget
 
   UIWidget
     id: DefenceStats
-    size: 494 415
     anchors.top: CharacterBase.top
     anchors.left: CharacterBase.right
-    margin-left: 11
+    anchors.bottom: OptionsBase.bottom
+    anchors.right: parent.right
+    margin-left: 10
     visible: false
     image-source: /images/ui/1pixel-down-frame
     image-border: 1
@@ -2668,10 +2680,11 @@ UIWidget
 
   UIWidget
     id: MiscStats
-    size: 494 415
     anchors.top: CharacterBase.top
     anchors.left: CharacterBase.right
-    margin-left: 11
+    anchors.bottom: OptionsBase.bottom
+    anchors.right: parent.right
+    margin-left: 10
     visible: false
     image-source: /images/ui/1pixel-down-frame
     image-border: 1

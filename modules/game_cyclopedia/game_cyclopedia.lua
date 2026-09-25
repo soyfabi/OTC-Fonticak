@@ -761,7 +761,33 @@ end
 
 local DEFAULT_WINDOW_SIZE = { width = 700, height = 538 }
 local ITEMS_WINDOW_SIZE = { width = 700, height = 618 }
-local ITEMS_CONTENT_MARGIN_BOTTOM = 36
+local CONTENT_MARGIN_BOTTOM = {
+	items = 36,
+	character = 40,
+	map = 40
+}
+
+local function setContentFooterLayout(tabType)
+	if not window or not contentContainer then
+		return
+	end
+
+	if tabType == "items" then
+		window:setSize(ITEMS_WINDOW_SIZE)
+
+		if manageContainersButton then
+			manageContainersButton:setVisible(true)
+		end
+	else
+		window:setSize(DEFAULT_WINDOW_SIZE)
+
+		if manageContainersButton then
+			manageContainersButton:setVisible(false)
+		end
+	end
+
+	contentContainer:setMarginBottom(CONTENT_MARGIN_BOTTOM[tabType] or 0)
+end
 
 local function setWindowBottomBarForTab(tabType)
 	if closeButton then
@@ -814,9 +840,17 @@ local function getCyclopediaCharacterGameEvents()
 	end
 
 	cyclopediaCharacterGameEvents = {
-		onParseCyclopediaCharacterGeneralStats = Cyclopedia.loadCharacterGeneralStats,
-		onParseCyclopediaCharacterCombatStats = Cyclopedia.loadCharacterCombatStats,
-		onParseCyclopediaCharacterBadges = Cyclopedia.loadCharacterBadges,
+		onParseCyclopediaCharacterGeneralStats = function(data, skills, combats)
+			Cyclopedia.loadCharacterGeneralStats(data, skills, combats)
+			Cyclopedia.repaintCharacterStatsIfActive(true)
+		end,
+		onParseCyclopediaCharacterCombatStats = function(data, mitigation, additionalSkillsArray, forgeSkillsArray, perfectShotDamageRanges, combatsArray, concoctionsArray)
+			Cyclopedia.loadCharacterCombatStats(data, mitigation, additionalSkillsArray, forgeSkillsArray, perfectShotDamageRanges, combatsArray, concoctionsArray)
+		end,
+		onParseCyclopediaCharacterBadges = function(showAccountInformation, playerOnline, playerPremium, loyaltyTitle, badgesVector)
+			Cyclopedia.loadCharacterBadges(showAccountInformation, playerOnline, playerPremium, loyaltyTitle, badgesVector)
+			Cyclopedia.repaintCharacterStatsIfActive(true)
+		end,
 		onCyclopediaCharacterRecentDeaths = Cyclopedia.loadCharacterRecentDeaths,
 		onCyclopediaCharacterRecentKills = Cyclopedia.loadCharacterRecentKills,
 		onUpdateCyclopediaCharacterItemSummary = Cyclopedia.loadCharacterItems,
@@ -828,8 +862,14 @@ local function getCyclopediaCharacterGameEvents()
 		onPreyActive = Cyclopedia.refreshCharacterPreyIfVisible,
 		onPreyInactive = Cyclopedia.refreshCharacterPreyIfVisible,
 		onPreyTimeLeft = Cyclopedia.refreshCharacterPreyIfVisible,
-		onCyclopediaCharacterOffenceStats = Cyclopedia.onCyclopediaCharacterOffenceStats,
-		onCyclopediaCharacterDefenceStats = Cyclopedia.onCyclopediaCharacterDefenceStats,
+		onCyclopediaCharacterOffenceStats = function(data)
+			Cyclopedia.onCyclopediaCharacterOffenceStats(data)
+			Cyclopedia.repaintCharacterOffenceStatsIfActive()
+		end,
+		onCyclopediaCharacterDefenceStats = function(data)
+			Cyclopedia.onCyclopediaCharacterDefenceStats(data)
+			Cyclopedia.repaintCharacterDefenceStatsIfActive()
+		end,
 		onCyclopediaCharacterMiscStats = Cyclopedia.onCyclopediaCharacterMiscStats
 	}
 
@@ -853,23 +893,7 @@ local function disconnectCyclopediaCharacterEvents()
 end
 
 local function setItemsTabLayout(active)
-	if not window or not contentContainer then
-		return
-	end
-
-	if active then
-		window:setSize(ITEMS_WINDOW_SIZE)
-		contentContainer:setMarginBottom(ITEMS_CONTENT_MARGIN_BOTTOM)
-		if manageContainersButton then
-			manageContainersButton:setVisible(true)
-		end
-	else
-		window:setSize(DEFAULT_WINDOW_SIZE)
-		contentContainer:setMarginBottom(0)
-		if manageContainersButton then
-			manageContainersButton:setVisible(false)
-		end
-	end
+	setContentFooterLayout(active and "items" or nil)
 end
 cyclopediaButton = nil
 bestiaryTrackerButton = nil
@@ -923,6 +947,10 @@ function init()
 		if visible then
 			Cyclopedia.refreshMoneyDisplays(true)
 			startCyclopediaMoneyRefresh()
+
+			if getCurrentType() == "character" and Cyclopedia.refreshCharacterLiveStats then
+				Cyclopedia.refreshCharacterLiveStats()
+			end
 		else
 			stopCyclopediaMoneyRefresh()
 
@@ -1266,6 +1294,10 @@ function ensureCyclopediaTabContent(type)
 		if characterPanel and not characterPanel:isDestroyed() then
 			characterPanel:show()
 
+			if Cyclopedia.ensureCharacterCombatStatListeners then
+				Cyclopedia.ensureCharacterCombatStatListeners()
+			end
+
 			if Cyclopedia.refreshCharacterLiveStats then
 				Cyclopedia.refreshCharacterLiveStats()
 			end
@@ -1313,13 +1345,13 @@ function toggleWindow(type, isBackNavigation)
 	end
 		
 	if (type == "items") then
-		setItemsTabLayout(true)
+		setContentFooterLayout("items")
 		activateTab(items)
 		if showItems then
 			showItems()
 		end
 	else
-		setItemsTabLayout(false)
+		setContentFooterLayout(type)
 	end
 
 	if (type == "bestiary") then

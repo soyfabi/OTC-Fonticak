@@ -260,6 +260,7 @@ CyclopediaWindow
     anchors.left: parent.left
     anchors.right: parent.right
     margin-top: -4
+    clipping: true
 
   Button
     id: manageContainersButton
@@ -398,4 +399,4 @@ CyclopediaWindow
     anchors.bottom: closeButton.top
     anchors.left: parent.left
     anchors.right: parent.right
-    margin-bottom: 11
+    margin-bottom: 12

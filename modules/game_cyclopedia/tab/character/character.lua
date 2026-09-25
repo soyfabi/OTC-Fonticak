@@ -5,6 +5,7 @@ local CATEGORY_BASE_HEIGHT = 22
 local SUBCATEGORY_HEIGHT = 20
 local SUBCATEGORY_ARROW_MARGIN_RIGHT = 5
 local SUBCATEGORY_ARROW_MARGIN_RIGHT_PRESSED = 4
+
 local APPEARANCE_CATEGORY_STORE = 2
 local APPEARANCE_BUTTON_UP = "/images/ui/button-grey-up"
 local APPEARANCE_BUTTON_DOWN = "/images/ui/button-grey-down"
@@ -110,6 +111,84 @@ local function setCharacterInspectionOutfit(outfit)
 		feet = outfit.feet or 0,
 		addons = outfit.addons or 0
 	}
+end
+
+local function isInspectionItemDescriptionFromStore(descriptions)
+	for _, description in ipairs(descriptions or {}) do
+		local key = (description.key or description[1] or ""):lower()
+		local value = (description.value or description[2] or ""):lower()
+
+		if key:find("store", 1, true) and not key:find("restore", 1, true) then
+			return true
+		end
+
+		if value:find("store", 1, true) and not value:find("restore", 1, true) then
+			return true
+		end
+	end
+
+	return false
+end
+
+local function getCharacterStoreItemKey(itemId, tier)
+	return itemId .. "-" .. (tier or 0)
+end
+
+local function isCharacterStoreItem(itemId, tier, containerType)
+	if containerType == "store" then
+		return true
+	end
+
+	local storeItemIds = Cyclopedia.Character and Cyclopedia.Character.StoreItemIds
+
+	if not storeItemIds then
+		return false
+	end
+
+	return storeItemIds[getCharacterStoreItemKey(itemId, tier)] == true
+end
+
+local function setCharacterItemStoreIcon(widget, visible)
+	if not widget or widget:isDestroyed() then
+		return
+	end
+
+	local storeIcon = widget.storeIcon or widget:getChildById("storeIcon")
+
+	if storeIcon and not storeIcon:isDestroyed() then
+		storeIcon:setVisible(visible == true)
+	end
+end
+
+function Cyclopedia.refreshCharacterInventoryStoreIcons()
+	if not UI or UI:isDestroyed() or not UI.InfoBase or not UI.InfoBase.inventoryPanel then
+		return
+	end
+
+	local storeItemIds = Cyclopedia.Character and Cyclopedia.Character.StoreItemIds or {}
+
+	for i = InventorySlotFirst, InventorySlotPurse do
+		local itemWidget = UI.InfoBase.inventoryPanel["slot" .. i]
+
+		if itemWidget and not itemWidget:isDestroyed() then
+			local item = itemWidget:getItem()
+			local showStoreIcon = false
+
+			if item then
+				showStoreIcon = storeItemIds[getCharacterStoreItemKey(item:getId(), item:getTier())] == true
+			end
+
+			setCharacterItemStoreIcon(itemWidget, showStoreIcon)
+		end
+	end
+end
+
+local function refreshCharacterStoreItemViews()
+	Cyclopedia.refreshCharacterInventoryStoreIcons()
+
+	if Cyclopedia.Character.Items then
+		Cyclopedia.reloadCharacterItems()
+	end
 end
 
 function Cyclopedia.refreshCharacterBaseCard()
@@ -313,7 +392,274 @@ local function open(parent)
 	UI.openedCategory = parent
 end
 
-local characterDefenceStatListenerConnected = false
+local characterCombatStatListenerConnected = false
+local characterCombatStatsSyncEvent = nil
+local characterCombatUiRefreshEvent = nil
+local CHARACTER_COMBAT_STATS_SYNC_DELAY = 250
+
+local function isCharacterCyclopediaActive()
+	if not UI or UI:isDestroyed() then
+		return false
+	end
+
+	local cyclopediaModule = modules.game_cyclopedia
+
+	if not cyclopediaModule or not cyclopediaModule.isVisible or not cyclopediaModule.isVisible() then
+		return false
+	end
+
+	if cyclopediaModule.getCurrentType and cyclopediaModule.getCurrentType() ~= "character" then
+		return false
+	end
+
+	return true
+end
+
+local function isCharacterPanelActive()
+	return isCharacterCyclopediaActive()
+end
+
+local function cancelCharacterCombatStatsServerSync()
+	if characterCombatStatsSyncEvent then
+		removeEvent(characterCombatStatsSyncEvent)
+		characterCombatStatsSyncEvent = nil
+	end
+end
+
+local function scheduleCharacterCombatStatsServerSync()
+	if not isCharacterPanelActive() or not g_game.isOnline() or not g_game.requestCharacterInfo then
+		return
+	end
+
+	local tab = UI.selectedOption
+
+	if tab ~= "OffenceStats" and tab ~= "DefenceStats" and tab ~= "CombatStats" then
+		return
+	end
+
+	cancelCharacterCombatStatsServerSync()
+	characterCombatStatsSyncEvent = scheduleEvent(function()
+		characterCombatStatsSyncEvent = nil
+		Cyclopedia.requestCharacterCombatStatRefresh()
+	end, CHARACTER_COMBAT_STATS_SYNC_DELAY)
+end
+
+function Cyclopedia.requestCharacterCombatStatRefresh()
+	if not isCharacterPanelActive() or not g_game.isOnline() or not g_game.requestCharacterInfo then
+		return
+	end
+
+	local tab = UI.selectedOption
+
+	if tab == "OffenceStats" or tab == "DefenceStats" or tab == "CombatStats" then
+		g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.CombatStats)
+	end
+
+	if tab == "OffenceStats" then
+		g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.Offencestats)
+	elseif tab == "DefenceStats" then
+		g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.Defencestats)
+	end
+end
+
+function Cyclopedia.requestCharacterGeneralStatsRefresh()
+	if not UI or UI:isDestroyed() or not g_game.isOnline() or not g_game.requestCharacterInfo then
+		return
+	end
+
+	if not isCharacterCyclopediaActive() or UI.selectedOption ~= "CharacterStats" then
+		return
+	end
+
+	g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.GeneralStats)
+	g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.Badges)
+end
+
+local function cancelCharacterCombatStatsUiRefresh()
+	if characterCombatUiRefreshEvent then
+		removeEvent(characterCombatUiRefreshEvent)
+		characterCombatUiRefreshEvent = nil
+	end
+end
+
+function Cyclopedia.queueCharacterCombatStatsUiRefresh(source)
+	if not isCharacterPanelActive() then
+		return
+	end
+
+	cancelCharacterCombatStatsUiRefresh()
+	characterCombatUiRefreshEvent = scheduleEvent(function()
+		characterCombatUiRefreshEvent = nil
+
+		if not isCharacterCyclopediaActive() then
+			return
+		end
+
+		if UI.selectedOption == "OffenceStats" then
+			if source == "offencePacket" and Cyclopedia.Character and Cyclopedia.Character.lastOffenceStats then
+				Cyclopedia.onCyclopediaCharacterOffenceStats(Cyclopedia.Character.lastOffenceStats, false)
+			else
+				Cyclopedia.refreshCharacterOffenceStatsPreview()
+			end
+		elseif UI.selectedOption == "DefenceStats" then
+			if source == "defencePacket" and Cyclopedia.Character and Cyclopedia.Character.lastDefenceStats then
+				Cyclopedia.renderCharacterDefenceStats(Cyclopedia.Character.lastDefenceStats)
+			else
+				Cyclopedia.refreshCharacterDefenceStatsPreview()
+			end
+		end
+	end, 0)
+end
+
+local function refreshCharacterOffenceStatsIfVisible()
+	if isCharacterPanelActive() and UI.selectedOption == "OffenceStats" then
+		Cyclopedia.refreshCharacterOffenceStatsPreview()
+	end
+end
+
+local function refreshCharacterDefenceStatsIfVisible()
+	if isCharacterPanelActive() and UI.selectedOption == "DefenceStats" then
+		Cyclopedia.refreshCharacterDefenceStatsPreview()
+	end
+end
+
+local function disconnectCharacterCombatStatListener()
+	if not characterCombatStatListenerConnected then
+		return
+	end
+
+	disconnect(LocalPlayer, {
+		onInventoryChange = Cyclopedia.onCharacterInventoryLiveChange,
+		onExperienceChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onLevelChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onHealthChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onManaChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onSoulChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onFreeCapacityChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onTotalCapacityChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onBaseCapacityChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onStaminaChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onOfflineTrainingChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onRegenerationChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onSpeedChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onBaseSpeedChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onMagicLevelChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onBaseMagicLevelChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onSkillChange = Cyclopedia.onCharacterSkillChangeLiveUpdate,
+		onBaseSkillChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onExpBoostChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onExperienceRateChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onFlatDamageHealingChange = Cyclopedia.onCharacterOffenceStatsLiveChange,
+		onAttackInfoChange = Cyclopedia.onCharacterOffenceStatsLiveChange,
+		onConvertedDamageChange = Cyclopedia.onCharacterOffenceStatsLiveChange,
+		onImbuementsChange = Cyclopedia.onCharacterOffenceStatsLiveChange,
+		onDefenseInfoChange = Cyclopedia.onCharacterDefenseInfoChanged,
+		onCombatAbsorbValuesChange = Cyclopedia.onCharacterCombatAbsorbChanged,
+		onBlessingsChange = Cyclopedia.onCharacterBlessingsChanged
+	})
+	characterCombatStatListenerConnected = false
+end
+
+local function connectCharacterCombatStatListener()
+	if characterCombatStatListenerConnected then
+		return
+	end
+
+	connect(LocalPlayer, {
+		onInventoryChange = Cyclopedia.onCharacterInventoryLiveChange,
+		onExperienceChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onLevelChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onHealthChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onManaChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onSoulChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onFreeCapacityChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onTotalCapacityChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onBaseCapacityChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onStaminaChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onOfflineTrainingChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onRegenerationChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onSpeedChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onBaseSpeedChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onMagicLevelChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onBaseMagicLevelChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onSkillChange = Cyclopedia.onCharacterSkillChangeLiveUpdate,
+		onBaseSkillChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onExpBoostChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onExperienceRateChange = Cyclopedia.onCharacterGeneralStatsLiveChange,
+		onFlatDamageHealingChange = Cyclopedia.onCharacterOffenceStatsLiveChange,
+		onAttackInfoChange = Cyclopedia.onCharacterOffenceStatsLiveChange,
+		onConvertedDamageChange = Cyclopedia.onCharacterOffenceStatsLiveChange,
+		onImbuementsChange = Cyclopedia.onCharacterOffenceStatsLiveChange,
+		onDefenseInfoChange = Cyclopedia.onCharacterDefenseInfoChanged,
+		onCombatAbsorbValuesChange = Cyclopedia.onCharacterCombatAbsorbChanged,
+		onBlessingsChange = Cyclopedia.onCharacterBlessingsChanged
+	})
+	characterCombatStatListenerConnected = true
+end
+
+function Cyclopedia.ensureCharacterCombatStatListeners()
+	connectCharacterCombatStatListener()
+end
+
+function Cyclopedia.onCharacterInventoryLiveChange()
+	if not isCharacterCyclopediaActive() then
+		return
+	end
+
+	local tab = UI.selectedOption
+
+	if tab == "CharacterStats" then
+		Cyclopedia.refreshCharacterStatsFromLocalPlayer()
+		Cyclopedia.requestCharacterGeneralStatsRefresh()
+		Cyclopedia.scheduleCharacterStatsUiFollowUp()
+	elseif tab == "OffenceStats" or tab == "DefenceStats" or tab == "CombatStats" then
+		Cyclopedia.requestCharacterCombatStatRefresh()
+		scheduleCharacterCombatStatsServerSync()
+		Cyclopedia.scheduleCharacterCombatStatsUiFollowUp()
+	end
+end
+
+function Cyclopedia.onCharacterGeneralStatsLiveChange()
+	if not isCharacterCyclopediaActive() or UI.selectedOption ~= "CharacterStats" then
+		return
+	end
+
+	Cyclopedia.repaintCharacterStatsIfActive(false)
+end
+
+function Cyclopedia.onCharacterSkillChangeLiveUpdate()
+	Cyclopedia.onCharacterGeneralStatsLiveChange()
+
+	if isCharacterCyclopediaActive() and UI.selectedOption == "OffenceStats" then
+		refreshCharacterOffenceStatsIfVisible()
+		Cyclopedia.requestCharacterCombatStatRefresh()
+	end
+end
+
+function Cyclopedia.onCharacterInventoryCombatChange()
+	Cyclopedia.onCharacterInventoryLiveChange()
+end
+
+function Cyclopedia.onCharacterOffenceStatsLiveChange()
+	refreshCharacterOffenceStatsIfVisible()
+	Cyclopedia.requestCharacterCombatStatRefresh()
+end
+
+function Cyclopedia.onCharacterDefenseInfoChanged()
+	refreshCharacterDefenceStatsIfVisible()
+	Cyclopedia.requestCharacterCombatStatRefresh()
+end
+
+function Cyclopedia.onCharacterCombatAbsorbChanged()
+	refreshCharacterDefenceStatsIfVisible()
+	Cyclopedia.requestCharacterCombatStatRefresh()
+end
+
+function Cyclopedia.onCharacterBlessingsChanged()
+	if isCharacterPanelActive() and UI.selectedOption == "MiscStats" then
+		Cyclopedia.refreshCharacterMiscStatsPreview()
+	end
+end
 
 function Cyclopedia.resetCharacterStatCaches()
 	Cyclopedia.Character = Cyclopedia.Character or {}
@@ -321,50 +667,7 @@ function Cyclopedia.resetCharacterStatCaches()
 	Cyclopedia.Character.lastDefenceStats = nil
 	Cyclopedia.Character.lastOffenceStats = nil
 	Cyclopedia.Character.lastMiscStats = nil
-end
-
-local function disconnectCharacterDefenceStatListener()
-	if not characterDefenceStatListenerConnected then
-		return
-	end
-
-	disconnect(LocalPlayer, {
-		onDefenseInfoChange = Cyclopedia.onCharacterDefenseInfoChanged,
-		onCombatAbsorbValuesChange = Cyclopedia.onCharacterCombatAbsorbChanged,
-		onBlessingsChange = Cyclopedia.onCharacterBlessingsChanged
-	})
-	characterDefenceStatListenerConnected = false
-end
-
-local function connectCharacterDefenceStatListener()
-	if characterDefenceStatListenerConnected then
-		return
-	end
-
-	connect(LocalPlayer, {
-		onDefenseInfoChange = Cyclopedia.onCharacterDefenseInfoChanged,
-		onCombatAbsorbValuesChange = Cyclopedia.onCharacterCombatAbsorbChanged,
-		onBlessingsChange = Cyclopedia.onCharacterBlessingsChanged
-	})
-	characterDefenceStatListenerConnected = true
-end
-
-function Cyclopedia.onCharacterDefenseInfoChanged()
-	if UI and not UI:isDestroyed() and UI.selectedOption == "DefenceStats" then
-		Cyclopedia.refreshCharacterDefenceStatsPreview()
-	end
-end
-
-function Cyclopedia.onCharacterCombatAbsorbChanged()
-	if UI and not UI:isDestroyed() and UI.selectedOption == "DefenceStats" then
-		Cyclopedia.refreshCharacterDefenceStatsPreview()
-	end
-end
-
-function Cyclopedia.onCharacterBlessingsChanged()
-	if UI and not UI:isDestroyed() and UI.selectedOption == "MiscStats" then
-		Cyclopedia.refreshCharacterMiscStatsPreview()
-	end
+	Cyclopedia.Character.lastGeneralStats = nil
 end
 
 function Cyclopedia.scheduleDefenceStatsRefresh()
@@ -380,28 +683,38 @@ function Cyclopedia.scheduleDefenceStatsRefresh()
 end
 
 function Cyclopedia.refreshCharacterLiveStats()
-	if not UI or UI:isDestroyed() or not g_game.isOnline() then
+	if not isCharacterPanelActive() or not g_game.isOnline() then
 		return
 	end
 
+	connectCharacterCombatStatListener()
 	Cyclopedia.refreshCharacterBaseCard()
 
-	g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.CombatStats)
-
-	if UI.selectedOption == "OffenceStats" then
+	if UI.selectedOption == "CharacterStats" then
+		Cyclopedia.refreshCharacterStatsFromLocalPlayer()
+		Cyclopedia.requestCharacterGeneralStatsRefresh()
+		Cyclopedia.scheduleCharacterStatsUiFollowUp()
+	elseif UI.selectedOption == "OffenceStats" then
+		g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.CombatStats)
 		g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.Offencestats)
 		Cyclopedia.refreshCharacterOffenceStatsPreview()
 	elseif UI.selectedOption == "DefenceStats" then
+		g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.CombatStats)
 		g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.Defencestats)
 		Cyclopedia.scheduleDefenceStatsRefresh()
 	elseif UI.selectedOption == "MiscStats" then
+		g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.CombatStats)
 		g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.Miscstats)
 		Cyclopedia.refreshCharacterMiscStatsPreview()
+	else
+		g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.CombatStats)
 	end
 end
 
 function Cyclopedia.clearCharacterUI()
-	disconnectCharacterDefenceStatListener()
+	cancelCharacterCombatStatsServerSync()
+	cancelCharacterCombatStatsUiRefresh()
+	disconnectCharacterCombatStatListener()
 
 	if UI then
 		UI.openedCategory = nil
@@ -452,29 +765,16 @@ function showCharacter()
 			end
 		end
 
+		Cyclopedia.refreshCharacterInventoryStoreIcons()
 		Cyclopedia.bindCharacterInventorySlots()
 		bindCharacterButtonIcon(UI.InfoBase.CharacterButton)
 
-		if g_game.isOnline() then
-			g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.Ispection)
-			g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.OutfitsAndMounts)
-			Cyclopedia.applyCharacterDescriptionParts()
-			Cyclopedia.configureCharacterCategories()
-			Cyclopedia.refreshCharacterStatsFromLocalPlayer()
-			g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.CombatStats)
-
-			local generalStats = UI.OptionsBase and UI.OptionsBase:getChildById(1)
-
-			if generalStats and generalStats.subCategories then
-				open(generalStats)
-
-				local subWidget = generalStats:getChildById(1)
-
-				if subWidget and subWidget.Button and subWidget.Button.onClick then
-					subWidget.Button.onClick(subWidget.Button)
-				end
-			end
-		end
+		g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.Ispection)
+		g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.OutfitsAndMounts)
+		Cyclopedia.applyCharacterDescriptionParts()
+		Cyclopedia.configureCharacterCategories()
+		Cyclopedia.refreshCharacterStatsFromLocalPlayer()
+		g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.CombatStats)
 	end
 
 	reset()
@@ -485,7 +785,7 @@ function showCharacter()
 		bestiaryTrackerButton:hide()
 	end
 
-	connectCharacterDefenceStatListener()
+	connectCharacterCombatStatListener()
 end
 
 Cyclopedia.Character = {}
@@ -625,7 +925,7 @@ function Cyclopedia.getCharacterAppearancesCategoryFilter()
 
 	local option = showCombo:getCurrentOption()
 
-	if not option then
+	if not option or option.data == nil then
 		return nil
 	end
 
@@ -767,11 +1067,14 @@ function Cyclopedia.reloadCharacterAppearances()
 
 			widget.name:setText(data.name)
 			widget.creature:setOutfit(data.outfit)
-			widget.creature:getCreature():setStaticWalking(0)
 
-			if widget.storeIcon then
-				widget.storeIcon:setVisible(data.category == APPEARANCE_CATEGORY_STORE)
+			local creature = widget.creature:getCreature()
+
+			if creature then
+				creature:setStaticWalking(0)
 			end
+
+			setCharacterItemStoreIcon(widget, data.category == APPEARANCE_CATEGORY_STORE)
 
 			widget.appearanceData = data
 
@@ -978,7 +1281,7 @@ function Cyclopedia.characterItemsFilter(widget, force)
 	Cyclopedia.reloadCharacterItems()
 end
 
-local function applyCharacterListItemSlot(listItem, itemId, tier)
+local function applyCharacterListItemSlot(listItem, itemId, tier, showStoreIcon)
 	if not listItem or not listItem.item then
 		return
 	end
@@ -997,9 +1300,33 @@ local function applyCharacterListItemSlot(listItem, itemId, tier)
 	end
 
 	ItemsDatabase.setTier(listItem, item or tier or 0)
+	setCharacterItemStoreIcon(listItem, showStoreIcon)
+end
+
+local function populateCharacterItemSummaryWidgets(listParent, gridParent, itemId, tier, data, rowColor)
+	local showStoreIcon = data.isStoreItem == true
+	local listItem = g_ui.createWidget("CharacterListItem", listParent)
+
+	applyCharacterListItemSlot(listItem, itemId, tier, showStoreIcon)
+	listItem.name:setText(data.name)
+	listItem.amount:setText(data.amount)
+	listItem:setBackgroundColor(rowColor)
+
+	local gridItem = g_ui.createWidget("CharacterGridItem", gridParent)
+
+	applyCharacterListItemSlot(gridItem, itemId, tier, showStoreIcon)
+	gridItem.amount:setText(data.amount)
 end
 
 function Cyclopedia.reloadCharacterItems()
+	if not UI or UI:isDestroyed() or not UI.CharacterItems or not Cyclopedia.Character.Items then
+		return
+	end
+
+	for _, item in ipairs(Cyclopedia.Character.Items) do
+		item.data.isStoreItem = isCharacterStoreItem(item.itemId, item.tier, item.data.type)
+	end
+
 	UI.CharacterItems.ListBase.list:destroyChildren()
 	UI.CharacterItems.gridBase.grid.itemsGrid:destroyChildren()
 
@@ -1013,17 +1340,7 @@ function Cyclopedia.reloadCharacterItems()
 		local itemId, data = item.itemId, item.data
 
 		if data.visible then
-			local listItem = g_ui.createWidget("CharacterListItem", UI.CharacterItems.ListBase.list)
-
-			applyCharacterListItemSlot(listItem, itemId, item.tier)
-			listItem.name:setText(data.name)
-			listItem.amount:setText(data.amount)
-			listItem:setBackgroundColor(colors[colorIndex])
-
-			local gridItem = g_ui.createWidget("CharacterGridItem", UI.CharacterItems.gridBase.grid.itemsGrid)
-
-			applyCharacterListItemSlot(gridItem, itemId, item.tier)
-			gridItem.amount:setText(data.amount)
+			populateCharacterItemSummaryWidgets(UI.CharacterItems.ListBase.list, UI.CharacterItems.gridBase.grid.itemsGrid, itemId, item.tier, data, colors[colorIndex])
 
 			colorIndex = 3 - colorIndex
 		end
@@ -1055,11 +1372,11 @@ function Cyclopedia.loadCharacterItems(data)
 			amount = data.amount,
 			type = type
 		}
-		local itemKey = data.itemId .. "-" .. (data.tier or "no_tier")
+		local itemKey = getCharacterStoreItemKey(data.itemId, data.tier)
 		local insertedItem = Cyclopedia.Character.Items[itemKey]
 
-		if insertedItem and insertedItem.amount then
-			insertedItem.amount = insertedItem.amount + data.amount
+		if insertedItem then
+			insertedItem.data.amount = insertedItem.data.amount + data.amount
 		else
 			Cyclopedia.Character.Items[itemKey] = {
 				itemId = data.itemId,
@@ -1109,6 +1426,7 @@ function Cyclopedia.loadCharacterItems(data)
 	Cyclopedia.Character.Items = sortedItems
 
 	Cyclopedia.applyCharacterItemsDefaultFilters()
+	Cyclopedia.refreshCharacterInventoryStoreIcons()
 end
 
 function Cyclopedia.resetCharacterAchievementsFiltersUI()
@@ -1748,10 +2066,12 @@ function Cyclopedia.loadCharacterCombatStats(data, mitigation, additionalSkillsA
 	if UI and UI.selectedOption == "OffenceStats" then
 		Cyclopedia.refreshCharacterOffenceStatsPreview()
 	elseif UI and UI.selectedOption == "DefenceStats" then
-		Cyclopedia.scheduleDefenceStatsRefresh()
+		Cyclopedia.refreshCharacterDefenceStatsPreview()
 	elseif UI and UI.selectedOption == "MiscStats" then
 		Cyclopedia.refreshCharacterMiscStatsPreview()
 	end
+
+	Cyclopedia.scheduleCharacterCombatStatsUiFollowUp()
 
 	if not UI or not UI.CombatStats then
 		return
@@ -1968,14 +2288,6 @@ function Cyclopedia.loadCharacterCombatStats(data, mitigation, additionalSkillsA
 			firstSpecial = firstSpecial and false
 		end
 	end
-
-	if UI.selectedOption == "OffenceStats" then
-		Cyclopedia.refreshCharacterOffenceStatsPreview()
-	elseif UI.selectedOption == "DefenceStats" then
-		Cyclopedia.scheduleDefenceStatsRefresh()
-	elseif UI.selectedOption == "MiscStats" then
-		Cyclopedia.refreshCharacterMiscStatsPreview()
-	end
 end
 
 local function refreshCharacterXpBoostButton(player, data)
@@ -2053,8 +2365,9 @@ function Cyclopedia.refreshCharacterStatsFromLocalPlayer()
 	end
 
 	local staminaMinutes = player.getStamina and player:getStamina() or 2520
+	local cachedData = Cyclopedia.Character and Cyclopedia.Character.lastGeneralStats and Cyclopedia.Character.lastGeneralStats.data
 
-	Cyclopedia.loadCharacterGeneralStats({
+	local data = {
 		level = player:getLevel(),
 		maxHealth = player:getMaxHealth(),
 		health = player:getHealth(),
@@ -2079,7 +2392,20 @@ function Cyclopedia.refreshCharacterStatsFromLocalPlayer()
 		staminaExpBonus = 100,
 		XpBoostBonusRemainingTime = player.getStoreExpBoostTime and player:getStoreExpBoostTime() or 0,
 		canBuyXpBoost = 1
-	}, skills, nil)
+	}
+
+	if cachedData then
+		data.baseExpGain = cachedData.baseExpGain or data.baseExpGain
+		data.lowLevelExpBonus = cachedData.lowLevelExpBonus or data.lowLevelExpBonus
+		data.XpBoostPercent = cachedData.XpBoostPercent or data.XpBoostPercent
+		data.staminaExpBonus = cachedData.staminaExpBonus or data.staminaExpBonus
+
+		if cachedData.canBuyXpBoost ~= nil then
+			data.canBuyXpBoost = cachedData.canBuyXpBoost
+		end
+	end
+
+	Cyclopedia.loadCharacterGeneralStats(data, skills, nil, false)
 
 	if modules.game_skills and modules.game_skills.updateXpGainRateWidget and UI.CharacterStats.expGainRate then
 		modules.game_skills.updateXpGainRateWidget(UI.CharacterStats.expGainRate, player)
@@ -2089,11 +2415,20 @@ function Cyclopedia.refreshCharacterStatsFromLocalPlayer()
 	refreshCharacterAccountBadgeLabels(player)
 end
 
-function Cyclopedia.loadCharacterGeneralStats(data, skills, combats)
+function Cyclopedia.loadCharacterGeneralStats(data, skills, combats, persistCache)
 	local player = g_game.getLocalPlayer()
 
 	if not player then
 		return
+	end
+
+	if persistCache ~= false then
+		Cyclopedia.Character = Cyclopedia.Character or {}
+		Cyclopedia.Character.lastGeneralStats = {
+			data = data,
+			skills = skills,
+			combats = combats
+		}
 	end
 
 	Cyclopedia.setCharacterSkillValue("level", comma_value(data.level))
@@ -2468,6 +2803,10 @@ function Cyclopedia.selectCharacterPage()
 end
 
 function Cyclopedia.closeCharacterButtons()
+	if not UI or not UI.OptionsBase or UI.OptionsBase:isDestroyed() then
+		return
+	end
+
 	local size = UI.OptionsBase:getChildCount()
 
 	for i = 1, size do
@@ -2492,6 +2831,10 @@ function Cyclopedia.closeCharacterButtons()
 end
 
 function Cyclopedia.configureCharacterCategories()
+	if not UI or not UI.OptionsBase or UI.OptionsBase:isDestroyed() then
+		return
+	end
+
 	UI.OptionsBase:destroyChildren()
 
 	local buttons = {
@@ -2504,23 +2847,32 @@ function Cyclopedia.configureCharacterCategories()
 						open = "CharacterStats",
 						icon = "/images/icons/icon-character-generalstats-overview",
 						text = "Character Stats"
-					},
-					{
+					}
+				}
+
+				if g_game.getClientVersion() < 1410 then
+					table.insert(categories, {
+						open = "CombatStats",
+						icon = "/images/icons/icon-character-generalstats-offence",
+						text = "Combat Stats"
+					})
+				else
+					table.insert(categories, {
 						open = "OffenceStats",
 						icon = "/images/icons/icon-character-generalstats-offence",
 						text = "Offence Stats"
-					},
-					{
+					})
+					table.insert(categories, {
 						open = "DefenceStats",
 						icon = "/images/icons/icon-character-generalstats-defence",
 						text = "Defence Stats"
-					},
-					{
+					})
+					table.insert(categories, {
 						open = "MiscStats",
 						icon = "/images/icons/icon-character-generalstats-misc",
 						text = "Misc. Stats"
-					}
-				}
+					})
+				end
 
 				return categories
 			end
@@ -2633,10 +2985,12 @@ function Cyclopedia.configureCharacterCategories()
 					elseif subWidget.open == "OffenceStats" then
 						Cyclopedia.refreshCharacterOffenceStatsPreview()
 						g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.Offencestats)
+
 						if g_game.getClientVersion() == 860 then
 							g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.CombatStats)
 						end
 					elseif subWidget.open == "DefenceStats" then
+						Cyclopedia.refreshCharacterDefenceStatsPreview()
 						g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.CombatStats)
 						g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.Defencestats)
 						Cyclopedia.scheduleDefenceStatsRefresh()
@@ -3160,14 +3514,21 @@ function Cyclopedia.loadCharacterInspection(data)
 	end
 
 	Cyclopedia.Character.InspectionInventoryBySlot = {}
+	Cyclopedia.Character.StoreItemIds = {}
 
 	if data.inventoryItems then
 		for _, entry in ipairs(data.inventoryItems) do
 			if entry.slot ~= nil then
 				Cyclopedia.Character.InspectionInventoryBySlot[entry.slot] = entry
 			end
+
+			if entry.item and isInspectionItemDescriptionFromStore(entry.descriptions) then
+				Cyclopedia.Character.StoreItemIds[getCharacterStoreItemKey(entry.item:getId(), entry.item:getTier())] = true
+			end
 		end
 	end
+
+	refreshCharacterStoreItemViews()
 
 	if data.outfit then
 		setCharacterInspectionOutfit(data.outfit)
@@ -3598,6 +3959,10 @@ function Cyclopedia.characterTitleShowCurrentInfo()
 end
 
 function Cyclopedia.loadCharacterBadges(showAccountInformation, playerOnline, playerPremium, loyaltyTitle, badgesVector)
+	if not UI or not UI.CharacterStats or UI.CharacterStats:isDestroyed() then
+		return
+	end
+
 	UI.CharacterStats.ListBadge:destroyChildren()
 
 	local premiumColor = "#44AD25"
@@ -4192,23 +4557,109 @@ local function buildDamageAgainstTargetsBlock(data)
 end
 
 local function getOffenceStatPanels()
-	if not UI or not UI.OffenceStats then
+	if not UI or UI:isDestroyed() or not UI.OffenceStats then
 		return nil, nil
 	end
 
 	local root = UI.OffenceStats
+	local leftPanel = root.leftPanel or root:getChildById("leftPanel") or root:recursiveGetChildById("leftPanel")
+	local rightPanel = root.rightPanel or root:getChildById("rightPanel") or root:recursiveGetChildById("rightPanel")
 
-	return root:getChildById("leftPanel"), root:getChildById("rightPanel")
+	return leftPanel, rightPanel
 end
 
 local function getDefenceStatPanels()
-	if not UI or not UI.DefenceStats then
+	if not UI or UI:isDestroyed() or not UI.DefenceStats then
 		return nil, nil
 	end
 
 	local root = UI.DefenceStats
+	local leftPanel = root.leftPanel or root:getChildById("leftPanel") or root:recursiveGetChildById("leftPanel")
+	local rightPanel = root.rightPanel or root:getChildById("rightPanel") or root:recursiveGetChildById("rightPanel")
 
-	return root:getChildById("leftPanel"), root:getChildById("rightPanel")
+	return leftPanel, rightPanel
+end
+
+function Cyclopedia.repaintCharacterOffenceStatsIfActive()
+	if not UI or UI:isDestroyed() or UI.selectedOption ~= "OffenceStats" then
+		return
+	end
+
+	scheduleEvent(function()
+		if UI and not UI:isDestroyed() and UI.selectedOption == "OffenceStats" then
+			Cyclopedia.refreshCharacterOffenceStatsPreview()
+		end
+	end, 0)
+end
+
+function Cyclopedia.repaintCharacterDefenceStatsIfActive()
+	if not UI or UI:isDestroyed() or UI.selectedOption ~= "DefenceStats" then
+		return
+	end
+
+	scheduleEvent(function()
+		if UI and not UI:isDestroyed() and UI.selectedOption == "DefenceStats" then
+			Cyclopedia.refreshCharacterDefenceStatsPreview()
+		end
+	end, 0)
+end
+
+function Cyclopedia.scheduleCharacterCombatStatsUiFollowUp()
+	for _, delay in ipairs({
+		0,
+		150,
+		400
+	}) do
+		scheduleEvent(function()
+			Cyclopedia.repaintCharacterOffenceStatsIfActive()
+			Cyclopedia.repaintCharacterDefenceStatsIfActive()
+		end, delay)
+	end
+end
+
+function Cyclopedia.reapplyCharacterGeneralStatsFromCache()
+	local cached = Cyclopedia.Character and Cyclopedia.Character.lastGeneralStats
+
+	if not cached or not cached.data then
+		return
+	end
+
+	Cyclopedia.loadCharacterGeneralStats(cached.data, cached.skills, cached.combats, false)
+end
+
+function Cyclopedia.repaintCharacterStatsIfActive(reapplyServerCache)
+	if not UI or UI:isDestroyed() or UI.selectedOption ~= "CharacterStats" then
+		return
+	end
+
+	scheduleEvent(function()
+		if not UI or UI:isDestroyed() or UI.selectedOption ~= "CharacterStats" then
+			return
+		end
+
+		Cyclopedia.refreshCharacterStatsFromLocalPlayer()
+
+		if reapplyServerCache ~= false then
+			Cyclopedia.reapplyCharacterGeneralStatsFromCache()
+		end
+	end, 0)
+end
+
+function Cyclopedia.scheduleCharacterStatsUiFollowUp()
+	for _, delay in ipairs({
+		0,
+		150,
+		400
+	}) do
+		scheduleEvent(function()
+			if not UI or UI:isDestroyed() or UI.selectedOption ~= "CharacterStats" then
+				return
+			end
+
+			Cyclopedia.refreshCharacterStatsFromLocalPlayer()
+			Cyclopedia.reapplyCharacterGeneralStatsFromCache()
+		end, delay)
+	end
 end
 
 function Cyclopedia.buildOffenceStatsFromSkillsCache()
@@ -4327,24 +4778,68 @@ function Cyclopedia.buildOffenceStatsFromCombatStatsCache()
 	return data
 end
 
+function Cyclopedia.mergeOffenceStatsWithFallback(data)
+	local merged = {}
+
+	if type(data) == "table" then
+		for key, value in pairs(data) do
+			merged[key] = value
+		end
+	end
+
+	local skillsData = Cyclopedia.buildOffenceStatsFromSkillsCache()
+	local combatData = Cyclopedia.buildOffenceStatsFromCombatStatsCache()
+
+	local function pickLiveValue(...)
+		for i = 1, select("#", ...) do
+			local candidate = select(i, ...)
+
+			if candidate ~= nil then
+				return candidate
+			end
+		end
+	end
+
+	local function overlayTable(source)
+		if not source then
+			return
+		end
+
+		for key, value in pairs(source) do
+			if value ~= nil then
+				merged[key] = value
+			end
+		end
+	end
+
+	overlayTable(skillsData)
+
+	merged.weaponAttack = pickLiveValue(skillsData and skillsData.weaponAttack, combatData and combatData.weaponAttack, merged.weaponAttack)
+	merged.weaponElement = pickLiveValue(skillsData and skillsData.weaponElement, combatData and combatData.weaponElement, merged.weaponElement)
+	merged.weaponElementDamage = pickLiveValue(skillsData and skillsData.weaponElementDamage, combatData and combatData.weaponElementDamage, merged.weaponElementDamage)
+	merged.weaponElementType = pickLiveValue(skillsData and skillsData.weaponElementType, combatData and combatData.weaponElementType, merged.weaponElementType)
+	merged.flatDamage = pickLiveValue(skillsData and skillsData.flatDamage, merged.flatDamage)
+	merged.flatDamageBase = pickLiveValue(skillsData and skillsData.flatDamageBase, merged.flatDamageBase)
+
+	if combatData then
+		for key, value in pairs(combatData) do
+			if value ~= nil and merged[key] == nil then
+				merged[key] = value
+			end
+		end
+	end
+
+	return merged
+end
+
 function Cyclopedia.refreshCharacterOffenceStatsPreview()
 	if not UI or not UI.OffenceStats then
 		return
 	end
 
-	local cached = Cyclopedia.Character and Cyclopedia.Character.lastOffenceStats
+	local merged = Cyclopedia.mergeOffenceStatsWithFallback(Cyclopedia.Character and Cyclopedia.Character.lastOffenceStats or {})
 
-	if not cached then
-		cached = Cyclopedia.buildOffenceStatsFromSkillsCache()
-	end
-
-	if not cached then
-		cached = Cyclopedia.buildOffenceStatsFromCombatStatsCache()
-	end
-
-	if cached then
-		Cyclopedia.onCyclopediaCharacterOffenceStats(cached)
-	end
+	Cyclopedia.onCyclopediaCharacterOffenceStats(merged, false)
 end
 
 function Cyclopedia.buildDefenceStatsFromSkillsCache()
@@ -4556,17 +5051,23 @@ function Cyclopedia.refreshCharacterDefenceStatsPreview()
 	Cyclopedia.renderCharacterDefenceStats(merged)
 end
 
-function Cyclopedia.onCyclopediaCharacterOffenceStats(data)
+function Cyclopedia.onCyclopediaCharacterOffenceStats(data, persistCache)
+	data = data or {}
+
+	Cyclopedia.Character = Cyclopedia.Character or {}
+
+	if persistCache ~= false then
+		Cyclopedia.Character.lastOffenceStats = data
+		Cyclopedia.repaintCharacterOffenceStatsIfActive()
+
+		return
+	end
+
 	local leftPanel, rightPanel = getOffenceStatPanels()
 
 	if not leftPanel or not rightPanel then
 		return
 	end
-
-	data = data or {}
-
-	Cyclopedia.Character = Cyclopedia.Character or {}
-	Cyclopedia.Character.lastOffenceStats = data
 
 	rightPanel:destroyChildren()
 	leftPanel:destroyChildren()
@@ -4928,7 +5429,7 @@ function Cyclopedia.onCyclopediaCharacterDefenceStats(data)
 	Cyclopedia.Character = Cyclopedia.Character or {}
 	Cyclopedia.Character.lastDefenceStats = data
 
-	Cyclopedia.renderCharacterDefenceStats(data)
+	Cyclopedia.repaintCharacterDefenceStatsIfActive()
 end
 
 function Cyclopedia.renderCharacterDefenceStats(data)
