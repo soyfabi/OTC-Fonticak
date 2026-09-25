@@ -20,21 +20,15 @@ local pendingSpecialTransitionEvent = nil
 local DEFAULT_TOOLTIP_FONT = 'Verdana Bold-11px'
 local WHEEL_GRADE_ICON_SOURCE = '/images/game/wheel/icons-spell-grades'
 local WHEEL_GRADE_CLIPS = {
-    ['\1'] = '0 0 22 15',
-    ['\2'] = '44 0 22 15',
-    ['\3'] = '22 0 22 15',
-    ['\4'] = '66 0 22 15',
+    ['\1'] = '0 0 22 15',   -- I inactive
+    ['\2'] = '66 0 22 15',   -- I active (icon-augmentation1-active)
+    ['\3'] = '22 0 22 15',   -- II inactive
+    ['\4'] = '44 0 22 15',   -- II active (icon-augmentation2-active)
 }
 local WHEEL_GRADE_ICON_WIDTH = 22
 local WHEEL_GRADE_ICON_HEIGHT = 15
 local WHEEL_GRADE_LINE_HEIGHT = 17
 local WHEEL_GRADE_ICON_GAP = 4
-
--- Wheel slot panels are too small for anchored grade-row children; use colored text.
-local WHEEL_INLINE_GRADE_WIDGET_IDS = {
-    conviction = true,
-    conviction2 = true,
-}
 
 local function isColoredTextColorToken(value)
     if type(value) ~= 'string' then
@@ -214,16 +208,6 @@ end
 
 function g_tooltip.renderWheelGrades(widget, data)
     if not widget or widget:isDestroyed() or type(data) ~= 'table' then
-        return
-    end
-
-    local widgetId = widget.getId and widget:getId() or ''
-    if WHEEL_INLINE_GRADE_WIDGET_IDS[widgetId] then
-        widget:destroyChildren()
-        if widget.setText then
-            widget:setText('')
-        end
-        renderWheelGradesAsText(widget, data)
         return
     end
 

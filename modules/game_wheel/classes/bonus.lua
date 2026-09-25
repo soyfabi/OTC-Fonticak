@@ -40,7 +40,7 @@ WheelConsts = {
 		[2] = {"Ballistic Mastery", "The critical extra damage for attacks with a crossbow is increased\nby 10%. While wielding a bow your attacks and spells treat the\ntargets physical and holy sensitivity as being 2% higher."},
 		[3] = {"Focus Mastery", "Increases the damage of your next damage spell by 35% within 12\nseconds after casting a focus spell."},
 		[4] = {"Runic Mastery", "If you use a rune, you have a 25% chance of increasing your magic\nlevel by 10%, or by 20% if you use a rune that can be created by\nyour vocation."},
-		[5] = {"Sanctuary", "Consuming Harmony creates a field lasting 5 seconds, increasing your damage and healing done by 2% for each Harmony consumed."},
+		[5] = {"Sanctuary", "Consuming Harmony creates a field lasting 5 seconds, increasing your damage and healing done by 2% for each Harmony consumed. While in the field, damage to adjacent enemies and healing of adjacent allies is increased by an additional 10%."},
 	},
 	["mitigation"] = 0.03,
 	["manaleech"] = 0.25,
@@ -243,7 +243,7 @@ function getConvictionBonusTooltip(index)
 		elseif vocation == DRUID then
 			return "If you use a rune, you have a 25% chance of increasing your magic\nlevel by 10%, or by 20% if you use a rune that can be created by\nyour vocation."
 		elseif vocation == MONK then
-			return "Consuming Harmony creates a field lasting 5 seconds, increasing\nyour damage and healing done by 2% for each Harmony\nconsumed."
+			return "Consuming Harmony creates a field lasting 5 seconds, increasing\nyour damage and healing done by 2% for each Harmony\nconsumed. While in the field, +10% damage to adjacent\nenemies and +10% healing to adjacent allies."
 		end
 	elseif bonus.conviction == "spell_1" then
 		if vocation == KNIGHT then
@@ -262,6 +262,94 @@ function getConvictionBonusTooltip(index)
 				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
 			setStringColor(t, " -6s Cooldown; distance skill bonus increased by +5%", "#707070")
+			return t
+		elseif vocation == MONK then
+			local t = {}
+			setStringColor(t, "Aug. Thousand Fist Blows\n", "#707070")
+			if not firstSpellIsUnlocked(attribute) then
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
+			setStringColor(t, ": Adds 40% critical extra damage for this spell\n", "#707070")
+			if not secondSpellIsUnlocked(attribute) then
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
+			setStringColor(t, ": -6s Cooldown", "#707070")
+			return t
+		end
+	elseif bonus.conviction == "spell_2" then
+		if vocation == MONK then
+			local t = {}
+			setStringColor(t, "Aug. Mass Spirit Mend\n", "#707070")
+			if not firstSpellIsUnlocked(attribute) then
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
+			setStringColor(t, ": +8% Base Healing\n", "#707070")
+			if not secondSpellIsUnlocked(attribute) then
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
+			setStringColor(t, ": -4s Cooldown", "#707070")
+			return t
+		end
+	elseif bonus.conviction == "spell_3" then
+		if vocation == MONK then
+			local t = {}
+			setStringColor(t, "Aug. Mystic Repulse\n", "#707070")
+			if not firstSpellIsUnlocked(attribute) then
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
+			setStringColor(t, ": -6s Cooldown\n", "#707070")
+			if not secondSpellIsUnlocked(attribute) then
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
+			setStringColor(t, ": +40% Base Damage", "#707070")
+			return t
+		end
+	elseif bonus.conviction == "spell_4" then
+		if vocation == MONK then
+			local t = {}
+			setStringColor(t, "Aug. Chained Penance\n", "#707070")
+			if not firstSpellIsUnlocked(attribute) then
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
+			setStringColor(t, ": Jumps to +1 additional target\n", "#707070")
+			if not secondSpellIsUnlocked(attribute) then
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
+			setStringColor(t, ": Jumps to +1 additional target", "#707070")
+			return t
+		end
+	elseif bonus.conviction == "spell_5" then
+		if vocation == MONK then
+			local t = {}
+			setStringColor(t, "Aug. Flurry of Blows\n", "#707070")
+			if not firstSpellIsUnlocked(attribute) then
+				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
+			else
+				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
+			end
+			setStringColor(t, ": Affected area enlarged\n", "#707070")
+			if not secondSpellIsUnlocked(attribute) then
+				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
+			else
+				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
+			end
+			setStringColor(t, ": +15% Base Damage", "#707070")
 			return t
 		end
 	end
@@ -383,19 +471,19 @@ function getConvictionBonus(index, fullMessage)
 			return t
 		elseif vocation == MONK then
 			local t = {}
-			setStringColor(t, "Aug. Chained Penance\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
+			setStringColor(t, "Aug. Thousand Fist Blows\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
 				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
 				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
-			setStringColor(t, ": Jumps to +1 additional\ntarget\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
+			setStringColor(t, ": Adds 40% critical extra\ndamage for this spell\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
 				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
 				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
-			setStringColor(t, ": +18% Base Damage", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
+			setStringColor(t, ": -6s Cooldown", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
 		end
 	elseif bonus.conviction == "spell_2" then
@@ -477,7 +565,7 @@ function getConvictionBonus(index, fullMessage)
 			else
 				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
-			setStringColor(t, ": Affected area enlarged", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
+			setStringColor(t, ": -4s Cooldown", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
 		end
 	elseif bonus.conviction == "spell_3" then
@@ -553,7 +641,7 @@ function getConvictionBonus(index, fullMessage)
 			else
 				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
-			setStringColor(t, ": -4s Cooldown\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
+			setStringColor(t, ": -6s Cooldown\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
 				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
@@ -629,19 +717,19 @@ function getConvictionBonus(index, fullMessage)
 			return t
 		elseif vocation == MONK then
 			local t = {}
-			setStringColor(t, "Augmented Flurry of Blows\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
+			setStringColor(t, "Aug. Chained Penance\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
 				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
 				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
-			setStringColor(t, ": Adds 5% life leech to this\n spell\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
+			setStringColor(t, ": Jumps to +1 additional\ntarget\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
 				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
 				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
-			setStringColor(t, ": +15% Base Damage", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
+			setStringColor(t, ": Jumps to +1 additional\ntarget", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
 		end
 	elseif bonus.conviction == "spell_5" then
@@ -711,19 +799,19 @@ function getConvictionBonus(index, fullMessage)
 			return t
 		elseif vocation == MONK then
 			local t = {}
-			setStringColor(t, "Aug. Sweeping Takedown\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
+			setStringColor(t, "Augmented Flurry of Blows\n", (points >= bonus.maxPoints and "#C0C0C0" or "#707070"))
 			if not firstSpellIsUnlocked(attribute) then
 				setStringColor(t, WHEEL_GRADE_I_LOCKED, "white")
 			else
 				setStringColor(t, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
-			setStringColor(t, ": Adds 3% mana leech to\nthis spell\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
+			setStringColor(t, ": Affected area enlarged\n", (firstSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			if not secondSpellIsUnlocked(attribute) then
 				setStringColor(t, WHEEL_GRADE_II_LOCKED, "white")
 			else
 				setStringColor(t, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
-			setStringColor(t, ": Adds 25% critical extra \ndamage for this spell and ...", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
+			setStringColor(t, ": +15% Base Damage", (secondSpellIsUnlocked(attribute) and "#C0C0C0" or "#707070"))
 			return t
 		end
 	elseif bonus.conviction == "special_1" then
@@ -783,7 +871,7 @@ function getConvictionBonus(index, fullMessage)
 			if not fullMessage then
 				return "Sanctuary\nConsuming Harmony creates\na field lasting 5 seconds,\nincreasing damage and..."
 			else
-				return "Sanctuary\nConsuming Harmony creates\na field lasting 5 seconds,\nincreasing your damage and\nhealing done by 2% for each\nHarmony consumed."
+				return "Sanctuary\nConsuming Harmony creates\na field lasting 5 seconds,\nincreasing your damage and\nhealing done by 2% for each\nHarmony consumed.\nWhile in the field, +10% damage\nto adjacent enemies and +10%\nhealing to adjacent allies."
 			end
 		end
 	end
@@ -1040,7 +1128,7 @@ function getConvictionPerks()
 			  convictions[t].tooltip = message
 		  elseif vocation == MONK then
 			  if not convictions[t] then
-				  convictions[t] = {perk = "Aug. Chained Penance", points = 0, stringPoint = ""}
+				  convictions[t] = {perk = "Aug. Thousand Fist Blows", points = 0, stringPoint = ""}
 			  end
 			  convictions[t].points = convictions[t].points + 1
 			  if convictions[t].points == 1 then
@@ -1054,13 +1142,13 @@ function getConvictionPerks()
 			else
 				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
-			  setStringColor(message, "Adds 3% mana leech to this spell\n", "#3F3F3F")
+			  setStringColor(message, "Adds 40% critical extra damage for this spell\n", "#3F3F3F")
 			  if not secondSpellIsUnlocked(attribute) then
 				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
 			else
 				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
-			  setStringColor(message, "Adds 25% critical extra damage", "#3F3F3F")
+			  setStringColor(message, "-6s Cooldown", "#3F3F3F")
 			  convictions[t].tooltip = message
 		  end
 	  elseif bonus.conviction ==  "spell_2" then
@@ -1182,7 +1270,7 @@ function getConvictionPerks()
 			else
 				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
-			  setStringColor(message, "Affected area enlarged", "#3F3F3F")
+			  setStringColor(message, "-4s Cooldown", "#3F3F3F")
 			  convictions[t].tooltip = message
 		  end
 	  elseif bonus.conviction == "spell_3" then
@@ -1293,7 +1381,7 @@ function getConvictionPerks()
 			else
 				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
-			setStringColor(message, "-4s Cooldown\n", "#3F3F3F")
+			setStringColor(message, "-6s Cooldown\n", "#3F3F3F")
 			if not secondSpellIsUnlocked(attribute) then
 				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
 			else
@@ -1401,7 +1489,7 @@ function getConvictionPerks()
 			convictions[t].tooltip = message
 		elseif vocation == MONK then
 			if not convictions[t] then
-				convictions[t] = {perk = "Aug. Flurry of Blows", points = 0, stringPoint = ""}
+				convictions[t] = {perk = "Aug. Chained Penance", points = 0, stringPoint = ""}
 			end
 			convictions[t].points = convictions[t].points + 1
 			if convictions[t].points == 1 then
@@ -1415,13 +1503,13 @@ function getConvictionPerks()
 			else
 				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
-			setStringColor(message, "Adds 5% life leech to this spell", "#3F3F3F")
+			setStringColor(message, "Jumps to +1 additional target\n", "#3F3F3F")
 			if not secondSpellIsUnlocked(attribute) then
 				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
 			else
 				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
-			setStringColor(message, "+15% Base Damage", "#3F3F3F")
+			setStringColor(message, "Jumps to +1 additional target", "#3F3F3F")
 			convictions[t].tooltip = message
 		end
 	elseif bonus.conviction == "spell_5" then
@@ -1523,7 +1611,7 @@ function getConvictionPerks()
 			convictions[t].tooltip = message
 		elseif vocation == MONK then
 			if not convictions[t] then
-				convictions[t] = {perk = "Aug. Sweeping Takedown", points = 0, stringPoint = ""}
+				convictions[t] = {perk = "Aug. Flurry of Blows", points = 0, stringPoint = ""}
 			end
 			convictions[t].points = convictions[t].points + 1
 			if convictions[t].points == 1 then
@@ -1537,13 +1625,13 @@ function getConvictionPerks()
 			else
 				setStringColor(message, WHEEL_GRADE_I_UNLOCKED, "white")
 			end
-			setStringColor(message, "Adds 3% mana leech to this spell\n", "#3F3F3F")
+			setStringColor(message, "Affected area enlarged\n", "#3F3F3F")
 			if not secondSpellIsUnlocked(attribute) then
 				setStringColor(message, WHEEL_GRADE_II_LOCKED, "white")
 			else
 				setStringColor(message, WHEEL_GRADE_II_UNLOCKED, "white")
 			end
-			setStringColor(message, "Adds 25% critical extra damage for this spell and grants a 10% chance (non-cumulative) for a critical hit.", "#3F3F3F")
+			setStringColor(message, "+15% Base Damage", "#3F3F3F")
 			convictions[t].tooltip = message
 		end
     end

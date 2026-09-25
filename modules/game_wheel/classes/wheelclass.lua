@@ -54,6 +54,27 @@ local function clearPanelTooltips(panel)
   end
 end
 
+local function dismissWheelTooltips()
+  if g_tooltip then
+    if g_tooltip.hide then
+      g_tooltip.hide(true)
+    end
+    if g_tooltip.hideSpecial then
+      g_tooltip.hideSpecial(true)
+    end
+  end
+end
+
+local function clearWidgetTooltip(widget)
+  if not widget or widget:isDestroyed() then
+    return
+  end
+  widget.tooltip = nil
+  if widget.removeTooltip then
+    widget:removeTooltip()
+  end
+end
+
 local function createPerksPanel(parent)
   if not parent or parent:isDestroyed() then
     return nil
@@ -539,7 +560,15 @@ function WheelOfDestiny.onMouseMove(widget, position, offset)
       convictionWidget:setColor("#707070")
     end
   elseif type(conviction) == "table" then
+    clearWidgetTooltip(convictionWidget)
+    convictionWidget:destroyChildren()
+    convictionWidget:setText('')
     g_tooltip.renderWheelGrades(convictionWidget, conviction)
+    if WheelOfDestiny.pointInvested[index] >= bonus.maxPoints then
+      convictionWidget:setColor("#c0c0c0")
+    else
+      convictionWidget:setColor("#707070")
+    end
   end
 
   wheelPanel.focusSelectedWheel:setVisible(true)
@@ -759,6 +788,7 @@ end
 
 function WheelOfDestiny.onDestinyWheel(playerId, canView, changeState, vocationId, points, scrollPoints, pointInvested, usedPromotionScrolls, equipedGems, atelierGems, basicUpgraded, supremeUpgraded, earnedFromAchievements)
   WheelOfDestiny.cancelPendingAutoApply()
+  dismissWheelTooltips()
   WheelOfDestiny.wheelSyncInProgress = true
 
   if not table.isIn({1, 2, 3, 4, 5}, vocationId) then
@@ -1248,6 +1278,8 @@ function resetWheel(ignoreprotocol, lightReset)
     return
   end
 
+  dismissWheelTooltips()
+
   WheelOfDestiny.passivePoints = table.reserve(4, 0)
 
   for index, connection in ipairs(WheelNodes) do
@@ -1329,9 +1361,16 @@ function WheelOfDestiny.configureConviction(index)
       convictionWidget:setColor("#707070")
     end
   elseif type(conviction) == "table" then
+    clearWidgetTooltip(convictionWidget)
     applyWheelTooltip(convictionWidget, tooltip)
     convictionWidget:destroyChildren()
+    convictionWidget:setText('')
     g_tooltip.renderWheelGrades(convictionWidget, conviction)
+    if WheelOfDestiny.pointInvested[index] >= bonus.maxPoints then
+      convictionWidget:setColor("#c0c0c0")
+    else
+      convictionWidget:setColor("#707070")
+    end
   end
 
 end
@@ -1386,6 +1425,7 @@ function WheelOfDestiny.configureConvictionPerk()
   end
 
   clearPanelTooltips(tabContent)
+  dismissWheelTooltips()
   tabContent:destroyChildren()
   if tabScroll then
     tabScroll:setVisible(false)
@@ -1475,7 +1515,7 @@ function WheelOfDestiny.configureVessels()
     end
   end
 
-  if scrollBar:getMaximum() > 0 then
+  if scrollBar and scrollBar:getMaximum() > 0 then
     scrollBar:setVisible(true)
   end
 end
@@ -2125,6 +2165,8 @@ function onWheelOfDestinyApply(close, ignoreprotocol)
   if WheelOfDestiny.wheelSyncInProgress and not ignoreprotocol then
     return
   end
+
+  dismissWheelTooltips()
 
   local struct = getGemStruct()
 

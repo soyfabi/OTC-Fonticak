@@ -269,12 +269,13 @@ Panel
         id: conviction
         size: 185 80
         text-align: topleft
-        font: Verdana Bold-11px
+        font: Verdana Bold-11px-wheel
         color: #c0c0c0
         anchors.top: prev.bottom
         anchors.left: parent.left
         anchors.right: parent.right
         tooltip-delayed: true
+        tooltip-font: Verdana Bold-11px-wheel
         margin-top: 4
 
       Button
@@ -520,7 +521,7 @@ Panel
             id: conviction2
             size: 185 105
             text-align: topleft
-            font: Verdana Bold-11px
+            font: Verdana Bold-11px-wheel
             color: #c0c0c0
             anchors.top: prev.bottom
             anchors.left: parent.left
