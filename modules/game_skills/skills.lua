@@ -239,6 +239,7 @@ function terminate()
 	end
 
 	clearWheelSkillStatsState()
+	releaseSkillsHoverCursors()
 
 	skillsWindow:destroy()
 	skillsButton:destroy()
@@ -992,7 +993,7 @@ function resetSkillColor(id)
 	local skill = skillsWindow:recursiveGetChildById(id)
 	local widget = skill:getChildById("value")
 
-	widget:setColor("#c0c0c0")
+	widget:setColor(SKILL_NEUTRAL_COLOR)
 end
 
 function toggleSkill(id, state)
@@ -1397,7 +1398,7 @@ function refresh()
 	loadSkillsVisibilitySettings()
 
 	if g_game.getClientVersion() >= 1412 then
-		syncOffenceExtraSkillRows()
+		hideOffenceStatsInSkillsBar()
 	end
 end
 
@@ -1460,9 +1461,20 @@ local function getSkillsContentHeight()
 		return 0
 	end
 
-	local childrenRect = contentsPanel:getChildrenRect()
+	local firstTop
+	local lastBottom
 
-	return math.max(0, childrenRect.height + contentsPanel:getPaddingTop() + contentsPanel:getPaddingBottom() + 8)
+	for _, child in ipairs(contentsPanel:getChildren()) do
+		if child:isVisible() and child:getHeight() > 0 then
+			local top = child:getY()
+			local bottom = top + child:getHeight()
+			firstTop = firstTop and math.min(firstTop, top) or top
+			lastBottom = lastBottom and math.max(lastBottom, bottom) or bottom
+		end
+	end
+
+	local childrenHeight = firstTop and (lastBottom - firstTop) or 0
+	return math.max(0, childrenHeight + contentsPanel:getPaddingTop() + contentsPanel:getPaddingBottom() + 8)
 end
 
 function updateHeight()
@@ -1870,7 +1882,7 @@ function onSkillChange(localPlayer, id, level, percent)
 	end
 
 	if id >= Skill.Fatal and id <= Skill.Transcendence and g_game.getClientVersion() >= 1412 then
-		syncOffenceExtraSkillRows()
+		hideOffenceStatsInSkillsBar()
 	end
 end
 
@@ -2478,20 +2490,4 @@ function onForgeBonusesChange(localPlayer, momentum, transcendence, amplificatio
 	setSkillValueWithTooltips("transcendence", transcendence, transcendenceTooltip, true)
 	setSkillValueWithTooltips("amplification", amplification, amplificationTooltip, true)
 	updateHeight()
-end
-
-function resolveSkillBonusesForDisplay(total, base, loyaltyField)
-	return resolveSkillBonuses(total, base, loyaltyField)
-end
-
-function buildLoyaltySkillTooltipLineForDisplay(total, base, loyaltyField)
-	return buildLoyaltySkillTooltipLine(total, base, loyaltyField)
-end
-
-function skillPercentToGoTooltipForDisplay(rawPercent)
-	return skillPercentToGoTooltip(rawPercent)
-end
-
-function appendMagicLevelModifiersTooltipForDisplay(tooltip, bonuses)
-	return appendMagicLevelModifiersTooltip(tooltip, bonuses)
 end

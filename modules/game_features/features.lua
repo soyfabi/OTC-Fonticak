@@ -88,6 +88,8 @@ controller:registerEvents(g_game, {
             g_game.enableFeature(GamePlayerFamiliars)
             g_game.enableFeature(GameVocationMonk)
             g_game.enableFeature(GameUnjustifiedPoints)
+            -- Match Fonticak server spell list / 0xA4 cooldown (U16 spell ids).
+            g_game.enableFeature(GameUshortSpell)
         end
 
         if version >= 862 then
@@ -298,6 +300,7 @@ controller:registerEvents(g_game, {
         if version >= 1410 then
             g_game.disableFeature(GameAdditionalSkills)
             g_game.disableFeature(GameForgeSkillStats)
+            g_game.enableFeature(GameCharacterSkillStats)
         end
 
         if version >= 1500 then

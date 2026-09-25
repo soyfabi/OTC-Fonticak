@@ -181,10 +181,12 @@ UIWidget
         icon-offset: 1 1
   Panel
     id: gameBottomActionPanel
-    phantom: true
+    phantom: false
     focusable: false
     margin-right: 12
-    padding-bottom: 2
+    padding-bottom: 0
+    image-source: /images/ui/background_dark
+    image-repeated: true
     anchors.left: bottomSplitter.left
     anchors.right: bottomSplitter.right
     anchors.top: gameBottomStatsBarPanel.bottom
@@ -216,22 +218,11 @@ UIWidget
       $pressed:
         icon-offset: 1 1
 
-  Panel
-    id: gameBottomCooldownPanel
-    phantom: true
-    focusable: false
+  GameBottomPanel
+    id: gameBottomPanel
     anchors.left: bottomSplitter.left
     anchors.right: bottomSplitter.right
     anchors.top: gameBottomActionPanel.bottom
-    layout:
-      type: verticalBox
-      fit-children: true
-// end actionsbar
-  GameBottomPanel
-    id: gameBottomPanel
-    anchors.left: gameBottomCooldownPanel.left
-    anchors.right: gameBottomCooldownPanel.right
-    anchors.top: gameBottomCooldownPanel.bottom
     anchors.bottom: parent.bottom
 
   GameSidePanel
@@ -328,22 +319,11 @@ UIWidget
     margin-bottom: 200
     @canUpdateMargin: |
       function(self, newMargin)
-        local dontStretch = modules.client_options.getOption('dontStretchShrink')
-        local actionBars = modules.game_actionbar.getActiveBottomBars()
-        -- Minimum bottom area when dragging the console smaller (~3 chat lines + tabs + input).
-        local minHeight = 125 + (35 * actionBars)
-        local result = math.max(math.min(newMargin, self:getParent():getHeight() - 150), minHeight)
-        if dontStretch then
-          result = result > 650 and 650 or (result > 450 and 450 or math.max(200, minHeight))
-        end
-        return result
+        return modules.game_interface.bottomSplitterCanUpdateMargin(self, newMargin)
       end
     @onGeometryChange: |
       function(self)
-        local actionBars = modules.game_actionbar.getActiveBottomBars()
-        local minHeight = 125 + (35 * actionBars)
-        local parentHeight = self:getParent():getHeight()
-        self:setMarginBottom(math.min(math.max(parentHeight - 150, minHeight), self:getMarginBottom()))
+        modules.game_interface.bottomSplitterOnGeometryChange(self)
       end
 
   UIWidget

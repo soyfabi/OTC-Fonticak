@@ -373,7 +373,8 @@ ExtendedIds = {
     NeedsUpdate = 7,
     WheelSkills = 145,
     MonkData = 146,
-    MonkHarmonyOpcode = 130
+    MonkHarmonyOpcode = 130,
+    WheelFocusMastery = 147
 }
 
 PreviewState = {

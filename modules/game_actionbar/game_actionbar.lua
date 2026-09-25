@@ -550,6 +550,10 @@ function ActionBarController:onGameEnd()
         onDropActionButton(mouseGrabberWidget)
     end
     spellGroupCooldownCache = {}
+    spellCooldownCache = {}
+    if clearActionBarCooldownVisuals then
+        clearActionBarCooldownVisuals()
+    end
     for _, actionbar in pairs(activeActionBars) do
         unbindActionBarEvent(actionbar)
     end
@@ -617,7 +621,10 @@ function onSpellCooldown(spellId, delay)
                         if spellData and spellData.id == spellId then
                             addPendingMultiButton(button)
                             if scheduleMultiActionCooldownEvent then
-                                local effectiveDelay = math.max(delay, spellData.exhaustion or 0)
+                                local effectiveDelay = delay
+                                if (not effectiveDelay or effectiveDelay <= 0) and spellData.exhaustion then
+                                    effectiveDelay = spellData.exhaustion
+                                end
                                 scheduleMultiActionCooldownEvent(button, "spell_" .. spellId, effectiveDelay)
                             end
                             break
@@ -627,7 +634,10 @@ function onSpellCooldown(spellId, delay)
                         if runeSpellData and runeSpellData.id == spellId then
                             addPendingMultiButton(button)
                             if scheduleMultiActionCooldownEvent then
-                                local effectiveDelay = math.max(delay, runeSpellData.exhaustion or 0)
+                                local effectiveDelay = delay
+                                if (not effectiveDelay or effectiveDelay <= 0) and runeSpellData.exhaustion then
+                                    effectiveDelay = runeSpellData.exhaustion
+                                end
                                 scheduleMultiActionCooldownEvent(button, "rune_" .. spellId, effectiveDelay)
                             end
                             break
@@ -855,7 +865,7 @@ local spellsByVocation = {
         { level = 45, spell = "exeta con" },
         { level = 50, spell = "exevo mas san" },
         { level = 55, spell = "utamo tempo san" },
-        { level = 60, spell = "utito tempo san" },
+        { level = 60, spell = "utori con" },
         { level = 60, spell = "exura gran san" },
         { level = 150, spell = "exevo gran con grav" },
     },
@@ -1232,6 +1242,9 @@ function configureActionBar(key, value)
         if ActionBarController then
             ActionBarController:scheduleEvent(onUpdateActionBarStatus)
         end
+        if n <= 3 and modules.game_interface and modules.game_interface.applyBottomSplitterLayoutHeight then
+            modules.game_interface.applyBottomSplitterLayoutHeight()
+        end
     end
 end
 
@@ -1273,5 +1286,16 @@ end
 function resetActionBars()
     for i = 1, 9 do
         resetAction(i)
+    end
+end
+
+function refreshBottomCooldownDock()
+    local cd = modules.game_cooldown and modules.game_cooldown.cooldownWindow
+    local dock = modules.game_interface and modules.game_interface.getBottomActionPanel()
+    if cd and not cd:isDestroyed() and dock and not dock:isDestroyed() then
+        dock:moveChildToIndex(cd, dock:getChildCount())
+    end
+    if modules.game_interface and modules.game_interface.applyBottomSplitterLayoutHeight then
+        modules.game_interface.applyBottomSplitterLayoutHeight()
     end
 end

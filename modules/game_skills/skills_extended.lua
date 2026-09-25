@@ -4,6 +4,12 @@ lastDefenseInfo = nil
 lastAbsorbValues = nil
 lastOffenceInfo = nil
 
+local function clearExtendedCombatCache()
+	lastDefenseInfo = nil
+	lastAbsorbValues = nil
+	lastOffenceInfo = nil
+end
+
 function canShowExtendedCombatStats()
 	return g_game.getClientVersion() >= 1412 or wheelSkillStatsActive
 end
@@ -193,19 +199,9 @@ function onWheelSkillStats(protocol, opcode, data)
 	scheduleWheelSkillStatsHeightUpdate()
 end
 
-function syncOffenceExtraSkillRows()
-	if g_game.getClientVersion() < 1412 or not skillsWindow then
-		return
-	end
-
-	hideOffenceStatsInSkillsBar()
-end
-
 function resetExtendedCombatPanel()
 	if not skillsWindow then
-		lastDefenseInfo = nil
-		lastAbsorbValues = nil
-		lastOffenceInfo = nil
+		clearExtendedCombatCache()
 		return
 	end
 
@@ -237,9 +233,7 @@ function resetExtendedCombatPanel()
 		end
 	end
 
-	lastDefenseInfo = nil
-	lastAbsorbValues = nil
-	lastOffenceInfo = nil
+	clearExtendedCombatCache()
 end
 
 function clearWheelSkillStatsState()

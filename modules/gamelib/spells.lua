@@ -132,7 +132,7 @@ SpellInfo = {
         ['Protector'] = {id = 132, name = 'Protector', words = 'utamo tempo', type = 'Instant', level = 55, mana = 200, soul = 0, maglevel = 0, icon = '', clientId = 121, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 2000, premium = true, vocations = {4, 8}, special = false, source = 0},
         ['Blood Rage'] = {id = 133, name = 'Blood Rage', words = 'utito tempo', type = 'Instant', level = 60, mana = 290, soul = 0, maglevel = 0, icon = '', clientId = 95, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 2000, premium = true, vocations = {4, 8}, special = false, source = 0},
         ['Swift Foot'] = {id = 134, name = 'Swift Foot', words = 'utamo tempo san', type = 'Instant', level = 55, mana = 400, soul = 0, maglevel = 0, icon = '', clientId = 118, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 10000, premium = true, vocations = {3, 7}, special = false, source = 0},
-        ['Sharpshooter'] = {id = 135, name = 'Sharpshooter', words = 'utito tempo san', type = 'Instant', level = 60, mana = 450, soul = 0, maglevel = 0, icon = '', clientId = 120, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 10000, premium = false, vocations = {3, 7}, special = false, source = 0},
+        ['Sharpshooter'] = {id = 135, name = 'Sharpshooter', words = 'utori con', type = 'Instant', level = 60, mana = 450, soul = 0, maglevel = 0, icon = '', clientId = 120, group = {[3] = 2000}, needTarget = false, parameter = false, range = -1, exhaustion = 10000, premium = false, vocations = {3, 7}, special = false, source = 0},
         -- 136->137?
         ['Ignite'] = {id = 138, name = 'Ignite', words = 'utori flam', type = 'Instant', level = 26, mana = 30, soul = 0, maglevel = 0, icon = '', clientId = 54, group = {[1] = 2000}, needTarget = true, parameter = false, range = 3, exhaustion = 30000, premium = false, vocations = {1, 5}, special = false, source = 0},
         ['Curse'] = {id = 139, name = 'Curse', words = 'utori mort', type = 'Instant', level = 75, mana = 30, soul = 0, maglevel = 0, icon = '', clientId = 53, group = {[1] = 2000}, needTarget = true, parameter = false, range = 3, exhaustion = 40000, premium = false, vocations = {1, 5}, special = false, source = 0},
@@ -275,6 +275,12 @@ SpellGroups = {
     [11] = 'Virtue'
 }
 
+SpellGroupIconFile = '/images/game/spells/spellgroup-icons-20x20'
+SpellGroupIconSize = {
+    width = 20,
+    height = 20
+}
+
 SpellRunesData = {
     [3148] = {id = 30, group = 3, name = 'destroy field rune', exhaustion = 2000},
     [3149] = {id = 55, group = 1, name = 'energybomb rune', exhaustion = 2000},
@@ -315,6 +321,15 @@ SpellRunesData = {
 }
 
 Spells = {}
+
+function Spells.getSpellGroupIconClip(groupId)
+    if not groupId or groupId < 1 or not SpellGroups[groupId] then
+        return nil
+    end
+    local w = SpellGroupIconSize.width
+    local h = SpellGroupIconSize.height
+    return (groupId - 1) * w .. ' 0 ' .. w .. ' ' .. h
+end
 
 function Spells.getSpellList()
     local spells = {}

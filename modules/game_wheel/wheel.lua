@@ -139,7 +139,6 @@ function init()
     onGameEnd = onGameEnd,
     onGameStart = WheelOfDestiny.loadWheelPresets,
     onDestinyWheel = onDestinyWheel,
-    --onUnlockGem = GemAtelier.onUnlockGem, --disabled because it's in TODO
     onResourceBalance = onResourceBalance,
   })
 
@@ -148,11 +147,12 @@ function init()
 end
 
 function terminate()
+  WheelOfDestiny.cancelPendingAutoApply()
+
   disconnect(g_game, {
     onGameEnd = onGameEnd,
     onGameStart = WheelOfDestiny.loadWheelPresets,
     onDestinyWheel = onDestinyWheel,
-    --onUnlockGem = GemAtelier.onUnlockGem, --disabled because it's in TODO
     onResourceBalance = onResourceBalance
   })
 
@@ -215,6 +215,9 @@ function toggle()
     wheelWindow:focus()
     loadMenu('wheelMenu')
     if gemAtelierWindow:isVisible() then
+      if GemAtelier and GemAtelier.releaseAllHoverCursors then
+        GemAtelier.releaseAllHoverCursors()
+      end
       gemAtelierWindow:hide()
     end
     if fragmentWindow:isVisible() then
@@ -298,6 +301,9 @@ function loadMenu(menuId)
     wheelOfDestinyWindow:hide()
   end
   if gemAtelierWindow:isVisible() then
+    if GemAtelier and GemAtelier.releaseAllHoverCursors then
+      GemAtelier.releaseAllHoverCursors()
+    end
     gemAtelierWindow:hide()
   end
   if newPresetWindow:isVisible() then
@@ -312,6 +318,9 @@ function loadMenu(menuId)
   fragmentMenuButton = wheelWindow.optionsTabBar:getChildById('fragmentMenu')
 
   if menuId == 'wheelMenu' then
+    if GemAtelier and GemAtelier.releaseAllHoverCursors then
+      GemAtelier.releaseAllHoverCursors()
+    end
     gemAtelierWindow:hide()
     fragmentWindow:hide()
     wheelPanel = wheelOfDestinyWindow:getChildById('wheelPanel')
@@ -429,7 +438,7 @@ function loadConfigJson()
 		end)
 
 		if not status then
-			return g_logger.debug("Error while reading characterdata file. Details: " .. result)
+			return g_logger.error("Error while reading characterdata file. Details: " .. result)
 		end
 
 		SkillwheelStringsLibrary = result

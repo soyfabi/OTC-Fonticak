@@ -4,12 +4,14 @@
 SKILL_COLORS = {
 	positive = "#2EEA32",
 	negative = "#D33C3C",
-	value = "#FFEA79"
+	value = "#FFEA79",
+	neutral = "#c0c0c0"
 }
 
 SKILL_POSITIVE_COLOR = SKILL_COLORS.positive
 SKILL_NEGATIVE_COLOR = SKILL_COLORS.negative
 SKILL_VALUE_COLOR = SKILL_COLORS.value
+SKILL_NEUTRAL_COLOR = SKILL_COLORS.neutral
 
 WHEEL_ABSORB_NAME_TO_ID = {
 	physical = 0,

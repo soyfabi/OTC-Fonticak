@@ -129,12 +129,6 @@ function setStringColor(t, text, color)
     table.insert(t, color)
 end
 
-function setStringFont(t, text, color, font)
-  table.insert(t, text)
-  table.insert(t, color)
-  table.insert(t, font)
-end
-
 function string.pack_custom(format, ...)
   local args = {...}
   local result = {}
