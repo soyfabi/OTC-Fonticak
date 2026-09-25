@@ -22,51 +22,69 @@ UIWidget
     cursor: pointer
     @onClick: modules.game_cyclopedia.Cyclopedia.selectCharacterPage()
 
-    Label
-      id: nameLabel
+    UIWidget
+      id: nameHeader
       anchors.top: parent.top
       anchors.left: parent.left
       anchors.right: parent.right
-      margin-top: 21
+      height: 20
+      margin-top: 8
       margin-left: 8
       margin-right: 8
-      font: $var-cip-font-new
-      text-auto-resize: true
-      text-wrap: true
-      text-align: center
-      color: #929292
-      !text: tr('Player Name')
+      image-source: /images/ui/2pixel-up-frame-borderimage-dark
+      image-border: 3
 
-    Label
-      id: InfoLabel
-      anchors.horizontalCenter: parent.horizontalCenter
-      anchors.bottom: parent.bottom
-      margin-bottom: 10
-      font: $var-cip-font-new
-      !text: tr('Level 0\nVocation')
-      text-auto-resize: true
-      text-align: center
-      color: #C1C1C1
+      Label
+        id: nameLabel
+        anchors.centerIn: parent
+        font: $var-cip-font-new
+        text-auto-resize: true
+        text-align: center
+        color: #C1C1C1
+        !text: tr('Player Name')
 
     UICreature
       id: Outfit
       size: 64 64
       anchors.horizontalCenter: parent.horizontalCenter
-      anchors.bottom: InfoLabel.top
-      margin-bottom: 4
+      anchors.top: nameHeader.bottom
+      anchors.bottom: infoFooter.top
+      margin-top: 4
+      margin-bottom: 2
       fixed-creature-size: true
       base-scale: true
-      phantom: false
+      phantom: true
+
+    UIWidget
+      id: infoFooter
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      height: 28
+      margin-left: 8
+      margin-right: 8
+      margin-bottom: 12
+
+      Label
+        id: InfoLabel
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        font: $var-cip-font-new
+        !text: tr('Level 0\nVocation')
+        text-auto-resize: true
+        text-align: center
+        color: #C1C1C1
 
     Label
       id: worldInfoLabel
+      visible: false
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.bottom: Outfit.top
       font: $var-cip-font-new
       !text: tr('World')
       text-auto-resize: true
       text-align: center
-      color: #C1C1C1
+      color: #C0C0C0
       margin-bottom: 2
 
   UIWidget

@@ -112,6 +112,54 @@ local function setCharacterInspectionOutfit(outfit)
 	}
 end
 
+function Cyclopedia.refreshCharacterBaseCard()
+	if not UI or UI:isDestroyed() or not UI.CharacterBase then
+		return
+	end
+
+	local player = g_game.getLocalPlayer()
+	local name = player and player:getName() or ""
+	local level = player and player:getLevel() or 0
+	local vocation = player and player:getVocationNameByClientId() or ""
+	local parts = Cyclopedia.Character and Cyclopedia.Character.DescriptionParts
+
+	if parts then
+		if parts.level then
+			local levelText = tostring(parts.level)
+			local levelNum = tonumber(levelText:match("(%d+)"))
+
+			if levelNum then
+				level = levelNum
+			end
+		end
+
+		if parts.vocation and parts.vocation ~= "" then
+			vocation = parts.vocation
+		end
+	end
+
+	local nameHeader = UI.CharacterBase.nameHeader
+	local nameLabel = nameHeader and nameHeader.nameLabel
+		or UI.CharacterBase.nameLabel
+		or UI.CharacterBase:getChildById("nameLabel")
+
+	if nameLabel then
+		nameLabel:setText(name)
+	end
+
+	local infoLabel = UI.CharacterBase.InfoLabel
+		or (UI.CharacterBase.infoFooter and UI.CharacterBase.infoFooter.InfoLabel)
+		or UI.CharacterBase:getChildById("InfoLabel")
+
+	if infoLabel then
+		infoLabel:setText(string.format("Level %d\n%s", level, vocation))
+	end
+
+	if UI.CharacterBase.worldInfoLabel then
+		UI.CharacterBase.worldInfoLabel:hide()
+	end
+end
+
 function Cyclopedia.applyCharacterOutfitWidgets()
 	if not UI or UI:isDestroyed() then
 		return
@@ -147,6 +195,8 @@ function Cyclopedia.applyCharacterOutfitWidgets()
 		UI.InfoBase.outfitPanel.Sprite:setOutfit(outfit)
 		applyCharacterOutfitPreview(UI.InfoBase.outfitPanel.Sprite)
 	end
+
+	Cyclopedia.refreshCharacterBaseCard()
 end
 
 local function formatPercentFraction(value, signed)
@@ -334,6 +384,8 @@ function Cyclopedia.refreshCharacterLiveStats()
 		return
 	end
 
+	Cyclopedia.refreshCharacterBaseCard()
+
 	g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.CombatStats)
 
 	if UI.selectedOption == "OffenceStats" then
@@ -379,15 +431,7 @@ function showCharacter()
 		local player = g_game.getLocalPlayer()
 
 		UI.CharacterBase:setText("")
-		local nameLabel = UI.CharacterBase.nameLabel or UI.CharacterBase:getChildById("nameLabel")
-
-		if nameLabel then
-			nameLabel:setText(player:getName())
-		else
-			UI.CharacterBase:setText(player:getName())
-		end
-		UI.CharacterBase.InfoLabel:setText(string.format("Level %d\n%s", player:getLevel(), player:getVocationNameByClientId()))
-		UI.CharacterBase.worldInfoLabel:setText(g_game.getWorldName() or "")
+		Cyclopedia.refreshCharacterBaseCard()
 		Cyclopedia.applyCharacterOutfitWidgets()
 		UI.InfoBase.InspectLabel:setText(tr("You are inspecting") .. ": " .. player:getName())
 
@@ -2822,6 +2866,8 @@ function Cyclopedia.applyCharacterDescriptionParts()
 	if not Cyclopedia.Character.InfoItemSelected then
 		Cyclopedia.renderCharacterDescription()
 	end
+
+	Cyclopedia.refreshCharacterBaseCard()
 end
 
 function Cyclopedia.refreshCharacterPreyIfVisible()
