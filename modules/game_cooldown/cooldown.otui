@@ -1,24 +1,95 @@
 SpellGroupIcon < UIWidget
-  size: 22 22
-  image-size: 22 22
-  image-source: /images/game/spells/spellgroup-icons-20x20
+  size: 22 24
+  image-size: 22 24
+  image-source: /images/game/spells/slot-mini-spellicon
   focusable: false
-  margin-top: 3
-  opacity: 0.5
-  $on:
-    opacity: 1
+  &groupId: 0
+  @onSetup: |
+    if self.groupId and self.groupId > 0 then
+      local icon = self:getChildById('icon')
+      if icon then
+        local clip = Spells.getSpellGroupIconClip(self.groupId)
+        if clip then
+          icon:setImageClip(clip)
+        end
+      end
+    end
 
+  UIWidget
+    id: icon
+    size: 20 20
+    image-size: 20 20
+    image-source: /images/game/spells/spellgroup-icons-20x20
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.verticalCenter: parent.verticalCenter
+    margin-top: -1
+    phantom: true
+    focusable: false
+
+  Panel
+    id: disabledOverlay
+    size: 20 20
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.verticalCenter: parent.verticalCenter
+    margin-top: -1
+    background-color: #000000
+    opacity: 0.7
+    visible: true
+    phantom: true
+    focusable: false
 
 SpellIcon < UIWidget
-  size: 20 20
-  image-size: 20 20
+  size: 22 24
+  image-size: 22 24
+  image-source: /images/game/spells/slot-mini-spellicon
   focusable: false
-  $!first:
-    margin-left: 5
+
+  UIWidget
+    id: icon
+    size: 20 20
+    image-size: 20 20
+    image-source: /images/game/spells/spell-icons-20x20
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.verticalCenter: parent.verticalCenter
+    margin-top: -1
+    phantom: true
+    focusable: false
+
+  Panel
+    id: disabledOverlay
+    size: 20 20
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.verticalCenter: parent.verticalCenter
+    margin-top: -1
+    background-color: #000000
+    opacity: 0.7
+    visible: false
+    phantom: true
+    focusable: false
 
 SpellProgressRect < UIProgressRect
-  background: #585858AA
+  background: #FFFFFF00
   percent: 100
+  focusable: false
+  phantom: true
+
+  Panel
+    id: cooldownFillBar
+    anchors.left: parent.left
+    anchors.bottom: parent.bottom
+    height: 2
+    width: 0
+    visible: false
+    margin-left: 1
+    margin-bottom: 1
+    background-color: #FFFFFFFF
+    focusable: false
+    phantom: true
+
+SpellSeparator < UIWidget
+  size: 2 24
+  image-size: 2 24
+  image-source: /images/game/spells/spell-separator
   focusable: false
 
 GroupCooldownParticles < UIParticles
@@ -27,154 +98,162 @@ GroupCooldownParticles < UIParticles
 Panel
   id: cooldownWindow
   !text: tr('')
-  size: 220 28
-  anchors.top: parent.top
-  anchors.left: parent.left
-  anchors.right: parent.right
+  height: 26
   focusable: false
   phantom: true
+  anchors.top: parent.top
+  anchors.left: parent.left
+
   Panel
     id:contentsPanel2
-    anchors.fill: parent
-    margin-left: 5
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.bottom: parent.bottom
+    height: 24
+    margin-left: 2
+
     SpellGroupIcon
       id: groupIconAttack
-      image-clip: 0 0 20 20
-      anchors.top: parent.top
+      &groupId: 1
+      anchors.bottom: parent.bottom
       anchors.left: parent.left
-      margin-left: 2
+      margin-left: 1
+      !tooltip: tr('Attack')
 
     SpellProgressRect
       id: progressRectAttack
       anchors.fill: groupIconAttack
-      !tooltip: tr('Attack')
 
     SpellGroupIcon
       id: groupIconHealing
-      image-clip: 20 0 20 20
-      anchors.top: parent.top
+      &groupId: 2
+      anchors.bottom: parent.bottom
       anchors.left: groupIconAttack.right
-      margin-left: 3
+      margin-left: 4
+      !tooltip: tr('Healing')
 
     SpellProgressRect
       id: progressRectHealing
       anchors.fill: groupIconHealing
-      !tooltip: tr('Healing')
 
     SpellGroupIcon
       id: groupIconSupport
-      image-clip: 40 0 20 20
-      anchors.top: parent.top
+      &groupId: 3
+      anchors.bottom: parent.bottom
       anchors.left: groupIconHealing.right
-      margin-left: 3
+      margin-left: 4
+      !tooltip: tr('Support')
 
     SpellProgressRect
       id: progressRectSupport
       anchors.fill: groupIconSupport
-      !tooltip: tr('Support')
 
     SpellGroupIcon
       id: groupIconSpecial
-      image-clip: 60 0 20 20
-      anchors.top: parent.top
+      &groupId: 4
+      anchors.bottom: parent.bottom
       anchors.left: groupIconSupport.right
-      margin-left: 3
+      margin-left: 4
+      !tooltip: tr('Special')
 
     SpellProgressRect
       id: progressRectSpecial
       anchors.fill: groupIconSpecial
-      !tooltip: tr('Special')
 
     SpellGroupIcon
       id: groupIconCrippling
-      image-clip: 100 0 20 20
-      anchors.top: parent.top
+      &groupId: 6
+      anchors.bottom: parent.bottom
       anchors.left: groupIconSpecial.right
-      margin-left: 3
+      margin-left: 4
+      !tooltip: tr('Crippling')
 
     SpellProgressRect
       id: progressRectCrippling
       anchors.fill: groupIconCrippling
-      !tooltip: tr('Crippling')
 
     SpellGroupIcon
       id: groupIconFocus
-      image-clip: 120 0 20 20
-      anchors.top: parent.top
+      &groupId: 7
+      anchors.bottom: parent.bottom
       anchors.left: groupIconCrippling.right
-      margin-left: 3
+      margin-left: 4
+      !tooltip: tr('Focus')
 
     SpellProgressRect
       id: progressRectFocus
       anchors.fill: groupIconFocus
-      !tooltip: tr('Focus')
+
+    Panel
+      id: focusMasteryReadyGlow
+      anchors.fill: groupIconFocus
+      background-color: #c01818aa
+      visible: false
+      phantom: true
+      focusable: false
+      !tooltip: 'Focus Mastery ready (+35%% on next damage spell)'
 
     SpellGroupIcon
       id: groupIconUltimateStrikes
-      image-clip: 140 0 20 20
-      anchors.top: parent.top
+      &groupId: 8
+      anchors.bottom: parent.bottom
       anchors.left: groupIconFocus.right
-      margin-left: 3
+      margin-left: 4
+      !tooltip: tr('Ultimate Strike')
 
     SpellProgressRect
       id: progressRectUltimateStrikes
       anchors.fill: groupIconUltimateStrikes
-      !tooltip: tr('Ultimate Strike')
 
     SpellGroupIcon
       id: groupIconGreatBeams
-      image-clip: 160 0 20 20
-      anchors.top: parent.top
+      &groupId: 9
+      anchors.bottom: parent.bottom
       anchors.left: groupIconUltimateStrikes.right
-      margin-left: 3
+      margin-left: 4
+      !tooltip: tr('Great Beams')
 
     SpellProgressRect
       id: progressRectGreatBeams
       anchors.fill: groupIconGreatBeams
-      !tooltip: tr('Great Beams')
 
     SpellGroupIcon
       id: groupIconBurstsOfNature
-      image-clip: 180 0 20 20
-      anchors.top: parent.top
+      &groupId: 10
+      anchors.bottom: parent.bottom
       anchors.left: groupIconGreatBeams.right
-      margin-left: 3
+      margin-left: 4
+      !tooltip: tr('Bursts of Nature')
 
     SpellProgressRect
       id: progressRectBurstsOfNature
       anchors.fill: groupIconBurstsOfNature
-      !tooltip: tr('Bursts of Nature')
 
     SpellGroupIcon
       id: groupIconVirtue
-      image-clip: 200 0 20 20
-      anchors.top: parent.top
+      &groupId: 11
+      anchors.bottom: parent.bottom
       anchors.left: groupIconBurstsOfNature.right
-      margin-left: 3
+      margin-left: 4
+      !tooltip: tr('Stance')
 
     SpellProgressRect
       id: progressRectVirtue
       anchors.fill: groupIconVirtue
-      !tooltip: tr('Virtue')
 
-    VerticalSeparator
-      id: separator
-      anchors.top: parent.top
-      anchors.left: prev.right
-      margin-left: 5
-      margin-top: 2
-      height: 22
+    SpellSeparator
+      id: groupIconSeparator
+      anchors.bottom: parent.bottom
+      anchors.left: groupIconVirtue.right
+      margin-left: 4
 
     Panel
-      height: 22
       id: cooldownPanel
-      margin-top: 4
-      margin-bottom: 5
-      anchors.top: parent.top
+      height: 24
       anchors.bottom: parent.bottom
-      anchors.left: prev.right
-      anchors.right: parent.right
+      anchors.left: groupIconSeparator.right
+      margin-left: 4
       layout:
         type: horizontalBox
-
-
+        fit-children: true
+        spacing: 3

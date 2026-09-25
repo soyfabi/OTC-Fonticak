@@ -2853,6 +2853,12 @@ function returnChat()
             child:setVisible(true)
         end
     end
+    if modules.game_cooldown and modules.game_cooldown.cooldownWindow then
+        local cw = modules.game_cooldown.cooldownWindow
+        if cw and not cw:isDestroyed() then
+            cw:setVisible(modules.client_options.getOption('showSpellGroupCooldowns'))
+        end
+    end
     gameBottomPanel:getChildById('consolePanel'):setVisible(true)
     for _, child in pairs(gameBottomPanel:getChildById('consolePanel'):getChildren()) do
         if child:getId() ~= "consoleTextEdit" then

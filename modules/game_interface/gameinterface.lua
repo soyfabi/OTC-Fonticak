@@ -13,6 +13,7 @@ panelsRadioGroup = nil
 gameTopPanel = nil
 gameBottomStatsBarPanel = nil
 gameBottomPanel = nil
+gameBottomCooldownPanel = nil
 showTopMenuButton = nil
 logoutButton = nil
 logOutMainButton = nil
@@ -110,6 +111,7 @@ function init()
     gameLeftTopPanel = gameRootPanel:getChildById('gameLeftTopPanel')
     gameRightTopPanel = gameRootPanel:getChildById('gameRightTopPanel')
     gameBottomPanel = gameRootPanel:getChildById('gameBottomPanel')
+    gameBottomCooldownPanel = gameRootPanel:getChildById('gameBottomCooldownPanel')
     gameTopPanel = gameRootPanel:getChildById('gameTopPanel')
     gameBottomStatsBarPanel = gameRootPanel:getChildById('gameBottomStatsBarPanel')
 
@@ -2140,6 +2142,21 @@ function getBottomPanel()
     return gameBottomPanel
 end
 
+function getGameBottomCooldownPanel()
+    return gameBottomCooldownPanel
+end
+
+function isBottomStatsBarDockActive()
+    return gameBottomStatsBarPanel and not gameBottomStatsBarPanel:isDestroyed() and gameBottomStatsBarPanel:isVisible()
+        and gameBottomStatsBarPanel:getHeight() > 0
+end
+
+function applyBottomSplitterLayoutHeight()
+    if bottomSplitter and not bottomSplitter:isDestroyed() then
+        updateStretchShrink()
+    end
+end
+
 function getShowTopMenuButton()
     return showTopMenuButton
 end
@@ -2427,7 +2444,7 @@ function applyExtendedViewLayout(extendedView)
             gameBottomPanel:breakAnchors()
             gameBottomPanel:addAnchor(AnchorLeft, 'gameLeftExtraPanel', AnchorRight)
             gameBottomPanel:addAnchor(AnchorRight, 'gameRightExtraPanel', AnchorLeft)
-            gameBottomPanel:addAnchor(AnchorTop, 'gameBottomCooldownPanel', AnchorBottom)
+            gameBottomPanel:addAnchor(AnchorTop, 'gameBottomActionPanel', AnchorBottom)
             gameBottomPanel:addAnchor(AnchorBottom, 'parent', AnchorBottom)
         end
         gameBottomPanel:getChildById('bottomResizeBorder'):disable()

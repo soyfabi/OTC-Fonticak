@@ -1281,3 +1281,12 @@ function resetActionBars()
         resetAction(i)
     end
 end
+
+function refreshBottomCooldownDock()
+    if modules.game_cooldown and modules.game_cooldown.refreshConsoleAnchor then
+        modules.game_cooldown.refreshConsoleAnchor()
+    end
+    if modules.game_interface and modules.game_interface.applyBottomSplitterLayoutHeight then
+        modules.game_interface.applyBottomSplitterLayoutHeight()
+    end
+end

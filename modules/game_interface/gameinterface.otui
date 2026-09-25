@@ -218,20 +218,16 @@ UIWidget
 
   Panel
     id: gameBottomCooldownPanel
+    visible: false
+    height: 0
     phantom: true
     focusable: false
+
+  GameBottomPanel
+    id: gameBottomPanel
     anchors.left: bottomSplitter.left
     anchors.right: bottomSplitter.right
     anchors.top: gameBottomActionPanel.bottom
-    layout:
-      type: verticalBox
-      fit-children: true
-// end actionsbar
-  GameBottomPanel
-    id: gameBottomPanel
-    anchors.left: gameBottomCooldownPanel.left
-    anchors.right: gameBottomCooldownPanel.right
-    anchors.top: gameBottomCooldownPanel.bottom
     anchors.bottom: parent.bottom
 
   GameSidePanel

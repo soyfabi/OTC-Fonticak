@@ -275,6 +275,12 @@ SpellGroups = {
     [11] = 'Virtue'
 }
 
+SpellGroupIconFile = '/images/game/spells/spellgroup-icons-20x20'
+SpellGroupIconSize = {
+    width = 20,
+    height = 20
+}
+
 SpellRunesData = {
     [3148] = {id = 30, group = 3, name = 'destroy field rune', exhaustion = 2000},
     [3149] = {id = 55, group = 1, name = 'energybomb rune', exhaustion = 2000},
@@ -315,6 +321,15 @@ SpellRunesData = {
 }
 
 Spells = {}
+
+function Spells.getSpellGroupIconClip(groupId)
+    if not groupId or groupId < 1 or not SpellGroups[groupId] then
+        return nil
+    end
+    local w = SpellGroupIconSize.width
+    local h = SpellGroupIconSize.height
+    return (groupId - 1) * w .. ' 0 ' .. w .. ' ' .. h
+end
 
 function Spells.getSpellList()
     local spells = {}
