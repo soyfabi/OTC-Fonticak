@@ -68,6 +68,27 @@ function onXpBoostHoverChange(widget, hovered)
 	applyHandCursorHover(widget, hovered)
 end
 
+local function bindWidgetCursorTeardown(widget)
+	if not widget or widget.cursorTeardownBound then
+		return
+	end
+
+	widget.cursorTeardownBound = true
+	if widget.cursorPushed == nil then
+		widget.cursorPushed = false
+	end
+
+	widget.onDestroy = function(w)
+		releaseHandCursor(w)
+	end
+
+	widget.onVisibilityChange = function(w, visible)
+		if not visible then
+			releaseHandCursor(w)
+		end
+	end
+end
+
 function bindSkillsHoverHandlers()
 	if not skillsWindow or skillsWindow:isDestroyed() then
 		return
@@ -99,10 +120,7 @@ function bindSkillsHoverHandlers()
 
 	if xpBoostButton then
 		xpBoostButton.onHoverChange = onXpBoostHoverChange
-
-		if xpBoostButton.cursorPushed == nil then
-			xpBoostButton.cursorPushed = false
-		end
+		bindWidgetCursorTeardown(xpBoostButton)
 	end
 end
 
