@@ -993,7 +993,7 @@ function resetSkillColor(id)
 	local skill = skillsWindow:recursiveGetChildById(id)
 	local widget = skill:getChildById("value")
 
-	widget:setColor("#c0c0c0")
+	widget:setColor(SKILL_NEUTRAL_COLOR)
 end
 
 function toggleSkill(id, state)
@@ -1398,7 +1398,7 @@ function refresh()
 	loadSkillsVisibilitySettings()
 
 	if g_game.getClientVersion() >= 1412 then
-		syncOffenceExtraSkillRows()
+		hideOffenceStatsInSkillsBar()
 	end
 end
 
@@ -1882,7 +1882,7 @@ function onSkillChange(localPlayer, id, level, percent)
 	end
 
 	if id >= Skill.Fatal and id <= Skill.Transcendence and g_game.getClientVersion() >= 1412 then
-		syncOffenceExtraSkillRows()
+		hideOffenceStatsInSkillsBar()
 	end
 end
 
@@ -2490,20 +2490,4 @@ function onForgeBonusesChange(localPlayer, momentum, transcendence, amplificatio
 	setSkillValueWithTooltips("transcendence", transcendence, transcendenceTooltip, true)
 	setSkillValueWithTooltips("amplification", amplification, amplificationTooltip, true)
 	updateHeight()
-end
-
-function resolveSkillBonusesForDisplay(total, base, loyaltyField)
-	return resolveSkillBonuses(total, base, loyaltyField)
-end
-
-function buildLoyaltySkillTooltipLineForDisplay(total, base, loyaltyField)
-	return buildLoyaltySkillTooltipLine(total, base, loyaltyField)
-end
-
-function skillPercentToGoTooltipForDisplay(rawPercent)
-	return skillPercentToGoTooltip(rawPercent)
-end
-
-function appendMagicLevelModifiersTooltipForDisplay(tooltip, bonuses)
-	return appendMagicLevelModifiersTooltip(tooltip, bonuses)
 end

@@ -139,7 +139,6 @@ function init()
     onGameEnd = onGameEnd,
     onGameStart = WheelOfDestiny.loadWheelPresets,
     onDestinyWheel = onDestinyWheel,
-    --onUnlockGem = GemAtelier.onUnlockGem, --disabled because it's in TODO
     onResourceBalance = onResourceBalance,
   })
 
@@ -154,7 +153,6 @@ function terminate()
     onGameEnd = onGameEnd,
     onGameStart = WheelOfDestiny.loadWheelPresets,
     onDestinyWheel = onDestinyWheel,
-    --onUnlockGem = GemAtelier.onUnlockGem, --disabled because it's in TODO
     onResourceBalance = onResourceBalance
   })
 

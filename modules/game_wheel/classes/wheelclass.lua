@@ -2094,12 +2094,6 @@ function WheelOfDestiny.create(playerId, canView, changeState, vocationId, point
   WheelOfDestiny.basicModCount = {}
   WheelOfDestiny.supremeModCount = {}
   for _, info in pairs(WheelOfDestiny.atelierGems) do
-    local function dumpCounts(title, t)
-
-    end
-    dumpCounts("basicModCount", WheelOfDestiny.basicModCount)
-    dumpCounts("supremeModCount", WheelOfDestiny.supremeModCount)
-
     incrementBonusCount(info.lesserBonus, WheelOfDestiny.basicModCount)
     incrementBonusCount(info.regularBonus, WheelOfDestiny.basicModCount)
     incrementBonusCount(info.supremeBonus, WheelOfDestiny.supremeModCount)
