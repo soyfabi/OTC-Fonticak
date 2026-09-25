@@ -99,15 +99,14 @@ Panel
   id: cooldownWindow
   !text: tr('')
   height: 26
+  margin-top: 1
   focusable: false
   phantom: true
-  anchors.top: parent.top
-  anchors.left: parent.left
 
   Panel
     id:contentsPanel2
-    anchors.top: parent.top
     anchors.left: parent.left
+    anchors.right: parent.right
     anchors.bottom: parent.bottom
     height: 24
     margin-left: 2
@@ -252,8 +251,8 @@ Panel
       height: 24
       anchors.bottom: parent.bottom
       anchors.left: groupIconSeparator.right
+      anchors.right: parent.right
       margin-left: 4
       layout:
         type: horizontalBox
-        fit-children: true
         spacing: 3

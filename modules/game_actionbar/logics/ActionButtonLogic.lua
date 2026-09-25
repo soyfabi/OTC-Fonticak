@@ -938,15 +938,28 @@ function checkRemainSpellCooldown(button, spellId)
 end
 
 function removeCooldown(button)
-    if not button or not button.cache then
+    if not button or button:isDestroyed() then
         return true
     end
 
-    button.cache.removeCooldownEvent = nil
-    if button.cooldown then
+    if button.cache then
+        button.cache.removeCooldownEvent = nil
+    end
+    if button.cooldown and not button.cooldown:isDestroyed() then
         button.cooldown:stop()
         button.cooldown:setPercent(100)
         button.cooldown:setText("")
+    end
+end
+
+function clearActionBarCooldownVisuals()
+    for barId = 1, #actionBars do
+        local actionbar = actionBars[barId]
+        if actionbar and not actionbar:isDestroyed() and actionbar.tabBar then
+            for _, button in pairs(actionbar.tabBar:getChildren()) do
+                removeCooldown(button)
+            end
+        end
     end
 end
 

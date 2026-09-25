@@ -41,6 +41,39 @@ local function isGroupIconVisible(iconId, monkFeature)
 	return shouldShowExtendedSpellGroups()
 end
 
+local function stopGroupProgressForIcon(icon, suffix)
+	if not contentsPanel or not suffix then
+		return
+	end
+
+	local progress = contentsPanel:getChildById("progressRect" .. suffix)
+	if not progress or progress:isDestroyed() then
+		return
+	end
+
+	cancelCooldownEvent(progress)
+	progress:setPercent(100)
+	resetCooldownFillBar(progress)
+	progress.icon = nil
+
+	if icon and not icon:isDestroyed() then
+		setGroupIconOverlay(icon, true)
+	end
+end
+
+local function getCooldownFillBarWidth(progressRect)
+	if not progressRect or progressRect:isDestroyed() then
+		return 0
+	end
+
+	local icon = progressRect.icon
+	if icon and not icon:isDestroyed() and icon:isVisible() then
+		return math.max(icon:getWidth() - 2, 0)
+	end
+
+	return math.max(progressRect:getWidth() - 2, 0)
+end
+
 local function applySpellGroupIconVisibility()
 	if not contentsPanel or contentsPanel:isDestroyed() then
 		return
@@ -51,16 +84,22 @@ local function applySpellGroupIconVisibility()
 		if id and id:sub(1, 9) == "groupIcon" then
 			local visible = isGroupIconVisible(id, monkFeature)
 			widget:setVisible(visible)
-			widget:setWidth(visible and 22 or 0)
 			local progress = contentsPanel:getChildById("progressRect" .. id:sub(10))
 			if progress then
 				progress:setVisible(visible)
+			end
+			if not visible then
+				stopGroupProgressForIcon(widget, id:sub(10))
 			end
 		elseif id == "groupIconSeparator" then
 			widget:setVisible(shouldShowExtendedSpellGroups())
 		end
 	end
-	resizeCooldownStrip()
+
+	local focusIcon = contentsPanel:getChildById("groupIconFocus")
+	if not focusIcon or not focusIcon:isVisible() then
+		clearFocusMasteryVisual()
+	end
 end
 
 local function cancelCooldownEvent(progressRect)
@@ -77,6 +116,7 @@ local function cancelCooldownEvent(progressRect)
 	progressRect.callback = nil
 	progressRect.cooldownEndTime = nil
 	progressRect.cooldownDuration = nil
+	progressRect.cooldownStartTime = nil
 end
 
 local function releaseProgressRect(progressRect)
@@ -128,15 +168,15 @@ local function setGroupIconOverlay(icon, visible)
 	end
 end
 
-local function getSpellCooldownEndTime(icon)
+local function getSpellCooldownStartTime(icon)
 	if not icon or icon:isDestroyed() then
 		return math.huge
 	end
 
 	local progressRect = icon:getChildById(icon:getId())
 
-	if progressRect and progressRect.cooldownEndTime then
-		return progressRect.cooldownEndTime
+	if progressRect and progressRect.cooldownStartTime then
+		return progressRect.cooldownStartTime
 	end
 
 	return math.huge
@@ -160,11 +200,11 @@ local function sortSpellCooldownIcons()
 	end
 
 	table.sort(icons, function(a, b)
-		local endA = getSpellCooldownEndTime(a)
-		local endB = getSpellCooldownEndTime(b)
+		local startA = getSpellCooldownStartTime(a)
+		local startB = getSpellCooldownStartTime(b)
 
-		if endA ~= endB then
-			return endA < endB
+		if startA ~= startB then
+			return startA < startB
 		end
 
 		return tostring(a:getId()) < tostring(b:getId())
@@ -202,6 +242,12 @@ function setFocusMasteryReady(visible, durationMs)
 	if not visible then
 		return
 	end
+
+	local focusIcon = contentsPanel and contentsPanel:getChildById("groupIconFocus")
+	if not focusIcon or not focusIcon:isVisible() then
+		return
+	end
+
 	local glow = getFocusMasteryGlow()
 	if glow then
 		glow:setVisible(true)
@@ -228,34 +274,6 @@ local function onWheelFocusMasteryOpcode(_, _, data)
 	end
 end
 
-function resizeCooldownStrip()
-	if not cooldownWindow or cooldownWindow:isDestroyed() or not contentsPanel or contentsPanel:isDestroyed() then
-		return
-	end
-	addEvent(function()
-		if not contentsPanel or contentsPanel:isDestroyed() or not cooldownWindow or cooldownWindow:isDestroyed() then
-			return
-		end
-		local sep = contentsPanel:getChildById("groupIconSeparator")
-		local baseW = 220
-		if sep and sep:isVisible() then
-			baseW = sep:getX() + sep:getWidth() + 6
-		else
-			local lastIcon = contentsPanel:getChildById("groupIconVirtue")
-			if lastIcon and lastIcon:isVisible() then
-				baseW = lastIcon:getX() + lastIcon:getWidth() + 6
-			end
-		end
-		local spellW = 0
-		if cooldownPanel and not cooldownPanel:isDestroyed() then
-			spellW = cooldownPanel:getWidth()
-		end
-		local w = math.max(180, baseW + spellW)
-		contentsPanel:setWidth(w)
-		cooldownWindow:setWidth(w)
-	end)
-end
-
 function init()
 	connect(g_game, {
 		onGameEnd = offline,
@@ -264,11 +282,10 @@ function init()
 		onSpellCooldown = onSpellCooldown
 	})
 
-	cooldownWindow = g_ui.loadUI("cooldown", modules.game_interface.getBottomPanel())
+	cooldownWindow = g_ui.loadUI("cooldown", modules.game_interface.getBottomActionPanel())
 	contentsPanel = cooldownWindow:getChildById("contentsPanel2")
 	cooldownPanel = contentsPanel:getChildById("cooldownPanel")
 	focusMasteryGlow = contentsPanel:getChildById("focusMasteryReadyGlow")
-	cooldownWindow:raise()
 	refreshConsoleAnchor()
 
 	ProtocolGame.registerExtendedJSONOpcode(ExtendedIds.WheelFocusMastery, onWheelFocusMasteryOpcode)
@@ -287,6 +304,9 @@ function init()
 
 	setSpellGroupCooldownsVisible(modules.client_options.getOption("showSpellGroupCooldowns"))
 	applySpellGroupIconVisibility()
+	if modules.game_actionbar and modules.game_actionbar.refreshBottomCooldownDock then
+		modules.game_actionbar.refreshBottomCooldownDock()
+	end
 end
 
 function terminate()
@@ -331,11 +351,9 @@ function loadIcon(iconId)
 	end
 
 	local icon = cooldownPanel:getChildById(iconId)
-	local created = false
 
 	if not icon then
 		icon = g_ui.createWidget("SpellIcon")
-		created = true
 		icon:setId(iconId)
 	end
 
@@ -350,7 +368,7 @@ function loadIcon(iconId)
 		icon = nil
 	end
 
-	return icon, created
+	return icon
 end
 
 function onMiniWindowOpen()
@@ -364,16 +382,12 @@ end
 function refreshConsoleAnchor()
 	local console = modules.game_console and modules.game_console.consolePanel
 
-	if not console or not cooldownWindow or cooldownWindow:isDestroyed() then
+	if not console or console:isDestroyed() then
 		return
 	end
 
 	console:removeAnchor(AnchorTop)
-	if cooldownWindow:isVisible() then
-		console:addAnchor(AnchorTop, cooldownWindow:getId(), AnchorBottom)
-	else
-		console:addAnchor(AnchorTop, "parent", AnchorTop)
-	end
+	console:addAnchor(AnchorTop, "parent", AnchorTop)
 end
 
 function online()
@@ -387,11 +401,8 @@ function online()
 
 	applySpellGroupIconVisibility()
 
-	if not lastPlayer or lastPlayer ~= g_game.getCharacterName() then
-		refresh()
-
-		lastPlayer = g_game.getCharacterName()
-	end
+	refresh()
+	lastPlayer = g_game.getCharacterName()
 end
 
 function offline()
@@ -427,6 +438,7 @@ function offline()
 	cooldown = {}
 	groupCooldown = {}
 	clearFocusMasteryVisual()
+	refresh()
 end
 
 function refresh()
@@ -476,10 +488,15 @@ end
 function initCooldown(progressRect, updateCallback, finishCallback, duration)
 	progressRect:setPercent(0)
 
+	local now = g_clock.millis()
 	if duration and duration > 0 then
-		progressRect.cooldownEndTime = g_clock.millis() + duration
+		if not progressRect.cooldownStartTime then
+			progressRect.cooldownStartTime = now
+		end
+		progressRect.cooldownEndTime = now + duration
 		progressRect.cooldownDuration = duration
 	else
+		progressRect.cooldownStartTime = nil
 		progressRect.cooldownEndTime = nil
 		progressRect.cooldownDuration = nil
 	end
@@ -509,7 +526,7 @@ function updateCooldownBar(progressRect)
 		return
 	end
 
-	local width = math.max(progressRect:getWidth() - 2, 0)
+	local width = getCooldownFillBarWidth(progressRect)
 	local barWidth = math.floor(width * remainingPercent / 100 + 0.0001)
 
 	barWidth = math.max(0, math.min(width, barWidth))
@@ -601,7 +618,7 @@ function onSpellCooldown(iconId, duration)
 		return
 	end
 
-	local icon, created = loadIcon(iconId)
+	local icon = loadIcon(iconId)
 
 	if not icon then
 		return
@@ -649,10 +666,7 @@ function onSpellCooldown(iconId, duration)
 
 	cooldown[iconId] = true
 
-	if created then
-		sortSpellCooldownIcons()
-	end
-	resizeCooldownStrip()
+	sortSpellCooldownIcons()
 end
 
 function onSpellGroupCooldown(groupId, duration)
@@ -666,6 +680,10 @@ function onSpellGroupCooldown(groupId, duration)
 
 	local icon = contentsPanel:getChildById("groupIcon" .. SpellGroups[groupId])
 	local progressRect = contentsPanel:getChildById("progressRect" .. SpellGroups[groupId])
+
+	if not icon or not icon:isVisible() then
+		return
+	end
 
 	if icon then
 		removeEvent(icon.event)
@@ -718,5 +736,4 @@ function setSpellGroupCooldownsVisible(visible)
 	if modules.game_interface and modules.game_interface.applyBottomSplitterLayoutHeight then
 		modules.game_interface.applyBottomSplitterLayoutHeight()
 	end
-	resizeCooldownStrip()
 end

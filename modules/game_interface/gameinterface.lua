@@ -2145,10 +2145,105 @@ function isBottomStatsBarDockActive()
         and gameBottomStatsBarPanel:getHeight() > 0
 end
 
-function applyBottomSplitterLayoutHeight()
-    if bottomSplitter and not bottomSplitter:isDestroyed() then
-        updateStretchShrink()
+CHAT_MIN_HEIGHT = 125
+COOLDOWN_PANEL_HEIGHT = 26
+
+local function getCooldownVisibleExtraHeight()
+    local cd = modules.game_cooldown and modules.game_cooldown.cooldownWindow
+    if not cd or cd:isDestroyed() or not cd:isVisible() or cd:getHeight() <= 0 then
+        return 0
     end
+    return COOLDOWN_PANEL_HEIGHT
+end
+
+local function getBottomActionBarsDockHeight()
+    if not gameBottomActionPanel or gameBottomActionPanel:isDestroyed() then
+        return 0
+    end
+    local height = 0
+    for _, child in ipairs(gameBottomActionPanel:getChildren()) do
+        if child and not child:isDestroyed() and child:getId() ~= 'cooldownWindow' and child:isVisible() and
+            child:getHeight() > 0 then
+            height = height + child:getHeight()
+        end
+    end
+    return height
+end
+
+local function getBottomStatsBarHeight()
+    if not gameBottomStatsBarPanel or gameBottomStatsBarPanel:isDestroyed() then
+        return 0
+    end
+    if g_settings.getString('statsbar_placement') ~= 'bottom' then
+        return 0
+    end
+    if not gameBottomStatsBarPanel:isVisible() then
+        return 0
+    end
+    local h = gameBottomStatsBarPanel:getHeight()
+    return h > 0 and h or 0
+end
+
+function getBottomSplitterMinMarginBottom()
+    local cooldownH = getCooldownVisibleExtraHeight()
+    local statsH = getBottomStatsBarHeight()
+    local actionH = getBottomActionBarsDockHeight()
+    local barCount = 0
+    if modules.game_actionbar and modules.game_actionbar.getActiveBottomBars then
+        barCount = modules.game_actionbar.getActiveBottomBars()
+    end
+    local physicalTotal = actionH - barCount
+    if cooldownH > 0 then
+        physicalTotal = physicalTotal + cooldownH + 1
+    end
+    if statsH > 0 then
+        physicalTotal = physicalTotal + statsH - 3
+    end
+    if physicalTotal < 0 then
+        physicalTotal = 0
+    end
+    return CHAT_MIN_HEIGHT + physicalTotal
+end
+
+function bottomSplitterCanUpdateMargin(splitter, newMargin)
+    if modules.client_options.getOption('dontStretchShrink') then
+        return splitter:getMarginBottom()
+    end
+    local parent = splitter:getParent()
+    if not parent then
+        return newMargin
+    end
+    local parentH = parent:getHeight()
+    local minM = getBottomSplitterMinMarginBottom()
+    local maxM = math.max(minM, parentH - 150)
+    return math.max(math.min(newMargin, maxM), minM)
+end
+
+function bottomSplitterOnGeometryChange(splitter)
+    local parent = splitter:getParent()
+    if not parent then
+        return
+    end
+    local parentH = parent:getHeight()
+    local minM = getBottomSplitterMinMarginBottom()
+    local maxM = math.max(minM, parentH - 150)
+    local m = splitter:getMarginBottom()
+    local clamped = math.min(math.max(m, minM), maxM)
+    if clamped ~= m then
+        splitter:setMarginBottom(clamped)
+    end
+end
+
+function applyBottomSplitterLayoutHeight()
+    if not bottomSplitter or bottomSplitter:isDestroyed() then
+        return
+    end
+    local minM = getBottomSplitterMinMarginBottom()
+    if minM > bottomSplitter:getMarginBottom() then
+        bottomSplitter:setMarginBottom(minM)
+    end
+    bottomSplitterOnGeometryChange(bottomSplitter)
+    updateStretchShrink()
 end
 
 function getShowTopMenuButton()

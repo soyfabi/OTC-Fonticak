@@ -550,6 +550,10 @@ function ActionBarController:onGameEnd()
         onDropActionButton(mouseGrabberWidget)
     end
     spellGroupCooldownCache = {}
+    spellCooldownCache = {}
+    if clearActionBarCooldownVisuals then
+        clearActionBarCooldownVisuals()
+    end
     for _, actionbar in pairs(activeActionBars) do
         unbindActionBarEvent(actionbar)
     end
@@ -1238,6 +1242,9 @@ function configureActionBar(key, value)
         if ActionBarController then
             ActionBarController:scheduleEvent(onUpdateActionBarStatus)
         end
+        if n <= 3 and modules.game_interface and modules.game_interface.applyBottomSplitterLayoutHeight then
+            modules.game_interface.applyBottomSplitterLayoutHeight()
+        end
     end
 end
 
@@ -1283,8 +1290,10 @@ function resetActionBars()
 end
 
 function refreshBottomCooldownDock()
-    if modules.game_cooldown and modules.game_cooldown.refreshConsoleAnchor then
-        modules.game_cooldown.refreshConsoleAnchor()
+    local cd = modules.game_cooldown and modules.game_cooldown.cooldownWindow
+    local dock = modules.game_interface and modules.game_interface.getBottomActionPanel()
+    if cd and not cd:isDestroyed() and dock and not dock:isDestroyed() then
+        dock:moveChildToIndex(cd, dock:getChildCount())
     end
     if modules.game_interface and modules.game_interface.applyBottomSplitterLayoutHeight then
         modules.game_interface.applyBottomSplitterLayoutHeight()
