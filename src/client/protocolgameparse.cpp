@@ -5738,11 +5738,13 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
         }
         case Otc::CYCLOPEDIA_CHARACTERINFO_OFFENCESTATS:
         {
-            CyclopediaCharacterOffenceStats data;
+            CyclopediaCharacterOffenceStats data{};
+            const bool extendedOffenceStats = g_game.getClientVersion() == 860
+                || g_game.getClientVersion() >= 1410;
 
             // Critical hit chance
             data.critChanceTotal = msg->getDouble();
-            if (g_game.getClientVersion() >= 1510) {
+            if (extendedOffenceStats) {
                 data.critChanceFlat = msg->getDouble();
             }
             data.critChanceEquipament = msg->getDouble();
@@ -5752,7 +5754,7 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
 
             // Critical hit damage
             data.critDamageTotal = msg->getDouble();
-            if (g_game.getClientVersion() >= 1510) {
+            if (extendedOffenceStats) {
                 data.critDamageFlat = msg->getDouble();
             }
             data.critDamageEquipament = msg->getDouble();
@@ -5783,7 +5785,7 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             data.cleavePercent = msg->getDouble();
 
             // Perfect shot range
-            auto limitRange = (g_game.getClientVersion() >= 1510) ? 7 : 5;
+            const auto limitRange = extendedOffenceStats ? 7 : 5;
             for (int i = 0; i < limitRange; i++) {
                 data.perfectShotDamage.push_back(msg->getU16());
             }
@@ -5808,7 +5810,7 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
                 data.weaponAccuracy.push_back(msg->getDouble());
             }
 
-            if (g_game.getClientVersion() >= 1510) {
+            if (extendedOffenceStats) {
                 msg->getDouble(); // unused
                 msg->getU16(); // unused
                 msg->getU8(); // unused
@@ -5845,7 +5847,7 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
 
             data.reflectPhysical = msg->getU16();
             data.armor = msg->getU16();
-            if (g_game.getClientVersion() >= 1500) {
+            if (g_game.getClientVersion() >= 1500 || g_game.getClientVersion() == 860 || g_game.getFeature(Otc::GameVocationMonk)) {
                 msg->getU16(); // MANTRA
             }
 
@@ -5864,8 +5866,13 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             data.mitigationCombatTactics = msg->getDouble();
             const uint8_t combatsCount = msg->getU8();
             for (int i = 0; i < combatsCount; ++i) {
-                uint8_t elementType = msg->getU8();
+                const uint8_t elementType = msg->getU8();
                 if (elementType == 0x04) {
+                    CyclopediaCharacterDefenceStats::ElementalResistance resistance;
+                    resistance.element = msg->getU8();
+                    resistance.value = msg->getDouble();
+                    data.resistances.push_back(resistance);
+                } else {
                     CyclopediaCharacterDefenceStats::ElementalResistance resistance;
                     resistance.element = msg->getU8();
                     resistance.value = msg->getDouble();
@@ -5909,7 +5916,7 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             }
 
             msg->getU8(); // unused
-            if (g_game.getClientVersion() >= 1510) {
+            if (g_game.getClientVersion() == 860 || g_game.getClientVersion() >= 1510) {
                 msg->getU8(); // unused
                 msg->getU8(); // unused
                 msg->getU8(); // unused

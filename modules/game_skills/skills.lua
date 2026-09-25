@@ -2423,6 +2423,10 @@ function onCombatAbsorbValuesChange(localPlayer, absorbValues)
 	updateHeight()
 end
 
+function getLastCombatAbsorbValues()
+	return lastAbsorbValues
+end
+
 function updateDefenceSeparatorVisibility()
 	local anyVisible = false
 

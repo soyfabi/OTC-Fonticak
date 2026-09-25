@@ -220,6 +220,16 @@ local maxCharmBalance = 0
 local maxEchoeBalance = 0
 
 local function updateBalances()
+	if widgets.goldPoints then
+		local gold = goldBalance
+
+		if (not gold or gold == 0) and modules.game_cyclopedia and modules.game_cyclopedia.Cyclopedia and modules.game_cyclopedia.Cyclopedia.getPlayerMoney then
+			gold = modules.game_cyclopedia.Cyclopedia.getPlayerMoney()
+		end
+
+		widgets.goldPoints:setText(formatNumber(gold or 0))
+	end
+
 	if widgets.charmAmount then
 		if maxCharmBalance and maxCharmBalance > 0 then
 			widgets.charmAmount:setText(string.format("%s / %s", formatNumber(charmBalance), formatNumber(maxCharmBalance)))
@@ -498,6 +508,10 @@ local function loadCharmMenu(menu)
 	refreshCharmGrid()
 end
 
+function refreshCharmsFooterBalances()
+	updateBalances()
+end
+
 function sendBestiaryCharmsData(msg)
 	local charmBal, goldBal, echoeBal, maxCharmBal, maxEchoeBal = readCharmResources(msg)
 	charmBalance = charmBal
@@ -626,6 +640,9 @@ function initCharms()
 		charmsWindow:show()
 		updateBalances()
 		refreshCharmGrid()
+		if requestBestiaryCharmRefresh then
+			requestBestiaryCharmRefresh()
+		end
 		return
 	end
 
@@ -657,7 +674,8 @@ function initCharms()
 	widgets.charmListPanel = charmsWindow:recursiveGetChildById('charmListPanel')
 	widgets.charmAmount = charmsWindow:recursiveGetChildById('charmAmount')
 	widgets.echoesAmount = charmsWindow:recursiveGetChildById('echoesAmount')
-	widgets.backButton = charmsWindow:recursiveGetChildById('backButton')
+	widgets.goldPoints = charmsWindow:recursiveGetChildById('goldPoints')
+	widgets.backButton = charmsWindow:recursiveGetChildById('embeddedBackButton')
 	widgets.openStore = charmsWindow:recursiveGetChildById('openStore')
 
 	if widgets.majorMenu then
