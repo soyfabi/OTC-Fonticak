@@ -13,7 +13,6 @@ cooldown = {}
 groupCooldown = {}
 
 local SPELL_ICON_FILE = "/images/game/spells/spell-icons-20x20"
-local SPELL_ICON_SIZE = 20
 
 local EXTENDED_SPELL_GROUP_SUFFIXES = {
 	Crippling = true,
@@ -62,16 +61,6 @@ local function applySpellGroupIconVisibility()
 		end
 	end
 	resizeCooldownStrip()
-end
-
-local function getSpellIconClip(clientIconId)
-	if not clientIconId or clientIconId < 1 then
-		return nil
-	end
-
-	local size = SPELL_ICON_SIZE
-
-	return (clientIconId - 1) * size .. " 0 " .. size .. " " .. size
 end
 
 local function cancelCooldownEvent(progressRect)
@@ -275,12 +264,6 @@ function init()
 		onSpellCooldown = onSpellCooldown
 	})
 
-	if modules.client_options.getOption("showSpellGroupCooldowns") then
-		modules.client_options.setOption("showSpellGroupCooldowns", true)
-	else
-		modules.client_options.setOption("showSpellGroupCooldowns", false)
-	end
-
 	cooldownWindow = g_ui.loadUI("cooldown", modules.game_interface.getBottomPanel())
 	contentsPanel = cooldownWindow:getChildById("contentsPanel2")
 	cooldownPanel = contentsPanel:getChildById("cooldownPanel")
@@ -333,25 +316,26 @@ function terminate()
 end
 
 function loadIcon(iconId)
+	if not cooldownPanel or cooldownPanel:isDestroyed() then
+		return
+	end
+
 	local spell, profile, spellName = Spells.getSpellByIcon(iconId)
 
 	if not spellName then
-		print("[WARNING] loadIcon: empty spellName for tfs spell id: " .. iconId)
-
 		return
 	end
 
 	if not profile then
-		print("[WARNING] loadIcon: empty profile for tfs spell id: " .. iconId)
-
 		return
 	end
 
 	local icon = cooldownPanel:getChildById(iconId)
+	local created = false
 
 	if not icon then
 		icon = g_ui.createWidget("SpellIcon")
-
+		created = true
 		icon:setId(iconId)
 	end
 
@@ -362,12 +346,11 @@ function loadIcon(iconId)
 		iconImage:setImageSource(SPELL_ICON_FILE)
 		iconImage:setImageClip(clip)
 	else
-		print("[WARNING] loadIcon: empty spell icon for tfs spell id: " .. iconId)
-
+		icon:destroy()
 		icon = nil
 	end
 
-	return icon
+	return icon, created
 end
 
 function onMiniWindowOpen()
@@ -614,15 +597,13 @@ function isCooldownIconActive(iconId)
 end
 
 function onSpellCooldown(iconId, duration)
-	if not cooldownWindow:isVisible() then
+	if not cooldownWindow or cooldownWindow:isDestroyed() then
 		return
 	end
 
-	local icon = loadIcon(iconId)
+	local icon, created = loadIcon(iconId)
 
 	if not icon then
-		print("[WARNING] Can not load cooldown icon on spell with id: " .. iconId)
-
 		return
 	end
 
@@ -668,12 +649,14 @@ function onSpellCooldown(iconId, duration)
 
 	cooldown[iconId] = true
 
-	sortSpellCooldownIcons()
+	if created then
+		sortSpellCooldownIcons()
+	end
 	resizeCooldownStrip()
 end
 
 function onSpellGroupCooldown(groupId, duration)
-	if not cooldownWindow:isVisible() then
+	if not cooldownWindow or cooldownWindow:isDestroyed() then
 		return
 	end
 

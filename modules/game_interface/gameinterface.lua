@@ -13,7 +13,6 @@ panelsRadioGroup = nil
 gameTopPanel = nil
 gameBottomStatsBarPanel = nil
 gameBottomPanel = nil
-gameBottomCooldownPanel = nil
 showTopMenuButton = nil
 logoutButton = nil
 logOutMainButton = nil
@@ -111,7 +110,6 @@ function init()
     gameLeftTopPanel = gameRootPanel:getChildById('gameLeftTopPanel')
     gameRightTopPanel = gameRootPanel:getChildById('gameRightTopPanel')
     gameBottomPanel = gameRootPanel:getChildById('gameBottomPanel')
-    gameBottomCooldownPanel = gameRootPanel:getChildById('gameBottomCooldownPanel')
     gameTopPanel = gameRootPanel:getChildById('gameTopPanel')
     gameBottomStatsBarPanel = gameRootPanel:getChildById('gameBottomStatsBarPanel')
 
@@ -2140,10 +2138,6 @@ end
 
 function getBottomPanel()
     return gameBottomPanel
-end
-
-function getGameBottomCooldownPanel()
-    return gameBottomCooldownPanel
 end
 
 function isBottomStatsBarDockActive()

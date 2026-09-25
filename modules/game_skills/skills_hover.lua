@@ -105,3 +105,19 @@ function bindSkillsHoverHandlers()
 		end
 	end
 end
+
+function releaseSkillsHoverCursors()
+	if not skillsWindow or skillsWindow:isDestroyed() then
+		return
+	end
+
+	local function walk(widget)
+		releaseHandCursor(widget)
+
+		for _, child in ipairs(widget:getChildren()) do
+			walk(child)
+		end
+	end
+
+	walk(skillsWindow)
+end

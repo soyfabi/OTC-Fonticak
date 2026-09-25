@@ -186,7 +186,6 @@ NewMainWindow
       image-clip: 0 20 20 20
     $!pressed:
       image-clip: 0 0 20 20
-    @onClick: print("toDo Preset")
 
   Label
     id: presetLabel

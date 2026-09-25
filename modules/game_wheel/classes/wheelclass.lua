@@ -69,6 +69,15 @@ end
 local wheelApplyDebounceEvent = nil
 WheelOfDestiny.wheelSyncInProgress = false
 
+function WheelOfDestiny.cancelPendingAutoApply()
+  if wheelApplyDebounceEvent then
+    removeEvent(wheelApplyDebounceEvent)
+    wheelApplyDebounceEvent = nil
+  end
+
+  WheelOfDestiny.wheelSyncInProgress = false
+end
+
 local function scheduleWheelAutoApply()
   if WheelOfDestiny.wheelSyncInProgress then
     return
@@ -749,10 +758,7 @@ function WheelOfDestiny.removePoint(index, points)
 end
 
 function WheelOfDestiny.onDestinyWheel(playerId, canView, changeState, vocationId, points, scrollPoints, pointInvested, usedPromotionScrolls, equipedGems, atelierGems, basicUpgraded, supremeUpgraded, earnedFromAchievements)
-  if wheelApplyDebounceEvent then
-    removeEvent(wheelApplyDebounceEvent)
-    wheelApplyDebounceEvent = nil
-  end
+  WheelOfDestiny.cancelPendingAutoApply()
   WheelOfDestiny.wheelSyncInProgress = true
 
   if not table.isIn({1, 2, 3, 4, 5}, vocationId) then
@@ -2133,10 +2139,6 @@ function onWheelOfDestinyApply(close, ignoreprotocol)
       WheelOfDestiny.currentPreset.equipedGems = normalizeEquipedGems(struct)
     end
   
-    g_logger.debug(string.format(
-      "[WheelApply] Sending gems -> GREEN:%d  RED:%d  ACQUA:%d  PURPLE:%d",
-      g, r, a, p))
-  
     g_game.sendApplyWheelPoints(buildWheelSlotPointsArray(), g, r, a, p)
   end
 
@@ -2452,7 +2454,6 @@ function WheelOfDestiny.onImportConfig(base64Data)
 
   -- Avoid invalid base64 code
   if not base64.isValidBase64(base64Data) then
-    g_logger.debug(string.format("[WheelOfDestiny.onImportConfig]: Invalid base64 string: %s", base64Data))
     return {}
   end
 
@@ -2559,9 +2560,8 @@ function WheelOfDestiny.onExportPreset()
     local exportCode = WheelOfDestiny.getExportCode(WheelOfDestiny.currentPreset)
     if exportCode and exportCode ~= "" then
       g_window.setClipboardText(exportCode)
-      g_logger.debug(string.format("[WheelOfDestiny] Export code copied to clipboard: %s", exportCode))
     else
-      g_logger.debug("[WheelOfDestiny] Failed to generate export code")
+      g_logger.warning("[WheelOfDestiny] Failed to generate export code")
     end
     
     return true
@@ -2569,7 +2569,6 @@ function WheelOfDestiny.onExportPreset()
 
   local urlButton = function()
     -- TODO: Implement URL export functionality
-    g_logger.debug("[WheelOfDestiny] URL export - TODO: Not yet implemented")
     return true
   end
 
@@ -3370,7 +3369,6 @@ function WheelOfDestiny.generateInternalPreset()
       goto continue
 		end
 
-		g_logger.debug(string.format("[WheelPresets] Adding preset '%s' with %d points", v.name, data.maxPoints))
 		table.insert(WheelOfDestiny.internalPreset, { presetName = v.name, availablePoints = data.maxPoints, usedPoints = data.usedPoints, pointInvested = data.pointInvested, equipedGems = data.equipedGems })
 	
     :: continue ::

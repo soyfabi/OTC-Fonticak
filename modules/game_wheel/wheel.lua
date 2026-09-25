@@ -148,6 +148,8 @@ function init()
 end
 
 function terminate()
+  WheelOfDestiny.cancelPendingAutoApply()
+
   disconnect(g_game, {
     onGameEnd = onGameEnd,
     onGameStart = WheelOfDestiny.loadWheelPresets,
@@ -438,7 +440,7 @@ function loadConfigJson()
 		end)
 
 		if not status then
-			return g_logger.debug("Error while reading characterdata file. Details: " .. result)
+			return g_logger.error("Error while reading characterdata file. Details: " .. result)
 		end
 
 		SkillwheelStringsLibrary = result

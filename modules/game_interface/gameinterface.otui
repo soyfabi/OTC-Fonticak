@@ -216,13 +216,6 @@ UIWidget
       $pressed:
         icon-offset: 1 1
 
-  Panel
-    id: gameBottomCooldownPanel
-    visible: false
-    height: 0
-    phantom: true
-    focusable: false
-
   GameBottomPanel
     id: gameBottomPanel
     anchors.left: bottomSplitter.left
