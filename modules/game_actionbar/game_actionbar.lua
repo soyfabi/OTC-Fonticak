@@ -545,8 +545,11 @@ function ActionBarController:onGameEnd()
         resetEquipmentAssignRuntimeState()
     end
     cleanupMultiActionState()
-    -- Release the "pick object" mouse grab if the player logs out mid-assignment.
-    if mouseGrabberWidget and onDropActionButton and g_ui.isMouseGrabbed() then
+    cancelCyclopediaSpellAssignDeferredShow()
+    if cyclopediaSpellAssign then
+        finishCyclopediaSpellSlotAssign(false)
+    elseif mouseGrabberWidget and onDropActionButton and g_ui.isMouseGrabbed() then
+        -- Release the "pick object" mouse grab if the player logs out mid-assignment.
         onDropActionButton(mouseGrabberWidget)
     end
     spellGroupCooldownCache = {}
@@ -1333,7 +1336,7 @@ local function popCyclopediaSpellAssignCursor()
     cyclopediaSpellAssignTargetCursorActive = false
 end
 
-local function cancelCyclopediaSpellAssignDeferredShow()
+function cancelCyclopediaSpellAssignDeferredShow()
     if cyclopediaSpellAssignDeferredShowEvent then
         removeEvent(cyclopediaSpellAssignDeferredShowEvent)
         cyclopediaSpellAssignDeferredShowEvent = nil
@@ -1366,7 +1369,11 @@ function isCyclopediaSpellSlotAssignActive()
     return cyclopediaSpellAssign ~= nil
 end
 
-function finishCyclopediaSpellSlotAssign()
+function finishCyclopediaSpellSlotAssign(reopenCyclopedia)
+    if reopenCyclopedia == nil then
+        reopenCyclopedia = true
+    end
+
     local returnWindow = cyclopediaSpellAssignReturnWindow
 
     cyclopediaSpellAssignSessionId = cyclopediaSpellAssignSessionId + 1
@@ -1376,10 +1383,10 @@ function finishCyclopediaSpellSlotAssign()
     cancelCyclopediaSpellAssignDeferredShow()
     restoreActionBarMouseGrabber()
 
-    if returnWindow and modules.game_cyclopedia and modules.game_cyclopedia.show then
+    if reopenCyclopedia and returnWindow and g_game.isOnline() and modules.game_cyclopedia and modules.game_cyclopedia.show then
         cyclopediaSpellAssignDeferredShowEvent = scheduleEvent(function()
             cyclopediaSpellAssignDeferredShowEvent = nil
-            if not cyclopediaSpellAssign and modules.game_cyclopedia.show then
+            if not cyclopediaSpellAssign and g_game.isOnline() and modules.game_cyclopedia.show then
                 modules.game_cyclopedia.show(returnWindow)
             end
         end, 50)

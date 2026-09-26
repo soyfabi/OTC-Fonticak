@@ -410,13 +410,17 @@ local function setupSearch()
     end
 
     searchText.onKeyDown = function(widget, keyCode, keyboardModifiers)
-      if keyboardModifiers ~= KeyboardNoModifier then
-        return false
-      end
-
-      if keyCode == KeyEscape then
+      if keyCode == KeyEscape and keyboardModifiers == KeyboardNoModifier then
         releaseSearchFocus()
         return true
+      end
+
+      if keyboardModifiers ~= KeyboardNoModifier then
+        if keyCode == KeyLeft or keyCode == KeyRight or keyCode == KeyHome or keyCode == KeyEnd then
+          scheduleEvent(updateSearchCaret)
+        end
+
+        return false
       end
 
       scheduleEvent(updateSearchCaret)

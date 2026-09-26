@@ -231,6 +231,14 @@ local function getSpellGroup(entry)
 	return groupNames[entry.spellGroupPrimary] or groupNames[entry.spellGroupSecondary] or "Support"
 end
 
+local function getSpellVocationsForPlayer(spell)
+	if spell.isRune and spell.runeVocations and #spell.runeVocations > 0 then
+		return spell.runeVocations
+	end
+
+	return spell.vocations
+end
+
 local function getDamageType(entry)
 	return damageTypeNames[entry.damagetype] or tostring(entry.damagetype or "-")
 end
@@ -364,13 +372,17 @@ local function normalizeSpell(entry, previewById)
 	preview = preview or {}
 
 	local runeParams = type(entry.runeParams) == "table" and entry.runeParams or {}
-	local group = getSpellGroup(entry)
+	local isRuneEntry = entry.isRune == true
+	local usageData = isRuneEntry and runeParams or entry
+	local group = getSpellGroup(usageData)
+	local conjureGroup = isRuneEntry and getSpellGroup(entry) or group
 
 	return {
 		id = id,
 		name = entry.name or "Unknown",
 		words = entry.formulaWithoutParams or "",
 		spellGroup = group,
+		conjureSpellGroup = conjureGroup,
 		type = entry.isRune and "Conjure" or "Instant",
 		isRune = entry.isRune == true,
 		isRuneCreatable = entry.isRuneCreatable == true,
@@ -383,14 +395,16 @@ local function normalizeSpell(entry, previewById)
 		aggressive = entry.aggressive == true,
 		vocations = normalizeVocations(entry.allowedVocations),
 		runeVocations = normalizeVocations(runeParams.allowedVocations),
-		cooldown = secondsToMilliseconds(entry.cooldownSelf),
-		exhaustion = secondsToMilliseconds(entry.cooldownSelf),
-		groupCooldown = secondsToMilliseconds(entry.cooldownPrimaryGroup),
-		secondaryGroupCooldown = secondsToMilliseconds(entry.cooldownSecondaryGroup),
-		basePower = tonumber(entry.mean) or 0,
+		cooldown = secondsToMilliseconds(usageData.cooldownSelf),
+		exhaustion = secondsToMilliseconds(usageData.cooldownSelf),
+		conjureCooldown = isRuneEntry and secondsToMilliseconds(entry.cooldownSelf) or nil,
+		groupCooldown = secondsToMilliseconds(usageData.cooldownPrimaryGroup),
+		secondaryGroupCooldown = secondsToMilliseconds(usageData.cooldownSecondaryGroup),
+		conjureGroupCooldown = isRuneEntry and secondsToMilliseconds(entry.cooldownPrimaryGroup) or nil,
+		basePower = tonumber(usageData.mean) or 0,
 		scalesWith = getScaling(entry),
-		damageType = getDamageType(entry),
-		range = tonumber(entry.range or preview.range) or 0,
+		damageType = getDamageType(usageData),
+		range = tonumber(isRuneEntry and (runeParams.distance or entry.range) or (entry.range or preview.range)) or 0,
 		source = entry.source and entry.source ~= "" and entry.source or "NPC",
 		description = entry.description or "",
 		amount = tonumber(runeParams.amount) or 1,
@@ -517,7 +531,7 @@ local function passesLearntSpellsFilter(spell, playerLevel, playerVocation, isPr
 		return false
 	end
 
-	if not spellMatchesBaseVocation(spell.vocations, normalizeBaseVocation(playerVocation)) then
+	if not spellMatchesBaseVocation(getSpellVocationsForPlayer(spell), normalizeBaseVocation(playerVocation)) then
 		return false
 	end
 
@@ -588,22 +602,36 @@ local function loadAimAtTargetData()
 	aimAtTargetBySpellId = {}
 
 	local data = g_settings.getNode("aimAtTargetPerSpell")
+	local legacy = g_settings.getNode("aimAtTargetGlobal")
 
 	if data and data.spells and type(data.spells) == "table" then
-		for spellIdKey, enabled in pairs(data.spells) do
-			local spellId = tonumber(spellIdKey)
+		local hasPerSpellEntry = false
 
-			if spellId and spellId > 0 and enabled == true then
-				aimAtTargetBySpellId[spellId] = true
+		for _, enabled in pairs(data.spells) do
+			if enabled == true then
+				hasPerSpellEntry = true
+				break
 			end
 		end
 
-		return
+		if hasPerSpellEntry or not (legacy and legacy.enabled == true) then
+			for spellIdKey, enabled in pairs(data.spells) do
+				local spellId = tonumber(spellIdKey)
+
+				if spellId and spellId > 0 and enabled == true then
+					aimAtTargetBySpellId[spellId] = true
+				end
+			end
+
+			return
+		end
 	end
 
-	local legacy = g_settings.getNode("aimAtTargetGlobal")
-
 	if legacy and legacy.enabled == true then
+		if #allSpells == 0 then
+			return
+		end
+
 		for _, spell in ipairs(allSpells) do
 			if isDirectionalSpell(spell) and spell.id and spell.id > 0 then
 				aimAtTargetBySpellId[spell.id] = true
@@ -734,7 +762,7 @@ local function applyAllFilters()
 		local search = (activeSearchText or ""):lower()
 
 		for _, spell in ipairs(allSpells) do
-			local passes = passesLearntSpellsFilter(spell, playerLevel, playerVocation, isPremiumPlayer) and passesVocationFilter(spell.vocations, playerVocation) and passesLevelFilter(spell.level, playerLevel) and passesSpellGroupFilter(spell.spellGroup)
+			local passes = passesLearntSpellsFilter(spell, playerLevel, playerVocation, isPremiumPlayer) and passesVocationFilter(getSpellVocationsForPlayer(spell), playerVocation) and passesLevelFilter(spell.level, playerLevel) and passesSpellGroupFilter(spell.spellGroup)
 
 			if passes then
 				if spell.premium and not filters.premiumFilter then
@@ -1315,7 +1343,7 @@ local function updateRuneSpellUI(spell)
 	local runeGroupValue = UI:recursiveGetChildById("runeGroupValue")
 
 	if runeGroupValue then
-		runeGroupValue:setText(spell.spellGroup or "-")
+		runeGroupValue:setText(spell.conjureSpellGroup or spell.spellGroup or "-")
 	end
 
 	local runeRestrictionValue = UI:recursiveGetChildById("runeRestrictionValue")
@@ -1333,13 +1361,13 @@ local function updateRuneSpellUI(spell)
 	local runeCooldownValue = UI:recursiveGetChildById("runeCooldownValue")
 
 	if runeCooldownValue then
-		runeCooldownValue:setText(formatCooldown(spell.cooldown))
+		runeCooldownValue:setText(formatCooldown(spell.conjureCooldown or spell.cooldown))
 	end
 
 	local runeGroupCooldownValue = UI:recursiveGetChildById("runeGroupCooldownValue")
 
 	if runeGroupCooldownValue then
-		runeGroupCooldownValue:setText(formatCooldown(spell.groupCooldown))
+		runeGroupCooldownValue:setText(formatCooldown(spell.conjureGroupCooldown or spell.groupCooldown))
 	end
 
 	createVocationIcons(UI:recursiveGetChildById("runeVocationsPanel"), spell.vocations, true)
@@ -1474,7 +1502,7 @@ function updateSpellListUI()
 
 			if lockedMask then
 				local isLevelLocked = spell.level and playerLevel < spell.level
-				local isVocationLocked = not spellMatchesBaseVocation(spell.vocations, normalizeBaseVocation(playerVocation))
+				local isVocationLocked = not spellMatchesBaseVocation(getSpellVocationsForPlayer(spell), normalizeBaseVocation(playerVocation))
 
 				lockedMask:setVisible(isLevelLocked or isVocationLocked)
 			end

@@ -60,7 +60,11 @@ local function getEffectCycleDuration(effectId)
 	end
 
 	local ok2, dur = pcall(function()
-		return thingType:getIdleAnimationDuration()
+		if thingType.getEffectAnimationDuration then
+			return thingType:getEffectAnimationDuration(effectId)
+		end
+
+		return 0
 	end)
 
 	if ok2 and dur and dur > 0 then
@@ -75,7 +79,13 @@ local function getEffectCycleDuration(effectId)
 		return PREVIEW_EFFECT_DURATION
 	end
 
-	return math.max(100, phases * PREVIEW_EFFECT_TICKS_PER_FRAME)
+	local ticksPerFrame = PREVIEW_EFFECT_TICKS_PER_FRAME
+
+	if effectId == 33 then
+		ticksPerFrame = ticksPerFrame * 4
+	end
+
+	return math.max(100, phases * ticksPerFrame)
 end
 
 local function getPreviewThingPixelSize(thingId, thingCategory)

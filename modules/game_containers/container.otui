@@ -38,6 +38,7 @@ ContainerWindow < MiniWindow
     UIWidget
       id: quickloot
       visible: false
+      size: 7 9
       anchors.bottom: parent.bottom
       anchors.right: parent.right
       image-source: /modules/game_quickloot/images/icon-loot-container.png
