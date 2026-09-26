@@ -744,21 +744,22 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<ThingType>("getNumPatternY", &ThingType::getNumPatternY);
     g_lua.bindClassMemberFunction<ThingType>("getNumPatternZ", &ThingType::getNumPatternZ);
     g_lua.bindClassMemberFunction<ThingType>("getAnimationPhases", &ThingType::getAnimationPhases);
-    g_lua.bindClassMemberFunction<ThingType>("getEffectAnimationDuration", [](const ThingTypePtr& thingType, const int clientId) {
-        if (!thingType)
-            return 0;
+    g_lua.registerClassMemberFunction(stdext::demangle_class<ThingType>(), "getEffectAnimationDuration",
+        luabinder::bind_fun([](const ThingTypePtr& thingType, const int clientId) {
+            if (!thingType)
+                return 0;
 
-        if (g_game.getFeature(Otc::GameEnhancedAnimations)) {
-            if (const auto* animator = thingType->getIdleAnimator())
-                return static_cast<int>(animator->getTotalDuration());
-        }
+            if (g_game.getFeature(Otc::GameEnhancedAnimations)) {
+                if (const auto* animator = thingType->getIdleAnimator())
+                    return static_cast<int>(animator->getTotalDuration());
+            }
 
-        int ticks = g_gameConfig.getEffectTicksPerFrame();
-        if (clientId == 33)
-            ticks <<= 2;
+            int ticks = g_gameConfig.getEffectTicksPerFrame();
+            if (clientId == 33)
+                ticks <<= 2;
 
-        return ticks * thingType->getAnimationPhases();
-    });
+            return ticks * thingType->getAnimationPhases();
+        }));
     g_lua.bindClassMemberFunction<ThingType>("getGroundSpeed", &ThingType::getGroundSpeed);
     g_lua.bindClassMemberFunction<ThingType>("getMaxTextLength", &ThingType::getMaxTextLength);
     g_lua.bindClassMemberFunction<ThingType>("getLight", &ThingType::getLight);
