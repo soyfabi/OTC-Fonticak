@@ -338,6 +338,7 @@ namespace Proto
         ClientCancelAttackAndFollow = 190,
         ClientForgeEnter = 191,
         ClientForgeBrowseHistory = 192,
+        ClientSelectSpellAim = 200, // 0xC8 — per-spell aim-at-target (Magical Archive)
         ClientUpdateTile = 201,
         ClientRefreshContainer = 202, // > 11.00 ClientExivaRestrictions 
         ClientBrowseField = 203,

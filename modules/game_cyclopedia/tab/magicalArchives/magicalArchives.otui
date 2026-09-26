@@ -1,0 +1,857 @@
+&var-cip-font-new: Verdana Bold-11px
+
+MagicalArchivesSpellListItem < UIWidget
+  size: 142 22
+  background-color: alpha
+  focusable: false
+
+  UIWidget
+    id: spellIcon
+    size: 20 20
+    image-size: 20 20
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 2
+
+  UIWidget
+    id: lockedMask
+    size: 20 20
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 2
+    image-source: /images/ui/ditherpattern
+    image-clip: 0 0 20 20
+    visible: false
+    phantom: true
+
+  Label
+    id: spellName
+    anchors.left: spellIcon.right
+    anchors.verticalCenter: parent.verticalCenter
+    anchors.right: parent.right
+    margin-left: 2
+    font: $var-cip-font-new
+    color: #c0c0c0
+    text-auto-resize: true
+
+MagicalArchivesVocationIcon < UIWidget
+  size: 9 9
+  image-source: /images/icons/icons-vocations
+  phantom: true
+
+MagicalArchivesTabButton < UIButton
+  checkable: true
+  font: $var-cip-font-new
+  color: #c0c0c0
+  size: 159 36
+  image-clip: 0 0 159 36
+  image-size: 159 36
+
+  $!on:
+    image-clip: 0 0 159 36
+    image-size: 159 36
+
+  $on:
+    color: #ffffff
+    image-clip: 0 36 159 36
+    image-size: 159 36
+
+  $pressed:
+    image-clip: 0 36 159 36
+    image-size: 159 36
+
+MagicalArchivesValueLabel < Label
+  font: $var-cip-font-new
+  color: #c0c0c0
+  text-auto-resize: true
+
+MagicalArchivesTitleLabel < Label
+  font: $var-cip-font-new
+  color: #c0c0c0
+  text-auto-resize: true
+
+MagicalArchivesSearchEdit < Panel
+  focusable: false
+
+  TextEdit
+    id: SearchEdit
+    anchors.fill: parent
+    focusable: true
+    font: $var-cip-font-new
+    padding: 2 20 2 4
+    placeholder: Type to search
+    placeholder-color: #6E706F
+
+  UIWidget
+    id: SearchClearButton
+    size: 18 18
+    anchors.right: parent.right
+    anchors.verticalCenter: parent.verticalCenter
+    margin-right: 1
+    image-source: /images/ui/button-erase-18x18-up
+    $pressed:
+      image-source: /images/ui/button-erase-18x18-down
+
+UIWidget
+  id: Cat5
+  anchors.fill: parent
+  visible: false
+
+  UIWidget
+    id: InformationBase
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 10
+    size: 170 415
+
+    MiniPanel
+      id: selectSpell
+      anchors.fill: parent
+      image-border: 10
+      font: $var-cip-font-new
+      !text: tr('Select Spell')
+      padding: 5
+      text-offset: 0 2
+      layout:
+        type: anchor
+
+      Panel
+        id: spellListPanel
+        anchors.fill: parent
+        layout:
+          type: anchor
+
+        UIButton
+          id: filterBtn
+          checkable: true
+          anchors.top: parent.top
+          anchors.left: parent.left
+          margin-top: 17
+          size: 160 19
+          image-source: /images/ui/t2pixel-up-frame-borderimage
+          image-border: 2
+          image-border-top: 17
+          icon-source: /game_cyclopedia/images/button-arrow-down
+          icon-clip: 0 0 12 12
+          icon-size: 12 12
+          icon-align: topRight
+          icon-offset: 145 3
+          font: $var-cip-font-new
+          text:
+          color: #909090
+          text-offset: 0 -1
+          layout:
+            type: anchor
+
+          $on:
+            icon-clip: 0 12 12 12
+
+          $pressed !disabled:
+            icon-clip: 0 12 12 12
+
+          Label
+            id: filterTitle
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: parent.right
+            margin-top: 0
+            height: 17
+            !text: tr('Filter')
+            font: $var-cip-font-new
+            color: #909090
+            text-align: center
+            phantom: true
+
+        Panel
+          id: spellListContainer
+          anchors.top: filterBtn.bottom
+          anchors.left: parent.left
+          margin-top: 6
+          size: 160 339
+          image-source: /images/ui/1pixel-down-frame
+          image-border: 3
+          layout:
+            type: anchor
+
+          ScrollablePanel
+            id: spellList
+            anchors.fill: parent
+            vertical-scrollbar: spellListScrollBar
+            padding: 1
+            layout:
+              type: verticalBox
+              spacing: 0
+
+          VerticalQtScrollBar
+            id: spellListScrollBar
+            anchors.top: parent.top
+            anchors.bottom: parent.bottom
+            anchors.right: parent.right
+            step: 24
+            margin: 1 1 1 0
+            pixels-scroll: true
+
+        Panel
+          id: searchPanel
+          anchors.top: spellListContainer.bottom
+          anchors.left: parent.left
+          margin-top: 6
+          size: 160 20
+
+          MagicalArchivesSearchEdit
+            id: searchEdit
+            anchors.fill: parent
+
+  MiniPanel
+    id: spellAndRune
+    !text: tr('Spell/Rune Information')
+    font: $var-cip-font-new
+    anchors.top: InformationBase.top
+    anchors.left: InformationBase.right
+    text-offset: 0 2
+    margin-left: 6
+    size: 493 415
+    padding: 5
+    layout:
+      type: anchor
+
+    UIWidget
+      id: emptyState
+      anchors.centerIn: parent
+      visible: true
+
+      Label
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.top: parent.top
+        !text: tr('Select a spell to view detailed information.')
+        text-align: center
+        text-auto-resize: true
+        font: $var-cip-font-new
+        color: #909090
+
+    UIWidget
+      id: spellDetails
+      anchors.fill: parent
+      margin-top: 12
+      visible: false
+      layout:
+        type: anchor
+
+      UIWidget
+        id: headerPanel
+        anchors.top: parent.top
+        anchors.left: parent.left
+        size: 483 44
+        margin-top: 5
+        image-source: /images/ui/2pixel_up_frame_borderimage
+        image-border: 2
+
+        UIWidget
+          id: spellIconFrame
+          anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
+          margin-left: 5
+          size: 34 34
+          image-source: /images/ui/1pixel-down-frame
+          image-border: 3
+
+          UIWidget
+            id: spellIcon
+            anchors.centerIn: parent
+            size: 32 32
+            image-size: 32 32
+
+        Label
+          id: spellName
+          anchors.left: spellIconFrame.right
+          anchors.top: parent.top
+          anchors.right: vocationPanel.left
+          margin-left: 5
+          margin-top: 6
+          font: $var-cip-font-new
+          color: #c0c0c0
+          text-auto-resize: true
+
+        Label
+          id: spellWords
+          anchors.left: spellIconFrame.right
+          anchors.top: spellName.bottom
+          anchors.right: parent.right
+          margin-left: 5
+          margin-top: 8
+          font: $var-cip-font-new
+          color: #c0c0c0
+          text-auto-resize: true
+
+        Panel
+          id: vocationPanel
+          anchors.top: parent.top
+          anchors.right: parent.right
+          margin-top: 8
+          margin-right: 5
+          size: 65 9
+
+        Label
+          id: spellLevel
+          anchors.right: parent.right
+          anchors.bottom: parent.bottom
+          margin-bottom: 6
+          margin-right: 7
+          font: $var-cip-font-new
+          color: #c0c0c0
+          text-auto-resize: true
+
+      UIWidget
+        id: detailsFrame
+        anchors.top: headerPanel.bottom
+        anchors.left: parent.left
+        margin-top: 6
+        size: 483 339
+        image-source: /images/ui/2pixel_up_frame_borderimage
+        image-border: 2
+        phantom: true
+
+      Panel
+        id: tabsPanel
+        anchors.top: detailsFrame.top
+        anchors.left: detailsFrame.left
+        margin-top: 2
+        margin-left: 2
+        size: 479 38
+        image-source: /images/ui/1pixel-down-frame
+        image-border: 3
+
+        UIWidget
+          anchors.fill: parent
+          margin: 1
+          image-source: /images/ui/background_dark
+          image-repeated: true
+          phantom: true
+
+        MagicalArchivesTabButton
+          id: combatStatsTab
+          anchors.left: parent.left
+          anchors.top: parent.top
+          margin-left: 1
+          margin-top: 1
+          image-source: /images/game/cyclopedia/button-magical-combat-stats
+          on: true
+
+        MagicalArchivesTabButton
+          id: additionalTab
+          anchors.left: parent.left
+          anchors.top: parent.top
+          margin-left: 160
+          margin-top: 1
+          image-source: /images/game/cyclopedia/button-magical-additional
+
+        MagicalArchivesTabButton
+          id: runeSpellTab
+          anchors.left: parent.left
+          anchors.top: parent.top
+          margin-left: 319
+          margin-top: 1
+          image-source: /images/game/cyclopedia/button-magical-rune-spell
+          visible: false
+
+      Panel
+        id: combatStatsContent
+        anchors.top: tabsPanel.bottom
+        anchors.left: detailsFrame.left
+        margin-top: 11
+        margin-left: 7
+        size: 472 283
+        layout:
+          type: anchor
+
+        UIWidget
+          id: titlesLeft
+          anchors.top: parent.top
+          anchors.left: parent.left
+          size: 117 78
+          image-source: /images/ui/1pixel-down-frame
+          image-border: 3
+          padding: 5
+          padding-left: 4
+          layout:
+            type: verticalBox
+            spacing: 5
+
+          MagicalArchivesTitleLabel
+            !text: tr('Mana')
+
+          MagicalArchivesTitleLabel
+            !text: tr('Spell group')
+
+          MagicalArchivesTitleLabel
+            !text: tr('Base Power')
+
+          MagicalArchivesTitleLabel
+            !text: tr('Scales with')
+
+        UIWidget
+          id: valuesLeft
+          anchors.top: parent.top
+          anchors.left: titlesLeft.right
+          margin-left: 1
+          size: 118 78
+          image-source: /images/ui/1pixel-down-frame
+          image-border: 3
+          padding: 5
+          padding-left: 4
+          layout:
+            type: verticalBox
+            spacing: 5
+
+          MagicalArchivesValueLabel
+            id: manaValue
+            text: -
+
+          MagicalArchivesValueLabel
+            id: groupValue
+            text: -
+
+          MagicalArchivesValueLabel
+            id: powerValue
+            text: -
+
+          MagicalArchivesValueLabel
+            id: scalesValue
+            text: -
+
+        UIWidget
+          id: titlesRight
+          anchors.top: parent.top
+          anchors.left: valuesLeft.right
+          margin-left: 1
+          size: 117 78
+          image-source: /images/ui/1pixel-down-frame
+          image-border: 3
+          padding: 5
+          padding-left: 4
+          layout:
+            type: verticalBox
+            spacing: 5
+
+          MagicalArchivesTitleLabel
+            !text: tr('Cooldown')
+
+          MagicalArchivesTitleLabel
+            !text: tr('Group Cooldown')
+
+          MagicalArchivesTitleLabel
+            !text: tr('Magic Type')
+
+          MagicalArchivesTitleLabel
+            !text: tr('Range')
+
+        UIWidget
+          id: valuesRight
+          anchors.top: parent.top
+          anchors.left: titlesRight.right
+          margin-left: 1
+          size: 117 78
+          image-source: /images/ui/1pixel-down-frame
+          image-border: 3
+          padding: 5
+          padding-left: 4
+          layout:
+            type: verticalBox
+            spacing: 5
+
+          MagicalArchivesValueLabel
+            id: cooldownValue
+            text: -
+
+          MagicalArchivesValueLabel
+            id: groupCooldownValue
+            text: -
+
+          MagicalArchivesValueLabel
+            id: typeValue
+            text: -
+
+          MagicalArchivesValueLabel
+            id: rangeValue
+            text: -
+
+        UIWidget
+          id: spellPreviewFrame
+          anchors.top: titlesLeft.bottom
+          anchors.left: parent.left
+          margin-top: 6
+          size: 469 199
+          image-source: /images/ui/1pixel-down-frame
+          image-border: 1
+          visible: false
+
+      Panel
+        id: additionalContent
+        anchors.top: tabsPanel.bottom
+        anchors.left: detailsFrame.left
+        margin-top: 11
+        margin-left: 7
+        size: 470 278
+        visible: false
+        layout:
+          type: anchor
+
+        UIWidget
+          id: sourceLabelFrame
+          anchors.top: parent.top
+          anchors.left: parent.left
+          size: 80 24
+          image-source: /images/ui/1pixel-down-frame
+          image-border: 3
+          padding: 4
+
+          MagicalArchivesTitleLabel
+            id: sourceLabel
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            !text: tr('Source')
+
+        UIWidget
+          id: sourceValueFrame
+          anchors.top: parent.top
+          anchors.left: sourceLabelFrame.right
+          margin-left: 1
+          size: 389 24
+          image-source: /images/ui/1pixel-down-frame
+          image-border: 3
+          padding: 4
+
+          MagicalArchivesValueLabel
+            id: sourceValue
+            anchors.left: parent.left
+            anchors.verticalCenter: parent.verticalCenter
+            text: -
+
+        UIWidget
+          id: descriptionFrame
+          anchors.top: sourceLabelFrame.bottom
+          anchors.left: parent.left
+          margin-top: 6
+          size: 469 253
+          image-source: /images/ui/1pixel-down-frame
+          image-border: 3
+          padding: 1
+          layout:
+            type: anchor
+
+          ScrollablePanel
+            id: descriptionScroll
+            anchors.top: parent.top
+            anchors.left: parent.left
+            anchors.right: descriptionScrollBar.left
+            anchors.bottom: parent.bottom
+            vertical-scrollbar: descriptionScrollBar
+            padding-left: 4
+            padding-top: 5
+            padding-bottom: 5
+            padding-right: 12
+
+            MagicalArchivesValueLabel
+              id: descriptionValue
+              anchors.top: parent.top
+              anchors.left: parent.left
+              anchors.right: parent.right
+              text-wrap: true
+              text-auto-resize: true
+              text: -
+
+          VerticalQtScrollBar
+            id: descriptionScrollBar
+            anchors.top: parent.top
+            anchors.right: parent.right
+            anchors.bottom: parent.bottom
+            step: 16
+            pixels-scroll: true
+
+      Panel
+        id: runeSpellContent
+        anchors.top: tabsPanel.bottom
+        anchors.left: detailsFrame.left
+        margin-top: 11
+        margin-left: 7
+        size: 472 78
+        visible: false
+        layout:
+          type: anchor
+
+        UIWidget
+          id: runeTitlesLeft
+          anchors.top: parent.top
+          anchors.left: parent.left
+          size: 117 78
+          image-source: /images/ui/1pixel-down-frame
+          image-border: 3
+          padding: 5
+          padding-left: 4
+          layout:
+            type: verticalBox
+            spacing: 5
+
+          MagicalArchivesTitleLabel
+            !text: tr('Mana / SP')
+
+          MagicalArchivesTitleLabel
+            !text: tr('Spell group')
+
+          MagicalArchivesTitleLabel
+            !text: tr('Restriction')
+
+          MagicalArchivesTitleLabel
+            !text: tr('Amount')
+
+        UIWidget
+          id: runeValuesLeft
+          anchors.top: parent.top
+          anchors.left: runeTitlesLeft.right
+          margin-left: 1
+          size: 118 78
+          image-source: /images/ui/1pixel-down-frame
+          image-border: 3
+          padding: 5
+          padding-left: 4
+          layout:
+            type: verticalBox
+            spacing: 5
+
+          MagicalArchivesValueLabel
+            id: runeManaValue
+            text: -
+
+          MagicalArchivesValueLabel
+            id: runeGroupValue
+            text: -
+
+          MagicalArchivesValueLabel
+            id: runeRestrictionValue
+            text: -
+
+          MagicalArchivesValueLabel
+            id: runeAmountValue
+            text: -
+
+        UIWidget
+          id: runeTitlesRight
+          anchors.top: parent.top
+          anchors.left: runeValuesLeft.right
+          margin-left: 1
+          size: 117 78
+          image-source: /images/ui/1pixel-down-frame
+          image-border: 3
+          padding: 5
+          padding-left: 4
+          layout:
+            type: verticalBox
+            spacing: 5
+
+          MagicalArchivesTitleLabel
+            !text: tr('Cooldown')
+
+          MagicalArchivesTitleLabel
+            !text: tr('Group Cooldown')
+
+          MagicalArchivesTitleLabel
+            !text: tr('Vocations')
+
+        UIWidget
+          id: runeValuesRight
+          anchors.top: parent.top
+          anchors.left: runeTitlesRight.right
+          margin-left: 1
+          size: 117 78
+          image-source: /images/ui/1pixel-down-frame
+          image-border: 3
+          padding: 5
+          padding-left: 4
+          layout:
+            type: verticalBox
+            spacing: 5
+
+          MagicalArchivesValueLabel
+            id: runeCooldownValue
+            text: -
+
+          MagicalArchivesValueLabel
+            id: runeGroupCooldownValue
+            text: -
+
+          Panel
+            id: runeVocationsPanel
+            size: 45 9
+
+  Button
+    id: assignSpellBtn
+    !text: tr('Assign Spell to Action Bar')
+    anchors.bottom: parent.bottom
+    anchors.left: InformationBase.left
+    size: 169 20
+    text-offset: 0 0
+
+  CheckBox
+    id: aimTargetBox
+    !text: tr('Aim at Target')
+    !tooltip: tr('When enabled, directional spells will aim towards your target instead of straight ahead.')
+    anchors.left: assignSpellBtn.right
+    anchors.verticalCenter: assignSpellBtn.verticalCenter
+    margin-left: 6
+    width: 110
+    font: $var-cip-font-new
+    color: #c0c0c0
+    text-offset: 15 0
+    visible: false
+
+MagicalArchivesFilterPopupCheckBox < CheckBox
+  font: $var-cip-font-new
+  color: #c0c0c0
+  text-offset: 15 -1
+  height: 16
+
+  $hover !disabled:
+    color: #ffffff
+
+MagicalArchivesFilterPopup < Panel
+  id: filterPopup
+  width: 156
+  height: 337
+  background-color: alpha
+  phantom: false
+  layout:
+    type: verticalBox
+    spacing: 2
+
+  MagicalArchivesFilterPopupCheckBox
+    id: charVocationFilter
+    !text: tr('Character Vocation')
+    checked: true
+
+  MagicalArchivesFilterPopupCheckBox
+    id: charLevelFilter
+    !text: tr('Character Level')
+    checked: false
+
+  MagicalArchivesFilterPopupCheckBox
+    id: learntSpellsFilter
+    !text: tr('Learnt Spells')
+    checked: false
+
+  UIWidget
+    height: 2
+    margin-bottom: 3
+    layout:
+      type: anchor
+
+    HorizontalSeparator
+      anchors.top: parent.top
+      anchors.left: parent.left
+      width: 146
+      height: 2
+
+  MagicalArchivesFilterPopupCheckBox
+    id: druidFilter
+    !text: tr('Druid')
+    checked: true
+
+  MagicalArchivesFilterPopupCheckBox
+    id: knightFilter
+    !text: tr('Knight')
+    checked: true
+
+  MagicalArchivesFilterPopupCheckBox
+    id: paladinFilter
+    !text: tr('Paladin')
+    checked: true
+
+  MagicalArchivesFilterPopupCheckBox
+    id: sorcererFilter
+    !text: tr('Sorcerer')
+    checked: true
+
+  MagicalArchivesFilterPopupCheckBox
+    id: monkFilter
+    !text: tr('Monk')
+    checked: true
+
+  MagicalArchivesFilterPopupCheckBox
+    id: allVocationsFilter
+    !text: tr('All Vocations')
+    checked: true
+
+  UIWidget
+    height: 2
+    margin-bottom: 3
+    layout:
+      type: anchor
+
+    HorizontalSeparator
+      anchors.top: parent.top
+      anchors.left: parent.left
+      width: 146
+      height: 2
+
+  MagicalArchivesFilterPopupCheckBox
+    id: attackFilter
+    !text: tr('Attack')
+    checked: true
+
+  MagicalArchivesFilterPopupCheckBox
+    id: healingFilter
+    !text: tr('Healing')
+    checked: true
+
+  MagicalArchivesFilterPopupCheckBox
+    id: supportFilter
+    !text: tr('Support')
+    checked: true
+
+  MagicalArchivesFilterPopupCheckBox
+    id: allSpellGroupsFilter
+    !text: tr('All Spell Groups')
+    checked: true
+
+  UIWidget
+    height: 2
+    margin-bottom: 3
+    layout:
+      type: anchor
+
+    HorizontalSeparator
+      anchors.top: parent.top
+      anchors.left: parent.left
+      width: 146
+      height: 2
+
+  MagicalArchivesFilterPopupCheckBox
+    id: premiumFilter
+    !text: tr('Premium Account')
+    checked: true
+
+  MagicalArchivesFilterPopupCheckBox
+    id: freeFilter
+    !text: tr('Free Account')
+    checked: true
+
+  UIWidget
+    height: 2
+    margin-bottom: 3
+    layout:
+      type: anchor
+
+    HorizontalSeparator
+      anchors.top: parent.top
+      anchors.left: parent.left
+      width: 146
+      height: 2
+
+  MagicalArchivesFilterPopupCheckBox
+    id: runeSpellsFilter
+    !text: tr('Rune Spells')
+    checked: true
+
+  MagicalArchivesFilterPopupCheckBox
+    id: instantSpellsFilter
+    !text: tr('Instant Spells')
+    checked: true

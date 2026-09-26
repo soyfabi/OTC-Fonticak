@@ -390,7 +390,6 @@ local function setupSearch()
       end
       if focused then
         widget:setCursorVisible(true)
-        widget:setCursorPos(-1)
         widget:blinkCursor()
         updateSearchCaret()
         widget:grabKeyboard()
@@ -400,24 +399,26 @@ local function setupSearch()
         widget:ungrabKeyboard()
       end
     end
+
     searchText.onMousePress = function(widget, mousePos, button)
       if button == MouseLeftButton then
         widget:focus()
-        widget:setCursorVisible(true)
-        widget:blinkCursor()
         widget:grabKeyboard()
-        scheduleEvent(function()
-          if widget and not widget:isDestroyed() then
-            widget:focus()
-            widget:setCursorVisible(true)
-            widget:blinkCursor()
-            updateSearchCaret()
-          end
-        end)
       end
+
       return false
     end
-    searchText.onKeyPress = function()
+
+    searchText.onKeyDown = function(widget, keyCode, keyboardModifiers)
+      if keyboardModifiers ~= KeyboardNoModifier then
+        return false
+      end
+
+      if keyCode == KeyEscape then
+        releaseSearchFocus()
+        return true
+      end
+
       scheduleEvent(updateSearchCaret)
       return false
     end
@@ -430,6 +431,10 @@ local function setupSearch()
     end
 
     t_spelllist.onFocusChange = function(widget, focused)
+      if not focused and searchText and not searchText:isDestroyed() and searchText:isFocused() then
+        return
+      end
+
       if not focused then
         releaseSearchFocus()
       end
@@ -888,7 +893,8 @@ function matchFilter(spell)
     return true
   end
   if getSpellOption('showOnlyCurrentVocation') then
-    if spell.vocations and not table.contains(spell.vocations, player:getVocation()) then
+    if spell.vocations and Spells and Spells.spellMatchesVocation
+        and not Spells.spellMatchesVocation(spell.vocations, player:getVocation()) then
       return false
     end
   end

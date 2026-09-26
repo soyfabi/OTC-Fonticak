@@ -1026,6 +1026,7 @@ function init()
 		map = buttonSelection:recursiveGetChildById('map')
 		houses = buttonSelection:recursiveGetChildById('houses')
 		character = buttonSelection:recursiveGetChildById('character')
+		magicalArchives = buttonSelection:recursiveGetChildById('magicalArchives')
 
 	if character and g_game.requestCharacterInfo then
 		character:setVisible(true)
@@ -1063,7 +1064,14 @@ function terminate()
 	if Cyclopedia and Cyclopedia.clearMapUI then
 		Cyclopedia.clearMapUI()
 	end
-	
+	if Cyclopedia.clearMagicalArchivesUI then
+		Cyclopedia.clearMagicalArchivesUI()
+	end
+
+	if Cyclopedia.uninstallSpellAimTalkHook then
+		Cyclopedia.uninstallSpellAimTalkHook()
+	end
+
 	-- Hooked opcodes
 	ProtocolGame.unregisterOpcode(0x29)
 	if terminateBestiary then
@@ -1147,6 +1155,9 @@ function onCyclopediaGameEnd()
 	if Cyclopedia and Cyclopedia.clearMapUI then
 		Cyclopedia.clearMapUI()
 	end
+	if Cyclopedia.clearMagicalArchivesUI then
+		Cyclopedia.clearMagicalArchivesUI()
+	end
 	if window then
 		window:hide()
 	end
@@ -1158,9 +1169,38 @@ function onCyclopediaGameEnd()
 	end
 end
 
+local function releaseCyclopediaKeyboardCapture()
+	if Cyclopedia.releaseMagicalArchivesInput then
+		Cyclopedia.releaseMagicalArchivesInput()
+	end
+
+	if window and not window:isDestroyed() then
+		pcall(function()
+			window:ungrabKeyboard()
+		end)
+	end
+
+	local root = modules.game_interface and modules.game_interface.getRootPanel and modules.game_interface.getRootPanel()
+
+	if root and not root:isDestroyed() and root.focus then
+		root:focus()
+	end
+end
+
+function hide()
+	if not window or not window:isVisible() then
+		return
+	end
+
+	setItemsTabLayout(false)
+	releaseCyclopediaKeyboardCapture()
+	window:hide()
+end
+
 function toggle(type)
 	if window:isVisible() and not type then
 		setItemsTabLayout(false)
+		releaseCyclopediaKeyboardCapture()
 		window:hide()
 	else
 		if not window:isVisible() then
@@ -1218,6 +1258,10 @@ function show(type)
 
 	window:raise()
 	window:focus()
+
+	if type == "magicalArchives" and Cyclopedia.releaseMagicalArchivesInput then
+		Cyclopedia.releaseMagicalArchivesInput()
+	end
 end
 
 function Cyclopedia.openBestiaryMonster(raceId)
@@ -1267,7 +1311,7 @@ function toggleTracker()
 end
 
 local function getCyclopediaTabButtons()
-	return { items, bestiary, charms, map, houses, character }
+	return { items, bestiary, charms, map, houses, character, magicalArchives }
 end
 
 local function resetCyclopediaTabButtons()
@@ -1332,6 +1376,8 @@ function ensureCyclopediaTabContent(type)
 		elseif initMap then
 			initMap(contentContainer)
 		end
+	elseif type == "magicalArchives" and showMagicalArchives then
+		showMagicalArchives()
 	end
 
 	if Cyclopedia.setGoldBaseForTab then
@@ -1352,6 +1398,10 @@ function toggleWindow(type, isBackNavigation)
 
 	if currentType == "character" and Cyclopedia.clearCharacterUI then
 		Cyclopedia.clearCharacterUI()
+	end
+
+	if currentType == "magicalArchives" and Cyclopedia.clearMagicalArchivesUI then
+		Cyclopedia.clearMagicalArchivesUI()
 	end
 
 	if not isBackNavigation and currentType then
@@ -1405,6 +1455,11 @@ function toggleWindow(type, isBackNavigation)
 		activateTab(character)
 		if showCharacter then
 			showCharacter()
+		end
+	elseif (type == "magicalArchives") then
+		activateTab(magicalArchives)
+		if showMagicalArchives then
+			showMagicalArchives()
 		end
 	end
 

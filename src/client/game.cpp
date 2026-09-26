@@ -1149,6 +1149,16 @@ void Game::talk(const std::string_view message)
     if (!canPerformGameAction() || message.empty())
         return;
 
+    const std::string msg{ message };
+    const int deferMs = g_lua.callGlobalField<int>("g_game", "onBeforeSpellTalk", msg);
+    if (deferMs > 0) {
+        g_dispatcher.scheduleEvent([this, msg] {
+            if (canPerformGameAction())
+                talkChannel(Otc::MessageSay, 0, msg);
+        }, deferMs);
+        return;
+    }
+
     talkChannel(Otc::MessageSay, 0, message);
 }
 
@@ -2058,6 +2068,14 @@ void Game::sendForgeBrowseHistoryRequest(uint16_t page)
     if (!canPerformGameAction())
         return;
     m_protocolGame->sendForgeBrowseHistoryRequest(page);
+}
+
+void Game::sendSelectSpellAim(const std::vector<uint16_t>& spellIds, bool enabled)
+{
+    if (!m_protocolGame || !m_protocolGame->isConnected())
+        return;
+
+    m_protocolGame->sendSelectSpellAim(spellIds, enabled);
 }
 
 void Game::sendExivaOptions(

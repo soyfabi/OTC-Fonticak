@@ -1299,3 +1299,157 @@ function refreshBottomCooldownDock()
         modules.game_interface.applyBottomSplitterLayoutHeight()
     end
 end
+
+cyclopediaSpellAssign = nil
+local cyclopediaSpellAssignReturnWindow
+local cyclopediaSpellAssignTargetCursorActive = false
+local cyclopediaSpellAssignSessionId = 0
+local cyclopediaSpellAssignDeferredShowEvent
+
+local function applyCyclopediaSpellAssignCursor(sessionId)
+    if sessionId ~= cyclopediaSpellAssignSessionId or not cyclopediaSpellAssign then
+        return
+    end
+
+    if modules.client_options and modules.client_options.getOption('nativeCursor') then
+        g_window.setSystemCursor('cross')
+        return
+    end
+
+    if not cyclopediaSpellAssignTargetCursorActive then
+        if g_mouse.pushCursor('target') then
+            cyclopediaSpellAssignTargetCursorActive = true
+        end
+    end
+end
+
+local function popCyclopediaSpellAssignCursor()
+    if modules.client_options and modules.client_options.getOption('nativeCursor') then
+        g_window.restoreMouseCursor()
+    elseif cyclopediaSpellAssignTargetCursorActive then
+        g_mouse.popCursor('target')
+    end
+
+    cyclopediaSpellAssignTargetCursorActive = false
+end
+
+local function cancelCyclopediaSpellAssignDeferredShow()
+    if cyclopediaSpellAssignDeferredShowEvent then
+        removeEvent(cyclopediaSpellAssignDeferredShowEvent)
+        cyclopediaSpellAssignDeferredShowEvent = nil
+    end
+end
+
+local function clearCyclopediaSpellAssignGrabberHooks()
+    if not mouseGrabberWidget or mouseGrabberWidget:isDestroyed() then
+        return
+    end
+
+    mouseGrabberWidget.onMouseMove = nil
+end
+
+local function restoreActionBarMouseGrabber()
+    if not mouseGrabberWidget then
+        return
+    end
+
+    mouseGrabberWidget:ungrabMouse()
+    clearCyclopediaSpellAssignGrabberHooks()
+    popCyclopediaSpellAssignCursor()
+
+    if onDropActionButton then
+        mouseGrabberWidget.onMouseRelease = onDropActionButton
+    end
+end
+
+function isCyclopediaSpellSlotAssignActive()
+    return cyclopediaSpellAssign ~= nil
+end
+
+function finishCyclopediaSpellSlotAssign()
+    local returnWindow = cyclopediaSpellAssignReturnWindow
+
+    cyclopediaSpellAssignSessionId = cyclopediaSpellAssignSessionId + 1
+    cyclopediaSpellAssign = nil
+    cyclopediaSpellAssignReturnWindow = nil
+
+    cancelCyclopediaSpellAssignDeferredShow()
+    restoreActionBarMouseGrabber()
+
+    if returnWindow and modules.game_cyclopedia and modules.game_cyclopedia.show then
+        cyclopediaSpellAssignDeferredShowEvent = scheduleEvent(function()
+            cyclopediaSpellAssignDeferredShowEvent = nil
+            if not cyclopediaSpellAssign and modules.game_cyclopedia.show then
+                modules.game_cyclopedia.show(returnWindow)
+            end
+        end, 50)
+    end
+end
+
+function startCyclopediaSpellSlotAssign(spellName, spellWords, returnWindow)
+    local spell
+
+    if spellWords and spellWords ~= "" then
+        spell = Spells.getSpellByWords(spellWords)
+    end
+
+    if not spell and spellName and spellName ~= "" then
+        spell = Spells.getSpellByName(spellName)
+    end
+
+    if not spell or not mouseGrabberWidget or not gameRootPanel then
+        if modules.game_textmessage then
+            modules.game_textmessage.displayFailureMessage(tr("This spell cannot be assigned to the action bar."))
+        end
+
+        return false
+    end
+
+    if cyclopediaSpellAssign then
+        finishCyclopediaSpellSlotAssign()
+    end
+
+    cyclopediaSpellAssignSessionId = cyclopediaSpellAssignSessionId + 1
+    local sessionId = cyclopediaSpellAssignSessionId
+
+    cyclopediaSpellAssign = spell
+    cyclopediaSpellAssignReturnWindow = returnWindow
+
+    cancelCyclopediaSpellAssignDeferredShow()
+    mouseGrabberWidget:grabMouse()
+    applyCyclopediaSpellAssignCursor(sessionId)
+
+    mouseGrabberWidget.onMouseMove = function()
+        applyCyclopediaSpellAssignCursor(sessionId)
+    end
+
+    mouseGrabberWidget.onMouseRelease = function(self, mousePosition, mouseButton)
+        if not cyclopediaSpellAssign then
+            finishCyclopediaSpellSlotAssign()
+
+            return true
+        end
+
+        if mouseButton ~= MouseLeftButton then
+            finishCyclopediaSpellSlotAssign()
+
+            return true
+        end
+
+        local spellData = {
+            words = cyclopediaSpellAssign.words,
+            name = cyclopediaSpellAssign.name
+        }
+        local assigned = tryAssignSpellFromDrop and tryAssignSpellFromDrop(mousePosition, spellData)
+
+        if not assigned and modules.game_textmessage then
+            modules.game_textmessage.displayFailureMessage(tr("Select an action bar slot."))
+        end
+
+        finishCyclopediaSpellSlotAssign()
+
+        return true
+    end
+
+    return true
+end

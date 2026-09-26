@@ -1530,6 +1530,22 @@ void ProtocolGame::sendForgeRequest(Otc::ForgeAction_t actionType, bool converge
     send(msg);
 }
 
+void ProtocolGame::sendSelectSpellAim(const std::vector<uint16_t>& spellIds, bool enabled)
+{
+    if (spellIds.empty() || spellIds.size() > UINT8_MAX) {
+        return;
+    }
+
+    const auto& msg = std::make_shared<OutputMessage>();
+    msg->addU8(Proto::ClientSelectSpellAim);
+    msg->addU8(static_cast<uint8_t>(spellIds.size()));
+    for (const uint16_t id : spellIds) {
+        msg->addU16(id);
+        msg->addU8(enabled ? 1 : 0);
+    }
+    send(msg);
+}
+
 void ProtocolGame::sendForgeBrowseHistoryRequest(uint16_t page) {
     const auto& msg = std::make_shared<OutputMessage>();
     msg->addU8(Proto::ClientForgeBrowseHistory);

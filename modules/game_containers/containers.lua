@@ -58,12 +58,39 @@ local function registerLockerItemHelp(container, itemWidget, item)
     end
 end
 
+local QUICKLOOT_ICON_SOURCE = '/modules/game_quickloot/images/icon-loot-container.png'
+
+local function ensureQuickLootIcon(slotWidget)
+    if not slotWidget then
+        return nil
+    end
+
+    local icon = slotWidget.quickloot or slotWidget:getChildById('quickloot')
+    if icon then
+        return icon
+    end
+
+    icon = g_ui.createWidget('UIWidget', slotWidget)
+    icon:setId('quickloot')
+    icon:setPhantom(true)
+    icon:setFocusable(false)
+    icon:setVisible(false)
+    icon:setImageSource(QUICKLOOT_ICON_SOURCE)
+    icon:setImageSize({ width = 7, height = 9 })
+    icon:addAnchor(AnchorBottom, 'parent', AnchorBottom)
+    icon:addAnchor(AnchorRight, 'parent', AnchorRight)
+    icon:setMarginBottom(0)
+    icon:setMarginRight(0)
+
+    return icon
+end
+
 local function refreshContainerSlotQuickLootIcon(slotWidget, item)
     if not slotWidget then
         return
     end
 
-    local icon = slotWidget.quickloot or slotWidget:getChildById('quickloot')
+    local icon = ensureQuickLootIcon(slotWidget)
     if not icon then
         return
     end
@@ -87,12 +114,26 @@ local function refreshContainerSlotQuickLootIcon(slotWidget, item)
     icon:setTooltip(tooltip)
 end
 
+local function refreshContainerHeaderQuickLootIcon(container, containerWindow)
+    containerWindow = containerWindow or (container and container.window)
+    if not containerWindow or not container then
+        return
+    end
+
+    local containerItemWidget = containerWindow:getChildById('containerItemWidget')
+    if containerItemWidget then
+        refreshContainerSlotQuickLootIcon(containerItemWidget, container:getContainerItem())
+    end
+end
+
 function refreshAllContainerQuickLootIcons()
     if not g_game.getContainers then
         return
     end
 
     for _, container in pairs(g_game.getContainers()) do
+        refreshContainerHeaderQuickLootIcon(container)
+
         if container.itemsPanel then
             for slot = 0, container:getCapacity() - 1 do
                 local itemWidget = container.itemsPanel:getChildById('item' .. slot)
@@ -1101,6 +1142,7 @@ function onContainerOpen(container, previousContainer)
 
     container.window = containerWindow
     container.itemsPanel = containerPanel
+    refreshContainerHeaderQuickLootIcon(container, containerWindow)
 
     toggleContainerPages(containerWindow, container:hasPages())
     refreshContainerPages(container)
