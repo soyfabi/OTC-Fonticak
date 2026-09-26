@@ -347,6 +347,29 @@ UIWidget
     margin-right: 1
     focusable: false
 
+  Panel
+    id: chatHeightResizeControl
+    size: 40 14
+    anchors.horizontalCenter: gameBottomActionPanel.horizontalCenter
+    anchors.bottom: gameBottomStatsBarPanel.bottom
+    margin-bottom: 2
+    focusable: false
+    phantom: true
+    visible: false
+    image-source: /images/ui/background_dark
+    image-border: 2
+    image-repeated: true
+
+    Label
+      id: chatHeightPercentLabel
+      anchors.fill: parent
+      text-align: center
+      font: Verdana Bold-11px
+      color: #c0c0c0ff
+      !text: tr('100%%')
+      focusable: false
+      phantom: true
+
   Button
     id: leftIncreaseSidePanels
     anchors.left: gameLeftExtraPanel.right

@@ -23,6 +23,94 @@ countWindow = nil
 logoutWindow = nil
 exitWindow = nil
 bottomSplitter = nil
+chatHeightResizeControl = nil
+chatHeightPercentLabel = nil
+
+DEFAULT_BOTTOM_CHAT_MARGIN = 200
+local CHAT_HEIGHT_PERCENT_FADE_MS = 320
+local chatHeightPercentHideEvent = nil
+local chatHeightPercentSplitterDragging = false
+
+function getBottomChatHeightPercent()
+    if not bottomSplitter or bottomSplitter:isDestroyed() then
+        return 100
+    end
+    local margin = bottomSplitter:getMarginBottom()
+    if DEFAULT_BOTTOM_CHAT_MARGIN <= 0 then
+        return 100
+    end
+    return math.floor((margin / DEFAULT_BOTTOM_CHAT_MARGIN) * 100 + 0.5)
+end
+
+function updateChatHeightPercentLabel()
+    if not chatHeightPercentLabel or chatHeightPercentLabel:isDestroyed() then
+        return
+    end
+    chatHeightPercentLabel:setText(string.format('%d%%', getBottomChatHeightPercent()))
+end
+
+local function hideChatHeightPercentPanel()
+    if not chatHeightResizeControl or chatHeightResizeControl:isDestroyed() then
+        return
+    end
+    g_effects.cancelFade(chatHeightResizeControl)
+    g_effects.fadeOut(chatHeightResizeControl, CHAT_HEIGHT_PERCENT_FADE_MS)
+    removeEvent(chatHeightPercentHideEvent)
+    chatHeightPercentHideEvent = scheduleEvent(function()
+        if chatHeightResizeControl and not chatHeightResizeControl:isDestroyed()
+            and chatHeightResizeControl:getOpacity() <= 0.01 then
+            chatHeightResizeControl:setVisible(false)
+        end
+    end, CHAT_HEIGHT_PERCENT_FADE_MS + 40)
+end
+
+local function showChatHeightPercentPanel()
+    if not chatHeightResizeControl or chatHeightResizeControl:isDestroyed() then
+        return
+    end
+    removeEvent(chatHeightPercentHideEvent)
+    g_effects.cancelFade(chatHeightResizeControl)
+    updateChatHeightPercentLabel()
+    chatHeightResizeControl:setVisible(true)
+    chatHeightResizeControl:setOpacity(1)
+end
+
+local function refreshChatHeightPercentPanelWhileDragging()
+    if not chatHeightPercentSplitterDragging then
+        return
+    end
+    if not chatHeightResizeControl or chatHeightResizeControl:isDestroyed() then
+        return
+    end
+    g_effects.cancelFade(chatHeightResizeControl)
+    updateChatHeightPercentLabel()
+    if not chatHeightResizeControl:isVisible() then
+        chatHeightResizeControl:setVisible(true)
+    end
+    if chatHeightResizeControl:getOpacity() < 1 then
+        chatHeightResizeControl:setOpacity(1)
+    end
+end
+
+local function hookBottomSplitterChatHeightPercent()
+    if not bottomSplitter or bottomSplitter:isDestroyed() then
+        return
+    end
+    bottomSplitter.onMousePress = function(widget, mousePos, mouseButton)
+        if mouseButton == MouseLeftButton then
+            chatHeightPercentSplitterDragging = true
+            showChatHeightPercentPanel()
+        end
+    end
+    bottomSplitter.onMouseRelease = function(widget, mousePos, mouseButton)
+        if not chatHeightPercentSplitterDragging then
+            return
+        end
+        chatHeightPercentSplitterDragging = false
+        hideChatHeightPercentPanel()
+    end
+end
+
 limitedZoom = false
 currentViewMode = 0
 leftIncreaseSidePanels = nil
@@ -101,6 +189,13 @@ function init()
     mouseGrabberWidget.onMouseRelease = onMouseGrabberRelease
 
     bottomSplitter = gameRootPanel:getChildById('bottomSplitter')
+    chatHeightResizeControl = gameRootPanel:getChildById('chatHeightResizeControl')
+    if chatHeightResizeControl then
+        chatHeightPercentLabel = chatHeightResizeControl:getChildById('chatHeightPercentLabel')
+        chatHeightResizeControl:setVisible(false)
+        chatHeightResizeControl:setOpacity(0)
+        chatHeightResizeControl:raise()
+    end
     gameMapPanel = gameRootPanel:getChildById('gameMapPanel')
     gameMainRightPanel = gameRootPanel:getChildById('gameMainRightPanel')
     gameRightPanel = gameRootPanel:getChildById('gameRightPanel')
@@ -176,6 +271,7 @@ function init()
         show()
     end
 
+    hookBottomSplitterChatHeightPercent()
     StatsBar.init()
 end
 
@@ -373,6 +469,11 @@ function load()
         if settings.splitterMarginBottom then
             bottomSplitter:setMarginBottom(settings.splitterMarginBottom)
         end
+    end
+    updateChatHeightPercentLabel()
+    if chatHeightResizeControl and not chatHeightResizeControl:isDestroyed() then
+        chatHeightResizeControl:setVisible(false)
+        chatHeightResizeControl:setOpacity(0)
     end
 end
 
@@ -2232,6 +2333,8 @@ function bottomSplitterOnGeometryChange(splitter)
     if clamped ~= m then
         splitter:setMarginBottom(clamped)
     end
+    updateChatHeightPercentLabel()
+    refreshChatHeightPercentPanelWhileDragging()
 end
 
 function applyBottomSplitterLayoutHeight()
