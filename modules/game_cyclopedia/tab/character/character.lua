@@ -278,17 +278,6 @@ function Cyclopedia.applyCharacterOutfitWidgets()
 	Cyclopedia.refreshCharacterBaseCard()
 end
 
-local function formatPercentFraction(value, signed)
-	local percent = value * 100
-	local formatted = string.format("%.2f", percent)
-
-	if signed and percent > 0 then
-		return "+ " .. formatted .. "%"
-	end
-
-	return formatted .. "%"
-end
-
 local function formatPercentValue(value)
 	return string.format("%.2f%%", value)
 end
@@ -371,10 +360,6 @@ local function open(parent)
 		local subWidget = parent:getChildById(subId)
 
 		if subWidget then
-			if tonumber(subWidget:getId()) == 1 then
-				subWidget.Button.onClick(subWidget)
-			end
-
 			subWidget:setVisible(true)
 		end
 	end
@@ -394,7 +379,6 @@ end
 
 local characterCombatStatListenerConnected = false
 local characterCombatStatsSyncEvent = nil
-local characterCombatUiRefreshEvent = nil
 local CHARACTER_COMBAT_STATS_SYNC_DELAY = 250
 
 local function isCharacterCyclopediaActive()
@@ -441,6 +425,7 @@ local function scheduleCharacterCombatStatsServerSync()
 	characterCombatStatsSyncEvent = scheduleEvent(function()
 		characterCombatStatsSyncEvent = nil
 		Cyclopedia.requestCharacterCombatStatRefresh()
+		Cyclopedia.scheduleCharacterCombatStatsUiFollowUp()
 	end, CHARACTER_COMBAT_STATS_SYNC_DELAY)
 end
 
@@ -473,42 +458,6 @@ function Cyclopedia.requestCharacterGeneralStatsRefresh()
 
 	g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.GeneralStats)
 	g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.Badges)
-end
-
-local function cancelCharacterCombatStatsUiRefresh()
-	if characterCombatUiRefreshEvent then
-		removeEvent(characterCombatUiRefreshEvent)
-		characterCombatUiRefreshEvent = nil
-	end
-end
-
-function Cyclopedia.queueCharacterCombatStatsUiRefresh(source)
-	if not isCharacterPanelActive() then
-		return
-	end
-
-	cancelCharacterCombatStatsUiRefresh()
-	characterCombatUiRefreshEvent = scheduleEvent(function()
-		characterCombatUiRefreshEvent = nil
-
-		if not isCharacterCyclopediaActive() then
-			return
-		end
-
-		if UI.selectedOption == "OffenceStats" then
-			if source == "offencePacket" and Cyclopedia.Character and Cyclopedia.Character.lastOffenceStats then
-				Cyclopedia.onCyclopediaCharacterOffenceStats(Cyclopedia.Character.lastOffenceStats, false)
-			else
-				Cyclopedia.refreshCharacterOffenceStatsPreview()
-			end
-		elseif UI.selectedOption == "DefenceStats" then
-			if source == "defencePacket" and Cyclopedia.Character and Cyclopedia.Character.lastDefenceStats then
-				Cyclopedia.renderCharacterDefenceStats(Cyclopedia.Character.lastDefenceStats)
-			else
-				Cyclopedia.refreshCharacterDefenceStatsPreview()
-			end
-		end
-	end, 0)
 end
 
 local function refreshCharacterOffenceStatsIfVisible()
@@ -613,9 +562,7 @@ function Cyclopedia.onCharacterInventoryLiveChange()
 		Cyclopedia.requestCharacterGeneralStatsRefresh()
 		Cyclopedia.scheduleCharacterStatsUiFollowUp()
 	elseif tab == "OffenceStats" or tab == "DefenceStats" or tab == "CombatStats" then
-		Cyclopedia.requestCharacterCombatStatRefresh()
 		scheduleCharacterCombatStatsServerSync()
-		Cyclopedia.scheduleCharacterCombatStatsUiFollowUp()
 	end
 end
 
@@ -634,10 +581,6 @@ function Cyclopedia.onCharacterSkillChangeLiveUpdate()
 		refreshCharacterOffenceStatsIfVisible()
 		Cyclopedia.requestCharacterCombatStatRefresh()
 	end
-end
-
-function Cyclopedia.onCharacterInventoryCombatChange()
-	Cyclopedia.onCharacterInventoryLiveChange()
 end
 
 function Cyclopedia.onCharacterOffenceStatsLiveChange()
@@ -713,11 +656,14 @@ end
 
 function Cyclopedia.clearCharacterUI()
 	cancelCharacterCombatStatsServerSync()
-	cancelCharacterCombatStatsUiRefresh()
 	disconnectCharacterCombatStatListener()
 
 	if UI then
 		UI.openedCategory = nil
+	end
+
+	if characterPanel and not characterPanel:isDestroyed() then
+		characterPanel:destroy()
 	end
 
 	UI = nil
@@ -732,8 +678,10 @@ function showCharacter()
 	UI = characterPanel
 
 	function UI.onDestroy()
-		UI = nil
-		characterPanel = nil
+		if characterPanel == self then
+			UI = nil
+			characterPanel = nil
+		end
 	end
 
 	characterPanel:show()
@@ -3594,10 +3542,6 @@ function Cyclopedia.renderCharacterDescription()
 	end
 end
 
-function Cyclopedia.createCharacterDescription()
-	Cyclopedia.renderCharacterDescription()
-end
-
 function Cyclopedia.openWheelOfDestiny()
 	if not g_game.isOnline() then
 		return
@@ -4594,16 +4538,10 @@ function Cyclopedia.repaintCharacterDefenceStatsIfActive()
 end
 
 function Cyclopedia.scheduleCharacterCombatStatsUiFollowUp()
-	for _, delay in ipairs({
-		0,
-		150,
-		400
-	}) do
-		scheduleEvent(function()
-			Cyclopedia.repaintCharacterOffenceStatsIfActive()
-			Cyclopedia.repaintCharacterDefenceStatsIfActive()
-		end, delay)
-	end
+	scheduleEvent(function()
+		Cyclopedia.repaintCharacterOffenceStatsIfActive()
+		Cyclopedia.repaintCharacterDefenceStatsIfActive()
+	end, 150)
 end
 
 function Cyclopedia.reapplyCharacterGeneralStatsFromCache()
@@ -4635,20 +4573,13 @@ function Cyclopedia.repaintCharacterStatsIfActive(reapplyServerCache)
 end
 
 function Cyclopedia.scheduleCharacterStatsUiFollowUp()
-	for _, delay in ipairs({
-		0,
-		150,
-		400
-	}) do
-		scheduleEvent(function()
-			if not UI or UI:isDestroyed() or UI.selectedOption ~= "CharacterStats" then
-				return
-			end
+	scheduleEvent(function()
+		if not UI or UI:isDestroyed() or UI.selectedOption ~= "CharacterStats" then
+			return
+		end
 
-			Cyclopedia.refreshCharacterStatsFromLocalPlayer()
-			Cyclopedia.reapplyCharacterGeneralStatsFromCache()
-		end, delay)
-	end
+		Cyclopedia.refreshCharacterStatsFromLocalPlayer()
+	end, 150)
 end
 
 function Cyclopedia.buildOffenceStatsFromSkillsCache()

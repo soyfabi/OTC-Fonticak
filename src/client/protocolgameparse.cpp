@@ -5740,7 +5740,7 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
         {
             CyclopediaCharacterOffenceStats data{};
             const bool extendedOffenceStats = g_game.getClientVersion() == 860
-                || g_game.getClientVersion() >= 1410;
+                || g_game.getClientVersion() >= 1510;
 
             // Critical hit chance
             data.critChanceTotal = msg->getDouble();
@@ -5868,11 +5868,6 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             for (int i = 0; i < combatsCount; ++i) {
                 const uint8_t elementType = msg->getU8();
                 if (elementType == 0x04) {
-                    CyclopediaCharacterDefenceStats::ElementalResistance resistance;
-                    resistance.element = msg->getU8();
-                    resistance.value = msg->getDouble();
-                    data.resistances.push_back(resistance);
-                } else {
                     CyclopediaCharacterDefenceStats::ElementalResistance resistance;
                     resistance.element = msg->getU8();
                     resistance.value = msg->getDouble();

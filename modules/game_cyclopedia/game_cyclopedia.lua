@@ -833,6 +833,7 @@ local function setWindowBottomBarForTab(tabType)
 end
 
 local cyclopediaCharacterGameEvents
+local cyclopediaCharacterEventsConnected = false
 
 local function getCyclopediaCharacterGameEvents()
 	if cyclopediaCharacterGameEvents then
@@ -862,14 +863,8 @@ local function getCyclopediaCharacterGameEvents()
 		onPreyActive = Cyclopedia.refreshCharacterPreyIfVisible,
 		onPreyInactive = Cyclopedia.refreshCharacterPreyIfVisible,
 		onPreyTimeLeft = Cyclopedia.refreshCharacterPreyIfVisible,
-		onCyclopediaCharacterOffenceStats = function(data)
-			Cyclopedia.onCyclopediaCharacterOffenceStats(data)
-			Cyclopedia.repaintCharacterOffenceStatsIfActive()
-		end,
-		onCyclopediaCharacterDefenceStats = function(data)
-			Cyclopedia.onCyclopediaCharacterDefenceStats(data)
-			Cyclopedia.repaintCharacterDefenceStatsIfActive()
-		end,
+		onCyclopediaCharacterOffenceStats = Cyclopedia.onCyclopediaCharacterOffenceStats,
+		onCyclopediaCharacterDefenceStats = Cyclopedia.onCyclopediaCharacterDefenceStats,
 		onCyclopediaCharacterMiscStats = Cyclopedia.onCyclopediaCharacterMiscStats
 	}
 
@@ -877,19 +872,21 @@ local function getCyclopediaCharacterGameEvents()
 end
 
 local function connectCyclopediaCharacterEvents()
-	if not g_game.requestCharacterInfo then
+	if not g_game.requestCharacterInfo or cyclopediaCharacterEventsConnected then
 		return
 	end
 
 	connect(g_game, getCyclopediaCharacterGameEvents())
+	cyclopediaCharacterEventsConnected = true
 end
 
 local function disconnectCyclopediaCharacterEvents()
-	if not g_game.requestCharacterInfo then
+	if not g_game.requestCharacterInfo or not cyclopediaCharacterEventsConnected then
 		return
 	end
 
 	disconnect(g_game, getCyclopediaCharacterGameEvents())
+	cyclopediaCharacterEventsConnected = false
 end
 
 local function setItemsTabLayout(active)
@@ -1028,9 +1025,8 @@ function init()
 
 	modules.game_cyclopedia.Cyclopedia = Cyclopedia
 
-	connectCyclopediaCharacterEvents()
-
 	if g_game.isOnline() then
+		connectCyclopediaCharacterEvents()
 		connectCyclopediaMoneyListeners()
 	end
 end
@@ -1290,9 +1286,17 @@ function ensureCyclopediaTabContent(type)
 		child:hide()
 	end
 
+	if type == "items" then
+		setContentFooterLayout("items")
+	elseif type then
+		setContentFooterLayout(type)
+	end
+
 	if type == "character" then
-		if characterPanel and not characterPanel:isDestroyed() then
-			characterPanel:show()
+		local panel = contentContainer:recursiveGetChildById("Cat6")
+
+		if panel and not panel:isDestroyed() then
+			panel:show()
 
 			if Cyclopedia.ensureCharacterCombatStatListeners then
 				Cyclopedia.ensureCharacterCombatStatListeners()
@@ -1304,11 +1308,29 @@ function ensureCyclopediaTabContent(type)
 		elseif showCharacter then
 			showCharacter()
 		end
+	elseif type == "items" then
+		if showItems then
+			showItems()
+		end
 	elseif type == "bestiary" and bestiaryPanel and not bestiaryPanel:isDestroyed() then
 		bestiaryPanel:show()
 	elseif type == "charms" and charmsWindow and not charmsWindow:isDestroyed() then
 		charmsWindow:show()
+	elseif type == "map" then
+		local mapPanel = contentContainer:recursiveGetChildById("Cat4")
+
+		if mapPanel and not mapPanel:isDestroyed() then
+			mapPanel:show()
+		elseif initMap then
+			initMap(contentContainer)
+		end
 	end
+
+	if Cyclopedia.setGoldBaseForTab then
+		Cyclopedia.setGoldBaseForTab(type)
+	end
+
+	setWindowBottomBarForTab(type)
 end
 
 function toggleWindow(type, isBackNavigation)
