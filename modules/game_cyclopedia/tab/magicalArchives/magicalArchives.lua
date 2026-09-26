@@ -14,6 +14,9 @@ local lastSelectedSpellId
 local selectedSpellListWidget
 local selectSpellDetails
 local preserveSelectionOnNextOpen = false
+local isSyncingMagicalArchivesFilters = false
+local isSyncingAimTargetCheckbox = false
+local magicalArchivesGameStartRefreshEvent
 local FILTER_COLLAPSED_SIZE = {
 	height = 19,
 	width = 160
@@ -628,6 +631,8 @@ local function loadAimAtTargetData()
 	end
 
 	if legacy and legacy.enabled == true then
+		ensureSpellCatalogLoaded()
+
 		if #allSpells == 0 then
 			return
 		end
@@ -886,7 +891,13 @@ local function selectSpellListWidget(widget, keepSearchFocus)
 
 	if widget and not widget:isDestroyed() then
 		applySpellListItemSelectedStyle(widget, true)
-		selectSpellDetails(widget.spell)
+
+		local spell = widget.spell
+		local sameSpell = spell and currentSpell and spell.id and currentSpell.id == spell.id
+
+		if not sameSpell then
+			selectSpellDetails(spell)
+		end
 
 		if not keepSearchFocus then
 			restoreGameKeyboardForWalking()
@@ -935,10 +946,15 @@ local function setupFilterCheckboxesInPopup(popup)
 end
 
 function onMagicalArchivesFilterChange(checkbox, popup)
+	if isSyncingMagicalArchivesFilters then
+		return
+	end
+
 	local id = checkbox:getId()
 	local isChecked = checkbox:isChecked()
 
 	filters[id] = isChecked
+	isSyncingMagicalArchivesFilters = true
 
 	local vocationFilters = {
 		"druidFilter",
@@ -1014,6 +1030,7 @@ function onMagicalArchivesFilterChange(checkbox, popup)
 		end
 	end
 
+	isSyncingMagicalArchivesFilters = false
 	applyAllFilters()
 end
 
@@ -1442,7 +1459,9 @@ selectSpellDetails = function(spell)
 		aimTargetBox:setVisible(showAimTarget)
 
 		if showAimTarget then
+			isSyncingAimTargetCheckbox = true
 			aimTargetBox:setChecked(isAimAtTargetEnabledForSpell(spell), true)
+			isSyncingAimTargetCheckbox = false
 		end
 	end
 
@@ -1545,14 +1564,12 @@ function updateSpellListUI()
 	end
 end
 
-local function loadSpellsData()
+local function reloadSpellsCatalog()
 	allSpells = {}
 
 	local spells = readJsonFile(SPELLS_FILE)
 
 	if type(spells) ~= "table" then
-		applyAllFilters()
-
 		return
 	end
 
@@ -1567,6 +1584,18 @@ local function loadSpellsData()
 	table.sort(allSpells, function(a, b)
 		return (a.name or ""):lower() < (b.name or ""):lower()
 	end)
+end
+
+function ensureSpellCatalogLoaded()
+	if #allSpells > 0 then
+		return
+	end
+
+	reloadSpellsCatalog()
+end
+
+local function loadSpellsData()
+	reloadSpellsCatalog()
 	applyAllFilters()
 end
 
@@ -1592,6 +1621,10 @@ local function assignSpellToActionBar()
 end
 
 local function onAimTargetChange(checkbox)
+	if isSyncingAimTargetCheckbox then
+		return
+	end
+
 	if not currentSpell or not currentSpell.id or currentSpell.id <= 0 then
 		return
 	end
@@ -1852,7 +1885,23 @@ local function onBeforeSpellTalk(message)
 	return 0
 end
 
+local function cancelMagicalArchivesGameStartRefresh()
+	if magicalArchivesGameStartRefreshEvent then
+		removeEvent(magicalArchivesGameStartRefreshEvent)
+		magicalArchivesGameStartRefreshEvent = nil
+	end
+end
+
 function Cyclopedia.uninstallSpellAimTalkHook()
+	cancelMagicalArchivesGameStartRefresh()
+
+	if Cyclopedia._onMagicalArchivesGameStartHandler then
+		disconnect(g_game, {
+			onGameStart = Cyclopedia._onMagicalArchivesGameStartHandler
+		})
+		Cyclopedia._onMagicalArchivesGameStartHandler = nil
+	end
+
 	if Cyclopedia._onBeforeSpellTalkHandler then
 		disconnect(g_game, {
 			onBeforeSpellTalk = Cyclopedia._onBeforeSpellTalkHandler
@@ -1921,16 +1970,23 @@ function showMagicalArchives()
 end
 
 local function refreshAimAtTargetFromSettings()
+	ensureSpellCatalogLoaded()
 	loadAimAtTargetData()
 	syncStoredSpellAimToServer()
 end
 
 local function onMagicalArchivesGameStart()
+	cancelMagicalArchivesGameStartRefresh()
 	refreshAimAtTargetFromSettings()
-	scheduleEvent(refreshAimAtTargetFromSettings, 1000)
+	magicalArchivesGameStartRefreshEvent = scheduleEvent(function()
+		magicalArchivesGameStartRefreshEvent = nil
+		refreshAimAtTargetFromSettings()
+	end, 1000)
 end
 
 refreshAimAtTargetFromSettings()
+
+Cyclopedia._onMagicalArchivesGameStartHandler = onMagicalArchivesGameStart
 
 connect(g_game, {
 	onGameStart = onMagicalArchivesGameStart,

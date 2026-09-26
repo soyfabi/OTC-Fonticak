@@ -1174,6 +1174,10 @@ local function releaseCyclopediaKeyboardCapture()
 		Cyclopedia.releaseMagicalArchivesInput()
 	end
 
+	if Cyclopedia.MagicalArchivesPreview and Cyclopedia.MagicalArchivesPreview.stop then
+		Cyclopedia.MagicalArchivesPreview.stop()
+	end
+
 	if window and not window:isDestroyed() then
 		pcall(function()
 			window:ungrabKeyboard()

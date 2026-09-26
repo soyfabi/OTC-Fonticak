@@ -36,10 +36,13 @@ function getBottomChatHeightPercent()
         return 100
     end
     local margin = bottomSplitter:getMarginBottom()
-    if DEFAULT_BOTTOM_CHAT_MARGIN <= 0 then
+    local minMargin = getBottomSplitterMinMarginBottom()
+    local chatHeight = math.max(CHAT_MIN_HEIGHT, margin - minMargin + CHAT_MIN_HEIGHT)
+    local referenceChatHeight = math.max(CHAT_MIN_HEIGHT, DEFAULT_BOTTOM_CHAT_MARGIN - minMargin + CHAT_MIN_HEIGHT)
+    if referenceChatHeight <= 0 then
         return 100
     end
-    return math.floor((margin / DEFAULT_BOTTOM_CHAT_MARGIN) * 100 + 0.5)
+    return math.floor((chatHeight / referenceChatHeight) * 100 + 0.5)
 end
 
 function updateChatHeightPercentLabel()
@@ -103,11 +106,13 @@ local function hookBottomSplitterChatHeightPercent()
         end
     end
     bottomSplitter.onMouseRelease = function(widget, mousePos, mouseButton)
-        if not chatHeightPercentSplitterDragging then
-            return
+        if chatHeightPercentSplitterDragging then
+            chatHeightPercentSplitterDragging = false
+            hideChatHeightPercentPanel()
         end
-        chatHeightPercentSplitterDragging = false
-        hideChatHeightPercentPanel()
+        if UISplitter.onMouseRelease then
+            UISplitter.onMouseRelease(widget, mousePos, mouseButton)
+        end
     end
 end
 
