@@ -4779,8 +4779,6 @@ function Cyclopedia.buildDefenceStatsFromSkillsCache()
 
 	if mitigation > 1 then
 		mitigation = mitigation / 100
-	elseif mitigation > 0 then
-		mitigation = mitigation / 100
 	end
 
 	return {
@@ -4801,8 +4799,6 @@ function Cyclopedia.buildDefenceStatsFromCombatStatsCache()
 	local mitigation = cache.mitigation or 0
 
 	if mitigation > 1 then
-		mitigation = mitigation / 100
-	elseif mitigation > 0 then
 		mitigation = mitigation / 100
 	end
 

@@ -587,6 +587,14 @@ local function updateCyclopediaMoneyDisplay()
 			echoesPointsLabel:setText(formatCyclopediaGold(cyclopediaEchoeBalance))
 		end
 	end
+
+	if currentType == "bestiary" and applyBestiaryFooterBalances then
+		applyBestiaryFooterBalances()
+	end
+
+	if currentType == "charms" and refreshCharmsFooterBalances then
+		refreshCharmsFooterBalances()
+	end
 end
 
 function Cyclopedia.setCharmResourceBalances(charmBalance, _, echoeBalance, maxCharmBalance, maxEchoeBalance)
