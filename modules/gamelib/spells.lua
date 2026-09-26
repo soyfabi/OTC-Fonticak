@@ -340,7 +340,15 @@ function Spells.getSpellList()
 end
 
 function Spells.getSpellByName(name)
-    return SpellInfo[Spells.getSpellProfileByName(name)][name]
+    if not name or name == '' then
+        return nil
+    end
+    local profile = Spells.getSpellProfileByName(name)
+    if not profile or not SpellInfo[profile] then
+        return nil
+    end
+    local trimmed = name:trim()
+    return SpellInfo[profile][trimmed] or SpellInfo[profile][name]
 end
 
 function Spells.getSpellByWords(words)

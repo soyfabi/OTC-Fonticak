@@ -411,6 +411,7 @@ public:
     void openPortableForgeRequest();
     void forgeRequest(Otc::ForgeAction_t actionType, bool convergence = false, uint16_t firstItemid = 0, uint8_t firstItemTier = 0, uint16_t secondItemId = 0, bool improveChance = false, bool tierLoss = false);
     void sendForgeBrowseHistoryRequest(uint16_t page);
+    void sendSelectSpellAim(const std::vector<uint16_t>& spellIds, bool enabled);
 
     // imbuing related
     void applyImbuement(uint8_t slot, uint32_t imbuementId, bool protectionCharm);

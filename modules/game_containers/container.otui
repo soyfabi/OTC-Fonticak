@@ -35,6 +35,19 @@ ContainerWindow < MiniWindow
     margin-top: 2
     margin-left: 4
 
+    UIWidget
+      id: quickloot
+      visible: false
+      size: 7 9
+      anchors.bottom: parent.bottom
+      anchors.right: parent.right
+      image-source: /modules/game_quickloot/images/icon-loot-container.png
+      margin-bottom: 0
+      margin-right: 0
+      image-size: 7 9
+      phantom: true
+      focusable: false
+
   UIButton
     id: upButton
     anchors.top: minimizeButton.top

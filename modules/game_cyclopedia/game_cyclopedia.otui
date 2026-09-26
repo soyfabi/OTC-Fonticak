@@ -253,6 +253,28 @@ CyclopediaWindow
         image-clip: 0 34 34 34
         image-source: /images/game/cyclopedia/character_off
 
+    UIButton
+      id: magicalArchives
+      anchors.top: prev.top
+      anchors.left: prev.right
+      margin-left: 1
+      @onClick: toggleWindow("magicalArchives")
+
+      $on:
+        size: 150 34
+        image-clip: 0 0 150 34
+        image-source: /images/game/cyclopedia/magical_on
+
+      $!on:
+        size: 34 34
+        image-clip: 0 0 34 34
+        image-source: /images/game/cyclopedia/magical_off
+
+      $pressed:
+        size: 34 34
+        image-clip: 0 34 34 34
+        image-source: /images/game/cyclopedia/magical_off
+
   UIWidget
     id: contentContainer
     anchors.top: prev.bottom

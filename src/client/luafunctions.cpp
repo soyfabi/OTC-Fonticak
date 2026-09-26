@@ -398,6 +398,7 @@ void Client::registerLuaFunctions()
     g_lua.bindSingletonFunction("g_game", "openPortableForgeRequest", &Game::openPortableForgeRequest, &g_game);
     g_lua.bindSingletonFunction("g_game", "forgeRequest", &Game::forgeRequest, &g_game);
     g_lua.bindSingletonFunction("g_game", "sendForgeBrowseHistoryRequest", &Game::sendForgeBrowseHistoryRequest, &g_game);
+    g_lua.bindSingletonFunction("g_game", "sendSelectSpellAim", &Game::sendSelectSpellAim, &g_game);
     g_lua.bindSingletonFunction("g_game", "applyImbuement", &Game::applyImbuement, &g_game);
     g_lua.bindSingletonFunction("g_game", "clearImbuement", &Game::clearImbuement, &g_game);
     g_lua.bindSingletonFunction("g_game", "closeImbuingWindow", &Game::closeImbuingWindow, &g_game);
@@ -743,6 +744,22 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<ThingType>("getNumPatternY", &ThingType::getNumPatternY);
     g_lua.bindClassMemberFunction<ThingType>("getNumPatternZ", &ThingType::getNumPatternZ);
     g_lua.bindClassMemberFunction<ThingType>("getAnimationPhases", &ThingType::getAnimationPhases);
+    g_lua.registerClassMemberFunction(stdext::demangle_class<ThingType>(), "getEffectAnimationDuration",
+        luabinder::bind_fun([](const ThingTypePtr& thingType, const int clientId) {
+            if (!thingType)
+                return 0;
+
+            if (g_game.getFeature(Otc::GameEnhancedAnimations)) {
+                if (const auto* animator = thingType->getIdleAnimator())
+                    return static_cast<int>(animator->getTotalDuration());
+            }
+
+            int ticks = g_gameConfig.getEffectTicksPerFrame();
+            if (clientId == 33)
+                ticks <<= 2;
+
+            return ticks * thingType->getAnimationPhases();
+        }));
     g_lua.bindClassMemberFunction<ThingType>("getGroundSpeed", &ThingType::getGroundSpeed);
     g_lua.bindClassMemberFunction<ThingType>("getMaxTextLength", &ThingType::getMaxTextLength);
     g_lua.bindClassMemberFunction<ThingType>("getLight", &ThingType::getLight);
