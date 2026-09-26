@@ -1,0 +1,2218 @@
+&var-cip-font-new: Verdana Bold-11px-new
+&var-cip-font-lowspace: Verdana Bold-11-px-lowspace
+&character-item-store-icon-size: 13 11
+&character-item-store-icon-clip: 0 0 26 22
+&character-item-store-icon-display: 13 11
+&character-item-store-icon-source: /images/ui/miniStoreIcon
+
+CharacterItemMiniStoreBadge < UIWidget
+  id: storeIcon
+  size: $character-item-store-icon-size
+  margin-bottom: 1
+  margin-right: 1
+  image-source: $character-item-store-icon-source
+  image-clip: $character-item-store-icon-clip
+  image-size: $character-item-store-icon-display
+  phantom: true
+  focusable: false
+  visible: false
+
+HouseIcon < UIWidget
+  //image-source: /game_cyclopedia/images/house-owner-icon
+  margin-left: 0
+
+HousePreviewTile < UIItem
+  size: 8 8
+  phantom: true
+  virtual: true
+  item-smooth: true
+  image-smooth: true
+HouseBidArea < UIWidget
+  height: 100
+  margin-top: 2
+  Label
+    !text: tr('Set bid limit:')
+    font: $var-cip-font-new
+    color: #909090
+    text-offset: 0 -1
+    text-align: right
+    size: 90 15
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-left: 10
+  TextEdit
+    id: textEdit
+    size: 100 16
+    text-align: left
+    !placeholder: tr('Bid Limit')
+    placeholder-color: #6E706F
+    anchors.top: parent.top
+    anchors.left: prev.right
+    padding-right: 3
+    margin-top: -2
+    margin-left: 7
+  UIWidget
+    image-source: /images/icons/icon-goldcoin
+    anchors.top: prev.top
+    anchors.left: prev.right
+    margin-top: 4
+    margin-left: 6
+  UIWidget
+    id: errorBid
+    size: 12 12
+    !tooltip: tr('Field must be completed.')
+    anchors.left: prev.right
+    anchors.verticalCenter: textEdit.verticalCenter
+    image-source: /images/icons/show_gui_help_red
+    margin-left: 6
+    visible: false
+  UIWidget
+    anchors.right: parent.right
+    anchors.top: prev.top
+    image-source: /images/icons/show_gui_help_grey
+    !tooltip: tr('Bids increase in steps of 1[color=#ffffff]$[/color]. If you set a higher bid limit than the\ncurrent highest bidder, you will automatically outbid the current\nbid by 1[color=#ffffff]$[/color]. If you set a lower bid limit, the current highest bidder\nwill still hold the highest bid.\nIf there is no other character who is bidding for the house, your bid\nwiill be set to 0[color=#ffffff]$[/color].')
+    margin-right: 1
+  Label
+    id: information
+    font: $var-cip-font-new
+    color: #C0C0C0
+    text-auto-resize: true
+    text-wrap: true
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 24
+House < UICheckBox
+  text-align: top
+  text-offset: -1 2
+  font: $var-cip-font-new
+  color: #909090
+  image-source: /images/ui/window-high
+  image-border: 5
+  border: 0 white
+  padding: 5
+  padding-top: 18
+  @onCheckChange: |
+    if self.selectionBorder then
+      self.selectionBorder:setVisible(self:isChecked())
+    end
+  UIWidget
+    id: selectionBorder
+    anchors.fill: parent
+    margin-left: -7
+    margin-right: -7
+    margin-top: -20
+    margin-bottom: -7
+    border: 2 white
+    visible: false
+    phantom: true
+    focusable: false
+  UIWidget
+    id: sizeColumn
+    height: 15
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 1
+    width: 101
+    Label
+      id: sizeLabel
+      anchors.top: parent.top
+      anchors.left: parent.left
+      text-align: left
+      !text: tr('Size:')
+      font: $var-cip-font-new
+      color: #909090
+    Label
+      id: sizeValue
+      anchors.top: parent.top
+      anchors.right: parent.right
+      text-align: right
+      font: $var-cip-font-new
+      color: #C0C0C0
+  UIWidget
+    id: bedsColumn
+    height: 15
+    anchors.top: sizeColumn.top
+    anchors.left: sizeColumn.right
+    margin-left: 6
+    width: 97
+    Label
+      id: bedsText
+      anchors.top: parent.top
+      anchors.left: parent.left
+      text-align: left
+      font: $var-cip-font-new
+      color: #909090
+  UIWidget
+    id: rentColumn
+    height: 15
+    anchors.top: sizeColumn.top
+    anchors.left: bedsColumn.right
+    margin-left: 8
+    width: 82
+    Label
+      id: rentLabel
+      anchors.top: parent.top
+      anchors.left: parent.left
+      text-align: left
+      !text: tr('Rent:')
+      font: $var-cip-font-new
+      color: #909090
+    Label
+      id: rentValue
+      anchors.top: parent.top
+      anchors.right: parent.right
+      text-align: right
+      font: $var-cip-font-new
+      color: #C0C0C0
+  UIWidget
+    id: rentGold
+    anchors.left: rentColumn.right
+    anchors.verticalCenter: rentColumn.verticalCenter
+    margin-left: 4
+    margin-top: -1
+    image-source: /images/icons/icon-goldcoin
+  Panel
+    id: icons
+    size: 73 13
+    anchors.verticalCenter: rentColumn.verticalCenter
+    anchors.left: rentGold.right
+    margin-top: -1
+    margin-left: 5
+    layout:
+      type: horizontalBox
+      align-right: true
+      flow: true
+  Label
+    id: statusLabel
+    size: 53 15
+    text-align: left
+    !text: tr('Status:')
+    font: $var-cip-font-new
+    color: #909090
+    anchors.top: sizeColumn.bottom
+    anchors.left: parent.left
+    margin-top: 3
+  Label
+    id: statusState
+    text-auto-resize: true
+    font: $var-cip-font-new
+    color: #00F000
+    anchors.top: statusLabel.top
+    anchors.left: statusLabel.right
+    margin-top: 1
+  Label
+    id: statusDetail
+    text-auto-resize: true
+    font: $var-cip-font-new
+    color: #C0C0C0
+    anchors.top: statusLabel.top
+    anchors.left: statusState.right
+    margin-left: 1
+    margin-top: 1
+  UIWidget
+    id: description
+    //image-source: /game_cyclopedia/images/house-description
+    anchors.top: sold.top
+    anchors.left: sold.left
+    visible: false
+CharacterBadge < UIWidget
+  image-source: /game_cyclopedia/images/character_icons/friend-badge-icons
+
+CharacterAppearance < Panel
+  image-source: /images/ui/button-grey-up
+  image-border: 3
+  border: 1 alpha
+  focusable: false
+  phantom: false
+  change-cursor-image: true
+  cursor: pointer
+  $pressed:
+    image-source: /images/ui/button-grey-down
+  @onClick: modules.game_cyclopedia.Cyclopedia.onCharacterAppearanceClick(self)
+
+  Panel
+    id: selectionIconRow
+    height: 64
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    phantom: true
+
+  UIWidget
+    id: storeIcon
+    size: 19 16
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: 5
+    margin-right: 5
+    image-source: /images/icons/icon-tibiastore
+    phantom: true
+    visible: false
+
+  UICreature
+    id: creature
+    size: 64 64
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    fixed-creature-size: true
+    base-scale: true
+    margin-bottom: 41
+    margin-right: 44
+    phantom: true
+
+  Label
+    id: name
+    anchors.top: selectionIconRow.bottom
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 18
+    text-align: bottom
+    text-wrap: true
+    font: $var-cip-font-new
+    color: #c0c0c0
+
+CyclopediaBlessButton < UIButton
+  size: 12 12
+  image-source: /images/inventory/button_blessings_grey
+  image-clip: 0 0 12 12
+  focusable: false
+
+  $pressed:
+    image-clip: 12 0 12 12
+
+MiscTimedItemGrid < UIWidget
+  phantom: true
+  layout:
+    type: grid
+    cell-size: 34 34
+    cell-spacing: 5
+    num-columns: 6
+    flow: true
+
+CharacterGridItem < UIWidget
+  size: 34 34
+
+  UIWidget
+    id: ItemBackground
+    size: 34 34
+    anchors.fill: parent
+    image-source: /images/ui/item
+
+  UIWidget
+    id: rarity
+    size: 32 32
+    anchors.centerIn: ItemBackground
+    phantom: true
+    focusable: false
+
+  UIItem
+    id: item
+    anchors.fill: ItemBackground
+    font: verdana-11px-rounded
+    show-count: false
+    virtual-count: true
+    focusable: false
+    border-color: white
+    color: white
+
+  UIWidget
+    id: tier
+    size: 9 8
+    image-source: /images/inventory/tiers-strip
+    image-clip: 0 0 9 8
+    image-size: 9 8
+    margin-top: 1
+    margin-right: 1
+    anchors.top: item.top
+    anchors.right: item.right
+    phantom: true
+    focusable: false
+    visible: false
+    image-smooth: true
+
+  CharacterItemMiniStoreBadge
+    anchors.bottom: ItemBackground.bottom
+    anchors.right: ItemBackground.right
+
+  Label
+    id: amount
+    !text: tr('0')
+    color: #C0C0C0
+    font: verdana-11px-rounded
+    text-auto-resize: true
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    margin-right: 1
+    margin-bottom: -1
+CharacterListItem < UIWidget
+  size: 480 36
+
+  UIWidget
+    id: ItemBackground
+    size: 34 34
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 2
+    image-source: /images/ui/item
+
+  UIWidget
+    id: rarity
+    size: 32 32
+    anchors.centerIn: ItemBackground
+    phantom: true
+    focusable: false
+
+  UIItem
+    id: item
+    anchors.fill: ItemBackground
+    font: verdana-11px-rounded
+    show-count: false
+    virtual-count: true
+    focusable: false
+    border-color: white
+    color: white
+
+  UIWidget
+    id: tier
+    size: 9 8
+    image-source: /images/inventory/tiers-strip
+    image-clip: 0 0 9 8
+    image-size: 9 8
+    margin-top: 1
+    margin-right: 1
+    anchors.top: item.top
+    anchors.right: item.right
+    phantom: true
+    focusable: false
+    visible: false
+    image-smooth: true
+
+  CharacterItemMiniStoreBadge
+    anchors.bottom: ItemBackground.bottom
+    anchors.right: ItemBackground.right
+
+  Label
+    id: name
+    !text: tr('Boots')
+    font: $var-cip-font-new
+    color: #C0C0C0
+    text-auto-resize: true
+    anchors.verticalCenter: ItemBackground.verticalCenter
+    anchors.left: ItemBackground.right
+    anchors.right: separator.left
+    margin-left: 5
+    margin-right: 5
+    margin-top: 1
+
+  VerticalSeparator
+    id: separator
+    anchors.top: parent.top
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    margin-top: -1
+    margin-bottom: -1
+    margin-right: 130
+
+  Label
+    id: amount
+    !text: tr('1')
+    font: $var-cip-font-new
+    color: #C0C0C0
+    text-auto-resize: true
+    anchors.verticalCenter: ItemBackground.verticalCenter
+    anchors.left: separator.left
+    anchors.right: parent.right
+    margin-left: 3
+    margin-top: 1
+
+Achievement < UICheckBox
+  image-source: /images/ui/popupwindow-sem-borda-interna
+  image-border: 5
+  padding-bottom: 12
+
+  UIWidget
+    id: icon
+    image-source: /game_cyclopedia/images/icon-achievement
+    image-repeated: true
+    width: 22
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-left: 2
+    margin-top: 3
+
+  Label
+    id: title
+    font: $var-cip-font-new
+    text-align: center
+    color: #909090
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 2
+    margin-left: 4
+    margin-right: 4
+    height: 14
+
+  Label
+    id: date
+    font: $var-cip-font-new
+    text-auto-resize: true
+    color: #909090
+    anchors.top: title.top
+    anchors.right: parent.right
+    margin-right: 5
+    visible: false
+
+  Label
+    id: description
+    font: $var-cip-font-lowspace
+    color: #C0C0C0
+    text-wrap: true
+    text-auto-resize: true
+    anchors.top: title.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 8
+    margin-left: 11
+    margin-right: 11
+    margin-bottom: 6
+CharacterDeath < UIWidget
+  height: 16
+  min-height: 16
+  max-height: 16
+  clipping: true
+  focusable: true
+  change-cursor-image: true
+  cursor: pointer
+  Label
+    id: date
+    font: $var-cip-font-new
+    height: 13
+    text-wrap: false
+    text-offset: 0 -1
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-left: 1
+    margin-top: 1
+    $on:
+      color: #F4F4F4
+    $!on:
+      color: #C0C0C0
+  VerticalSeparatorFlat
+    id: separator
+    height: 16
+    fixed-size: true
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-left: 153
+  Label
+    id: cause
+    font: $var-cip-font-new
+    height: 13
+    text-wrap: false
+    text-offset: 0 -1
+    anchors.top: parent.top
+    anchors.left: separator.left
+    anchors.right: parent.right
+    margin-left: 3
+    margin-top: 1
+    $on:
+      color: #F4F4F4
+    $!on:
+      color: #C0C0C0
+CharacterKill < UIWidget
+  height: 16
+  min-height: 16
+  max-height: 16
+  clipping: true
+  focusable: true
+  change-cursor-image: true
+  cursor: pointer
+  Label
+    id: date
+    font: $var-cip-font-new
+    height: 13
+    text-wrap: false
+    text-offset: 0 -1
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-left: 1
+    margin-top: 1
+    $on:
+      color: #F4F4F4
+    $!on:
+      color: #C0C0C0
+  VerticalSeparatorFlat
+    id: separator
+    height: 16
+    fixed-size: true
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-left: 153
+  Label
+    id: description
+    font: $var-cip-font-new
+    height: 13
+    text-wrap: false
+    text-offset: 0 -1
+    anchors.top: parent.top
+    anchors.left: separator.left
+    anchors.right: separatorTwo.left
+    margin-left: 3
+    margin-top: 1
+    $on:
+      color: #F4F4F4
+    $!on:
+      color: #C0C0C0
+  VerticalSeparatorFlat
+    id: separatorTwo
+    height: 16
+    fixed-size: true
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-right: 80
+  Label
+    id: status
+    font: $var-cip-font-new
+    height: 13
+    text-wrap: false
+    text-offset: 0 -1
+    anchors.top: parent.top
+    anchors.left: separatorTwo.left
+    anchors.right: parent.right
+    margin-left: 3
+    margin-top: 1
+CharacterElementReduction < UIWidget
+  height: 20
+  Label
+    id: name
+    !text: tr('Physical')
+    text-auto-resize: true
+    anchors.top: parent.top
+    anchors.left: parent.left
+    color: #C0C0C0
+  Label
+    id: value
+    !text: ('+5%')
+    color: #44AD25
+    text-auto-resize: true
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-right: 20
+  UIWidget
+    id: icon
+    size: 9 9
+    image-source: /images/game/creatures/icons-skills
+
+    anchors.top: parent.top
+    anchors.left: value.right
+    margin-left: 5
+    margin-top: 2
+SkillCharacterIcon < UIWidget
+  id: icon
+  size: 9 9
+  anchors.top: parent.top
+  margin-top: 13
+  image-source: /images/game/creatures/icons-skills
+CharacterSkillBase < UIWidget
+  height: 14
+  margin-left: 5
+  margin-right: 5
+  margin-top: 5
+
+SkillCharacterPercentPanel < ProgressBar
+  id: percent
+  background-color: #00C000
+  height: 5
+  margin-top: 13
+  anchors.left: parent.left
+  anchors.right: parent.right
+  anchors.top: parent.top
+  image-source: /images/ui/progressbar
+  image-border: 1
+  phantom: false
+
+SkillNameLabel < Label
+  font: $var-cip-font-new
+  anchors.left: parent.left
+  anchors.top: parent.top
+  anchors.bottom: parent.bottom
+  margin-right: 3
+  color: #C0C0C0
+  phantom: true
+  focusable: false
+
+SkillValueLabel < Label
+  id: value
+  font: $var-cip-font-new
+  text-align: topright
+  text-auto-resize: true
+  anchors.right: parent.right
+  anchors.top: parent.top
+  anchors.bottom: parent.bottom
+  margin-top: 1
+  margin-right: 2
+  color: #C0C0C0
+  phantom: true
+  focusable: false
+
+CharacterOverviewSkillNameLabel < SkillNameLabel
+  margin-left: 14
+
+SelectBossBossSlots < UICheckBox
+  image-source: /images/ui/t2pixel-up-frame-borderimage
+  text-offset: 0 2
+  text-align: top
+  image-border: 5
+  !text: tr('?')
+  font: verdana-11px-monochrome
+  color: #909090
+  border: 0 white
+  @onClick: modules.game_cyclopedia.Cyclopedia.bossSlotSelectBoss(self)
+  $checked:
+    border: 1 white
+  $!checked:
+    border: 0 white
+  UICreature
+    id: Sprite
+    size: 64 64
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    margin-bottom: 7
+    margin-right: 12
+    fixed-creature-size: true
+    phantom: true
+  UIWidget
+    id: TypeIcon
+    anchors.right: Sprite.left
+    anchors.top: Sprite.top
+    image-source: /images/icons/icon-bosstiary-bane
+    margin-right: -7
+    margin-top: -10
+SlotBossSlots < UIWidget
+  size: 223 360
+  image-source: /images/ui/t2pixel-up-frame-borderimage
+  image-border: 20
+  color: #929292
+  text-offset: 0 2
+  text-align: top
+  Label
+    id: LockLabel
+    anchors.centerIn: parent
+    text-auto-resize: true
+    !text: tr('Unlocks if you reach the\nProwess level for any boss')
+    font: verdana-11px-monochrome
+    text-align: center
+    margin-top: -10
+    color: #c0c0c0
+    visible: true
+  UIWidget
+    id: SelectBoss
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    margin: 3
+    margin-top: 16
+    visible: false
+    BorderBox
+      id: ListBase
+      size: 213 281
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 6
+      margin-left: 2
+      UIScrollArea
+        id: List
+        vertical-scrollbar: ListScrollbar
+        anchors.fill: parent
+        padding-left: 7
+        padding-top: 7
+        padding-bottom: 1
+        layout:
+          type: grid
+          cell-size: 88 103
+          cell-spacing: 4
+          flow: true
+      VerticalQtScrollBar
+        id: ListScrollbar
+        anchors.top: List.top
+        anchors.right: List.right
+        anchors.bottom: List.bottom
+        margin-top: 1
+        margin-right: 1
+        margin-bottom: 1
+        step: 80
+        pixel-scroll: true
+    TextEdit
+      id: SearchEdit
+      height: 20
+      anchors.top: ListBase.bottom
+      anchors.right: ListBase.right
+      anchors.left: ListBase.left
+      margin-top: 6
+      padding-top: 2
+      padding-right: 15
+      placeholder: Type to search
+      placeholder-color: #6E706F
+      @onTextChange: modules.game_cyclopedia.Cyclopedia.SelectBossSearchText(self:getText())
+    UIWidget
+      id: SearchClearButton
+      anchors.right: SearchEdit.right
+      anchors.top: SearchEdit.top
+      margin-top: 1
+      margin-right: 1
+      image-source: /images/ui/button-erase-18x18-up
+      @onClick: modules.game_cyclopedia.Cyclopedia.SelectBossSearchText("", true, self)
+      $pressed:
+        image-source: /images/ui/button-erase-18x18-down
+    Button
+      id: SelectButton
+      size: 43 20
+      anchors.bottom: parent.bottom
+      anchors.right: parent.right
+      !text: tr('Select')
+      //font: verdana-bold-8px-antialiased
+      text-offset: 0 0
+      color: #C0C0C0
+      enabled: false
+      margin-bottom: 4
+      margin-right: 2
+  UIWidget
+    id: ActivedBoss
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    margin: 3
+    margin-top: 20
+    visible: false
+    UICreature
+      id: Sprite
+      size: 64 64
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: parent.top
+      margin-top: 9
+      margin-right: 1
+      fixed-creature-size: true
+      phantom: true
+    UIWidget
+      id: TypeIcon
+      anchors.right: Sprite.left
+      anchors.top: Sprite.top
+      image-source: /images/icons/icon-bosstiary-bane
+      margin-right: 10
+    BossSlotProgress
+      id: Progress
+      anchors.top: Sprite.bottom
+      anchors.horizontalCenter: Sprite.horizontalCenter
+      margin-top: 40
+      margin-left: 1
+    Label
+      anchors.horizontalCenter: Progress.horizontalCenter
+      anchors.bottom: Progress.top
+      margin-bottom: 1
+      text-auto-resize: true
+      !text: tr('Total Kills')
+      font: verdana-11px-monochrome
+      color: #c0c0c0
+      text-align: center
+      text-offset: 0 4
+    Label
+      id: EquipmentLabel
+      anchors.horizontalCenter: Progress.horizontalCenter
+      anchors.top: Progress.bottom
+      text-auto-resize: true
+      !text: ('Equipment loot bonus: 118%')
+      font: verdana-11px-monochrome
+      color: #c0c0c0
+      text-align: center
+      margin-top: 15
+    ProgressBackground
+      id: ValueBackground
+      size: 128 20
+      anchors.bottom: parent.bottom
+      anchors.horizontalCenter: parent.horizontalCenter
+      margin-bottom: 4
+    Label
+      id: Value
+      anchors.horizontalCenter: prev.horizontalCenter
+      anchors.verticalCenter: prev.verticalCenter
+      margin-left: -6
+      text-auto-resize: true
+      !text: ('0')
+      font: verdana-11px-monochrome
+      text-align: center
+      text-offset: 2 2
+    UIWidget
+      image-source: /images/icons/icon-goldcoin
+      anchors.left: Value.right
+      anchors.verticalCenter: Value.verticalCenter
+      margin-left: 3
+      margin-top: 1
+    Button
+      id: RemoveButton
+      height: 20
+      anchors.bottom: ValueBackground.bottom
+      anchors.right: ValueBackground.right
+      anchors.left: ValueBackground.left
+      margin-bottom: 25
+      !text: tr('Remove')
+      //font: verdana-bold-8px-antialiased
+      text-offset: 0 0
+      color: #C0C0C0
+BossSlotProgress < UIWidget
+  size: 140 35
+  ProgressBackground
+    id: ProgressBorder2
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.bottom: parent.bottom
+    margin-bottom: 18
+    size: 42 14
+  ProgressBackground
+    id: ProgressBorder1
+    anchors.right: ProgressBorder2.left
+    anchors.bottom: ProgressBorder2.bottom
+    margin-right: 2
+    size: 42 14
+  ProgressBackground
+    id: ProgressBorder3
+    anchors.left: ProgressBorder2.right
+    anchors.bottom: ProgressBorder2.bottom
+    margin-left: 2
+    size: 42 14
+  UIWidget
+    id: ProgressBack
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    margin-bottom: 21
+    margin-right: 7
+    margin-left: 7
+    height: 13
+    image-border: 10
+    phantom: true
+  UIWidget
+    id: fill
+    anchors.fill: ProgressBack
+    image-source: /images/bars/progressbar-orange-large
+    margin-top: 3
+    phantom: true
+  UIWidget
+    anchors.left: ProgressBorder1.right
+    anchors.top: ProgressBorder1.top
+    image-source: /images/ui/progress-separator
+    margin-right: 4
+    phantom: true
+  UIWidget
+    anchors.left: ProgressBorder2.right
+    anchors.top: ProgressBorder1.top
+    image-source: /images/ui/progress-separator
+    phantom: true
+  UIWidget
+    id: bronzeStar
+    anchors.top: ProgressBorder1.bottom
+    anchors.horizontalCenter: ProgressBorder1.horizontalCenter
+    margin-top: 3
+    margin-left: 0
+    size: 9 10
+
+    UIWidget
+      id: bronzeStarBase1
+      anchors.fill: parent
+      image-source: /images/icons/icon-star-dark
+
+    UIWidget
+      id: bronzeStarFill
+      anchors.fill: parent
+      image-source: /images/icons/icon-star-bronze
+      visible: false
+
+  UIWidget
+    id: silverStar
+    anchors.top: ProgressBorder2.bottom
+    anchors.horizontalCenter: ProgressBorder2.horizontalCenter
+    margin-top: 3
+    size: 20 10
+    phantom: true
+
+    UIWidget
+      id: silverStarBase1
+      anchors.left: parent.left
+      anchors.top: parent.top
+      size: 9 10
+      image-source: /images/icons/icon-star-dark
+
+    UIWidget
+      id: silverStarBase2
+      anchors.left: silverStarBase1.right
+      anchors.top: parent.top
+      margin-left: 3
+      size: 9 10
+      image-source: /images/icons/icon-star-dark
+
+    UIWidget
+      id: silverStarFill1
+      anchors.left: parent.left
+      anchors.top: parent.top
+      size: 9 10
+      image-source: /images/icons/icon-star-silver
+      visible: false
+
+    UIWidget
+      id: silverStarFill2
+      anchors.left: silverStarFill1.right
+      anchors.top: parent.top
+      margin-left: 3
+      size: 9 10
+      image-source: /images/icons/icon-star-silver
+      visible: false
+
+  UIWidget
+    id: goldStar
+    anchors.top: ProgressBorder3.bottom
+    anchors.horizontalCenter: ProgressBorder3.horizontalCenter
+    margin-top: 3
+    size: 31 10
+    phantom: true
+
+    UIWidget
+      id: goldStarBase1
+      anchors.left: parent.left
+      anchors.top: parent.top
+      size: 9 10
+      image-source: /images/icons/icon-star-dark
+
+    UIWidget
+      id: goldStarBase2
+      anchors.left: goldStarBase1.right
+      anchors.top: parent.top
+      margin-left: 3
+      size: 9 10
+      image-source: /images/icons/icon-star-dark
+
+    UIWidget
+      id: goldStarBase3
+      anchors.left: goldStarBase2.right
+      anchors.top: parent.top
+      margin-left: 3
+      size: 9 10
+      image-source: /images/icons/icon-star-dark
+
+    UIWidget
+      id: goldStarFill1
+      anchors.left: parent.left
+      anchors.top: parent.top
+      size: 9 10
+      image-source: /images/icons/icon-star-gold
+      visible: false
+
+    UIWidget
+      id: goldStarFill2
+      anchors.left: goldStarFill1.right
+      anchors.top: parent.top
+      margin-left: 3
+      size: 9 10
+      image-source: /images/icons/icon-star-gold
+      visible: false
+
+    UIWidget
+      id: goldStarFill3
+      anchors.left: goldStarFill2.right
+      anchors.top: parent.top
+      margin-left: 3
+      size: 9 10
+      image-source: /images/icons/icon-star-gold
+      visible: false
+
+  Label
+    id: ProgressValue
+    anchors.centerIn: ProgressBorder2
+    text-auto-resize: true
+    !text: tr('0')
+    font: verdana-11px-monochrome
+    color: #c0c0c0
+    text-offset: 0 2
+ProgressBackground < UIWidget
+  image-source: /images/ui/1pixel-down-frame
+  image-border: 5
+  padding: 1
+  UIWidget
+    image-source: /images/ui/backdrop-dark-grey
+    image-border: 5
+    anchors.fill: parent
+    phantom: true
+
+BorderBox < UIWidget
+  border-width-top: 1
+  border-color-top: black
+  border-width-left: 1
+  border-color-left: black
+  border-width-bottom: 1
+  border-color-bottom: #747474
+  border-width-right: 1
+  border-color-right: #747474
+SubPanel < UIWidget
+  image-source: /images/ui/minipanel
+  image-border: 3
+  image-border-top: 22
+  color: #929292
+  text-offset: 0 3
+  text-align: top
+ItemCategory < UIWidget
+  font: $var-cip-font-new
+  height: 16
+  color: #C0C0C0
+  text-align: left
+  text-offset: 1 -1
+  @onCheckChange: modules.game_cyclopedia.Cyclopedia.onCategoryChange(self)
+  $checked:
+    color: #F6F6F6
+
+ItemsListBaseItem < UIWidget
+  background-color: alpha
+  UIWidget
+    id: SelectionFill
+    phantom: true
+    anchors.fill: parent
+    margin-left: 1
+    margin-bottom: -1
+    background-color: #00000000
+  UIWidget
+    size: 34 34
+    id: ItemBackground
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    image-source: /images/ui/item
+    margin-left: 2
+  UIWidget
+    id: Rarity
+    size: 32 32
+    anchors.centerIn: ItemBackground
+    phantom: true
+  UIItem
+    id: Sprite
+    anchors.fill: ItemBackground
+    virtual: true
+    draggable: false
+  Label
+    id: Name
+    size: 143 32
+    anchors.left: ItemBackground.right
+    anchors.verticalCenter: ItemBackground.verticalCenter
+    margin-left: 3
+    text-wrap: true
+    text-align: left
+    !text: tr('Item Name')
+    font: $var-cip-font-new
+    color: #c0c0c0
+
+ItemBasicDetail < UIWidget
+  UIWidget
+    id: background
+    anchors.fill: parent
+    UIWidget
+      id: separator
+      anchors.centerIn: parent
+      margin-right: 40
+      text: :
+      text-auto-resize: true
+      color: #BDBDBD
+    Label
+      id: name
+      anchors.right: separator.left
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 3
+      !text: tr('Name')
+      text-auto-resize: true
+      color: #BDBDBD
+    Label
+      id: value
+      anchors.left: separator.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-left: 10
+      !text: tr('0')
+      text-auto-resize: true
+      color: #BDBDBD
+
+CharmItem < UICheckBox
+  size: 149 95
+  !text: tr('Title')
+  font: $var-cip-font-new
+  image-source: /images/ui/t2pixel-up-frame-borderimage
+  image-border: 3
+  image-border-top: 22
+  color: #909090
+  text-offset: 0 2
+  text-align: top
+  border: 0 white
+  @onClick: modules.game_cyclopedia.Cyclopedia.selectCharmItem(self)
+  @onCheckChange: |
+    if self.selectionBorder then
+      self.selectionBorder:setVisible(self:isChecked())
+    end
+    modules.game_cyclopedia.Cyclopedia.selectCharm(self, self:isChecked())
+
+  UIWidget
+    id: InfoBase
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    margin-bottom: 7
+    margin-right: 7
+    image-source: /images/ui/1pixel-down-frame
+    image-border: 10
+    background-color: #404040
+    size: 66 66
+    phantom: true
+
+    UICreature
+      anchors.centerIn: parent
+      size: 64 64
+      id: Sprite
+      phantom: true
+      fixed-creature-size: true
+      base-scale: true
+      creature-center: true
+      ignore-displacement-shift: true
+
+  UIWidget
+    id: PriceBase
+    size: 73 20
+    anchors.left: parent.left
+    anchors.bottom: InfoBase.bottom
+    margin-left: 8
+    image-source: /images/ui/item
+    image-border: 10
+    phantom: true
+    @onSetup: |
+      self:setVisible(false)
+    Label
+      id: Value
+      anchors.centerIn: parent
+      !text: tr('0')
+      text-auto-resize: true
+      margin-right: 3
+    UIWidget
+      id: Charm
+      anchors.left: Value.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-left: 2
+      image-source: /game_cyclopedia/images/major-charm-echoes
+    UIWidget
+      id: Gold
+      anchors.left: Value.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-left: 2
+      image-source: /images/icons/icon-goldcoin
+      visible: false
+
+  UIWidget
+    id: charmBase
+    anchors.bottom: PriceBase.top
+    anchors.horizontalCenter: PriceBase.horizontalCenter
+    image-source: /images/ui/1pixel-down-frame
+    image-border: 10
+    phantom: true
+    size: 42 42
+    margin-bottom: -7
+    margin-right: 3
+
+    UIWidget
+      size: 32 32
+      id: image
+      anchors.centerIn: parent
+      phantom: true
+
+    UIWidget
+      id: lockedMask
+      size: 40 40
+      anchors.centerIn: parent
+      image-source: /images/ui/ditherpattern
+      phantom: true
+
+    UIWidget
+      id: border
+      anchors.centerIn: parent
+      phantom: true
+      visible: true
+
+  UIWidget
+    id: selectionBorder
+    anchors.fill: parent
+    margin: -2
+    border: 2 white
+    visible: false
+    phantom: true
+    focusable: false
+
+MarkListItem < ButtonBox
+  icon-size: 11 11
+  icon-offset: 3 3
+
+CharacterTitleListRow < UIWidget
+  height: 16
+  min-height: 16
+  max-height: 16
+  clipping: true
+  focusable: true
+  change-cursor-image: true
+  cursor: pointer
+
+  Label
+    id: Name
+    font: $var-cip-font-new
+    height: 13
+    text-wrap: false
+    text-offset: 0 -1
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: separator.left
+    margin-left: 1
+    margin-top: 3
+    margin-right: 16
+    color: #C0C0C0
+    phantom: true
+
+  UIWidget
+    id: EditIcon
+    size: 12 12
+    anchors.right: separator.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-right: 2
+    image-source: /images/ui/icon-edit
+    visible: false
+    phantom: true
+
+  VerticalSeparatorFlat
+    id: separator
+    height: 16
+    fixed-size: true
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-right: 160
+    phantom: true
+
+  UIWidget
+    id: PermanentIcon
+    size: 12 9
+    anchors.left: separator.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 36
+    phantom: true
+
+  VerticalSeparatorFlat
+    id: separatorTwo
+    height: 16
+    fixed-size: true
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-right: 80
+    phantom: true
+
+  UIWidget
+    id: UnlockedIcon
+    size: 12 9
+    anchors.left: separatorTwo.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 36
+    phantom: true
+
+  UIWidget
+    id: InfoIcon
+    size: 12 12
+    anchors.right: parent.right
+    anchors.verticalCenter: parent.verticalCenter
+    margin-right: 2
+    image-source: /images/icons/show_gui_help_grey
+    visible: false
+    phantom: true
+
+CharacterCategoryItem < UIWidget
+  size: 150 22
+  background-color: alpha
+  image-source: /images/ui/1pixel-down-frame
+  image-border: 5
+
+  UIWidget
+    id: Button
+    size: 148 20
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-left: 1
+    margin-top: 1
+    image-source: /images/ui/button-grey-up
+    image-border: 5
+    opacity: 1.0
+    change-cursor-image: true
+    cursor: pointer
+    $pressed:
+      image-source: /images/ui/button-grey-down
+    $checked:
+      image-source: /images/ui/button-grey-down
+    @onMousePress: |
+      self.Icon:setMarginLeft(7)
+      self.Icon:setMarginTop(1)
+      self.Title:setTextOffset('1 1')
+      if self.Arrow:isVisible() then
+        self.Arrow:setMarginRight(5)
+      end
+    @onMouseRelease: |
+      if not self:isChecked() then
+        self.Icon:setMarginLeft(6)
+        self.Icon:setMarginTop(0)
+        self.Title:setTextOffset('0 0')
+        if self.Arrow:isVisible() then
+          self.Arrow:setMarginRight(6)
+        end
+      end
+
+    UIWidget
+      id: Icon
+      size: 13 13
+      anchors.left: parent.left
+      anchors.verticalCenter: parent.verticalCenter
+      margin-left: 6
+      margin-top: 0
+      phantom: true
+      $checked:
+        margin-left: 7
+        margin-top: 1
+      $!checked:
+        margin-left: 6
+        margin-top: 0
+
+    Label
+      id: Title
+      anchors.left: Icon.right
+      anchors.bottom: Icon.bottom
+      margin-left: 4
+      margin-bottom: 1
+      text-auto-resize: true
+      !text: tr('General Stats')
+      font: cipsoftFont
+      color: #FFFFFF
+      phantom: true
+      $checked:
+        text-offset: 1 1
+      $!checked:
+        text-offset: 0 0
+
+    UIWidget
+      id: Arrow
+      size: 7 7
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 6
+      phantom: true
+      image-source: images/icon-arrow7x7-down
+      visible: false
+
+CharacterCategoryGroup < CharacterCategoryItem
+
+BestiaryCategory < UIWidget
+  image-source: /images/ui/t2pixel-up-frame-borderimage
+  image-border: 20
+  !text: tr('Name')
+  font: verdana-11px-monochrome
+  color: #909090
+  text-align: top
+  text-offset: 0 2
+
+  UIWidget
+    id: ClassBase
+    anchors.top: parent.top
+    anchors.horizontalCenter: parent.horizontalCenter
+    margin-top: 19
+    size: 64 64
+    image-source: /images/ui/2pixel_up_frame_borderimage
+    image-clip: 1 1 98 98
+    image-border: 9
+    $pressed:
+      image-source: /images/ui/2pixel-up-frame-borderimage-upside-down
+  UIWidget
+    id: ClassIcon
+    anchors.centerIn: ClassBase
+    phantom: true
+  Label
+    id: KnownValue
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 3
+    font: verdana-11px-monochrome
+    !text: tr('Known: ') .. '00'
+    text-align: center
+    color: #C2C2C2
+  Label
+    id: TotalValue
+    anchors.bottom: KnownValue.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    font: verdana-11px-monochrome
+    !text: tr('Total: ') .. '00'
+    text-align: center
+    color: #C2C2C2
+BosstiaryItem < UIWidget
+  image-source: /images/ui/t2pixel-up-frame-borderimage
+  image-border: 20
+  !text: tr('?')
+  font: verdana-11px-monochrome
+  text-align: top
+  text-offset: 0 2
+  color: #909090
+  UIWidget
+    id: TypeIcon
+    anchors.left: parent.left
+    anchors.top: parent.top
+    margin-left: 7
+    margin-top: 22
+    image-source: /images/icons/icon-bosstiary-bane
+  ProgressBackground
+    id: ProgressBorder2
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.bottom: parent.bottom
+    margin-bottom: 19
+    size: 47 14
+  ProgressBackground
+    id: ProgressBorder1
+    anchors.right: ProgressBorder2.left
+    anchors.bottom: ProgressBorder2.bottom
+    margin-right: 2
+    size: 48 14
+  ProgressBackground
+    id: ProgressBorder3
+    anchors.left: ProgressBorder2.right
+    anchors.bottom: ProgressBorder2.bottom
+    margin-left: 2
+    size: 48 14
+  UIWidget
+    id: ProgressBack
+    anchors.left: ProgressBorder1.left
+    anchors.bottom: ProgressBorder2.bottom
+    margin-left: 1
+    margin-bottom: 1
+    height: 12
+    phantom: true
+    image-source: /images/bars/progressbar-orange-large
+  UIWidget
+    id: ProgressBack33
+    anchors.left: ProgressBorder2.left
+    anchors.bottom: ProgressBorder2.bottom
+    margin-bottom: 1
+    height: 12
+    phantom: true
+    image-source: /images/bars/progressbar-orange-large
+  UIWidget
+    id: ProgressBack55
+    anchors.left: ProgressBorder3.left
+    anchors.bottom: ProgressBorder2.bottom
+    margin-bottom: 1
+    height: 12
+    phantom: true
+    image-source: /images/bars/progressbar-orange-large
+  UIWidget
+    anchors.left: ProgressBorder1.right
+    anchors.top: ProgressBorder1.top
+    image-source: /images/ui/progress-separator
+    phantom: true
+  UIWidget
+    anchors.left: ProgressBorder2.right
+    anchors.top: ProgressBorder1.top
+    image-source: /images/ui/progress-separator
+    phantom: true
+  Label
+    id: ProgressValue
+    anchors.centerIn: ProgressBorder2
+    text-auto-resize: true
+    !text: tr('0')
+    font: verdana-11px-monochrome
+    color: #c0c0c0
+    text-offset: 0 3
+  UIWidget
+    id: bronzeStar
+    anchors.top: ProgressBorder1.bottom
+    anchors.horizontalCenter: ProgressBorder1.horizontalCenter
+    margin-top: 3
+    margin-left: 0
+    size: 9 10
+
+    UIWidget
+      id: bronzeStarBase1
+      anchors.fill: parent
+      image-source: /images/icons/icon-star-dark
+
+    UIWidget
+      id: bronzeStarFill
+      anchors.fill: parent
+      image-source: /images/icons/icon-star-bronze
+      visible: false
+
+  UIWidget
+    id: silverStar
+    anchors.top: ProgressBorder2.bottom
+    anchors.horizontalCenter: ProgressBorder2.horizontalCenter
+    margin-top: 3
+    size: 20 10
+    phantom: true
+
+    UIWidget
+      id: silverStarBase1
+      anchors.left: parent.left
+      anchors.top: parent.top
+      size: 9 10
+      image-source: /images/icons/icon-star-dark
+
+    UIWidget
+      id: silverStarBase2
+      anchors.left: silverStarBase1.right
+      anchors.top: parent.top
+      margin-left: 3
+      size: 9 10
+      image-source: /images/icons/icon-star-dark
+
+    UIWidget
+      id: silverStarFill1
+      anchors.left: parent.left
+      anchors.top: parent.top
+      size: 9 10
+      image-source: /images/icons/icon-star-silver
+      visible: false
+
+    UIWidget
+      id: silverStarFill2
+      anchors.left: silverStarFill1.right
+      anchors.top: parent.top
+      margin-left: 3
+      size: 9 10
+      image-source: /images/icons/icon-star-silver
+      visible: false
+
+  UIWidget
+    id: goldStar
+    anchors.top: ProgressBorder3.bottom
+    anchors.horizontalCenter: ProgressBorder3.horizontalCenter
+    margin-top: 3
+    margin-right: -1
+    size: 31 10
+    phantom: true
+
+    UIWidget
+      id: goldStarBase1
+      anchors.left: parent.left
+      anchors.top: parent.top
+      size: 9 10
+      image-source: /images/icons/icon-star-dark
+
+    UIWidget
+      id: goldStarBase2
+      anchors.left: goldStarBase1.right
+      anchors.top: parent.top
+      margin-left: 3
+      size: 9 10
+      image-source: /images/icons/icon-star-dark
+
+    UIWidget
+      id: goldStarBase3
+      anchors.left: goldStarBase2.right
+      anchors.top: parent.top
+      margin-left: 3
+      size: 9 10
+      image-source: /images/icons/icon-star-dark
+
+    UIWidget
+      id: goldStarFill1
+      anchors.left: parent.left
+      anchors.top: parent.top
+      size: 9 10
+      image-source: /images/icons/icon-star-gold
+      visible: false
+
+    UIWidget
+      id: goldStarFill2
+      anchors.left: goldStarFill1.right
+      anchors.top: parent.top
+      margin-left: 3
+      size: 9 10
+      image-source: /images/icons/icon-star-gold
+      visible: false
+
+    UIWidget
+      id: goldStarFill3
+      anchors.left: goldStarFill2.right
+      anchors.top: parent.top
+      margin-left: 3
+      size: 9 10
+      image-source: /images/icons/icon-star-gold
+      visible: false
+
+  Label
+    id: KillsLabel
+    anchors.left: ProgressBorder1.left
+    anchors.bottom: ProgressBorder1.top
+    margin-bottom: 2
+    !text: tr('Total Kills')
+    font: verdana-11px-monochrome
+    text-auto-resize: true
+    color: #c0c0c0
+  CheckBox
+    id: TrackCheck
+    anchors.left: KillsLabel.right
+    anchors.bottom: ProgressBorder1.top
+    margin-bottom: 2
+    margin-left: 28
+    !text: tr('Track')
+    text-offset: 16 0
+    font: verdana-11px-monochrome
+    text-auto-resize: true
+    color: #c0c0c0
+    @onCheckChange: |
+      modules.game_cyclopedia.Cyclopedia.toggleBosstiaryTrackerCheck(self, self:isChecked())
+  UICreature
+    id: Sprite
+    anchors.bottom: TrackCheck.top
+    anchors.horizontalCenter: parent.horizontalCenter
+    margin-bottom: 6
+    size: 64 64
+    fixed-creature-size: true
+    phantom: true
+BestiaryCreature < UIWidget
+  image-source: /images/ui/t2pixel-up-frame-borderimage
+  image-border: 20
+  Label
+    id: Name
+    height: 20
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    text-align: center
+    font: verdana-11px-monochrome
+    color: #909090
+    text-offset: 0 0
+
+  UIWidget
+    id: ClassBase
+    anchors.top: parent.top
+    anchors.horizontalCenter: parent.horizontalCenter
+    margin-top: 19
+    size: 66 66
+    image-source: /images/ui/2pixel_up_frame_borderimage
+    image-clip: 1 1 98 98
+    image-border: 9
+    $pressed:
+      image-source: /images/ui/2pixel-up-frame-borderimage-upside-down
+
+  UICreature
+    id: Sprite
+    anchors.centerIn: ClassBase
+    size: 64 64
+    fixed-creature-size: true
+    base-scale: true
+    creature-center: true
+    ignore-displacement-shift: true
+    phantom: true
+
+  UIWidget
+    id: AnimusMastery
+    anchors.top: prev.top
+    anchors.left: prev.left
+    image-source: /game_cyclopedia/images/indicator_soulcore
+  UIWidget
+    id: EchoRaidCharmPoints
+    anchors.top: Sprite.top
+    anchors.right: Sprite.right
+    image-source: /game_cyclopedia/images/indicator_charmpoints
+    visible: false
+  UIWidget
+    id: Finalized
+    image-source: images/checkmark-icon
+    anchors.horizontalCenter: ClassBase.horizontalCenter
+    anchors.top: ClassBase.bottom
+    margin-top: 6
+    visible: false
+  Label
+    id: KillsLabel
+    anchors.horizontalCenter: ClassBase.horizontalCenter
+    anchors.top: ClassBase.bottom
+    margin-top: 6
+    !text: tr('?')
+    text-auto-resize: true
+    font: $var-cip-font-new
+    color: #C1C1C1
+BestiaryResistProgress < UIWidget
+  image-source: /game_cyclopedia/images/bestiary/barra
+  UIWidget
+    id: Fill
+    anchors.fill: parent
+    background-color: red
+    margin-left: 1
+    margin-bottom: 2
+    margin-top: 2
+    margin-right: 1
+    phantom: true
+  UIWidget
+    id: Border
+    anchors.fill: parent
+    image-source: /game_cyclopedia/images/bestiary/barra
+    phantom: true
+BestiaryItem < UIWidget
+  size: 34 34
+  anchors.top: parent.top
+  $first:
+    anchors.left: parent.left
+  $!first:
+    anchors.left: prev.right
+    margin-left: 3
+  UIWidget
+    id: itemSlot
+    anchors.fill: parent
+    image-source: /game_cyclopedia/images/bestiary/item-slot-empty
+    phantom: true
+    focusable: false
+  UIWidget
+    id: rarity
+    size: 32 32
+    anchors.centerIn: parent
+    phantom: true
+    focusable: false
+  UIItem
+    id: item
+    size: 32 32
+    anchors.centerIn: parent
+    phantom: true
+    virtual: true
+  UIWidget
+    id: eventMask
+    size: 32 32
+    anchors.centerIn: parent
+    image-source: /images/game/actionbar/slot-disabled
+    phantom: true
+    visible: false
+  Label
+    id: Stackable
+    text-auto-resize: true
+    font: verdana-11px-rounded
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    text-color: #BFBFBF
+    margin-bottom: -1
+    margin-right: 2
+    phantom: true
+  UIWidget
+    id: undefinedItem
+    image-source: /images/ui/undefined_item
+    anchors.fill: parent
+    visible: false
+BestiaryItemGroup < UIWidget
+  height: 44
+  UIWidget
+    id: Items
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: parent.top
+    height: 34
+    margin-left: 108
+
+  UIWidget
+    id: ItemsSecond
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: Items.bottom
+    margin-top: 3
+    height: 34
+    margin-left: 108
+    visible: false
+
+  Label
+    id: Title
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 8
+    margin-top: -3
+    !text: tr('Common') .. ':'
+    font: verdana-11px-monochrome
+    color: #C0C0C0
+    text-auto-resize: true
+
+CharmCreatureName < UICheckBox
+  focusable: true
+  font: $var-cip-font-new
+  color: #C0C0C0
+  text-offset: 1 0
+  background-color: #484848
+  @onCheckChange: modules.game_cyclopedia.Cyclopedia.selectCreatureCharm(self, self:isChecked())
+  $checked:
+    background-color: #585858
+    color: #f4f4f4
+
+InventoryItemCyclopedia < Item
+  virtual: true
+  show-count: false
+  @onItemChange: |
+    local icon = self.quickloot or self:getChildById('quickloot')
+    if icon then
+      icon:setVisible(false)
+    end
+
+  CharacterItemMiniStoreBadge
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+
+HeadSlot < InventoryItemCyclopedia
+  id: slot1
+
+  &position: {x=65535, y=1, z=0}
+
+BodySlot < InventoryItemCyclopedia
+  id: slot4
+
+  &position: {x=65535, y=4, z=0}
+
+LegSlot < InventoryItemCyclopedia
+  id: slot7
+
+  &position: {x=65535, y=7, z=0}
+
+FeetSlot < InventoryItemCyclopedia
+  id: slot8
+
+  &position: {x=65535, y=8, z=0}
+
+NeckSlot < InventoryItemCyclopedia
+  id: slot2
+
+  &position: {x=65535, y=2, z=0}
+
+LeftSlot < InventoryItemCyclopedia
+  id: slot6
+
+  &position: {x=65535, y=6, z=0}
+
+FingerSlot < InventoryItemCyclopedia
+  id: slot9
+
+  &position: {x=65535, y=9, z=0}
+
+BackSlot < InventoryItemCyclopedia
+  id: slot3
+
+  &position: {x=65535, y=3, z=0}
+
+RightSlot < InventoryItemCyclopedia
+  id: slot5
+
+  &position: {x=65535, y=5, z=0}
+
+AmmoSlot < InventoryItemCyclopedia
+  id: slot10
+
+  &position: {x=65535, y=10, z=0}
+
+RoundCheckBox < CheckBox
+  image-source: /images/ui/outfits/checkbox_round
+  
+  $first:
+    margin-top: 2
+
+  $!first:
+    margin-top: 5
+
+TrackerButton < Panel
+  height: 34
+  margin-bottom: 5
+  phantom: false
+  border-width: 1
+  border-color: alpha
+  padding: 1
+
+  UICreature
+    id: creature
+    size: 16 16
+    anchors.left: parent.left
+    anchors.top: parent.top
+    phantom: true
+
+  UIWidget
+    id: spacer
+    width: 3
+    anchors.left: creature.right
+    anchors.top: creature.top
+
+  Label
+    id: label
+    anchors.left: spacer.right
+    anchors.top: creature.top
+    text-auto-resize: true
+    color: #888888
+    margin-left: 2
+
+  Label
+    id: kills
+    anchors.centerIn: ProgressBorder2
+    text-align: center
+    text-auto-resize: true
+    color: #888888
+    margin-bottom: -1
+
+  LifeProgressBar
+    id: killsBar
+    height: 8
+    anchors.left: spacer.right
+    anchors.right: parent.right
+    anchors.top: label.bottom
+    margin-top: 2
+    phantom: true
+    visible: false
+    
+  ProgressBackground
+    id: ProgressBorder2
+    anchors.left: spacer.right
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.top: creature.bottom
+    margin-top: 2
+    size: 52 14
+
+  ProgressBackground
+    id: ProgressBorder1
+    anchors.right: ProgressBorder2.left
+    anchors.bottom: ProgressBorder2.bottom
+    margin-right: 2
+    size: 51 14
+
+  ProgressBackground
+    id: ProgressBorder3
+    anchors.left: ProgressBorder2.right
+    anchors.bottom: ProgressBorder2.bottom
+    margin-left: 2
+    size: 51 14
+
+  UIWidget
+    id: killsBar2
+    anchors.left: ProgressBorder1.left
+    anchors.bottom: ProgressBorder2.bottom
+    margin-left: 1
+    margin-bottom: 1
+    height: 12
+    phantom: true
+    image-source: /images/bars/progressbar-orange-large
+
+  UIWidget
+    id: ProgressBack33
+    anchors.left: ProgressBorder2.left
+    anchors.bottom: ProgressBorder2.bottom
+    margin-left: 1
+    margin-bottom: 1
+    height: 12
+    phantom: true
+    image-source: /images/bars/progressbar-orange-large
+
+  UIWidget
+    id: ProgressBack55
+    anchors.left: ProgressBorder3.left
+    anchors.bottom: ProgressBorder2.bottom
+    margin-left: 1
+    margin-bottom: 1
+    height: 12
+    phantom: true
+    image-source: /images/bars/progressbar-orange-large
+
+
+BestiaryTracker < MiniWindow
+  id: BestiaryTracker
+  @onClose: modules.game_cyclopedia.Cyclopedia.onTrackerClose(self:getText())
+  &save: true
+
+  UIWidget
+    id: miniwindowIcon
+    anchors.top: miniwindowHeader.top
+    anchors.left: miniwindowHeader.left
+    margin-top: 2
+    margin-left: 4
+    size: 12 12
+    image-source: /images/icons/icon-bestiarytracker-widget
+    image-smooth: false
+
+  Label
+    id: miniwindowTitle
+    anchors.top: miniwindowHeader.top
+    anchors.left: miniwindowHeader.left
+    anchors.right: miniwindowHeader.right
+    margin-top: 2
+    margin-left: 20
+    margin-right: 50
+    font: verdana-11px-monochrome
+    height: 13
+    color: #9d9d9dff
+
+  MiniWindowContents
+    id: contentsPanel
+    anchors.top: miniwindowTopBar.bottom
+    anchors.left: parent.left
+    anchors.right: miniwindowScrollBar.left
+    anchors.bottom: parent.bottom
+    margin-left: 3
+    margin-top: -2
+    margin-right: 1
+    vertical-scrollbar: miniwindowScrollBar
+    padding-left: 1
+    padding-right: 1
+    padding-bottom: 3
+    layout: verticalBox 
+
+
+bestiaryTrackerMenu < PopupMenu
+  id: imbuementTrackerMenu
+  width: 304
+
+  ImbuementTrackerMenuOption
+    id: sortByName
+    !text: tr('sort by name')
+
+  ImbuementTrackerMenuOption
+    id: ShortByPercentage
+    !text: tr('Short by completion percentage')
+
+  ImbuementTrackerMenuOption
+    id: sortByKills
+    !text: tr('sort by remaining kills')
+
+  HorizontalSeparator
+
+  ImbuementTrackerMenuOption
+    id: sortByAscending
+    !text: tr('sort by ascending')
+
+  ImbuementTrackerMenuOption
+    id: sortByDescending
+    !text: tr('sort by descending')
+StoreFlatPanel < UIWidget
+  phantom: true
+  auto-focus: first
+  image-source: /game_store/images/panel
+  image-border: 3
+Box < UIWidget
+  border-width-top: 1
+  border-color-top: black
+  border-width-left: 1
+  border-color-left: black
+  border-width-bottom: 1
+  border-color-bottom: gray
+  border-width-right: 1
+  border-color-right: gray
+  image-smooth: true
+  image-fixed-ratio: false
+RowStore2 < UIWidget
+  height: 78
+  margin: 2
+  border: 0 white
+
+  $focus:
+    border: 2 white
+
+  Box
+    id: image
+    size: 64 64
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin: 5 0 0 5
+
+  Label
+    id: lblName
+    anchors.top: parent.top
+    anchors.left: prev.right
+    anchors.right: parent.right
+    margin: 8 0 0 8
+    text-auto-resize: true
+    text-wrap: true
+  Label
+    id: count
+    anchors.bottom: parent.bottom
+    anchors.left: image.right
+    margin: 0 5 5 0
+    margin-left:22
+    text-align: center
+
+  StoreFlatPanel
+    id: lblPrice
+    size: 104 20
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    margin: 0 5 5 0
+    text-align: center
+    text-offset: 15 0
+    image-color: #1111118c
+    icon: /images/icons/icon-tibiacoin
+    icon-align: right
+    icon-offset: -2 0
+
+HouseItemCard < UIWidget
+  size: 221 74
+  image-source: /images/ui/2pixel_up_frame_borderimage
+  image-border: 2
+
+  UIWidget
+    id: itemFrame
+    size: 65 65
+    anchors.left: parent.left
+    anchors.top: parent.top
+    margin-left: 4
+    margin-top: 4
+    image-source: /images/ui/1pixel-down-frame
+    image-border: 3
+    background-color: alpha
+
+    UIItem
+      id: item
+      anchors.centerIn: parent
+      size: 32 32
+      virtual: true
+      show-count: false
+
+  Label
+    id: lblName
+    anchors.left: itemFrame.right
+    anchors.top: itemFrame.top
+    anchors.right: parent.right
+    margin-left: 5
+    margin-right: 4
+    font: $var-cip-font-new
+    color: #c0c0c0
+    text-auto-resize: true
+    text-wrap: true
+
+  Label
+    id: count
+    anchors.top: lblName.bottom
+    anchors.left: lblName.left
+    margin-top: 1
+    font: $var-cip-font-new
+    color: #c0c0c0
+    text-auto-resize: true
+
+BlessCreate < UIWidget
+  background-color: alpha
+  text-offset: 35 1
+  focusable: true
+  font: $var-cip-font-new
+  color: #c0c0c0
+  text-align: left
+
+  Label
+    id: text2
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    text-auto-resize: true
+    margin-top: 2
+    margin-left: 3
+    font: $var-cip-font-new
+    color: #c0c0c0
+
+  Label
+    id: text1
+    margin-left: 8
+    anchors.left: prev.right
+    anchors.verticalCenter: parent.verticalCenter
+    focusable: false
+    font: $var-cip-font-new
+    color: #c0c0c0
+    margin-top: 2

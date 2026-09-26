@@ -233,7 +233,6 @@ CyclopediaWindow
 
     UIButton
       id: character
-      visible: false
       anchors.top: prev.top
       anchors.left: prev.right
       margin-left: 1
@@ -261,6 +260,7 @@ CyclopediaWindow
     anchors.left: parent.left
     anchors.right: parent.right
     margin-top: -4
+    clipping: true
 
   Button
     id: manageContainersButton
@@ -281,17 +281,19 @@ CyclopediaWindow
     anchors.bottom: parent.bottom
     anchors.right: parent.right
     !text: tr('Close')
-    font: verdana-11px-antialised
+    font: cipsoftFont
+    color: #dfdfdfff
     @onClick: toggle()
 
   Button
     id: backButton
     size: 43 20
-    anchors.bottom: parent.bottom
+    anchors.verticalCenter: closeButton.verticalCenter
     anchors.right: closeButton.left
     margin-right: 6
     !text: tr('Back')
-    font: verdana-11px-antialised
+    font: cipsoftFont
+    color: #dfdfdfff
     enabled: false
     @onClick: toggleBack()
 
@@ -301,33 +303,100 @@ CyclopediaWindow
     anchors.left: parent.left
     margin-bottom: 4
     visible: false
-    image-source: /images/ui/item66
-    image-border: 10
-    size: 130 20
+    size: 342 20
 
     UIWidget
-      id: Icon
-      anchors.right: parent.right
-      anchors.verticalCenter: parent.verticalCenter
-      margin-right: 3
-      margin-bottom: -1
-      image-source: /images/icons/icon-goldcoin
-      !tooltip: tr("Gold Coins")
+      id: goldPanel
+      image-source: /images/modern_ui/image1015925
+      image-border: 1
+      size: 110 20
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
 
-    Label
-      id: Value
-      anchors.right: Icon.left
-      anchors.verticalCenter: parent.verticalCenter
-      font: verdana-11px-monochrome
-      margin-right: 2
-      margin-bottom: -2
-      !text: tr('0')
-      text-auto-resize: true
-      color: #BDBDBD
+      UIWidget
+        id: Icon
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        margin-bottom: 3
+        margin-right: 3
+        image-source: /images/modern_ui/gold
+        !tooltip: tr("Gold Coins")
+
+      Label
+        id: Value
+        anchors.bottom: parent.bottom
+        anchors.right: Icon.left
+        margin-bottom: 2
+        margin-right: 5
+        font: verdana-11px-monochrome
+        text-align: right
+        width: 85
+        !text: tr('0')
+        color: #BDBDBD
+
+    UIWidget
+      id: charmPanel
+      image-source: /images/modern_ui/image1015925
+      image-border: 1
+      size: 110 20
+      anchors.bottom: parent.bottom
+      anchors.left: goldPanel.right
+      margin-left: 6
+      !tooltip: tr('Charm Points\n\nEarned by unlocking entries in the Bestiary.')
+
+      UIWidget
+        id: charmIcon
+        image-source: /images/game/cyclopedia/ui/charm-points
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        margin-bottom: 3
+        margin-right: 3
+
+      Label
+        id: charmPoints
+        anchors.bottom: parent.bottom
+        anchors.right: charmIcon.left
+        margin-bottom: 2
+        margin-right: 2
+        font: verdana-11px-monochrome
+        text-align: right
+        width: 85
+        !text: tr('0')
+        color: #BDBDBD
+
+    UIWidget
+      id: echoesPanel
+      image-source: /images/modern_ui/image1015925
+      image-border: 1
+      size: 110 20
+      anchors.bottom: parent.bottom
+      anchors.left: charmPanel.right
+      margin-left: 6
+      !tooltip: tr('Minor Charm Echoes\n\nEarned by unlocking or upgrading Major Charm and promoting your character.')
+
+      UIWidget
+        id: echoesIcon
+        image-source: /images/game/cyclopedia/ui/minor-charm-echoes
+        anchors.bottom: parent.bottom
+        anchors.right: parent.right
+        margin-bottom: 3
+        margin-right: 3
+
+      Label
+        id: echoesPoints
+        anchors.bottom: parent.bottom
+        anchors.right: echoesIcon.left
+        margin-bottom: 2
+        margin-right: 2
+        font: verdana-11px-monochrome
+        text-align: right
+        width: 85
+        !text: tr('0')
+        color: #BDBDBD
 
   HorizontalSeparator
     id: horizontalSeparator
     anchors.bottom: closeButton.top
     anchors.left: parent.left
     anchors.right: parent.right
-    margin-bottom: 11
+    margin-bottom: 12

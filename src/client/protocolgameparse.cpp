@@ -5497,6 +5497,31 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
         }
         case Otc::CYCLOPEDIA_CHARACTERINFO_ACHIEVEMENTS:
         {
+            const uint16_t points = msg->getU16();
+            const uint16_t secretsUnlocked = msg->getU16();
+            const uint16_t count = msg->getU16();
+            std::vector<int> ids;
+            std::vector<int> timestamps;
+            std::vector<int> secrets;
+            std::vector<std::string> names;
+            std::vector<std::string> descriptions;
+            std::vector<int> grades;
+            for (uint16_t i = 0; i < count; ++i) {
+                ids.push_back(msg->getU16());
+                timestamps.push_back(static_cast<int>(msg->getU32()));
+                const uint8_t secret = msg->getU8();
+                secrets.push_back(secret);
+                if (secret == 0x01) {
+                    names.push_back(msg->getString());
+                    descriptions.push_back(msg->getString());
+                    grades.push_back(msg->getU8());
+                } else {
+                    names.emplace_back();
+                    descriptions.emplace_back();
+                    grades.push_back(0);
+                }
+            }
+            g_lua.callGlobalField("g_game", "onParseCyclopediaCharacterAchievements", points, secretsUnlocked, ids, timestamps, secrets, names, descriptions, grades);
             break;
         }
         case Otc::CYCLOPEDIA_CHARACTERINFO_ITEMSUMMARY:
@@ -5672,6 +5697,10 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
 
             const uint8_t preySlotsUnlocked = msg->getU8();
             const uint8_t preyWildcards = msg->getU8();
+            bool hasPermanentWeeklyTaskExpansion = false;
+            if (g_game.getClientVersion() >= 1521) {
+                hasPermanentWeeklyTaskExpansion = static_cast<bool>(msg->getU8());
+            }
             const uint8_t instantRewards = msg->getU8();
             const bool hasCharmExpansion = static_cast<bool>(msg->getU8());
             const uint8_t hirelingsObtained = msg->getU8();
@@ -5684,7 +5713,11 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
                 hirelingSkills.emplace_back(static_cast<uint16_t>(skill + 1000));
             }
 
-            msg->getU8();
+            std::vector<uint16_t> hirelingOutfits;
+            const uint8_t hirelingOutfitsCount = msg->getU8();
+            for (auto i = 0; i < hirelingOutfitsCount; ++i) {
+                hirelingOutfits.emplace_back(msg->getU8());
+            }
 
             std::vector<std::tuple<uint16_t, std::string, uint8_t>> houseItems;
             const uint16_t houseItemsCount = msg->getU16();
@@ -5695,7 +5728,7 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
                 const uint8_t count = msg->getU8();
                 houseItems.emplace_back(itemId, itemName, count);
             }
-            g_lua.callGlobalField("g_game", "onParseCyclopediaStoreSummary", xpBoostTime, dailyRewardXpBoostTime, blessings, preySlotsUnlocked, preyWildcards, instantRewards, hasCharmExpansion, hirelingsObtained, hirelingSkills, houseItems);
+            g_lua.callGlobalField("g_game", "onParseCyclopediaStoreSummary", xpBoostTime, dailyRewardXpBoostTime, blessings, preySlotsUnlocked, preyWildcards, hasPermanentWeeklyTaskExpansion, instantRewards, hasCharmExpansion, hirelingsObtained, hirelingSkills, hirelingOutfits, houseItems);
             break;
         }
         case Otc::CYCLOPEDIA_CHARACTERINFO_INSPECTION:
@@ -5726,23 +5759,32 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
         }
         case Otc::CYCLOPEDIA_CHARACTERINFO_TITLES:
         {
-            msg->getU8(); // current title
+            const uint8_t currentTitle = msg->getU8();
             const uint8_t titlesSize = msg->getU8();
-            for (auto i = 0; i < titlesSize; ++i) {
-                msg->getString(); // title name
-                msg->getString(); // title description
-                msg->getU8(); // bool title permanent
-                msg->getU8(); // bool title unlocked
+            std::vector<int> ids;
+            std::vector<std::string> names;
+            std::vector<std::string> descriptions;
+            std::vector<int> permanents;
+            std::vector<int> unlockeds;
+            for (uint8_t i = 0; i < titlesSize; ++i) {
+                ids.push_back(msg->getU8());
+                names.push_back(msg->getString());
+                descriptions.push_back(msg->getString());
+                permanents.push_back(msg->getU8());
+                unlockeds.push_back(msg->getU8());
             }
+            g_lua.callGlobalField("g_game", "onParseCyclopediaCharacterTitles", currentTitle, ids, names, descriptions, permanents, unlockeds);
             break;
         }
         case Otc::CYCLOPEDIA_CHARACTERINFO_OFFENCESTATS:
         {
-            CyclopediaCharacterOffenceStats data;
+            CyclopediaCharacterOffenceStats data{};
+            const bool extendedOffenceStats = g_game.getClientVersion() == 860
+                || g_game.getClientVersion() >= 1510;
 
             // Critical hit chance
             data.critChanceTotal = msg->getDouble();
-            if (g_game.getClientVersion() >= 1510) {
+            if (extendedOffenceStats) {
                 data.critChanceFlat = msg->getDouble();
             }
             data.critChanceEquipament = msg->getDouble();
@@ -5752,7 +5794,7 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
 
             // Critical hit damage
             data.critDamageTotal = msg->getDouble();
-            if (g_game.getClientVersion() >= 1510) {
+            if (extendedOffenceStats) {
                 data.critDamageFlat = msg->getDouble();
             }
             data.critDamageEquipament = msg->getDouble();
@@ -5783,7 +5825,7 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             data.cleavePercent = msg->getDouble();
 
             // Perfect shot range
-            auto limitRange = (g_game.getClientVersion() >= 1510) ? 7 : 5;
+            const auto limitRange = extendedOffenceStats ? 7 : 5;
             for (int i = 0; i < limitRange; i++) {
                 data.perfectShotDamage.push_back(msg->getU16());
             }
@@ -5808,7 +5850,7 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
                 data.weaponAccuracy.push_back(msg->getDouble());
             }
 
-            if (g_game.getClientVersion() >= 1510) {
+            if (extendedOffenceStats) {
                 msg->getDouble(); // unused
                 msg->getU16(); // unused
                 msg->getU8(); // unused
@@ -5845,7 +5887,7 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
 
             data.reflectPhysical = msg->getU16();
             data.armor = msg->getU16();
-            if (g_game.getClientVersion() >= 1500) {
+            if (g_game.getClientVersion() >= 1500 || g_game.getClientVersion() == 860 || g_game.getFeature(Otc::GameVocationMonk)) {
                 msg->getU16(); // MANTRA
             }
 
@@ -5864,7 +5906,7 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             data.mitigationCombatTactics = msg->getDouble();
             const uint8_t combatsCount = msg->getU8();
             for (int i = 0; i < combatsCount; ++i) {
-                uint8_t elementType = msg->getU8();
+                const uint8_t elementType = msg->getU8();
                 if (elementType == 0x04) {
                     CyclopediaCharacterDefenceStats::ElementalResistance resistance;
                     resistance.element = msg->getU8();
@@ -5909,7 +5951,7 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             }
 
             msg->getU8(); // unused
-            if (g_game.getClientVersion() >= 1510) {
+            if (g_game.getClientVersion() == 860 || g_game.getClientVersion() >= 1510) {
                 msg->getU8(); // unused
                 msg->getU8(); // unused
                 msg->getU8(); // unused

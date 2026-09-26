@@ -1519,15 +1519,23 @@ local currentEchoeBalance = 0
 local currentMaxCharmBalance = 0
 local currentMaxEchoeBalance = 0
 
-function BestiaryChangeAmount(amount, secondAmount, echoeAmount, maxCharmAmount, maxEchoeAmount)
-	currentCharmBalance = amount or currentCharmBalance
-	currentGoldBalance = secondAmount or currentGoldBalance
-	currentEchoeBalance = echoeAmount or currentEchoeBalance
-	currentMaxCharmBalance = maxCharmAmount or currentMaxCharmBalance
-	currentMaxEchoeBalance = maxEchoeAmount or currentMaxEchoeAmount
+function getStoredCharmResourceBalances()
+	return currentCharmBalance, currentEchoeBalance, currentMaxCharmBalance, currentMaxEchoeBalance
+end
 
+function applyBestiaryFooterBalances()
 	if not isBestiaryView() then
 		return
+	end
+
+	if goldAmountBestiary and not goldAmountBestiary:isDestroyed() then
+		local gold = currentGoldBalance
+
+		if (not gold or gold == 0) and modules.game_cyclopedia and modules.game_cyclopedia.Cyclopedia and modules.game_cyclopedia.Cyclopedia.getPlayerMoney then
+			gold = modules.game_cyclopedia.Cyclopedia.getPlayerMoney()
+		end
+
+		goldAmountBestiary:setText(formatNumber(gold or 0))
 	end
 
 	if charmAmountBestiary then
@@ -1537,12 +1545,31 @@ function BestiaryChangeAmount(amount, secondAmount, echoeAmount, maxCharmAmount,
 			charmAmountBestiary:setText(formatNumber(currentCharmBalance))
 		end
 	end
+
 	if echoesAmountBestiary then
 		if currentMaxEchoeBalance and currentMaxEchoeBalance > 0 then
 			echoesAmountBestiary:setText(string.format("%s / %s", formatNumber(currentEchoeBalance), formatNumber(currentMaxEchoeBalance)))
 		else
 			echoesAmountBestiary:setText(formatNumber(currentEchoeBalance))
 		end
+	end
+end
+
+function BestiaryChangeAmount(amount, secondAmount, echoeAmount, maxCharmAmount, maxEchoeAmount)
+	currentCharmBalance = amount or currentCharmBalance
+	currentGoldBalance = secondAmount or currentGoldBalance
+	currentEchoeBalance = echoeAmount or currentEchoeBalance
+	currentMaxCharmBalance = maxCharmAmount or currentMaxCharmBalance
+	currentMaxEchoeBalance = maxEchoeAmount or currentMaxEchoeAmount
+
+	if modules.game_cyclopedia and modules.game_cyclopedia.Cyclopedia and modules.game_cyclopedia.Cyclopedia.setCharmResourceBalances then
+		modules.game_cyclopedia.Cyclopedia.setCharmResourceBalances(amount, secondAmount, echoeAmount, maxCharmAmount, maxEchoeAmount)
+	end
+
+	applyBestiaryFooterBalances()
+
+	if refreshCharmsFooterBalances then
+		refreshCharmsFooterBalances()
 	end
 end
 
@@ -1956,6 +1983,11 @@ function initBestiary(contentContainer)
 	if bestiaryPanel then
 		bestiaryPanel:show()
 
+		applyBestiaryFooterBalances()
+		if requestBestiaryCharmRefresh then
+			requestBestiaryCharmRefresh()
+		end
+
 		if #currentCategoriesList == 0 then
 			requestBestiaryData()
 		end
@@ -2084,6 +2116,7 @@ function initBestiary(contentContainer)
 	end
 
 	requestBestiaryData()
+	applyBestiaryFooterBalances()
 end
 local function requestBestiaryInfo()
 	local protocolGame = g_game.getProtocolGame()

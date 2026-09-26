@@ -465,7 +465,8 @@ UIWidget
       pixels-scroll: true
 
   Button
-    id: closeButton
+    id: embeddedCloseButton
+    visible: false
     size: 43 20
     anchors.bottom: parent.bottom
     anchors.right: parent.right
@@ -474,27 +475,27 @@ UIWidget
     @onClick: modules.game_cyclopedia.toggle()
 
   Button
-    id: backButton
+    id: embeddedBackButton
+    visible: false
     size: 43 20
-    anchors.bottom: parent.bottom
-    anchors.right: closeButton.left
+    anchors.verticalCenter: embeddedCloseButton.verticalCenter
+    anchors.right: embeddedCloseButton.left
     margin-right: 6
     !text: tr('Back')
     font: cipsoftFont
 
   HorizontalSeparator
     id: horizontalSeparator
-    anchors.bottom: closeButton.top
+    anchors.bottom: embeddedCloseButton.top
     anchors.left: parent.left
     anchors.right: parent.right
     margin-bottom: 12
 
   UIWidget
     id: blackBG01
-    visible: false
     image-source: /images/modern_ui/image1015925
     image-border: 1
-    size: 96 20
+    size: 110 20
     anchors.bottom: parent.bottom
     anchors.left: parent.left
     margin-bottom: 1
@@ -521,8 +522,8 @@ UIWidget
     image-border: 1
     size: 110 20
     anchors.bottom: parent.bottom
-    anchors.left: parent.left
-    margin-left: 136
+    anchors.left: blackBG01.right
+    margin-left: 6
     margin-bottom: 1
     !tooltip: tr('Charm Points\n\nEarned by unlocking entries in the Bestiary.')
 

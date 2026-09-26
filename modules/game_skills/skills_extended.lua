@@ -95,6 +95,14 @@ function updateOffenceSeparatorVisibility()
 	end
 end
 
+function getLastOffenceInfo()
+	return lastOffenceInfo
+end
+
+function getLastDefenseInfo()
+	return lastDefenseInfo
+end
+
 function refreshOffenceStatsFromCache()
 	local player = g_game.getLocalPlayer()
 
