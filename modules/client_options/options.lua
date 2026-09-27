@@ -525,6 +525,24 @@ function controller:onInit()
             callback = function() toggleOption('enableAudio') end,
         }
     })
+
+    Keybind.new("UI", "Open Custom Hotkeys", "Ctrl+K", "")
+    Keybind.bind("UI", "Open Custom Hotkeys", {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                openOptionsCategory('Controls', 'Custom Hotk...')
+            end,
+        }
+    })
+
+    Keybind.new("UI", "Switch Hotkey Preset", "Ctrl+J", "")
+    Keybind.bind("UI", "Switch Hotkey Preset", {
+        {
+            type = KEY_DOWN,
+            callback = cycleHotkeyPreset,
+        }
+    })
 end
 
 function controller:onTerminate()
@@ -554,6 +572,8 @@ function controller:onTerminate()
     Keybind.delete("UI", "Show/hide Creature Names and Bars")
     Keybind.delete("UI", "Show/hide FPS / lag indicator")
     Keybind.delete("Sound", "Mute/unmute")
+    Keybind.delete("UI", "Open Custom Hotkeys")
+    Keybind.delete("UI", "Switch Hotkey Preset")
 
     terminate_binds()
     terminate_custom_hotkeys()
@@ -1993,6 +2013,44 @@ end
 
 function getPanel()
     return controller.ui.optionsTabContent
+end
+
+function cycleHotkeyPreset()
+    local presets = Keybind and Keybind.presets
+    if not presets or #presets == 0 then
+        return
+    end
+
+    local currentIdx = 1
+    for i, preset in ipairs(presets) do
+        if preset == Keybind.currentPreset then
+            currentIdx = i
+            break
+        end
+    end
+
+    local nextIdx = currentIdx % #presets + 1
+    local nextPreset = presets[nextIdx]
+    if not nextPreset or nextPreset == Keybind.currentPreset then
+        return
+    end
+
+    Keybind.selectPreset(nextPreset)
+    if panels and panels.keybindsPanel and panels.keybindsPanel.presets and panels.keybindsPanel.presets.list then
+        panels.keybindsPanel.presets.list:setCurrentOption(nextPreset, true)
+        if updateKeybinds then
+            updateKeybinds()
+        end
+    end
+    if panels and panels.customHotkeys and panels.customHotkeys.presets and panels.customHotkeys.presets.list then
+        panels.customHotkeys.presets.list:setCurrentOption(nextPreset, true)
+        if updateCustomHotkeys then
+            updateCustomHotkeys()
+        end
+    end
+    if modules.game_actionbar and modules.game_actionbar.selectHotkeySet then
+        modules.game_actionbar.selectHotkeySet(nextPreset)
+    end
 end
 
 function openOptionsCategory(category, subcategory)

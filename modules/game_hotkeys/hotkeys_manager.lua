@@ -67,7 +67,7 @@ local hotkeysWindowButton = nil
 -- public functions
 function init()
 
-    Keybind.new("Windows", "Show/hide Hotkeys", "Ctrl+K", "")
+    Keybind.new("Windows", "Show/hide Hotkeys", "", "")
     Keybind.bind("Windows", "Show/hide Hotkeys", {
       {
         type = KEY_DOWN,

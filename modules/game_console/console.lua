@@ -315,6 +315,21 @@ function consoleController:onInit()
         }
       }, consolePanel)
 
+    Keybind.new("Chat Mode", "Set to Chat On", "", "")
+    Keybind.bind("Chat Mode", "Set to Chat On", {
+        {
+            type = KEY_DOWN,
+            callback = setChatModeOn,
+        }
+    }, gameRootPanel)
+    Keybind.new("Chat Mode", "Set to Chat Off", "", "")
+    Keybind.bind("Chat Mode", "Set to Chat Off", {
+        {
+            type = KEY_DOWN,
+            callback = setChatModeOff,
+        }
+    }, gameRootPanel)
+
     -- toggle WASD
     consoleToggleChat = consolePanel:getChildById('toggleChat')
     readOnlyButton = consolePanel:getChildById("readOnlyButton")
@@ -471,6 +486,40 @@ function toggleChatHotkey()
     toggleChat()
 end
 
+function setChatModeOn()
+    if not g_game.isOnline() or modules.game_hotkeys.areHotkeysDisabled() then
+        return
+    end
+
+    if not consoleToggleChat or not consoleTextEdit then
+        return
+    end
+
+    walkAfterSend = false
+    if not isChatEnabled() then
+        consoleToggleChat.isChecked = false
+        consoleToggleChat:setText(walkAfterSend and (tr('Chat On') .. '*') or tr('Chat On'))
+        switchChat(true)
+    end
+end
+
+function setChatModeOff()
+    if not g_game.isOnline() or modules.game_hotkeys.areHotkeysDisabled() then
+        return
+    end
+
+    if not consoleToggleChat or not consoleTextEdit then
+        return
+    end
+
+    walkAfterSend = false
+    if isChatEnabled() then
+        consoleToggleChat.isChecked = true
+        consoleToggleChat:setText(tr('Chat Off'))
+        switchChat(false)
+    end
+end
+
 function disableChatOnCall()
     if not g_game.isOnline() or modules.game_hotkeys.areHotkeysDisabled() then
         return
@@ -502,6 +551,8 @@ function consoleController:onTerminate()
     Keybind.delete("Chat Channel", "Open Help Channel")
     Keybind.delete("Chat", "Send current chat line")
     Keybind.delete("Chat", "Enable/Disable Chat")
+    Keybind.delete("Chat Mode", "Set to Chat On")
+    Keybind.delete("Chat Mode", "Set to Chat Off")
     saveCommunicationSettings()
     clearReadOnlyTab()
     if readOnlyModeEnabled then

@@ -196,9 +196,27 @@ function init()
     })
 
     reloadContainers()
+
+    Keybind.new('Containers', 'Toggle Manual Sort Mode', {
+        [CHAT_MODE.ON] = '',
+        [CHAT_MODE.OFF] = 'Shift+S'
+    }, '')
+    Keybind.bind('Containers', 'Toggle Manual Sort Mode', {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                if not g_game.isOnline() then
+                    return
+                end
+                toggleManualSortMode()
+            end
+        }
+    })
 end
 
 function terminate()
+    Keybind.delete('Containers', 'Toggle Manual Sort Mode')
+
     disconnect(Container, {
         onOpen = onContainerOpen,
         onClose = onContainerClose,
@@ -648,6 +666,14 @@ function sortContainerItems(container, sortMode)
 end
 
 -- Function to determine quick loot category for an item
+
+function toggleManualSortMode()
+    if not containerSettings then
+        return
+    end
+
+    onContainersMenuAction('useManualSortMode')
+end
 
 function onContainersMenuAction(actionId)
     local isToggleOption = actionId == 'sortContainersFirst' or actionId == 'sortNestedContainers' or 

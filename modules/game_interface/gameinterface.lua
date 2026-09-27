@@ -326,6 +326,18 @@ function bindKeys()
         }
     }, gameRootPanel)
 
+    Keybind.new("Misc", "Clear oldest message from Game Window", "Alt+W", "")
+    Keybind.bind("Misc", "Clear oldest message from Game Window", {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                if modules.game_textmessage and modules.game_textmessage.clearOldestMessage then
+                    modules.game_textmessage.clearOldestMessage()
+                end
+            end,
+        }
+    }, gameRootPanel)
+
     g_keyboard.bindKeyDown('Ctrl+.', nextViewMode, gameRootPanel)
 
     g_keyboard.bindKeyDown('Ctrl+I', function()
@@ -391,6 +403,7 @@ function terminate()
     Keybind.delete("Movement", "Stop All Actions")
     Keybind.delete("Misc", "Logout")
     Keybind.delete("UI", "Clear All Texts")
+    Keybind.delete("Misc", "Clear oldest message from Game Window")
 end
 
 function onGameStart()
