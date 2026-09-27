@@ -276,8 +276,25 @@ bool DrawPool::canRepaint()
     return canRefresh();
 }
 
+namespace
+{
+    bool vkMapHolesChanged(const std::vector<Rect>& previous, const std::vector<Rect>& pending)
+    {
+        if (previous.size() != pending.size())
+            return true;
+
+        for (size_t i = 0; i < previous.size(); ++i) {
+            if (previous[i] != pending[i])
+                return true;
+        }
+
+        return false;
+    }
+}
+
 void DrawPool::release() {
-    if (hasFrameBuffer() && !m_hashCtrl.wasModified() && !canRefresh()) {
+    const bool mapHolesChanged = vkMapHolesChanged(m_vkMapHoles, m_vkPendingMapHoles);
+    if (hasFrameBuffer() && !m_hashCtrl.wasModified() && !canRefresh() && !mapHolesChanged) {
         for (auto& objs : m_objects)
             objs.clear();
         m_objectsFlushed.clear();
@@ -286,7 +303,7 @@ void DrawPool::release() {
         SpinLock::Guard guard(m_threadLock);
         m_vkFbDest = m_vkPendingFbDest;
         m_vkFbSrc = m_vkPendingFbSrc;
-        m_vkMapHole = m_vkPendingMapHole;
+        m_vkMapHoles = m_vkPendingMapHoles;
         return;
     }
 
@@ -296,7 +313,7 @@ void DrawPool::release() {
 
     m_vkFbDest = m_vkPendingFbDest;
     m_vkFbSrc = m_vkPendingFbSrc;
-    m_vkMapHole = m_vkPendingMapHole;
+    m_vkMapHoles = m_vkPendingMapHoles;
 
     m_objectsDraw[0].clear();
 

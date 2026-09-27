@@ -51,25 +51,46 @@ UIMap::~UIMap()
 }
 
 void UIMap::draw(const DrawPoolType drawPane) {
+    const auto applyLocalDrawPoolScale = [&](const auto& drawFn) {
+        if (!m_mapView->controlsDrawPool()) {
+            const auto pool = g_drawPool.get(DrawPoolType::MAP);
+            const float savedScale = pool->getScaleFactor();
+            pool->setScaleFactor(m_mapView->getScaleFactor());
+            drawFn();
+            pool->setScaleFactor(savedScale);
+            return;
+        }
+
+        drawFn();
+    };
+
     if (drawPane == DrawPoolType::MAP) {
-        g_drawPool.preDraw(drawPane, [this] {
-            m_mapView->drawFloor();
-        }, [this] {
-            m_mapView->registerEvents();
-        }, m_mapView->m_posInfo.rect, m_mapView->m_posInfo.srcRect, Color::black);
+        applyLocalDrawPoolScale([this] {
+            g_drawPool.preDraw(DrawPoolType::MAP, [this] {
+                m_mapView->drawFloor();
+            }, [this] {
+                m_mapView->registerEvents();
+            }, m_mapView->m_posInfo.rect, m_mapView->m_posInfo.srcRect, Color::black);
+        });
     } else if (drawPane == DrawPoolType::LIGHT) {
-        g_drawPool.preDraw(drawPane, [this] {
-            m_mapView->m_lightView->clear();
-            m_mapView->drawLights();
-            m_mapView->m_lightView->draw(m_mapView->m_posInfo.rect, m_mapView->m_posInfo.srcRect);
+        applyLocalDrawPoolScale([this] {
+            g_drawPool.preDraw(DrawPoolType::LIGHT, [this] {
+                m_mapView->m_lightView->clear();
+                m_mapView->drawLights();
+                m_mapView->m_lightView->draw(m_mapView->m_posInfo.rect, m_mapView->m_posInfo.srcRect);
+            });
         });
     } else if (drawPane == DrawPoolType::CREATURE_INFORMATION) {
-        g_drawPool.preDraw(drawPane, [this] {
-            m_mapView->drawCreatureInformation();
+        applyLocalDrawPoolScale([this] {
+            g_drawPool.preDraw(DrawPoolType::CREATURE_INFORMATION, [this] {
+                m_mapView->drawCreatureInformation();
+            });
         });
     } else if (drawPane == DrawPoolType::FOREGROUND_MAP) {
-        g_drawPool.preDraw(drawPane, [this] {
-            m_mapView->drawForeground(m_mapviewRect);
+        applyLocalDrawPoolScale([this] {
+            g_drawPool.preDraw(DrawPoolType::FOREGROUND_MAP, [this] {
+                m_mapView->drawForeground(m_mapviewRect);
+            });
         });
     }
 }
@@ -96,6 +117,8 @@ void UIMap::updateMapRect() {
 void UIMap::movePixels(int x, int y) { m_mapView->move(x, y); }
 
 void UIMap::followCreature(const CreaturePtr& creature) { m_mapView->followCreature(creature); }
+
+void UIMap::setControlsDrawPool(const bool controls) { m_mapView->setControlsDrawPool(controls); }
 
 void UIMap::setCameraPosition(const Position& pos) { m_mapView->setCameraPosition(pos); }
 

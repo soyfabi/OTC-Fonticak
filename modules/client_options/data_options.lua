@@ -28,6 +28,9 @@ return {
         value = false,
         action = function(value, options, controller, panels, extraWidgets)
             modules.client_topmenu.setFpsVisible(value)
+            if modules.client_options and modules.client_options.updateHudLivePreviewOverlay then
+                modules.client_options.updateHudLivePreviewOverlay()
+            end
         end
     },
     showPing                          = {
@@ -59,6 +62,9 @@ return {
                         scroll:setValue(math.min(scroll:getMaximum(), scroll:getValue() + step))
                     end
                 end)
+            end
+            if modules.client_options and modules.client_options.updateHudLivePreviewOverlay then
+                modules.client_options.updateHudLivePreviewOverlay()
             end
         end
     },

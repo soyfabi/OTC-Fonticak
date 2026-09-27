@@ -2,21 +2,120 @@ UIWidget
   anchors.fill: parent
   visible: false
   @onVisibilityChange: |
-    if self:isVisible() then
-      scheduleEvent(function()
-        if self:isDestroyed() then return end
-        local scroll = self:recursiveGetChildById('hudScrollBar')
-        if scroll then
-          scroll:setValue(0)
-        end
-      end, 1)
+    if modules.client_options and modules.client_options.onHudPanelVisibilityChange then
+      modules.client_options.onHudPanelVisibilityChange(self:isVisible())
     end
+
+  Panel
+    id: hudPreviewColumn
+    anchors.top: parent.top
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    width: 268
+    margin-right: 2
+    margin-bottom: 28
+
+    OptionsLabel
+      id: hudPreviewTitle
+      !text: tr('Preview')
+      anchors.top: parent.top
+      anchors.horizontalCenter: parent.horizontalCenter
+      margin-top: 4
+
+    Panel
+      id: hudLivePreviewFrame
+      anchors.top: hudPreviewTitle.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      height: 248
+      margin-top: 6
+      margin-left: 4
+      margin-right: 4
+      image-source: /images/ui/panel_flat
+      image-border: 2
+
+      Panel
+        id: hudLivePreviewMapContainer
+        anchors.fill: parent
+        margin: 1
+
+      Panel
+        id: hudPreviewStatsOverlay
+        anchors.top: parent.top
+        anchors.left: parent.left
+        anchors.right: parent.right
+        height: 36
+        margin: 4
+        phantom: true
+        focusable: false
+
+        Label
+          id: hudPreviewFpsLabel
+          !text: tr('FPS: --')
+          anchors.top: parent.top
+          anchors.left: parent.left
+          margin-left: 2
+          font: verdana-11px-rounded
+          text-auto-resize: true
+          visible: false
+
+        Label
+          id: hudPreviewPingLabel
+          !text: tr('-- ms')
+          anchors.top: hudPreviewFpsLabel.bottom
+          anchors.left: parent.left
+          margin-left: 2
+          margin-top: 1
+          font: verdana-11px-rounded
+          text-auto-resize: true
+          visible: false
+
+      Label
+        id: hudPreviewOfflineLabel
+        !text: tr('Log in to see the live preview.')
+        anchors.centerIn: parent
+        text-align: center
+        color: #909090
+        font: Verdana Bold-11px
+        visible: false
+
+    QtPanel
+      id: hudPreviewAboutPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: hudLivePreviewFrame.bottom
+      anchors.bottom: parent.bottom
+      margin-top: 8
+      margin-left: 4
+      margin-right: 4
+      margin-bottom: 4
+
+      OptionsLabel
+        !text: tr('About This Option')
+        anchors.top: parent.top
+        anchors.left: parent.left
+        margin-top: 4
+        margin-left: 6
+
+      Label
+        id: hudPreviewAboutText
+        !text: tr('Hover over an option to see what it does.\nThe preview shows your game view and HUD in real time.')
+        anchors.top: prev.bottom
+        anchors.left: parent.left
+        anchors.right: parent.right
+        margin-top: 6
+        margin-left: 8
+        margin-right: 8
+        text-wrap: true
+        text-auto-resize: true
+        color: #909090
+        font: Verdana Bold-11px
 
   UIScrollArea
     id: hudScrollArea
     anchors.top: parent.top
     anchors.left: parent.left
-    anchors.right: parent.right
+    anchors.right: hudPreviewColumn.left
     anchors.bottom: parent.bottom
     margin-right: 14
     margin-bottom: 28
@@ -633,7 +732,7 @@ UIWidget
   VerticalScrollBar
     id: hudScrollBar
     anchors.top: parent.top
-    anchors.right: parent.right
+    anchors.right: hudPreviewColumn.left
     anchors.bottom: parent.bottom
     margin-bottom: 28
     step: 16
@@ -645,7 +744,7 @@ UIWidget
     !tooltip: tr('Reset all HUD options to their default values.')
     @onClick: modules.client_options.resetHUD()
     anchors.bottom: parent.bottom
-    anchors.right: parent.right
+    anchors.right: hudPreviewColumn.left
     margin-right: 14
     margin-bottom: 2
     size: 80 20

@@ -68,6 +68,7 @@ void UIManager::render(DrawPoolType drawPane) const
     if (drawPane != DrawPoolType::FOREGROUND)
         return;
 
+    g_drawPool.clearVkMapHoles();
     g_drawPool.preDraw(drawPane, [this, drawPane] {
         m_rootWidget->draw(m_rootWidget->getRect(), drawPane);
     }, { 0,0, g_graphics.getViewportSize() }, {});

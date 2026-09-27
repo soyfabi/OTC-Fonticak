@@ -28,6 +28,7 @@
 
 #include "../stdext/storage.h"
 #include <framework/util/spinlock.h>
+#include <vector>
 
 struct DrawHashController
 {
@@ -372,8 +373,8 @@ private:
     Rect m_vkPendingFbSrc;
     Rect m_vkFbDest;
     Rect m_vkFbSrc;
-    Rect m_vkPendingMapHole;
-    Rect m_vkMapHole;
+    std::vector<Rect> m_vkPendingMapHoles;
+    std::vector<Rect> m_vkMapHoles;
 
     friend class DrawPoolManager;
     friend class VkDrawFeeder;

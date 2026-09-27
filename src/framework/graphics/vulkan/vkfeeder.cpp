@@ -306,7 +306,7 @@ void VkDrawFeeder::feedPool(VkSpriteBatch& batch, DrawPool* pool, const VkExtent
 
     Rect fbDest;
     Rect fbSrc;
-    Rect mapHole;
+    std::vector<Rect> mapHoles;
 
     {
         // EXACTLY the same protocol as DrawPoolManager::drawObjects: swap under the lock and clear
@@ -319,7 +319,7 @@ void VkDrawFeeder::feedPool(VkSpriteBatch& batch, DrawPool* pool, const VkExtent
         }
         fbDest = pool->m_vkFbDest;
         fbSrc = pool->m_vkFbSrc;
-        mapHole = pool->m_vkMapHole;
+        mapHoles = pool->m_vkMapHoles;
     }
 
     if (pool->m_objectsDraw[1].empty())
@@ -329,6 +329,22 @@ void VkDrawFeeder::feedPool(VkSpriteBatch& batch, DrawPool* pool, const VkExtent
     // framebuffer (FrameBuffer::draw on the GL side interprets it the same way).
     PoolMapping mapping;
     VkRect2D baseScissor = fullRect(extent);
+
+    auto matchesMapHole = [&](const float lx0, const float ly0, const float lx1, const float ly1) {
+        constexpr float kHoleTolerance = 2.0f;
+        for (const auto& hole : mapHoles) {
+            if (!hole.isValid())
+                continue;
+
+            if (std::abs(lx0 - static_cast<float>(hole.x())) <= kHoleTolerance &&
+                std::abs(ly0 - static_cast<float>(hole.y())) <= kHoleTolerance &&
+                std::abs(lx1 - static_cast<float>(hole.x() + hole.width())) <= kHoleTolerance &&
+                std::abs(ly1 - static_cast<float>(hole.y() + hole.height())) <= kHoleTolerance) {
+                return true;
+            }
+        }
+        return false;
+    };
 
     if (hasFb && fbDest.isValid()) {
         if (!fbSrc.isValid() && pool->m_framebuffer && pool->m_framebuffer->isValid())
@@ -477,22 +493,16 @@ void VkDrawFeeder::feedPool(VkSpriteBatch& batch, DrawPool* pool, const VkExtent
 
             // 2 px slack: Rect right/bottom are inclusive, and the widget rect may differ from
             // the emitted quad by a border pixel.
-            constexpr float kHoleTolerance = 2.0f;
-            const bool isMapHole = mapHole.isValid() &&
-                std::abs(lx0 - static_cast<float>(mapHole.x())) <= kHoleTolerance &&
-                std::abs(ly0 - static_cast<float>(mapHole.y())) <= kHoleTolerance &&
-                std::abs(lx1 - static_cast<float>(mapHole.x() + mapHole.width())) <= kHoleTolerance &&
-                std::abs(ly1 - static_cast<float>(mapHole.y() + mapHole.height())) <= kHoleTolerance;
+            const bool isMapHole = matchesMapHole(lx0, ly0, lx1, ly1);
 
             if (!isMapHole) {
                 // Untextured with alpha=0 = invisible either way; skip it WITHOUT cutting.
                 // One-shot log so a lingering visual bug report can pinpoint the emitter.
                 if (!m_loggedSuspectPunch) {
                     m_loggedSuspectPunch = true;
-                    g_logger.info("[vulkan] feeder: ignored a non-map alpha-0 shape {}x{} at ({},{}) - registered map hole is {}x{} at ({},{})",
+                    g_logger.info("[vulkan] feeder: ignored a non-map alpha-0 shape {}x{} at ({},{})",
                                   static_cast<int>(lx1 - lx0), static_cast<int>(ly1 - ly0),
-                                  static_cast<int>(lx0), static_cast<int>(ly0),
-                                  mapHole.width(), mapHole.height(), mapHole.x(), mapHole.y());
+                                  static_cast<int>(lx0), static_cast<int>(ly0));
                 }
                 continue;
             }
