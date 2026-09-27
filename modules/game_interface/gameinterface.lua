@@ -1333,9 +1333,11 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
             end)
         end
         if useThing:isLyingCorpse() and g_game.isQuickLootEnabled() and modules.game_quickloot and useThing:getPosition().x ~= 0xffff then
+            local lootCorpseShortcut = Keybind.formatActionShortcut('Loot', 'Quick Loot at Cursor')
+                or Keybind.formatActionShortcut('Loot', 'Quick Loot Container')
             menu.addOption(menu, tr("Loot corpse"), function()
                 g_game.sendQuickLoot(getQuickLootVariant(), useThing)
-            end)
+            end, lootCorpseShortcut)
         end
     end
 
@@ -1523,7 +1525,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
         if lookThing:isContainer() then
             menu.addOption(menu, tr("Manage Loot Containers"), function()
                 quickLoot.toggle()
-            end)
+            end, Keybind.formatActionShortcut('Loot', 'Open Manage Loot Containers'))
         end
 
         local lootExists = quickLoot.lootExists(lookThing:getId())

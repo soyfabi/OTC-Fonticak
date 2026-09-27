@@ -1624,8 +1624,8 @@ function rewardWallController:onInit()
 	setupRewardWallUi()
 	rewardWallController.updateButtonHighlight = updateButtonHighlight
 
-	Keybind.new('Windows', 'Show/hide reward wall', '', '')
-	Keybind.bind('Windows', 'Show/hide reward wall', {
+	Keybind.new('Windows', 'Open Reward Wall', 'Alt+Shift+R', '')
+	Keybind.bind('Windows', 'Open Reward Wall', {
 		{
 			type = KEY_DOWN,
 			callback = function()
@@ -1643,7 +1643,7 @@ function rewardWallController:onTerminate()
 	stopDailyRewardSlotTimer()
 	stopRestingAreaTimer()
 
-	Keybind.delete('Windows', 'Show/hide reward wall')
+	Keybind.delete('Windows', 'Open Reward Wall')
 
 	generalBox, windowsPickWindow, ButtonRewardWall = destroyWindows({
 		generalBox,

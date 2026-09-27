@@ -145,8 +145,8 @@ function init()
   wheelButton = createWheelButton()
   setWheelButtonState(false)
 
-  Keybind.new('Windows', 'Show/hide wheel of destiny', '', '')
-  Keybind.bind('Windows', 'Show/hide wheel of destiny', {
+  Keybind.new('Windows', 'Open Wheel of Destiny', 'Ctrl+Shift+W', '')
+  Keybind.bind('Windows', 'Open Wheel of Destiny', {
     {
       type = KEY_DOWN,
       callback = function()
@@ -162,7 +162,7 @@ end
 function terminate()
   WheelOfDestiny.cancelPendingAutoApply()
 
-  Keybind.delete('Windows', 'Show/hide wheel of destiny')
+  Keybind.delete('Windows', 'Open Wheel of Destiny')
 
   disconnect(g_game, {
     onGameEnd = onGameEnd,

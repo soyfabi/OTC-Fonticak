@@ -430,7 +430,41 @@ function addStoreButton(id, description, image, callback, front)
 end
 
 function getButton(id)
-    return optionsController.ui.onPanel.options:recursiveGetChildById(id)
+    local onPanel = optionsController.ui.onPanel
+    if not onPanel then
+        return nil
+    end
+
+    local button = onPanel.options:recursiveGetChildById(id)
+    if button then
+        return button
+    end
+
+    if onPanel.specials then
+        button = onPanel.specials:recursiveGetChildById(id)
+        if button then
+            return button
+        end
+    end
+
+    if onPanel.store then
+        button = onPanel.store:recursiveGetChildById(id)
+        if button then
+            return button
+        end
+    end
+
+    if modules.client_topmenu and modules.client_topmenu.getRightGameButtonsPanel then
+        local rightGamePanel = modules.client_topmenu.getRightGameButtonsPanel()
+        if rightGamePanel then
+            button = rightGamePanel:recursiveGetChildById(id)
+            if button then
+                return button
+            end
+        end
+    end
+
+    return nil
 end
 
 function toggleExtendedViewButtons(extended)

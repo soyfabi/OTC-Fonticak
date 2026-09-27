@@ -121,8 +121,8 @@ function initialize()
         onGameStart()
     end
 
-    Keybind.new('Windows', 'Show/hide imbuement tracker', '', '')
-    Keybind.bind('Windows', 'Show/hide imbuement tracker', {
+    Keybind.new('Windows', 'Open Imbuement Tracker', 'Alt+M', '')
+    Keybind.bind('Windows', 'Open Imbuement Tracker', {
         {
             type = KEY_DOWN,
             callback = function()
@@ -148,7 +148,7 @@ function onMiniWindowClose()
 end
 
 function terminate()
-    Keybind.delete('Windows', 'Show/hide imbuement tracker')
+    Keybind.delete('Windows', 'Open Imbuement Tracker')
 
     disconnect(g_game, {
         onGameStart = onGameStart,

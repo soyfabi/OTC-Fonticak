@@ -1038,22 +1038,22 @@ function init()
 		-- Bosstiary tracker window is not implemented in this client yet.
 	end
 
-	Keybind.new('Windows', 'Show/hide Bosstiary Tracker', '', '')
-	Keybind.bind('Windows', 'Show/hide Bosstiary Tracker', {
+	Keybind.new('Windows', 'Open Bosstiary Tracker', 'Alt+Shift+B', '')
+	Keybind.bind('Windows', 'Open Bosstiary Tracker', {
 		{
 			type = KEY_DOWN,
 			callback = Cyclopedia.toggleBosstiaryTracker
 		}
 	})
-	Keybind.new('Windows', 'Show/hide Bestiary Tracker', '', '')
-	Keybind.bind('Windows', 'Show/hide Bestiary Tracker', {
+	Keybind.new('Windows', 'Open Bestiary Tracker', 'Alt+B', '')
+	Keybind.bind('Windows', 'Open Bestiary Tracker', {
 		{
 			type = KEY_DOWN,
 			callback = toggleTracker
 		}
 	})
-	Keybind.new('Windows', 'Show/hide cyclopedia', '', '')
-	Keybind.bind('Windows', 'Show/hide cyclopedia', {
+	Keybind.new('Windows', 'Open Cyclopedia', 'Alt+C', '')
+	Keybind.bind('Windows', 'Open Cyclopedia', {
 		{
 			type = KEY_DOWN,
 			callback = function()
@@ -1103,9 +1103,9 @@ function terminate()
 		Cyclopedia.uninstallSpellAimTalkHook()
 	end
 
-	Keybind.delete('Windows', 'Show/hide Bosstiary Tracker')
-	Keybind.delete('Windows', 'Show/hide Bestiary Tracker')
-	Keybind.delete('Windows', 'Show/hide cyclopedia')
+	Keybind.delete('Windows', 'Open Bosstiary Tracker')
+	Keybind.delete('Windows', 'Open Bestiary Tracker')
+	Keybind.delete('Windows', 'Open Cyclopedia')
 
 	-- Hooked opcodes
 	ProtocolGame.unregisterOpcode(0x29)

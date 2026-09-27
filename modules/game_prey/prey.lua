@@ -718,8 +718,8 @@ function init()
 		}
 	}, modules.game_interface.getRootPanel())
 
-	Keybind.new("Windows", "Show/hide prey tracker", "", "")
-	Keybind.bind("Windows", "Show/hide prey tracker", {
+	Keybind.new("Windows", "Open Prey Tracker", "Alt+Shift+P", "")
+	Keybind.bind("Windows", "Open Prey Tracker", {
 		{
 			type = KEY_DOWN,
 			callback = function()
@@ -1000,7 +1000,7 @@ end
 
 function terminate()
 	Keybind.delete("Dialogs", "Open Prey Dialog")
-	Keybind.delete("Windows", "Show/hide prey tracker")
+	Keybind.delete("Windows", "Open Prey Tracker")
 	disconnect(g_game, {
 		onGameStart = check,
 		onGameEnd = hide,

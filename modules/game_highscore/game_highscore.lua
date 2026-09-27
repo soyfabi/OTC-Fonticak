@@ -120,10 +120,20 @@ function highscoreController:onInit()
 		onProcessHighscores = onProcessHighscores
 	})
 	initInterface()
+
+	Keybind.new('Windows', 'Open Highscore Dialog', 'Alt+H', '')
+	Keybind.bind('Windows', 'Open Highscore Dialog', {
+		{
+			type = KEY_DOWN,
+			callback = toggle
+		}
+	})
 end
 
 function highscoreController:onTerminate()
 	resetFilters()
+
+	Keybind.delete('Windows', 'Open Highscore Dialog')
 
 	highscoresWindow = nil
 	gameworldbox = nil
@@ -164,6 +174,7 @@ function hide()
 	highscoresWindow:hide()
 	if highscoreButton then
 		highscoreButton:setOn(false)
+		Keybind.syncToggleButtonTooltip(highscoreButton, 'highscoresButton', 'Open Highscore Dialog', 'Close Highscore Dialog')
 	end
 end
 
@@ -178,6 +189,7 @@ function show()
 	end
 	if highscoreButton then
 		highscoreButton:setOn(true)
+		Keybind.syncToggleButtonTooltip(highscoreButton, 'highscoresButton', 'Open Highscore Dialog', 'Close Highscore Dialog')
 	end
 	ensureWorldOption(preferredWorldOnOpen)
 	selectWorldInCombo(preferredWorldOnOpen)
@@ -576,9 +588,8 @@ function onProcessHighscores(worlds, selectedWorld, worldType, battlEye, vocatio
 end
 
 function highscoreController:onGameStart()
-	highscoreButton = modules.game_mainpanel.addToggleButton("highscoresButton", tr("Open Highscores Dialog"), "/images/options/button_highscores", toggle, false, 1001)
-
-	g_keyboard.bindKeyDown("Ctrl+H", toggle)
+	highscoreButton = modules.game_mainpanel.addToggleButton("highscoresButton", tr("Open Highscore Dialog"), "/images/options/button_highscores", toggle, false, 1001)
+	Keybind.syncToggleButtonTooltip(highscoreButton, 'highscoresButton', 'Open Highscore Dialog', 'Close Highscore Dialog')
 end
 
 function highscoreController:onGameEnd()
@@ -593,7 +604,6 @@ function highscoreController:onGameEnd()
 	end
 
 	resetFilters()
-	g_keyboard.unbindKeyDown("Ctrl+H")
 end
 
 function toggle()

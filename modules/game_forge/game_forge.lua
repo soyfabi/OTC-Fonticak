@@ -329,8 +329,8 @@ function init()
 	end, 300)
 	g_shaders.createFragmentShader(FORGE_RESULT_SILHOUETTE_SHADER, "menu/shaders/silhouette.frag", false)
 
-	Keybind.new('Windows', 'Show/hide exaltation forge', '', '')
-	Keybind.bind('Windows', 'Show/hide exaltation forge', {
+	Keybind.new('Windows', 'Open Exaltation Forge', 'Alt+Shift+F', '')
+	Keybind.bind('Windows', 'Open Exaltation Forge', {
 		{
 			type = KEY_DOWN,
 			callback = function()
@@ -1633,5 +1633,5 @@ function terminate()
 		Forge.liveRefreshEvent = nil
 	end
 
-	Keybind.delete('Windows', 'Show/hide exaltation forge')
+	Keybind.delete('Windows', 'Open Exaltation Forge')
 end

@@ -179,8 +179,8 @@ end
 controllerVip = Controller:new()
 
 function controllerVip:onInit()
-	Keybind.new("Windows", "Show/hide VIP list", "Ctrl+P", "")
-	Keybind.bind("Windows", "Show/hide VIP list", {
+	Keybind.new("Windows", "Open VIP List", "Ctrl+P", "")
+	Keybind.bind("Windows", "Open VIP List", {
 		{
 			type = KEY_DOWN,
 			callback = toggle
@@ -250,7 +250,7 @@ function controllerVip:onInit()
 end
 
 function controllerVip:onTerminate()
-	Keybind.delete("Windows", "Show/hide VIP list")
+	Keybind.delete("Windows", "Open VIP List")
 
 	local ArrayWidgets = {
 		addVipWindow,

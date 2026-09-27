@@ -67,8 +67,8 @@ local hotkeysWindowButton = nil
 -- public functions
 function init()
 
-    Keybind.new("Windows", "Show/hide Hotkeys", "", "")
-    Keybind.bind("Windows", "Show/hide Hotkeys", {
+    Keybind.new("Windows", "Open Hotkeys", "Alt+K", "")
+    Keybind.bind("Windows", "Open Hotkeys", {
       {
         type = KEY_DOWN,
         callback = openCustomHotkeys,
@@ -138,7 +138,7 @@ function terminate()
         onGameEnd = offline
     })
 
-    Keybind.delete("Windows", "Show/hide Hotkeys")
+    Keybind.delete("Windows", "Open Hotkeys")
 
     unload()
 
@@ -543,6 +543,11 @@ function doKeyCombo(keyCombo)
 end
 
 function toggleChaseMode()
+    if modules.game_inventory and modules.game_inventory.toggleChaseMode then
+        modules.game_inventory.toggleChaseMode()
+        return
+    end
+
     local currentMode = g_game.getChaseMode()
     local nextMode = currentMode == ChaseOpponent and DontChase or ChaseOpponent
     g_game.setChaseMode(nextMode)

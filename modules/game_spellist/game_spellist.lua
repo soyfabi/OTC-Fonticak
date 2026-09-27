@@ -515,8 +515,8 @@ function init()
     if clearSearch then clearSearch:show() end
   end
 
-  Keybind.new('Windows', 'Show/hide spell list', 'Alt+L', '')
-  Keybind.bind('Windows', 'Show/hide spell list', {
+  Keybind.new('Windows', 'Open Spell List', 'Alt+L', '')
+  Keybind.bind('Windows', 'Open Spell List', {
     { type = KEY_DOWN, callback = toggle }
   })
 
@@ -534,7 +534,7 @@ end
 function terminate()
   disconnect(g_game, { onGameStart = online, onGameEnd = offline })
   disconnect(LocalPlayer, { onSpellsChange = onSpellsChange, onLevelChange = onLevelChange })
-  Keybind.delete('Windows', 'Show/hide spell list')
+  Keybind.delete('Windows', 'Open Spell List')
   saveConfig()
   releaseSearchFocus()
   if spellDragPreview then

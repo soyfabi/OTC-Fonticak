@@ -145,6 +145,18 @@ function init()
     if g_game.isOnline() then
         online()
     end
+
+    Keybind.new('Windows', 'Open Unjustified Points', 'Alt+Shift+U', '')
+    Keybind.bind('Windows', 'Open Unjustified Points', {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                if unjustifiedPointsButton then
+                    toggle()
+                end
+            end
+        }
+    })
 end
 
 function terminate()
@@ -166,17 +178,20 @@ function terminate()
     end
 
     ProtocolGame.unregisterOpcode(OPCODE_UNJUSTIFIED_SEND)
+    Keybind.delete('Windows', 'Open Unjustified Points')
 end
 
 function onMiniWindowOpen()
     if unjustifiedPointsButton then
         unjustifiedPointsButton:setOn(true)
+        Keybind.syncToggleButtonTooltip(unjustifiedPointsButton, 'unjustifiedPointsButton', 'Open Unjustified Points', 'Close Unjustified Points')
     end
 end
 
 function onMiniWindowClose()
     if unjustifiedPointsButton then
         unjustifiedPointsButton:setOn(false)
+        Keybind.syncToggleButtonTooltip(unjustifiedPointsButton, 'unjustifiedPointsButton', 'Open Unjustified Points', 'Close Unjustified Points')
     end
 end
 
@@ -198,8 +213,9 @@ function online()
     if g_game.getFeature(GameUnjustifiedPoints) and not unjustifiedPointsButton then
         unjustifiedPointsWindow:setupOnStart() -- load character window configuration
         unjustifiedPointsButton = modules.game_mainpanel.addToggleButton('unjustifiedPointsButton',
-        tr('Unjustified Points'), '/images/options/button_frags', toggle)
+        tr('Open Unjustified Points'), '/images/options/button_frags', toggle)
         unjustifiedPointsButton:setOn(false)
+        Keybind.syncToggleButtonTooltip(unjustifiedPointsButton, 'unjustifiedPointsButton', 'Open Unjustified Points', 'Close Unjustified Points')
     end
 
     refresh()

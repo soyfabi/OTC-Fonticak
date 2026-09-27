@@ -1565,9 +1565,10 @@ function init()
     end
     
     g_ui.importStyle('battlebutton')
-    battleButton = modules.game_mainpanel.addToggleButton('battleButton', tr('Battle'),
+    battleButton = modules.game_mainpanel.addToggleButton('battleButton', tr('Open Battle List'),
         '/images/options/button_battlelist', toggle, false, 2)
     battleButton:setOn(true)
+    Keybind.syncToggleButtonTooltip(battleButton, 'battleButton', 'Open Battle List', 'Close Battle List')
     battleWindow = g_ui.loadUI('battle')
 
     -- Initialize main instance
@@ -1590,8 +1591,8 @@ function init()
     toggleFilterButton = mainInstance.toggleFilterButton
 
     -- Setup keybind
-    Keybind.new("Windows", "Show/hide battle list", "Ctrl+B", "")
-    Keybind.bind("Windows", "Show/hide battle list", {{ type = KEY_DOWN, callback = toggle }})
+    Keybind.new("Windows", "Open Battle List", "Ctrl+B", "")
+    Keybind.bind("Windows", "Open Battle List", {{ type = KEY_DOWN, callback = toggle }})
 
     Keybind.new("Battle List", "Attack Next Target", "", "")
     Keybind.bind("Battle List", "Attack Next Target", {
@@ -2785,6 +2786,7 @@ end
 
 function onOpen()
     battleButton:setOn(true)
+    Keybind.syncToggleButtonTooltip(battleButton, 'battleButton', 'Open Battle List', 'Close Battle List')
     connecting()
     
     -- Ensure default filters are applied for the main battle list
@@ -2814,6 +2816,7 @@ end
 
 function onClose()
     battleButton:setOn(false)
+    Keybind.syncToggleButtonTooltip(battleButton, 'battleButton', 'Open Battle List', 'Close Battle List')
     
     -- Only disconnect global events if there are no other battle list instances open
     local hasOpenInstances = false
@@ -2890,7 +2893,7 @@ function terminate() -- Terminating the Module (unload)
     filterPanel = nil
     toggleFilterButton = nil
 
-    Keybind.delete("Windows", "Show/hide battle list")
+    Keybind.delete("Windows", "Open Battle List")
     Keybind.delete("Battle List", "Attack Next Target")
     Keybind.delete("Battle List", "Attack Previous Target")
 

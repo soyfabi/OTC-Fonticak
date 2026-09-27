@@ -700,6 +700,10 @@ function init_binds()
     syncingChatModeUI = false
     updateKeybinds()
 
+    if Keybind.migrateLegacyPresetKeys then
+        Keybind.migrateLegacyPresetKeys()
+    end
+
     keyEditWindow = g_ui.displayUI("styles/controls/key_edit")
     keyEditWindow:hide()
     presetWindow = g_ui.displayUI("styles/controls/preset")

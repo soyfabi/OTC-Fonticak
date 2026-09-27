@@ -518,8 +518,8 @@ function controller:onInit()
         }
     })
 
-    Keybind.new("Sound", "Mute/unmute", "", "")
-    Keybind.bind("Sound", "Mute/unmute", {
+    Keybind.new("Sound", "Mute/unmute music", "", "")
+    Keybind.bind("Sound", "Mute/unmute music", {
         {
             type = KEY_DOWN,
             callback = function() toggleOption('enableAudio') end,
@@ -541,6 +541,75 @@ function controller:onInit()
         {
             type = KEY_DOWN,
             callback = cycleHotkeyPreset,
+        }
+    })
+
+    Keybind.new("UI", "Open Options", "Ctrl+X", "")
+    Keybind.bind("UI", "Open Options", {
+        {
+            type = KEY_DOWN,
+            callback = show,
+        }
+    })
+    Keybind.registerControlButtonHotkey('optionsMainButton', 'UI', 'Open Options')
+    Keybind.registerControlButtonHotkey('optionsButton', 'UI', 'Open Options')
+    if extraWidgets.optionsButton and Keybind.applyControlButtonTooltip then
+        Keybind.applyControlButtonTooltip(extraWidgets.optionsButton, 'optionsButton')
+    end
+
+    Keybind.new("UI", "Manage Control Buttons", "Ctrl+Shift+M", "")
+    Keybind.bind("UI", "Manage Control Buttons", {
+        {
+            type = KEY_DOWN,
+            callback = openManageControlButtonsPage,
+        }
+    })
+    Keybind.registerControlButtonHotkey('manageControlButtons', 'UI', 'Manage Control Buttons')
+
+    Keybind.new("UI", "Open General Hotkeys", "", "")
+    Keybind.bind("UI", "Open General Hotkeys", {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                openOptionsCategory('Controls', 'General Hotk...')
+            end,
+        }
+    })
+
+    Keybind.new("UI", "Open Options Action Bars", "", "")
+    Keybind.bind("UI", "Open Options Action Bars", {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                openOptionsCategory('Interface', 'Action Bars')
+            end,
+        }
+    })
+
+    Keybind.new("UI", "Toggle Action Bars", "", "")
+    Keybind.bind("UI", "Toggle Action Bars", {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                if modules.game_actionbar and modules.game_actionbar.toggleAllActionBars then
+                    modules.game_actionbar.toggleAllActionBars()
+                end
+            end,
+        }
+    })
+
+    Keybind.new("UI", "Toggle Minimap Fullscreen", "", "")
+    Keybind.bind("UI", "Toggle Minimap Fullscreen", {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                if not g_game.isOnline() then
+                    return
+                end
+                if modules.game_minimap and modules.game_minimap.fullscreen then
+                    modules.game_minimap.fullscreen()
+                end
+            end,
         }
     })
 end
@@ -571,9 +640,15 @@ function controller:onTerminate()
     Keybind.delete("UI", "Toggle Fullscreen")
     Keybind.delete("UI", "Show/hide Creature Names and Bars")
     Keybind.delete("UI", "Show/hide FPS / lag indicator")
-    Keybind.delete("Sound", "Mute/unmute")
+    Keybind.delete("Sound", "Mute/unmute music")
     Keybind.delete("UI", "Open Custom Hotkeys")
     Keybind.delete("UI", "Switch Hotkey Preset")
+    Keybind.delete("UI", "Open Options")
+    Keybind.delete("UI", "Manage Control Buttons")
+    Keybind.delete("UI", "Open General Hotkeys")
+    Keybind.delete("UI", "Open Options Action Bars")
+    Keybind.delete("UI", "Toggle Action Bars")
+    Keybind.delete("UI", "Toggle Minimap Fullscreen")
 
     terminate_binds()
     terminate_custom_hotkeys()
@@ -863,17 +938,21 @@ function setupOptionsMainButton()
         extraWidgets.optionsButtons = modules.game_mainpanel.addSpecialToggleButton('optionsMainButton', tr('Options'),
             '/images/options/button_options', toggle, true)
     end
+    if extraWidgets.optionsButtons and Keybind.applyControlButtonTooltip then
+        Keybind.applyControlButtonTooltip(extraWidgets.optionsButtons, 'optionsMainButton')
+    end
 
     if not extraWidgets.manageControlButtonsButton then
         extraWidgets.manageControlButtonsButton = modules.game_mainpanel.addToggleButton(
             'manageControlButtons',
-            tr('Manage control buttons'),
+            tr('Manage Control Buttons'),
             '/images/options/button_control',
             openManageControlButtonsPage,
             false,
             9999
         )
         extraWidgets.manageControlButtonsButton:setOn(false)
+        Keybind.applyControlButtonTooltip(extraWidgets.manageControlButtonsButton, 'manageControlButtons')
     end
 end
 

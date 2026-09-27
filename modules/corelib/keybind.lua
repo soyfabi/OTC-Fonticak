@@ -28,8 +28,115 @@ Keybind = {
     ["Down"] = true,
     ["Left"] = true,
     ["Right"] = true
-  }
+  },
+
+  -- Old preset node id -> { category, action }
+  legacyActionRenames = {
+    ["Dialogs_Open Bugreport"] = { "Dialogs", "Open Bug Report" },
+    ["Sound_Mute/unmute"] = { "Sound", "Mute/unmute music" },
+    ["Windows_show/hide Tasks Windows"] = { "Windows", "Open Tasks Window" },
+    ["Windows_Show/hide Tasks Windows"] = { "Windows", "Open Tasks Window" },
+    ["Windows_Show/hide Tasks Window"] = { "Windows", "Open Tasks Window" },
+    ["Windows_show/hide Shader Windows"] = { "Windows", "Open Shader Window" },
+    ["Windows_Show/hide Shader Windows"] = { "Windows", "Open Shader Window" },
+    ["Windows_Show/hide Shader Window"] = { "Windows", "Open Shader Window" },
+    ["Windows_show/hide inventory"] = { "Windows", "Open Inventory" },
+    ["Windows_Show/hide Inventory"] = { "Windows", "Open Inventory" },
+    ["Windows_show/hide cyclopedia"] = { "Windows", "Open Cyclopedia" },
+    ["Windows_Show/hide Cyclopedia"] = { "Windows", "Open Cyclopedia" },
+    ["Windows_show/hide battle list"] = { "Windows", "Open Battle List" },
+    ["Windows_Show/hide Battle List"] = { "Windows", "Open Battle List" },
+    ["Windows_show/hide VIP list"] = { "Windows", "Open VIP List" },
+    ["Windows_Show/hide VIP List"] = { "Windows", "Open VIP List" },
+    ["Windows_show/hide skills windows"] = { "Windows", "Open Skills Window" },
+    ["Windows_Show/hide Skills Window"] = { "Windows", "Open Skills Window" },
+    ["Windows_show/hide spell list"] = { "Windows", "Open Spell List" },
+    ["Windows_Show/hide Spell List"] = { "Windows", "Open Spell List" },
+    ["Windows_show/hide quest Log"] = { "Windows", "Open Quest Log" },
+    ["Windows_Show/hide Quest Log"] = { "Windows", "Open Quest Log" },
+    ["Windows_show/hide quest tracker"] = { "Windows", "Open Quest Tracker" },
+    ["Windows_Show/hide Quest Tracker"] = { "Windows", "Open Quest Tracker" },
+    ["Windows_show/hide prey tracker"] = { "Windows", "Open Prey Tracker" },
+    ["Windows_Show/hide Prey Tracker"] = { "Windows", "Open Prey Tracker" },
+    ["Windows_show/hide imbuement tracker"] = { "Windows", "Open Imbuement Tracker" },
+    ["Windows_Show/hide Imbuement Tracker"] = { "Windows", "Open Imbuement Tracker" },
+    ["Windows_show/hide analyser window"] = { "Windows", "Open Analyser Window" },
+    ["Windows_Show/hide Analyser Window"] = { "Windows", "Open Analyser Window" },
+    ["Windows_show/hide wheel of destiny"] = { "Windows", "Open Wheel of Destiny" },
+    ["Windows_Show/hide Wheel of Destiny"] = { "Windows", "Open Wheel of Destiny" },
+    ["Windows_show/hide exaltation forge"] = { "Windows", "Open Exaltation Forge" },
+    ["Windows_Show/hide Exaltation Forge"] = { "Windows", "Open Exaltation Forge" },
+    ["Windows_show/hide reward wall"] = { "Windows", "Open Reward Wall" },
+    ["Windows_Show/hide Reward Wall"] = { "Windows", "Open Reward Wall" },
+    ["Windows_show/hide store"] = { "Windows", "Open Store" },
+    ["Windows_Show/hide Store"] = { "Windows", "Open Store" },
+    ["Windows_show/hide Hotkeys"] = { "Windows", "Open Hotkeys" },
+    ["Windows_Show/hide Hotkeys"] = { "Windows", "Open Hotkeys" },
+    ["Windows_show/hide bestiary tracker"] = { "Windows", "Open Bestiary Tracker" },
+    ["Windows_Show/hide Bestiary Tracker"] = { "Windows", "Open Bestiary Tracker" },
+    ["Windows_show/hide bosstiary tracker"] = { "Windows", "Open Bosstiary Tracker" },
+    ["Windows_Show/hide Bosstiary Tracker"] = { "Windows", "Open Bosstiary Tracker" },
+  },
+
+  legacyPresetKeysMigrated = false
 }
+
+function Keybind.makeIndex(category, action)
+  return category .. '_' .. action
+end
+
+function Keybind.normalizeKeybindIdentity(category, action)
+  if not category or not action then
+    return category, action
+  end
+
+  local renamed = Keybind.legacyActionRenames[Keybind.makeIndex(category, action)]
+  if renamed then
+    return renamed[1], renamed[2]
+  end
+
+  return category, action
+end
+
+function Keybind.getLegacyIndex(category, action)
+  local newIndex = Keybind.makeIndex(category, action)
+  for oldIndex, identity in pairs(Keybind.legacyActionRenames) do
+    if Keybind.makeIndex(identity[1], identity[2]) == newIndex then
+      return oldIndex
+    end
+  end
+  return nil
+end
+
+function Keybind.migrateLegacyPresetKeys()
+  if Keybind.legacyPresetKeysMigrated then
+    return
+  end
+  Keybind.legacyPresetKeysMigrated = true
+
+  for _, preset in ipairs(Keybind.presets) do
+    local config = Keybind.configs.keybinds[preset]
+    if config then
+      local changed = false
+      for oldIndex, identity in pairs(Keybind.legacyActionRenames) do
+        local newIndex = Keybind.makeIndex(identity[1], identity[2])
+        if Keybind.defaultKeybinds[newIndex] then
+          local oldNode = config:getNode(oldIndex)
+          if oldNode then
+            if not config:getNode(newIndex) then
+              config:setNode(newIndex, oldNode)
+            end
+            config:remove(oldIndex)
+            changed = true
+          end
+        end
+      end
+      if changed then
+        config:save()
+      end
+    end
+  end
+end
 
 KEY_UP = 1
 KEY_DOWN = 2
@@ -508,15 +615,25 @@ function Keybind.selectPreset(presetName)
 end
 
 function Keybind.getAction(category, action)
-  local index = category .. '_' .. action
-  return Keybind.defaultKeybinds[index]
+  category, action = Keybind.normalizeKeybindIdentity(category, action)
+  return Keybind.defaultKeybinds[Keybind.makeIndex(category, action)]
 end
 
 function Keybind.setPrimaryActionKey(category, action, preset, keyCombo, chatMode)
-  local index = category .. '_' .. action
+  category, action = Keybind.normalizeKeybindIdentity(category, action)
+  local index = Keybind.makeIndex(category, action)
   local keybind = Keybind.defaultKeybinds[index]
+  if not keybind then
+    return false
+  end
 
   local keys = Keybind.configs.keybinds[preset]:getNode(index)
+  if not keys then
+    local legacyIndex = Keybind.getLegacyIndex(category, action)
+    if legacyIndex then
+      keys = Keybind.configs.keybinds[preset]:getNode(legacyIndex)
+    end
+  end
   if not keys then
     keys = table.recursivecopy(keybind.keys)
   else
@@ -541,6 +658,11 @@ function Keybind.setPrimaryActionKey(category, action, preset, keyCombo, chatMod
 
   Keybind.configs.keybinds[preset]:setNode(index, keys)
 
+  local legacyIndex = Keybind.getLegacyIndex(category, action)
+  if legacyIndex and legacyIndex ~= index then
+    Keybind.configs.keybinds[preset]:remove(legacyIndex)
+  end
+
   if keybind.callbacks then
     Keybind.bind(category, action, keybind.callbacks, keybind.widget)
   end
@@ -550,10 +672,20 @@ function Keybind.setPrimaryActionKey(category, action, preset, keyCombo, chatMod
 end
 
 function Keybind.setSecondaryActionKey(category, action, preset, keyCombo, chatMode)
-  local index = category .. '_' .. action
+  category, action = Keybind.normalizeKeybindIdentity(category, action)
+  local index = Keybind.makeIndex(category, action)
   local keybind = Keybind.defaultKeybinds[index]
+  if not keybind then
+    return false
+  end
 
   local keys = Keybind.configs.keybinds[preset]:getNode(index)
+  if not keys then
+    local legacyIndex = Keybind.getLegacyIndex(category, action)
+    if legacyIndex then
+      keys = Keybind.configs.keybinds[preset]:getNode(legacyIndex)
+    end
+  end
   if not keys then
     keys = table.recursivecopy(keybind.keys)
   else
@@ -577,6 +709,11 @@ function Keybind.setSecondaryActionKey(category, action, preset, keyCombo, chatM
   end
 
   Keybind.configs.keybinds[preset]:setNode(index, keys)
+
+  local legacyIndex = Keybind.getLegacyIndex(category, action)
+  if legacyIndex and legacyIndex ~= index then
+    Keybind.configs.keybinds[preset]:remove(legacyIndex)
+  end
 
   if keybind.callbacks then
     Keybind.bind(category, action, keybind.callbacks, keybind.widget)
@@ -616,15 +753,32 @@ function Keybind.getKeybindKeys(category, action, chatMode, preset, forceDefault
     chatMode = Keybind.chatMode
   end
 
-  local index = category .. '_' .. action
+  category, action = Keybind.normalizeKeybindIdentity(category, action)
+
+  local index = Keybind.makeIndex(category, action)
   local keybind = Keybind.defaultKeybinds[index]
-  local keys = Keybind.configs.keybinds[preset or Keybind.currentPreset]:getNode(index)
+  local config = Keybind.configs.keybinds[preset or Keybind.currentPreset]
+  local keys = config and config:getNode(index)
+
+  if not keys and config then
+    local legacyIndex = Keybind.getLegacyIndex(category, action)
+    if legacyIndex then
+      keys = config:getNode(legacyIndex)
+    end
+  end
 
   if not keys or forceDefault then
-    keys = {
-      primary = keybind.keys[chatMode].primary,
-      secondary = keybind.keys[chatMode].secondary
-    }
+    if not keybind then
+      keys = {
+        primary = "",
+        secondary = ""
+      }
+    else
+      keys = {
+        primary = keybind.keys[chatMode].primary,
+        secondary = keybind.keys[chatMode].secondary
+      }
+    end
   else
     keys = keys[chatMode] or keys[tostring(chatMode)]
   end
@@ -1026,21 +1180,24 @@ function Keybind.formatActionShortcut(category, action, chatMode, preset)
 end
 
 Keybind.controlButtonHotkeys = {
-  cyclopediaButton = { 'Windows', 'Show/hide cyclopedia' },
-  bestiaryTrackerButton = { 'Windows', 'Show/hide Bestiary Tracker' },
+  cyclopediaButton = { 'Windows', 'Open Cyclopedia' },
+  bestiaryTrackerButton = { 'Windows', 'Open Bestiary Tracker' },
   preyButton = { 'Dialogs', 'Open Prey Dialog' },
-  preyTrackerButton = { 'Windows', 'Show/hide prey tracker' },
-  wheelButton = { 'Windows', 'Show/hide wheel of destiny' },
-  skillsButton = { 'Windows', 'Show/hide skills windows' },
-  battleButton = { 'Windows', 'Show/hide battle list' },
-  vipListButton = { 'Windows', 'Show/hide VIP list' },
-  questLogButton = { 'Windows', 'Show/hide quest Log' },
-  questTrackerButton = { 'Windows', 'Show/hide quest tracker' },
-  forgeButton = { 'Windows', 'Show/hide exaltation forge' },
-  rewardWall = { 'Windows', 'Show/hide reward wall' },
-  spelllistButton = { 'Windows', 'Show/hide spell list' },
-  analyzerButton = { 'Windows', 'Show/hide analyser window' },
-  imbuementTrackerButton = { 'Windows', 'Show/hide imbuement tracker' },
+  preyTrackerButton = { 'Windows', 'Open Prey Tracker' },
+  wheelButton = { 'Windows', 'Open Wheel of Destiny' },
+  skillsButton = { 'Windows', 'Open Skills Window' },
+  battleButton = { 'Windows', 'Open Battle List' },
+  vipListButton = { 'Windows', 'Open VIP List' },
+  questLogButton = { 'Windows', 'Open Quest Log' },
+  questTrackerButton = { 'Windows', 'Open Quest Tracker' },
+  forgeButton = { 'Windows', 'Open Exaltation Forge' },
+  rewardWall = { 'Windows', 'Open Reward Wall' },
+  spelllistButton = { 'Windows', 'Open Spell List' },
+  analyzerButton = { 'Windows', 'Open Analyser Window' },
+  imbuementTrackerButton = { 'Windows', 'Open Imbuement Tracker' },
+  highscoresButton = { 'Windows', 'Open Highscore Dialog' },
+  unjustifiedPointsButton = { 'Windows', 'Open Unjustified Points' },
+  manageControlButtons = { 'UI', 'Manage Control Buttons' },
 }
 
 function Keybind.registerControlButtonHotkey(buttonId, category, action)
@@ -1109,6 +1266,16 @@ function Keybind.applyControlButtonTooltip(button, buttonId)
 
   button.hotkeyTooltipBase = base
   button:setTooltip(Keybind.formatTooltipWithHotkey(base, hotkey[1], hotkey[2]))
+end
+
+function Keybind.syncToggleButtonTooltip(button, buttonId, openLabel, closeLabel)
+  if not button or button:isDestroyed() then
+    return
+  end
+
+  local on = button:isOn()
+  button.hotkeyTooltipBase = tr(on and closeLabel or openLabel)
+  Keybind.applyControlButtonTooltip(button, buttonId)
 end
 
 function Keybind.refreshControlButtonTooltips()

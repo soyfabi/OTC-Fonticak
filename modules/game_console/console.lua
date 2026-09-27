@@ -240,18 +240,8 @@ function consoleController:onInit()
         return true
     end
 
-    g_keyboard.bindKeyPress('Shift+Up', function()
-        navigateMessageHistory(1)
-    end, consolePanel)
-    g_keyboard.bindKeyPress('Shift+Down', function()
-        navigateMessageHistory(-1)
-    end, consolePanel)
-  
     g_keyboard.bindKeyDown('Enter', switchChatOnCall, consolePanel)
     g_keyboard.bindKeyDown('Escape', disableChatOnCall, consolePanel)
-    g_keyboard.bindKeyPress('Ctrl+A', function()
-        consoleTextEdit:clearText()
-    end, consolePanel)
 
     -- apply buttom functions after loaded
     consoleTabBar:setNavigation(consolePanel:getChildById('prevChannelButton'),
@@ -315,6 +305,32 @@ function consoleController:onInit()
         }
       }, consolePanel)
 
+    Keybind.new("Chat", "Scroll Message History Up", { [CHAT_MODE.ON] = "Shift+Up", [CHAT_MODE.OFF] = "" }, "")
+    Keybind.bind("Chat", "Scroll Message History Up", {
+        {
+            type = KEY_PRESS,
+            callback = function()
+                navigateMessageHistory(1)
+            end,
+        }
+    }, consolePanel)
+    Keybind.new("Chat", "Scroll Message History Down", { [CHAT_MODE.ON] = "Shift+Down", [CHAT_MODE.OFF] = "" }, "")
+    Keybind.bind("Chat", "Scroll Message History Down", {
+        {
+            type = KEY_PRESS,
+            callback = function()
+                navigateMessageHistory(-1)
+            end,
+        }
+    }, consolePanel)
+    Keybind.new("Chat", "Select all in Console", { [CHAT_MODE.ON] = "Ctrl+A", [CHAT_MODE.OFF] = "" }, "")
+    Keybind.bind("Chat", "Select all in Console", {
+        {
+            type = KEY_PRESS,
+            callback = selectAllConsoleHotkey,
+        }
+    }, consolePanel)
+
     Keybind.new("Chat Mode", "Set to Chat On", "", "")
     Keybind.bind("Chat Mode", "Set to Chat On", {
         {
@@ -368,6 +384,17 @@ function selectAll(consoleBuffer)
             last = consoleBuffer:getChildIndex(consoleBuffer:getLastChild())
         }
     end
+end
+
+function selectAllConsoleHotkey()
+    if not isChatEnabled() then
+        return
+    end
+    local tab = consoleTabBar:getCurrentTab()
+    if not tab then
+        return
+    end
+    selectAll(tab.tabPanel:getChildById('consoleBuffer'))
 end
 
 function toggleChat()
@@ -588,6 +615,9 @@ function consoleController:onTerminate()
     Keybind.delete("Chat Channel", "Open Help Channel")
     Keybind.delete("Chat", "Send current chat line")
     Keybind.delete("Chat", "Enable/Disable Chat")
+    Keybind.delete("Chat", "Scroll Message History Up")
+    Keybind.delete("Chat", "Scroll Message History Down")
+    Keybind.delete("Chat", "Select all in Console")
     Keybind.delete("Chat Mode", "Set to Chat On")
     Keybind.delete("Chat Mode", "Set to Chat Off")
     saveCommunicationSettings()

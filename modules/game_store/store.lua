@@ -156,8 +156,8 @@ function init()
     onCharacterBazarCheckInformations = onCharacterBazarCheckInformations
   })
 
-  Keybind.new('Windows', 'Show/hide store', '', '')
-  Keybind.bind('Windows', 'Show/hide store', {
+  Keybind.new('Windows', 'Open Store', 'Ctrl+Shift+O', '')
+  Keybind.bind('Windows', 'Open Store', {
     {
       type = KEY_DOWN,
       callback = function()
@@ -173,7 +173,7 @@ end
 function terminate()
   cancelPendingStoreUpdates(true)
 
-  Keybind.delete('Windows', 'Show/hide store')
+  Keybind.delete('Windows', 'Open Store')
 
   if terminateStoreDescription then
     terminateStoreDescription()
