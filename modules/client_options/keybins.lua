@@ -6,6 +6,74 @@ local actionSearchEvent
 keyEditWindow = nil
 local chatModeGroup
 
+local KEY_EDIT_OVERWRITE_TEXT = tr('This hotkey is already in use and will be overwritten.')
+
+local function clearConflictingGeneralKeybinds(keyCombo, category, action, chatMode, preset)
+    if not keyCombo or keyCombo == '' then
+        return false
+    end
+
+    local cleared = false
+    for _, keybind in pairs(Keybind.defaultKeybinds) do
+        if keybind.category ~= category or keybind.action ~= action then
+            local keys = Keybind.getKeybindKeys(keybind.category, keybind.action, chatMode, preset)
+            if keys.primary == keyCombo then
+                Keybind.setPrimaryActionKey(keybind.category, keybind.action, preset, '', chatMode)
+                cleared = true
+            end
+            if keys.secondary == keyCombo then
+                Keybind.setSecondaryActionKey(keybind.category, keybind.action, preset, '', chatMode)
+                cleared = true
+            end
+        end
+    end
+
+    return cleared
+end
+
+local function clearConflictingCustomHotkeys(keyCombo, chatMode, preset)
+    if not keyCombo or keyCombo == '' then
+        return false
+    end
+
+    local hotkeys = Keybind.hotkeys[chatMode] and Keybind.hotkeys[chatMode][preset]
+    if not hotkeys then
+        return false
+    end
+
+    local cleared = false
+    for _, hotkey in ipairs(hotkeys) do
+        if hotkey.primary == keyCombo or hotkey.secondary == keyCombo then
+            local primary = hotkey.primary == keyCombo and '' or hotkey.primary
+            local secondary = hotkey.secondary == keyCombo and '' or hotkey.secondary
+            Keybind.editHotkeyKeys(hotkey.hotkeyId, primary, secondary, chatMode)
+            cleared = true
+        end
+    end
+
+    if cleared and updateCustomHotkeys then
+        updateCustomHotkeys()
+    end
+
+    return cleared
+end
+
+local function clearConflictingActionbarHotkey(keyCombo)
+    if not keyCombo or keyCombo == '' then
+        return false
+    end
+
+    if modules.game_actionbar and modules.game_actionbar.removeHotkeyFromActionBar then
+        modules.game_actionbar.removeHotkeyFromActionBar(keyCombo)
+    end
+
+    if modules.game_hotkeys and modules.game_hotkeys.removeHotkeyByCombo then
+        modules.game_hotkeys.removeHotkeyByCombo(keyCombo)
+    end
+
+    return true
+end
+
 -- controls and keybinds
 function addNewPreset()
     presetWindow:setText(tr('Add hotkey preset'))
@@ -201,10 +269,21 @@ function editKeybindSetCombo(keyCombo)
     local keybind = keyEditWindow.keybind
     local category = keybind and keybind.category
     local action = keybind and keybind.action
+    local chatMode = getChatMode()
 
-    local keyUsed = Keybind.isKeyComboUsed(keyCombo, category, action, getChatMode())
-    keyEditWindow.buttons.ok:setEnabled(not keyUsed)
-    keyEditWindow.used:setVisible(keyUsed)
+    local reserved = Keybind.reservedKeys[keyCombo]
+    local keyUsed = not reserved and keyCombo ~= '' and Keybind.isKeyComboUsed(keyCombo, category, action, chatMode)
+
+    keyEditWindow.used:setVisible(reserved or keyUsed)
+    if reserved then
+        keyEditWindow.used:setText(tr('This hotkey is already in use and cannot be overwritten.'))
+        keyEditWindow.buttons.ok:setEnabled(false)
+    elseif keyUsed then
+        keyEditWindow.used:setText(KEY_EDIT_OVERWRITE_TEXT)
+        keyEditWindow.buttons.ok:setEnabled(true)
+    else
+        keyEditWindow.buttons.ok:setEnabled(true)
+    end
 end
 
 function editKeybindKeyDown(widget, keyCode, keyboardModifiers)
@@ -526,14 +605,37 @@ function applyChangedOptions()
 
     for preset, keybinds in pairs(changedKeybinds) do
         for index, keybind in pairs(keybinds) do
+            local chatMode = getChatMode()
             if keybind.primary then
+                local keyCombo = keybind.primary.keyCombo
+                if keyCombo and keyCombo ~= '' then
+                    if clearConflictingGeneralKeybinds(keyCombo, keybind.primary.category, keybind.primary.action,
+                            chatMode, preset) then
+                        needKeybindsUpdate = true
+                    end
+                    if clearConflictingCustomHotkeys(keyCombo, chatMode, preset) then
+                        needKeybindsUpdate = true
+                    end
+                    clearConflictingActionbarHotkey(keyCombo)
+                end
                 if Keybind.setPrimaryActionKey(keybind.primary.category, keybind.primary.action, preset,
-                        keybind.primary.keyCombo, getChatMode()) then
+                        keyCombo, chatMode) then
                     needKeybindsUpdate = true
                 end
             elseif keybind.secondary then
+                local keyCombo = keybind.secondary.keyCombo
+                if keyCombo and keyCombo ~= '' then
+                    if clearConflictingGeneralKeybinds(keyCombo, keybind.secondary.category, keybind.secondary.action,
+                            chatMode, preset) then
+                        needKeybindsUpdate = true
+                    end
+                    if clearConflictingCustomHotkeys(keyCombo, chatMode, preset) then
+                        needKeybindsUpdate = true
+                    end
+                    clearConflictingActionbarHotkey(keyCombo)
+                end
                 if Keybind.setSecondaryActionKey(keybind.secondary.category, keybind.secondary.action, preset,
-                        keybind.secondary.keyCombo, getChatMode()) then
+                        keyCombo, chatMode) then
                     needKeybindsUpdate = true
                 end
             end
