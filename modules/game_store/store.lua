@@ -155,10 +155,25 @@ function init()
     onRecvPixURL = onRecvPixURL,
     onCharacterBazarCheckInformations = onCharacterBazarCheckInformations
   })
+
+  Keybind.new('Windows', 'Show/hide store', '', '')
+  Keybind.bind('Windows', 'Show/hide store', {
+    {
+      type = KEY_DOWN,
+      callback = function()
+        if not g_game.isOnline() then
+          return
+        end
+        toggle()
+      end
+    }
+  })
 end
 
 function terminate()
   cancelPendingStoreUpdates(true)
+
+  Keybind.delete('Windows', 'Show/hide store')
 
   if terminateStoreDescription then
     terminateStoreDescription()

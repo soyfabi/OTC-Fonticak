@@ -222,10 +222,20 @@ function init()
   end
   partyMemberCheckEvent = cycleEvent(checkPartyMembersChange, 5000) -- Every 5 seconds as backup
 
+  Keybind.new('Windows', 'Show/hide analyser window', '', '')
+  Keybind.bind('Windows', 'Show/hide analyser window', {
+    {
+      type = KEY_DOWN,
+      callback = toggle
+    }
+  })
+
 end
 
 function terminate()
   saveAnalyserPersistentData()
+
+  Keybind.delete('Windows', 'Show/hide analyser window')
 
   if ControllerAnalyser and ControllerAnalyser.stopEvents then
     ControllerAnalyser:stopEvents()

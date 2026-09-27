@@ -429,6 +429,14 @@ function inventoryController:onGameStart()
     end
     inventoryController.ui.onPanel.purseButton:setVisible(g_game.getFeature(GamePurseSlot))
 
+    Keybind.new('Windows', 'Show/hide inventory', '', '')
+    Keybind.bind('Windows', 'Show/hide inventory', {
+        {
+            type = KEY_DOWN,
+            callback = toggleInventoryHotkey
+        }
+    })
+
     if isPlayerMonk() and player then
         local leftItem = player:getInventoryItem(InventorySlotLeft)
         if leftItem then
@@ -464,6 +472,8 @@ function inventoryController:onGameEnd()
 end
 
 function inventoryController:onTerminate()
+    Keybind.delete('Windows', 'Show/hide inventory')
+
     disconnect(g_game, {
         onItemStateFeatures = onItemStateFeatures
     })
@@ -620,7 +630,23 @@ function extendedView(extendedView)
         inventoryController.ui:show()
     end
     inventoryController.ui.moveOnlyToMain = not extendedView
+end
 
+function toggleInventoryHotkey()
+    if not inventoryController or not inventoryController.ui then
+        return
+    end
+
+    if iconTopMenu then
+        toggle()
+        return
+    end
+
+    if inventoryController.ui:isVisible() then
+        inventoryController.ui:hide()
+    else
+        inventoryController.ui:show()
+    end
 end
 
 function toggle()

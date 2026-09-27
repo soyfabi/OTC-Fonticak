@@ -717,6 +717,19 @@ function init()
 			end
 		}
 	}, modules.game_interface.getRootPanel())
+
+	Keybind.new("Windows", "Show/hide prey tracker", "", "")
+	Keybind.bind("Windows", "Show/hide prey tracker", {
+		{
+			type = KEY_DOWN,
+			callback = function()
+				if not g_game.isOnline() or not g_game.getFeature(GamePrey) then
+					return
+				end
+				toggleTracker()
+			end
+		}
+	}, modules.game_interface.getRootPanel())
 end
 
 local descriptionTable = {
@@ -987,6 +1000,7 @@ end
 
 function terminate()
 	Keybind.delete("Dialogs", "Open Prey Dialog")
+	Keybind.delete("Windows", "Show/hide prey tracker")
 	disconnect(g_game, {
 		onGameStart = check,
 		onGameEnd = hide,

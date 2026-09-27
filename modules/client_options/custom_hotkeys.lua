@@ -1,5 +1,6 @@
 local mouseGrabberWidget = nil
 local chatModeGroup = nil
+local syncingCustomChatModeUI = false
 local spellWindow = nil
 local objectWindow = nil
 local textWindow = nil
@@ -404,18 +405,29 @@ function terminate_custom_hotkeys()
 end
 
 function onCustomChatModeChange()
-  local mode = chatModeGroup:getSelectedWidget() == panels.customHotkeys.panel.chatMode.on and CHAT_MODE.ON or CHAT_MODE.OFF
-  Keybind.setChatMode(mode)
-
-  -- Sync general keybinds chat mode checkbox if possible
-  if panels.keybindsPanel then
-    if mode == CHAT_MODE.ON then
-      panels.keybindsPanel.panel.chatMode.on:setChecked(true)
-    else
-      panels.keybindsPanel.panel.chatMode.off:setChecked(true)
-    end
+  if syncingCustomChatModeUI then
+    return
   end
 
+  local mode = chatModeGroup:getSelectedWidget() == panels.customHotkeys.panel.chatMode.on and CHAT_MODE.ON or CHAT_MODE.OFF
+  Keybind.setChatMode(mode)
+  updateCustomHotkeys()
+end
+
+function syncCustomHotkeysPanelChatMode(chatMode)
+  if not chatModeGroup or not panels or not panels.customHotkeys then
+    return
+  end
+
+  local widget = chatMode == CHAT_MODE.ON and panels.customHotkeys.panel.chatMode.on
+      or panels.customHotkeys.panel.chatMode.off
+  if chatModeGroup:getSelectedWidget() == widget then
+    return
+  end
+
+  syncingCustomChatModeUI = true
+  chatModeGroup:selectWidget(widget)
+  syncingCustomChatModeUI = false
   updateCustomHotkeys()
 end
 

@@ -1586,7 +1586,8 @@ function syncSkillsMainPanelButton()
 	skillsButton:setOn(on)
 
 	if skillsButton.setTooltip then
-		skillsButton:setTooltip(tr(on and "Close Skills Window" or "Open Skills Window"))
+		skillsButton.hotkeyTooltipBase = tr(on and "Close Skills Window" or "Open Skills Window")
+		Keybind.applyControlButtonTooltip(skillsButton, 'skillsButton')
 	end
 end
 

@@ -120,6 +120,19 @@ function initialize()
     if g_game.isOnline() then
         onGameStart()
     end
+
+    Keybind.new('Windows', 'Show/hide imbuement tracker', '', '')
+    Keybind.bind('Windows', 'Show/hide imbuement tracker', {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                if not g_game.isOnline() then
+                    return
+                end
+                toggle()
+            end
+        }
+    })
 end
 
 function onMiniWindowOpen()
@@ -135,6 +148,8 @@ function onMiniWindowClose()
 end
 
 function terminate()
+    Keybind.delete('Windows', 'Show/hide imbuement tracker')
+
     disconnect(g_game, {
         onGameStart = onGameStart,
         onGameEnd = onGameEnd,

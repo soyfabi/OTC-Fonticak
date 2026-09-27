@@ -328,6 +328,19 @@ function init()
 		end
 	end, 300)
 	g_shaders.createFragmentShader(FORGE_RESULT_SILHOUETTE_SHADER, "menu/shaders/silhouette.frag", false)
+
+	Keybind.new('Windows', 'Show/hide exaltation forge', '', '')
+	Keybind.bind('Windows', 'Show/hide exaltation forge', {
+		{
+			type = KEY_DOWN,
+			callback = function()
+				if not g_game.isOnline() then
+					return
+				end
+				Forge:displayPreview()
+			end
+		}
+	})
 end
 
 function onResourceBalance()
@@ -1619,4 +1632,6 @@ function terminate()
 		removeEvent(Forge.liveRefreshEvent)
 		Forge.liveRefreshEvent = nil
 	end
+
+	Keybind.delete('Windows', 'Show/hide exaltation forge')
 end

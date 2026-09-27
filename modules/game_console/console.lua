@@ -426,9 +426,21 @@ local function bindMovingKeys()
     gameWalk.bindTurnKey('Ctrl+A', West)
 end
 
-function switchChat(enabled)
+local function syncConsoleToggleChatButton(chatEnabled)
+    if not consoleToggleChat then
+        return
+    end
+
+    consoleToggleChat.isChecked = not chatEnabled
+    if chatEnabled then
+        consoleToggleChat:setText(walkAfterSend and (tr('Chat On') .. '*') or tr('Chat On'))
+    else
+        consoleToggleChat:setText(tr('Chat Off'))
+    end
+end
+
+function switchChat(enabled, skipKeybindUpdate)
     -- enabled should be true if we enabling the chat and false if disabling it
-    -- consoleToggleChat:setChecked(not consoleToggleChat.isChecked)
     if not (enabled and consoleTextEdit:isVisible()) then
         consoleTextEdit:setVisible(enabled)
         consoleTextEdit:setText('')
@@ -437,13 +449,38 @@ function switchChat(enabled)
     if enabled then
         unbindMovingKeys()
         consoleToggleChat:setTooltip(tr('Disable chat mode, allow to walk using WASD'))
-        Keybind.setChatMode(CHAT_MODE.ON)
+        if not skipKeybindUpdate then
+            Keybind.setChatMode(CHAT_MODE.ON)
+        end
     else
         walkAfterSend = false -- leaving chat -> clear temporary state (covers manual button toggle too)
         bindMovingKeys()
         consoleToggleChat:setTooltip(tr('Enable chat mode'))
-        Keybind.setChatMode(CHAT_MODE.OFF)
+        if not skipKeybindUpdate then
+            Keybind.setChatMode(CHAT_MODE.OFF)
+        end
     end
+
+    syncConsoleToggleChatButton(enabled)
+end
+
+function applyChatModeFromKeybind(chatMode)
+    if not g_game.isOnline() or modules.game_hotkeys.areHotkeysDisabled() then
+        return
+    end
+
+    if not consoleToggleChat or not consoleTextEdit then
+        return
+    end
+
+    local chatEnabled = chatMode == CHAT_MODE.ON
+    if isChatEnabled() == chatEnabled then
+        syncConsoleToggleChatButton(chatEnabled)
+        return
+    end
+
+    walkAfterSend = false
+    switchChat(chatEnabled, true)
 end
 
 function switchChatOnCall()

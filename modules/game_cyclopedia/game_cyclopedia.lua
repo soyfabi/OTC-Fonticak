@@ -1052,6 +1052,18 @@ function init()
 			callback = toggleTracker
 		}
 	})
+	Keybind.new('Windows', 'Show/hide cyclopedia', '', '')
+	Keybind.bind('Windows', 'Show/hide cyclopedia', {
+		{
+			type = KEY_DOWN,
+			callback = function()
+				if not g_game.isOnline() then
+					return
+				end
+				toggle()
+			end
+		}
+	})
 
 	if g_game.isOnline() then
 		connectCyclopediaCharacterEvents()
@@ -1093,6 +1105,7 @@ function terminate()
 
 	Keybind.delete('Windows', 'Show/hide Bosstiary Tracker')
 	Keybind.delete('Windows', 'Show/hide Bestiary Tracker')
+	Keybind.delete('Windows', 'Show/hide cyclopedia')
 
 	-- Hooked opcodes
 	ProtocolGame.unregisterOpcode(0x29)

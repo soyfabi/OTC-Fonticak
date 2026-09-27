@@ -280,6 +280,119 @@ function init()
     StatsBar.init()
 end
 
+local function inspectItemThing(item)
+    if not item or item:getId() <= 0 then
+        return false
+    end
+
+    local pos = item.getPosition and item:getPosition()
+    if pos then
+        g_game.inspectionNormalObject(pos)
+        return true
+    end
+
+    local itemId = item:getId()
+    local count = 1
+    if item.getCountOrSubType then
+        count = math.max(1, item:getCountOrSubType())
+    elseif item.getCount then
+        count = math.max(1, item:getCount())
+    end
+    g_game.inspectionObject(InspectObjectTypes.INSPECT_CYCLOPEDIA, itemId, count)
+    return true
+end
+
+local function resolveItemUnderMouseWidget(widget)
+    if not widget or widget:isDestroyed() then
+        return nil
+    end
+
+    local current = widget
+    for _ = 1, 12 do
+        if not current or current:isDestroyed() then
+            break
+        end
+
+        if current.getClassName and current:getClassName() == 'UIItem' and current.getItem then
+            if not current.isVirtual or not current:isVirtual() then
+                local item = current:getItem()
+                if item and item:getId() > 0 then
+                    return item
+                end
+            end
+        end
+
+        if current.getChildById then
+            local itemSlot = current:getChildById('item')
+            if itemSlot and not itemSlot:isDestroyed() and itemSlot.getItem then
+                local item = itemSlot:getItem()
+                if item and item:getId() > 0 then
+                    return item
+                end
+            end
+        end
+
+        current = current:getParent()
+    end
+
+    return nil
+end
+
+local function inspectObjectUnderCursor()
+    if not g_game.isOnline() or not modules.game_inspect then
+        return
+    end
+
+    local mousePos = g_window.getMousePosition()
+
+    local rootWidget = g_ui.getRootWidget()
+    if rootWidget then
+        local clickedWidget = rootWidget:recursiveGetChildByPos(mousePos, false)
+        if not clickedWidget then
+            clickedWidget = rootWidget:recursiveGetChildByPos(mousePos, true)
+        end
+
+        if clickedWidget then
+            local item = resolveItemUnderMouseWidget(clickedWidget)
+            if item and inspectItemThing(item) then
+                return
+            end
+
+            if clickedWidget:getClassName() == 'UIGameMap' then
+                local tile = clickedWidget:getTile(mousePos)
+                if tile then
+                    local positionOffset = clickedWidget:getPositionOffset(mousePos)
+                    local lookThing = tile:getTopLookThingEx(positionOffset)
+                    if lookThing and lookThing:isItem() and not lookThing:isNotMoveable() then
+                        g_game.inspectionNormalObject(lookThing:getPosition())
+                        return
+                    end
+                end
+            end
+        end
+    end
+
+    local map = gameMapPanel or getMapPanel()
+    if not map or map:isDestroyed() then
+        return
+    end
+
+    if map.containsPoint and not map:containsPoint(mousePos) then
+        return
+    end
+
+    local tile = map:getTile(mousePos)
+    if not tile then
+        return
+    end
+
+    local positionOffset = map:getPositionOffset(mousePos)
+    local lookThing = tile:getTopLookThingEx(positionOffset)
+    if lookThing and lookThing:isItem() and not lookThing:isNotMoveable() then
+        g_game.inspectionNormalObject(lookThing:getPosition())
+    end
+end
+
 function bindKeys()
     if type(applyKeyboardDelay) == 'function' then
         applyKeyboardDelay()
@@ -287,12 +400,29 @@ function bindKeys()
         gameRootPanel:setAutoRepeatDelay(50)
     end
 
-    g_keyboard.bindKeyPress('Ctrl+=', function()
-        gameMapPanel:zoomIn()
-    end, gameRootPanel)
-    g_keyboard.bindKeyPress('Ctrl+-', function()
-        gameMapPanel:zoomOut()
-    end, gameRootPanel)
+    Keybind.new("UI", "Map zoom in", "Ctrl+=", "")
+    Keybind.bind("UI", "Map zoom in", {
+        {
+            type = KEY_PRESS,
+            callback = function()
+                if gameMapPanel then
+                    gameMapPanel:zoomIn()
+                end
+            end,
+        }
+    }, gameRootPanel)
+
+    Keybind.new("UI", "Map zoom out", "Ctrl+-", "")
+    Keybind.bind("UI", "Map zoom out", {
+        {
+            type = KEY_PRESS,
+            callback = function()
+                if gameMapPanel then
+                    gameMapPanel:zoomOut()
+                end
+            end,
+        }
+    }, gameRootPanel)
 
     Keybind.new("Movement", "Stop All Actions", "Escape", "", true)
     Keybind.bind("Movement", "Stop All Actions", {
@@ -338,31 +468,21 @@ function bindKeys()
         }
     }, gameRootPanel)
 
-    g_keyboard.bindKeyDown('Ctrl+.', nextViewMode, gameRootPanel)
+    Keybind.new("UI", "Next map view mode", "Ctrl+.", "")
+    Keybind.bind("UI", "Next map view mode", {
+        {
+            type = KEY_DOWN,
+            callback = nextViewMode,
+        }
+    }, gameRootPanel)
 
-    g_keyboard.bindKeyDown('Ctrl+I', function()
-        if not g_game.isOnline() or not modules.game_inspect then return end
-        local mousePos = g_window.getMousePosition()
-        local widget = g_ui.getRootWidget():recursiveGetChildByPos(mousePos, false)
-        if widget then
-            if widget:getClassName() == 'UIItem' then
-                local item = widget:getItem()
-                if item and item:getId() > 0 then
-                    g_game.inspectionObject(InspectObjectTypes.INSPECT_CYCLOPEDIA, item:getId(), 1)
-                    return
-                end
-            end
-        end
-        local map = gameMapPanel or getMapPanel()
-        if not map then return end
-        local tile = map:getTile(mousePos)
-        if not tile then return end
-        local positionOffset = map:getPositionOffset(mousePos)
-        local lookThing = tile:getTopLookThingEx(positionOffset)
-        if lookThing and lookThing:isItem() and not lookThing:isNotMoveable() then
-            g_game.inspectionNormalObject(lookThing:getPosition())
-        end
-    end, gameRootPanel)
+    Keybind.new("UI", "Inspect object under cursor", "Ctrl+I", "")
+    Keybind.bind("UI", "Inspect object under cursor", {
+        {
+            type = KEY_DOWN,
+            callback = inspectObjectUnderCursor,
+        }
+    })
 end
 
 function terminate()
@@ -404,6 +524,10 @@ function terminate()
     Keybind.delete("Misc", "Logout")
     Keybind.delete("UI", "Clear All Texts")
     Keybind.delete("Misc", "Clear oldest message from Game Window")
+    Keybind.delete("UI", "Map zoom in")
+    Keybind.delete("UI", "Map zoom out")
+    Keybind.delete("UI", "Next map view mode")
+    Keybind.delete("UI", "Inspect object under cursor")
 end
 
 function onGameStart()
@@ -1138,7 +1262,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
         if modules.game_inspect and canInspectItem then
             menu:addOption(tr('Inspect'), function()
                 g_game.inspectionNormalObject(lookThing:getPosition())
-            end, '(Ctrl+I)')
+            end, Keybind.formatActionShortcut('UI', 'Inspect object under cursor'))
         end
         if lookThing:isItem() and lookThing:isPickupable() and not lookThing:isNotMoveable()
             and modules.game_cyclopedia

@@ -676,6 +676,15 @@ local function applyAutomaticPreset(attempt)
     end
 end
 
+function syncChatModePanels(chatMode)
+    if syncKeybindsPanelChatMode then
+        syncKeybindsPanelChatMode(chatMode)
+    end
+    if syncCustomHotkeysPanelChatMode then
+        syncCustomHotkeysPanelChatMode(chatMode)
+    end
+end
+
 function controller:onGameStart()
     if autoSwitchPresetEvent then
         removeEvent(autoSwitchPresetEvent)

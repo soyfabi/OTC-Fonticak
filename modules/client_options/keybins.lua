@@ -5,6 +5,7 @@ local presetWindow = nil
 local actionSearchEvent
 keyEditWindow = nil
 local chatModeGroup
+local syncingChatModeUI = false
 
 local KEY_EDIT_OVERWRITE_TEXT = tr('This hotkey is already in use and will be overwritten.')
 
@@ -577,10 +578,34 @@ function performeSearchActions()
 end
 
 function chatModeChange()
+    if syncingChatModeUI then
+        return
+    end
+
     changedKeybinds = {}
 
     panels.keybindsPanel.search.field:clearText()
 
+    Keybind.setChatMode(getChatMode())
+    updateKeybinds()
+end
+
+function syncKeybindsPanelChatMode(chatMode)
+    if not chatModeGroup or not panels or not panels.keybindsPanel then
+        return
+    end
+
+    local widget = chatMode == CHAT_MODE.ON and panels.keybindsPanel.panel.chatMode.on
+        or panels.keybindsPanel.panel.chatMode.off
+    if chatModeGroup:getSelectedWidget() == widget then
+        return
+    end
+
+    syncingChatModeUI = true
+    chatModeGroup:selectWidget(widget)
+    syncingChatModeUI = false
+
+    changedKeybinds = {}
     updateKeybinds()
 end
 
@@ -646,6 +671,9 @@ function applyChangedOptions()
     if needKeybindsUpdate then
         updateKeybinds()
     end
+    if Keybind.refreshControlButtonTooltips then
+        Keybind.refreshControlButtonTooltips()
+    end
     g_settings.save()
 end
 
@@ -666,7 +694,11 @@ function init_binds()
     chatModeGroup:addWidget(panels.keybindsPanel.panel.chatMode.on)
     chatModeGroup:addWidget(panels.keybindsPanel.panel.chatMode.off)
     chatModeGroup.onSelectionChange = chatModeChange
-    chatModeGroup:selectWidget(panels.keybindsPanel.panel.chatMode.on)
+    syncingChatModeUI = true
+    chatModeGroup:selectWidget(Keybind.chatMode == CHAT_MODE.ON and panels.keybindsPanel.panel.chatMode.on
+        or panels.keybindsPanel.panel.chatMode.off)
+    syncingChatModeUI = false
+    updateKeybinds()
 
     keyEditWindow = g_ui.displayUI("styles/controls/key_edit")
     keyEditWindow:hide()
