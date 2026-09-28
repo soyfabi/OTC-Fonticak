@@ -349,11 +349,6 @@ local function setupComboBox()
         setOption('listKeybindsPanel', option)
     end
     panels.keybindsPanel.presets.list:setCurrentOption(Keybind.currentPreset)
-    scheduleEvent(function()
-        if updateKeybinds then
-            updateKeybinds()
-        end
-    end, 0)
 end
 
 local function setup()
@@ -1564,6 +1559,9 @@ end
 
 function hide()
     -- Save all settings when closing the options window
+    if cancelGeneralHotkeyInlineEdit then
+        cancelGeneralHotkeyInlineEdit()
+    end
     commitRenderBackendChange()
     g_settings.save()
     cancelCategoryAnimations()
@@ -1591,7 +1589,11 @@ function toggle()
         end
     end
     show()
-    updateKeybinds()
+    if controller.ui.selectedOption == panels.keybindsPanel and updateKeybinds then
+        updateKeybinds()
+    elseif refreshGeneralHotkeysListIfNeeded then
+        refreshGeneralHotkeysListIfNeeded()
+    end
     updateCustomHotkeys()
 end
 

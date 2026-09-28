@@ -10,6 +10,26 @@ local categoryExpandedState = {}
 local keybindSections = {}
 local updatingKeybinds = false
 local pendingKeybindsUpdate = false
+local pendingKeybindsRefresh = false
+local KEYBIND_ROW_HEIGHT = 20
+local KEYBIND_HEADER_HEIGHT = 20
+local inlineKeyEditSession = nil
+local inlineKeyCaptureWidget = nil
+local inlineKeyDismissConnected = false
+local inlineKeyConfirmationKey = nil
+local keyColumnPulseEvent = nil
+local keyColumnPulseColumn = nil
+local KEY_COLUMN_PLACEHOLDER_COLOR = '#787878'
+local KEY_COLUMN_ASSIGNED_COLOR = '#c0c0c0'
+local KEY_COLUMN_LISTEN_COLOR = '#ffffff'
+local KEY_COLUMN_OVERWRITE_TEXT_COLOR = '#ffff66'
+local KEY_COLUMN_OVERWRITE_BACKGROUND = '#5a5028'
+local KEY_COLUMN_OVERWRITE_BORDER = '#a88828'
+local KEY_COLUMN_BLOCKED_COLOR = '#f75f5f'
+local cancelPendingInlineKeybindCommit
+local showKeyColumnConflictCell
+local hotkeyConflictPulseEvent = nil
+local hotkeyConflictPulseColumn = nil
 
 local function getGeneralHotkeysScroll()
     if not panels or not panels.keybindsPanel then
@@ -46,6 +66,12 @@ local GENERAL_HOTKEY_UI_SECTIONS = {
 }
 
 local UI_SECTION_ORDER = { 'windows', 'game', 'chat', 'actions', 'other' }
+local TREE_HELP_WIDGET_ID = 'treeHelpSection'
+local KEYBIND_CATEGORY_COLOR = '#8cb4d9'
+
+local function keyColumnPlaceholderText()
+    return tr('[Press Key]')
+end
 
 local function resolveKeybindUiSectionId(category)
     for _, section in ipairs(GENERAL_HOTKEY_UI_SECTIONS) do
@@ -70,10 +96,33 @@ end
 
 local function isKeybindCategoryExpanded(sectionId)
     if categoryExpandedState[sectionId] == nil then
-        return true
+        return false
     end
     return categoryExpandedState[sectionId]
 end
+
+local function shouldRefreshGeneralHotkeysList()
+    if not panels or not panels.keybindsPanel then
+        return false
+    end
+    if not controller or not controller.ui or not controller.ui:isVisible() then
+        return false
+    end
+    return panels.keybindsPanel:isVisible()
+end
+
+local function refreshKeybindSectionHeight(section, expanded)
+    local entryCount = section.entryCount or 0
+    local _, rowsPanel = getKeybindSectionParts(section)
+    local rowsHeight = expanded and (entryCount * KEYBIND_ROW_HEIGHT) or 0
+    if rowsPanel then
+        rowsPanel:setHeight(rowsHeight)
+    end
+    section:setHeight(KEYBIND_HEADER_HEIGHT + rowsHeight)
+end
+
+local KEYBIND_CATEGORY_EXPANDED_ICON = '/images/arrows/icon-arrow7x7-down'
+local KEYBIND_CATEGORY_COLLAPSED_ICON = '/images/arrows/icon-arrow7x7-right'
 
 local function setKeybindCategoryExpanded(section, expanded)
     categoryExpandedState[section.sectionId] = expanded
@@ -82,8 +131,9 @@ local function setKeybindCategoryExpanded(section, expanded)
         rowsPanel:setVisible(expanded)
     end
     if indicator then
-        indicator:setText(expanded and tr('▼') or tr('▶'))
+        indicator:setImageSource(expanded and KEYBIND_CATEGORY_EXPANDED_ICON or KEYBIND_CATEGORY_COLLAPSED_ICON)
     end
+    refreshKeybindSectionHeight(section, expanded)
 end
 
 local function toggleKeybindCategorySection(section)
@@ -99,11 +149,35 @@ local function clearGeneralHotkeysList()
     keybindSections = {}
 end
 
-local function getKeyColumnText(column)
-    if column.value then
-        return column.value:getText()
+local function addGeneralHotkeysTreeHelp(scroll)
+    local help = g_ui.createWidget('KeybindsTreeHelpSection', scroll)
+    if help then
+        help:setId(TREE_HELP_WIDGET_ID)
     end
-    return column:getText()
+end
+
+local function setGeneralHotkeysTreeHelpVisible(visible)
+    local scroll = getGeneralHotkeysScroll()
+    if not scroll then
+        return
+    end
+    local help = scroll:getChildById(TREE_HELP_WIDGET_ID)
+    if help then
+        help:setVisible(visible)
+    end
+end
+
+local function getKeyColumnText(column)
+    local text = ''
+    if column.value then
+        text = column.value:getText()
+    else
+        text = column:getText()
+    end
+    if text == keyColumnPlaceholderText() then
+        return ''
+    end
+    return text
 end
 
 local function setKeyColumnText(column, text)
@@ -113,6 +187,736 @@ local function setKeyColumnText(column, text)
     else
         column:setText(text)
     end
+end
+
+local function listenPulseIntensity(phase)
+    local p = phase % 1
+    local first = math.max(0, math.sin(p * math.pi * 2))
+    local second = math.max(0, math.sin(p * math.pi * 4 + 0.55)) * 0.45
+    return math.min(1, first * 0.9 + second)
+end
+
+local function listenPulseTextColor(intensity)
+    local v = math.floor(175 + intensity * 80)
+    return string.format('#%02x%02x%02x', v, v, v)
+end
+
+local function listenPulseBackgroundColor(intensity)
+    local v = math.floor(62 + intensity * 38)
+    return string.format('#%02x%02x%02x', v, v, v)
+end
+
+local function listenPulseBorderColor(intensity)
+    local v = math.floor(48 + intensity * 72)
+    return string.format('#%02x%02x%02x', v, v, v)
+end
+
+local function applyKeyColumnPulseFrame(column, phase)
+    if not column or not column.value then
+        return
+    end
+    local intensity = listenPulseIntensity(phase)
+    column.value:setColor(listenPulseTextColor(intensity))
+    column:setBackgroundColor(listenPulseBackgroundColor(intensity))
+    column:setBorderColor(listenPulseBorderColor(intensity))
+end
+
+local function stopKeyColumnPulse(column)
+    if keyColumnPulseEvent then
+        removeEvent(keyColumnPulseEvent)
+        keyColumnPulseEvent = nil
+    end
+    local target = column or keyColumnPulseColumn
+    if target and target.value then
+        target.value:setOpacity(1.0)
+    end
+    if target then
+        target:setBackgroundColor('#363636')
+        target:setBorderColor('#272727')
+    end
+    if not column or keyColumnPulseColumn == column then
+        keyColumnPulseColumn = nil
+    end
+end
+
+local function getGeneralHotkeysScrollBar()
+    if not panels or not panels.keybindsPanel or not panels.keybindsPanel.tablePanel then
+        return nil
+    end
+    return panels.keybindsPanel.tablePanel.scrollBar
+end
+
+local function startKeyColumnPulse(column)
+    stopKeyColumnPulse(column)
+    if not column or not column.value then
+        return
+    end
+
+    keyColumnPulseColumn = column
+    local phase = 0
+    applyKeyColumnPulseFrame(column, phase)
+
+    keyColumnPulseEvent = cycleEvent(function()
+        if not inlineKeyEditSession or inlineKeyEditSession.column ~= column then
+            stopKeyColumnPulse(column)
+            return
+        end
+
+        phase = phase + 0.022
+        if phase > 1 then
+            phase = phase - 1
+        end
+        applyKeyColumnPulseFrame(column, phase)
+    end, 48)
+end
+
+local function clearKeyColumnTooltip(column)
+    if column and column.setTooltip then
+        column:setTooltip('')
+    end
+end
+
+local function setKeyColumnDisplay(column, keyCombo)
+    stopKeyColumnPulse(column)
+    clearKeyColumnTooltip(column)
+    local display = Keybind.formatKeyComboForDisplay(keyCombo)
+    local isEmpty = not keyCombo or keyCombo == '' or not display or display == ''
+    if isEmpty then
+        display = keyColumnPlaceholderText()
+    end
+    setKeyColumnText(column, display)
+    if column.value then
+        column.value:setColor(isEmpty and KEY_COLUMN_PLACEHOLDER_COLOR or KEY_COLUMN_ASSIGNED_COLOR)
+        column.value:setOpacity(1.0)
+    end
+    column:setBackgroundColor('#363636')
+    column:setBorderColor('#272727')
+end
+
+local function setKeyColumnListening(column, keyCombo)
+    clearKeyColumnTooltip(column)
+    local display = Keybind.formatKeyComboForDisplay(keyCombo)
+    if not display or display == '' then
+        display = keyColumnPlaceholderText()
+    end
+    setKeyColumnText(column, display)
+    column:setBackgroundColor('#585858')
+    startKeyColumnPulse(column)
+end
+
+local function resolveKeybindColumnWidget(widget)
+    if not widget then
+        return nil
+    end
+    if widget.value then
+        return widget
+    end
+    local parent = widget:getParent()
+    if parent and parent.value then
+        return parent
+    end
+    return nil
+end
+
+local function bindKeybindColumnCell(column, editCallback)
+    column.onMousePress = function(_, mousePos, mouseButton)
+        if mouseButton == MouseLeftButton then
+            editCallback(column)
+            return true
+        end
+        return false
+    end
+end
+
+local function inlineKeybindDismissPress(widget, mousePos, mouseButton)
+    if not inlineKeyEditSession then
+        return false
+    end
+    if mouseButton ~= MouseLeftButton then
+        return false
+    end
+
+    local column = inlineKeyEditSession.column
+    if column and column:containsPoint(mousePos) then
+        return false
+    end
+
+    cancelGeneralHotkeyInlineEdit()
+    return false
+end
+
+local function stopInlineKeyDismissPress()
+    if not inlineKeyDismissConnected or not panels or not panels.keybindsPanel then
+        return
+    end
+    disconnect(panels.keybindsPanel, {
+        onMousePress = inlineKeybindDismissPress
+    })
+    inlineKeyDismissConnected = false
+end
+
+local function startInlineKeyDismissPress()
+    if inlineKeyDismissConnected or not panels or not panels.keybindsPanel then
+        return
+    end
+    connect(panels.keybindsPanel, {
+        onMousePress = inlineKeybindDismissPress
+    })
+    inlineKeyDismissConnected = true
+end
+
+local function stopInlineKeybindCapture()
+    stopInlineKeyDismissPress()
+    if inlineKeyCaptureWidget then
+        local captureWidget = inlineKeyCaptureWidget
+        disconnect(captureWidget, {
+            onKeyDown = inlineKeybindKeyDown
+        })
+        disconnect(captureWidget, {
+            onMousePress = inlineKeybindMouse
+        })
+        inlineKeyCaptureWidget = nil
+        scheduleEvent(function()
+            if inlineKeyCaptureWidget then
+                return
+            end
+            disconnect(captureWidget, {
+                onKeyPress = inlineKeybindKeyPress
+            })
+            if captureWidget.ungrabKeyboard then
+                captureWidget:ungrabKeyboard()
+            end
+        end, 0)
+    end
+end
+
+local function getGeneralHotkeyConflictNotice()
+    if not panels or not panels.keybindsPanel or not panels.keybindsPanel.tablePanel then
+        return nil
+    end
+    return panels.keybindsPanel.tablePanel:recursiveGetChildById('overwriteNotice')
+end
+
+local function getGeneralHotkeyConflictNoticeIcon()
+    if not panels or not panels.keybindsPanel or not panels.keybindsPanel.tablePanel then
+        return nil
+    end
+    return panels.keybindsPanel.tablePanel:recursiveGetChildById('overwriteNoticeIcon')
+end
+
+local function setGeneralHotkeyConflictNoticeSpace(height)
+    local tablePanel = panels and panels.keybindsPanel and panels.keybindsPanel.tablePanel
+    if not tablePanel then
+        return
+    end
+
+    local scroll = tablePanel.keybindsScroll
+    local scrollBar = tablePanel.scrollBar
+    if scroll then
+        scroll:setMarginTop(height)
+    end
+    if scrollBar then
+        scrollBar:setMarginTop(height)
+    end
+end
+
+local function stopGeneralHotkeyConflictPulse()
+    if hotkeyConflictPulseEvent then
+        removeEvent(hotkeyConflictPulseEvent)
+        hotkeyConflictPulseEvent = nil
+    end
+    hotkeyConflictPulseColumn = nil
+end
+
+local function hideGeneralHotkeyConflictNotice()
+    stopGeneralHotkeyConflictPulse()
+    local notice = getGeneralHotkeyConflictNotice()
+    if not notice then
+        return
+    end
+    notice:setVisible(false)
+    notice:setHeight(0)
+    notice:setText('')
+    setGeneralHotkeyConflictNoticeSpace(0)
+
+    local icon = getGeneralHotkeyConflictNoticeIcon()
+    if icon then
+        icon:setVisible(false)
+    end
+end
+
+local function startGeneralHotkeyConflictPulse(column)
+    stopGeneralHotkeyConflictPulse()
+    hotkeyConflictPulseColumn = column
+    local phase = 0
+
+    hotkeyConflictPulseEvent = cycleEvent(function()
+        if not inlineKeyEditSession or not inlineKeyEditSession.pendingKeyCombo then
+            stopGeneralHotkeyConflictPulse()
+            return
+        end
+
+        phase = (phase + 0.022) % 1
+        local intensity = math.max(0, math.sin(phase * math.pi * 2))
+        local red = 240 + math.floor(intensity * 15)
+        local green = 192 + math.floor(intensity * 48)
+        local color = string.format('#%02x%02x00', red, green)
+
+        if hotkeyConflictPulseColumn and hotkeyConflictPulseColumn.value then
+            hotkeyConflictPulseColumn.value:setColor(color)
+            hotkeyConflictPulseColumn:setBorderColor(color)
+        end
+    end, 48)
+end
+
+local function showGeneralHotkeyConflictNotice(text, height)
+    local notice = getGeneralHotkeyConflictNotice()
+    if not notice then
+        return
+    end
+    notice:setText(text)
+    notice:setColor('#f0c040')
+    notice:setHeight(height or 20)
+    notice:setVisible(true)
+    setGeneralHotkeyConflictNoticeSpace(height or 20)
+
+    local icon = getGeneralHotkeyConflictNoticeIcon()
+    if icon then
+        local textWidth = notice:getTextSize().width
+        local textStart = math.floor((notice:getWidth() - textWidth) / 2)
+        icon:setMarginLeft(math.max(2, textStart - icon:getWidth() - 2))
+        icon:setMarginTop(4)
+        icon:setVisible(true)
+    end
+end
+
+local function formatGeneralHotkeyConflictNotice(conflictMessage)
+    local notice = getGeneralHotkeyConflictNotice()
+    local confirmMessage = tr('Press [Enter] to confirm or [Esc] to cancel.')
+    local singleLine = tr('This hotkey is already in use. %s %s', conflictMessage, confirmMessage)
+    if not notice then
+        return singleLine, 20
+    end
+
+    notice:setText(singleLine)
+    if notice:getTextSize().width <= notice:getWidth() then
+        return singleLine, 20
+    end
+
+    local twoLines = tr('This hotkey is already in use. %s\n%s', conflictMessage, confirmMessage)
+    notice:setText(twoLines)
+    if notice:getTextSize().width <= notice:getWidth() then
+        return twoLines, 30
+    end
+
+    return tr('This hotkey is already in use.\n%s\n%s', conflictMessage, confirmMessage), 42
+end
+
+function cancelGeneralHotkeyInlineEdit()
+    if not inlineKeyEditSession then
+        return
+    end
+    cancelPendingInlineKeybindCommit()
+    local session = inlineKeyEditSession
+    inlineKeyEditSession = nil
+    stopKeyColumnPulse(session.column)
+    stopInlineKeybindCapture()
+    setKeyColumnDisplay(session.column, session.previousKeyCombo)
+end
+
+local function isInlineEnterKey(keyCode)
+    return keyCode == KeyEnter or keyCode == KeyReturn or keyCode == 5 or keyCode == 13
+        or (KeyNumpadEnter and keyCode == KeyNumpadEnter)
+        or (g_keyboard and g_keyboard.isEnterKey and g_keyboard.isEnterKey(keyCode))
+end
+
+local function clearInlineKeyOverwriteConfirmUI(session)
+    hideGeneralHotkeyConflictNotice()
+end
+
+local function showInlineKeyOverwriteConfirm(session, keyCombo, feedback)
+    session.pendingKeyCombo = keyCombo
+    showKeyColumnConflictCell(session.column, keyCombo, feedback)
+    local text, height = formatGeneralHotkeyConflictNotice(feedback.message)
+    showGeneralHotkeyConflictNotice(text, height)
+    startGeneralHotkeyConflictPulse(session.column)
+end
+
+local function flashInlineKeyBlockedNotice(column, keyCombo, feedback, previousKeyCombo)
+    showKeyColumnConflictCell(column, keyCombo, feedback)
+    showGeneralHotkeyConflictNotice(feedback.message or feedback.tooltip
+        or tr('This hotkey is already in use and cannot be overwritten.'))
+
+    scheduleEvent(function()
+        if not inlineKeyEditSession or inlineKeyEditSession.column ~= column or inlineKeyEditSession.pendingKeyCombo then
+            return
+        end
+        hideGeneralHotkeyConflictNotice()
+        setKeyColumnListening(column, previousKeyCombo)
+    end, 350)
+end
+
+showKeyColumnConflictCell = function(column, keyCombo, feedback)
+    stopKeyColumnPulse(column)
+    local display = Keybind.formatKeyComboForDisplay(keyCombo)
+    if not display or display == '' then
+        display = keyColumnPlaceholderText()
+    end
+    setKeyColumnText(column, display)
+    if column.value then
+        column.value:setColor(feedback.blocked and KEY_COLUMN_BLOCKED_COLOR or KEY_COLUMN_OVERWRITE_TEXT_COLOR)
+        column.value:setOpacity(1.0)
+    end
+    if feedback.blocked then
+        column:setBackgroundColor('#585858')
+        column:setBorderColor(KEY_COLUMN_BLOCKED_COLOR)
+    else
+        column:setBackgroundColor(KEY_COLUMN_OVERWRITE_BACKGROUND)
+        column:setBorderColor(KEY_COLUMN_OVERWRITE_BORDER)
+    end
+    column:setTooltip(feedback.tooltip or '')
+end
+
+local function hasCustomHotkeyConflictForCombo(keyCombo, chatMode, preset)
+    if not keyCombo or keyCombo == '' then
+        return false
+    end
+
+    local hotkeys = Keybind.hotkeys[chatMode] and Keybind.hotkeys[chatMode][preset]
+    if not hotkeys then
+        return false
+    end
+
+    for _, hotkey in ipairs(hotkeys) do
+        if hotkey.primary == keyCombo or hotkey.secondary == keyCombo then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function hasActionbarHotkeyConflictForCombo(keyCombo)
+    if not keyCombo or keyCombo == '' then
+        return false
+    end
+
+    if modules.game_hotkeys and modules.game_hotkeys.isHotkeyUsedByManager and modules.game_hotkeys.isHotkeyUsedByManager(keyCombo) then
+        return true
+    end
+
+    local actionbarApi = modules.game_actionbar and modules.game_actionbar.ApiJson
+    if actionbarApi and actionbarApi.hasCurrentHotkeySet and actionbarApi.hasCurrentHotkeySet() then
+        local chatMode = modules.game_console and modules.game_console.isChatEnabled and modules.game_console.isChatEnabled() and 'chatOn' or 'chatOff'
+        if actionbarApi.getHotkeyEntries then
+            for _, data in ipairs(actionbarApi.getHotkeyEntries(chatMode)) do
+                if data['actionsetting'] and data['keysequence'] and data['keysequence']:lower() == keyCombo:lower() then
+                    return true
+                end
+            end
+        end
+    end
+
+    return false
+end
+
+local function getInlineKeyConflictFeedback(keyCombo, category, action)
+    if not keyCombo or keyCombo == '' then
+        return nil
+    end
+
+    if Keybind.reservedKeys[keyCombo] then
+        return {
+            blocked = true,
+            warn = false,
+            message = tr('This hotkey is already in use and cannot be overwritten.'),
+            tooltip = tr('This hotkey is already in use and cannot be overwritten.')
+        }
+    end
+
+    local presetOption = panels.keybindsPanel.presets.list:getCurrentOption()
+    if not presetOption then
+        return nil
+    end
+
+    local chatMode = getChatMode()
+    local preset = presetOption.text
+    local conflictCategory, conflictAction = Keybind.getKeyComboOverwriteTarget(keyCombo, category, action, chatMode, preset)
+    if conflictAction then
+        local message = tr("'%s: %s' will be overwritten.", conflictCategory, conflictAction)
+        return {
+            blocked = false,
+            warn = true,
+            message = message,
+            tooltip = message
+        }
+    end
+
+    if hasCustomHotkeyConflictForCombo(keyCombo, chatMode, preset) or hasActionbarHotkeyConflictForCombo(keyCombo) then
+        local message = tr('This hotkey will be overwritten.')
+        return {
+            blocked = false,
+            warn = true,
+            message = message,
+            tooltip = message
+        }
+    end
+
+    return nil
+end
+
+cancelPendingInlineKeybindCommit = function()
+    if inlineKeyEditSession then
+        clearInlineKeyOverwriteConfirmUI(inlineKeyEditSession)
+        inlineKeyEditSession.pendingKeyCombo = nil
+    end
+end
+
+local function performInlineKeybindCommit(keyCombo)
+    local session = inlineKeyEditSession
+    if not session then
+        return
+    end
+
+    clearInlineKeyOverwriteConfirmUI(session)
+    session.pendingKeyCombo = nil
+
+    keyCombo = keyCombo or ''
+    local row = session.row
+    local column = session.column
+    local presetOption = panels.keybindsPanel.presets.list:getCurrentOption()
+    if not presetOption then
+        cancelGeneralHotkeyInlineEdit()
+        return
+    end
+
+    local preset = presetOption.text
+    local index = row.category .. '_' .. row.action
+
+    inlineKeyEditSession = nil
+    stopKeyColumnPulse(column)
+    stopInlineKeybindCapture()
+
+    setKeyColumnDisplay(column, keyCombo)
+
+    if not changedKeybinds[preset] then
+        changedKeybinds[preset] = {}
+    end
+    if not changedKeybinds[preset][index] then
+        changedKeybinds[preset][index] = {}
+    end
+
+    local binding = {
+        category = row.category,
+        action = row.action,
+        keyCombo = keyCombo
+    }
+    if session.isSecondary then
+        changedKeybinds[preset][index].secondary = binding
+    else
+        changedKeybinds[preset][index].primary = binding
+    end
+
+    applyChangedOptions()
+end
+
+local function commitInlineKeybindChange(keyCombo)
+    local session = inlineKeyEditSession
+    if not session then
+        return
+    end
+
+    if session.pendingKeyCombo then
+        return
+    end
+
+    keyCombo = keyCombo or ''
+    if keyCombo == '' then
+        performInlineKeybindCommit('')
+        return
+    end
+
+    local feedback = getInlineKeyConflictFeedback(keyCombo, session.row.category, session.row.action)
+    if feedback and feedback.blocked then
+        return
+    end
+
+    if feedback and feedback.warn then
+        showInlineKeyOverwriteConfirm(session, keyCombo, feedback)
+        return
+    end
+
+    performInlineKeybindCommit(keyCombo)
+end
+
+local function getInlineKeyCaptureWidget()
+    if panels.keybindsPanel and panels.keybindsPanel.tablePanel then
+        return panels.keybindsPanel.tablePanel
+    end
+    return panels.keybindsPanel
+end
+
+local function beginInlineKeybindEdit(column, isSecondary)
+    if inlineKeyEditSession and inlineKeyEditSession.column == column then
+        return
+    end
+
+    cancelGeneralHotkeyInlineEdit()
+
+    local row = column:getParent()
+    if not row or not row.category or not row.action then
+        return
+    end
+
+    local presetOption = panels.keybindsPanel.presets.list:getCurrentOption()
+    if not presetOption then
+        return
+    end
+
+    local keys = Keybind.getKeybindKeys(row.category, row.action, getChatMode(), presetOption.text)
+    local previous = isSecondary and keys.secondary or keys.primary
+    local keybind = Keybind.getAction(row.category, row.action)
+
+    inlineKeyEditSession = {
+        column = column,
+        row = row,
+        isSecondary = isSecondary,
+        previousKeyCombo = previous,
+        alone = keybind and keybind.alone or false
+    }
+
+    setKeyColumnListening(column, previous)
+
+    inlineKeyCaptureWidget = getInlineKeyCaptureWidget()
+    connect(inlineKeyCaptureWidget, {
+        onKeyDown = inlineKeybindKeyDown
+    })
+    connect(inlineKeyCaptureWidget, {
+        onMousePress = inlineKeybindMouse
+    })
+    connect(inlineKeyCaptureWidget, {
+        onKeyPress = inlineKeybindKeyPress
+    })
+    inlineKeyCaptureWidget:focus()
+    inlineKeyCaptureWidget:grabKeyboard()
+    startInlineKeyDismissPress()
+end
+
+function inlineKeybindKeyDown(widget, keyCode, keyboardModifiers)
+    if not inlineKeyEditSession then
+        return false
+    end
+
+    if inlineKeyEditSession.pendingKeyCombo then
+        if isInlineEnterKey(keyCode) then
+            inlineKeyConfirmationKey = keyCode
+            performInlineKeybindCommit(inlineKeyEditSession.pendingKeyCombo)
+            return true
+        end
+        if keyCode == KeyEscape then
+            inlineKeyConfirmationKey = keyCode
+            cancelGeneralHotkeyInlineEdit()
+            return true
+        end
+        if keyCode == KeyDelete or keyCode == KeyBackspace then
+            cancelPendingInlineKeybindCommit()
+            setKeyColumnListening(inlineKeyEditSession.column, inlineKeyEditSession.previousKeyCombo)
+            return true
+        end
+
+        -- A different key replaces the pending conflict candidate, allowing the
+        -- player to choose another shortcut without cancelling the edit first.
+        cancelPendingInlineKeybindCommit()
+        setKeyColumnListening(inlineKeyEditSession.column, inlineKeyEditSession.previousKeyCombo)
+    end
+
+    if keyCode == KeyEscape then
+        inlineKeyConfirmationKey = keyCode
+        cancelGeneralHotkeyInlineEdit()
+        return true
+    end
+
+    if keyCode == KeyDelete or keyCode == KeyBackspace then
+        commitInlineKeybindChange('')
+        return true
+    end
+
+    local modifiers = inlineKeyEditSession.alone and KeyboardNoModifier or keyboardModifiers
+    local keyCombo = determineKeyComboDesc(keyCode, modifiers)
+
+    if keyCombo == 'Shift' or keyCombo == 'Ctrl' or keyCombo == 'Alt' then
+        return true
+    end
+
+    if keyCombo and keyCombo ~= '' and Keybind.reservedKeys[keyCombo] then
+        local column = inlineKeyEditSession.column
+        local feedback = getInlineKeyConflictFeedback(keyCombo, inlineKeyEditSession.row.category,
+            inlineKeyEditSession.row.action)
+        flashInlineKeyBlockedNotice(column, keyCombo, feedback or {
+            blocked = true,
+            message = tr('This hotkey is already in use and cannot be overwritten.'),
+            tooltip = tr('This hotkey is already in use and cannot be overwritten.')
+        }, inlineKeyEditSession.previousKeyCombo)
+        return true
+    end
+
+    commitInlineKeybindChange(keyCombo or '')
+    return true
+end
+
+function inlineKeybindKeyPress(widget, keyCode)
+    if inlineKeyConfirmationKey ~= keyCode then
+        return false
+    end
+
+    inlineKeyConfirmationKey = nil
+    return true
+end
+
+function inlineKeybindMouse(widget, mousePos, mouseButton)
+    if not inlineKeyEditSession then
+        return false
+    end
+
+    if inlineKeyEditSession.pendingKeyCombo then
+        if not inlineKeyEditSession.column:containsPoint(mousePos) then
+            cancelGeneralHotkeyInlineEdit()
+            return false
+        end
+        return true
+    end
+
+    local column = inlineKeyEditSession.column
+    if not column:containsPoint(mousePos) then
+        cancelGeneralHotkeyInlineEdit()
+        return false
+    end
+
+    local keyCombo = Keybind.getMouseKeyCombo(mouseButton, g_keyboard.getModifiers())
+    if not keyCombo then
+        return false
+    end
+
+    if Keybind.reservedKeys[keyCombo] then
+        local feedback = getInlineKeyConflictFeedback(keyCombo, inlineKeyEditSession.row.category,
+            inlineKeyEditSession.row.action)
+        flashInlineKeyBlockedNotice(column, keyCombo, feedback or {
+            blocked = true,
+            message = tr('This hotkey is already in use and cannot be overwritten.'),
+            tooltip = tr('This hotkey is already in use and cannot be overwritten.')
+        }, inlineKeyEditSession.previousKeyCombo)
+        return true
+    end
+
+    local feedback = getInlineKeyConflictFeedback(keyCombo, inlineKeyEditSession.row.category,
+        inlineKeyEditSession.row.action)
+    if feedback and feedback.warn then
+        showInlineKeyOverwriteConfirm(inlineKeyEditSession, keyCombo, feedback)
+        return true
+    end
+
+    commitInlineKeybindChange(keyCombo)
+    return true
 end
 
 local function clearConflictingGeneralKeybinds(keyCombo, category, action, chatMode, preset)
@@ -324,247 +1128,12 @@ function cancelPresetWindow()
     show()
 end
 
--- Shows the combo in the key edit window and highlights it in light yellow
--- while a key is assigned (gray when empty).
-function setKeyComboText(keyCombo)
-    keyEditWindow.keyCombo:setText(keyCombo)
-    if keyCombo == nil or keyCombo == "" then
-        keyEditWindow.keyCombo:setColor("#c0c0c0")
-    else
-        keyEditWindow.keyCombo:setColor("#ffff66")
-    end
+function editKeybindPrimary(column)
+    beginInlineKeybindEdit(resolveKeybindColumnWidget(column), false)
 end
 
--- Applies a captured combo (keyboard or mouse) to the keybind edit window
--- and runs the conflict checks.
-local function disconnectKeyEditListeners()
-    disconnect(keyEditWindow, {
-        onKeyDown = editKeybindKeyDown
-    })
-    disconnect(keyEditWindow, {
-        onMousePress = editKeybindMouse
-    })
-end
-
-local function isKeyEditAssignMousePos(widget, mousePos)
-    if not widget or not mousePos then
-        return false
-    end
-
-    local clickedWidget = widget:recursiveGetChildByPos(mousePos, false)
-    if not clickedWidget then
-        return true
-    end
-
-    local current = clickedWidget
-    while current and current ~= widget do
-        if current.getClassName then
-            local className = current:getClassName()
-            if className == 'UIButton' or className == 'UICheckBox' or className == 'UIComboBox' then
-                return false
-            end
-        end
-        current = current:getParent()
-    end
-
-    return true
-end
-
-function editKeybindSetCombo(keyCombo)
-    setKeyComboText(keyCombo)
-
-    local keybind = keyEditWindow.keybind
-    local category = keybind and keybind.category
-    local action = keybind and keybind.action
-    local chatMode = getChatMode()
-
-    local reserved = Keybind.reservedKeys[keyCombo]
-    local keyUsed = not reserved and keyCombo ~= '' and Keybind.isKeyComboUsed(keyCombo, category, action, chatMode)
-
-    keyEditWindow.used:setVisible(reserved or keyUsed)
-    if reserved then
-        keyEditWindow.used:setText(tr('This hotkey is already in use and cannot be overwritten.'))
-        keyEditWindow.buttons.ok:setEnabled(false)
-    elseif keyUsed then
-        keyEditWindow.used:setText(Keybind.formatKeyComboOverwriteMessage(keyCombo, category, action, chatMode))
-        keyEditWindow.buttons.ok:setEnabled(true)
-    else
-        keyEditWindow.used:setVisible(false)
-        keyEditWindow.buttons.ok:setEnabled(true)
-    end
-end
-
-function editKeybindKeyDown(widget, keyCode, keyboardModifiers)
-    editKeybindSetCombo(determineKeyComboDesc(keyCode,
-        keyEditWindow.alone:isVisible() and KeyboardNoModifier or keyboardModifiers))
-end
-
-function editKeybindMouse(widget, mousePos, button)
-    if not isKeyEditAssignMousePos(widget, mousePos) then
-        return false
-    end
-
-    local keyCombo = Keybind.getMouseKeyCombo(button, g_keyboard.getModifiers())
-    if not keyCombo then
-        return false
-    end
-    editKeybindSetCombo(keyCombo)
-    return true
-end
-
-function editKeybind(keybind)
-    keyEditWindow.buttons.cancel.onClick = function()
-        disconnectKeyEditListeners()
-        keyEditWindow:hide()
-        keyEditWindow:ungrabKeyboard()
-        show()
-    end
-
-    keyEditWindow.info:setText(tr(
-        'Click \'Ok\' to assign the keybind. Click \'Clear\' to remove the keybind from \'%s: %s\'.', keybind.category,
-        keybind.action))
-    keyEditWindow.alone:setVisible(keybind.alone)
-
-    connect(keyEditWindow, {
-        onKeyDown = editKeybindKeyDown
-    })
-    connect(keyEditWindow, {
-        onMousePress = editKeybindMouse
-    })
-
-    keyEditWindow:show()
-    keyEditWindow:raise()
-    keyEditWindow:focus()
-    keyEditWindow:grabKeyboard()
-    hide()
-end
-
-function editKeybindPrimary(button)
-    local column = button:getParent()
-    local row = column:getParent()
-    local index = row.category .. '_' .. row.action
-    local keybind = Keybind.getAction(row.category, row.action)
-    local preset = panels.keybindsPanel.presets.list:getCurrentOption().text
-
-    keyEditWindow.keybind = {
-        category = row.category,
-        action = row.action
-    }
-
-    keyEditWindow:setText(tr('Edit Primary Key for \'%s\'', string.format('%s: %s', keybind.category, keybind.action)))
-    editKeybindSetCombo(Keybind.getKeybindKeys(row.category, row.action, getChatMode(), preset).primary)
-
-    editKeybind(keybind)
-
-    keyEditWindow.buttons.ok.onClick = function()
-        local keyCombo = keyEditWindow.keyCombo:getText()
-
-        setKeyColumnText(column, Keybind.formatKeyComboForDisplay(keyCombo))
-
-        if not changedKeybinds[preset] then
-            changedKeybinds[preset] = {}
-        end
-        if not changedKeybinds[preset][index] then
-            changedKeybinds[preset][index] = {}
-        end
-        changedKeybinds[preset][index].primary = {
-            category = row.category,
-            action = row.action,
-            keyCombo = keyCombo
-        }
-
-        disconnectKeyEditListeners()
-        keyEditWindow:hide()
-        keyEditWindow:ungrabKeyboard()
-        show()
-        applyChangedOptions()
-    end
-
-    keyEditWindow.buttons.clear.onClick = function()
-        if not changedKeybinds[preset] then
-            changedKeybinds[preset] = {}
-        end
-        if not changedKeybinds[preset][index] then
-            changedKeybinds[preset][index] = {}
-        end
-        changedKeybinds[preset][index].primary = {
-            category = row.category,
-            action = row.action,
-            keyCombo = ''
-        }
-
-        setKeyColumnText(column, '')
-
-        disconnectKeyEditListeners()
-        keyEditWindow:hide()
-        keyEditWindow:ungrabKeyboard()
-        show()
-        applyChangedOptions()
-    end
-end
-
-function editKeybindSecondary(button)
-    local column = button:getParent()
-    local row = column:getParent()
-    local index = row.category .. '_' .. row.action
-    local keybind = Keybind.getAction(row.category, row.action)
-    local preset = panels.keybindsPanel.presets.list:getCurrentOption().text
-
-    keyEditWindow.keybind = {
-        category = row.category,
-        action = row.action
-    }
-
-    keyEditWindow:setText(tr('Edit Secondary Key for \'%s\'', string.format('%s: %s', keybind.category, keybind.action)))
-    editKeybindSetCombo(Keybind.getKeybindKeys(row.category, row.action, getChatMode(), preset).secondary)
-
-    editKeybind(keybind)
-
-    keyEditWindow.buttons.ok.onClick = function()
-        local keyCombo = keyEditWindow.keyCombo:getText()
-
-        setKeyColumnText(column, Keybind.formatKeyComboForDisplay(keyCombo))
-
-        if not changedKeybinds[preset] then
-            changedKeybinds[preset] = {}
-        end
-        if not changedKeybinds[preset][index] then
-            changedKeybinds[preset][index] = {}
-        end
-        changedKeybinds[preset][index].secondary = {
-            category = row.category,
-            action = row.action,
-            keyCombo = keyCombo
-        }
-
-        disconnectKeyEditListeners()
-        keyEditWindow:hide()
-        keyEditWindow:ungrabKeyboard()
-        show()
-        applyChangedOptions()
-    end
-
-    keyEditWindow.buttons.clear.onClick = function()
-        if not changedKeybinds[preset] then
-            changedKeybinds[preset] = {}
-        end
-        if not changedKeybinds[preset][index] then
-            changedKeybinds[preset][index] = {}
-        end
-        changedKeybinds[preset][index].secondary = {
-            category = row.category,
-            action = row.action,
-            keyCombo = ''
-        }
-
-        setKeyColumnText(column, '')
-
-        disconnectKeyEditListeners()
-        keyEditWindow:hide()
-        keyEditWindow:ungrabKeyboard()
-        show()
-        applyChangedOptions()
-    end
+function editKeybindSecondary(column)
+    beginInlineKeybindEdit(resolveKeybindColumnWidget(column), true)
 end
 
 function resetActions()
@@ -590,10 +1159,20 @@ function updateKeybinds()
     if not panels or not panels.keybindsPanel then
         return
     end
+    if not shouldRefreshGeneralHotkeysList() then
+        pendingKeybindsRefresh = true
+        return
+    end
+    pendingKeybindsRefresh = false
 
     updatingKeybinds = true
 
+    cancelGeneralHotkeyInlineEdit()
+
     local ok, err = pcall(function()
+        local scrollBar = getGeneralHotkeysScrollBar()
+        local savedScrollValue = scrollBar and scrollBar:getValue() or nil
+
         clearGeneralHotkeysList()
 
         local scroll = getGeneralHotkeysScroll()
@@ -637,9 +1216,11 @@ function updateKeybinds()
                 end
 
                 section.sectionId = sectionId
+                section.entryCount = #entries
                 local header, rowsPanel, title = getKeybindSectionParts(section)
                 if title then
                     title:setText(getUiSectionTitle(sectionId))
+                    title:setColor(KEYBIND_CATEGORY_COLOR)
                 end
                 if header then
                     header.onClick = function()
@@ -662,11 +1243,26 @@ function updateKeybinds()
             end
         end
 
-        scroll:updateLayout()
+        addGeneralHotkeysTreeHelp(scroll)
 
         local searchField = panels.keybindsPanel.search and panels.keybindsPanel.search.field
         if searchField and searchField:getText():len() > 0 then
             performeSearchActions()
+        else
+            setGeneralHotkeysTreeHelpVisible(true)
+        end
+
+        if savedScrollValue and scrollBar then
+            local function restoreScroll()
+                if scrollBar:getParent() then
+                    local maximum = scrollBar:getMaximum()
+                    if maximum >= 0 then
+                        scrollBar:setValue(math.min(savedScrollValue, maximum))
+                    end
+                end
+            end
+            scheduleEvent(restoreScroll, 0)
+            scheduleEvent(restoreScroll, 50)
         end
     end)
 
@@ -700,17 +1296,51 @@ function addKeybindRow(parent, category, action, primary, secondary, rowIndex)
     row.rowIndex = rowIndex
 
     row:getChildById('actionName'):setText(actionText)
-    setKeyColumnText(row:getChildByIndex(3), Keybind.formatKeyComboForDisplay(primary))
-    setKeyColumnText(row:getChildByIndex(5), Keybind.formatKeyComboForDisplay(secondary))
+    local primaryCol = row:getChildByIndex(3)
+    local secondaryCol = row:getChildByIndex(5)
+    setKeyColumnDisplay(primaryCol, primary)
+    setKeyColumnDisplay(secondaryCol, secondary)
 
     if tooltip then
         row:setTooltip(tooltip)
     end
 
-    row:getChildByIndex(3).edit.onClick = editKeybindPrimary
-    row:getChildByIndex(5).edit.onClick = editKeybindSecondary
+    bindKeybindColumnCell(primaryCol, editKeybindPrimary)
+    bindKeybindColumnCell(secondaryCol, editKeybindSecondary)
 
     return row
+end
+
+local function refreshGeneralHotkeysKeyDisplays()
+    if not shouldRefreshGeneralHotkeysList() or #keybindSections == 0 then
+        return
+    end
+
+    local presetOption = panels.keybindsPanel.presets.list:getCurrentOption()
+    if not presetOption then
+        return
+    end
+
+    local chatMode = getActiveChatMode()
+    local preset = presetOption.text
+
+    for _, section in ipairs(keybindSections) do
+        local _, rowsPanel = getKeybindSectionParts(section)
+        if not rowsPanel then
+            goto continue_refresh_section
+        end
+
+        for _, row in ipairs(rowsPanel:getChildren()) do
+            if row.category and row.action then
+                local keys = Keybind.getKeybindKeys(row.category, row.action, chatMode, preset,
+                    changedOptions['resetKeybinds'])
+                setKeyColumnDisplay(row:getChildByIndex(3), keys.primary)
+                setKeyColumnDisplay(row:getChildByIndex(5), keys.secondary)
+            end
+        end
+
+        ::continue_refresh_section::
+    end
 end
 
 function addKeybind(category, action, primary, secondary)
@@ -789,6 +1419,8 @@ function performeSearchActions()
 
         ::continue_search_section::
     end
+
+    setGeneralHotkeysTreeHelpVisible(not hasSearch)
 
     removeEvent(actionSearchEvent)
     actionSearchEvent = nil
@@ -886,7 +1518,11 @@ function applyChangedOptions()
     changedKeybinds = {}
 
     if needKeybindsUpdate then
-        updateKeybinds()
+        if #keybindSections == 0 then
+            updateKeybinds()
+        else
+            refreshGeneralHotkeysKeyDisplays()
+        end
     end
     if Keybind.refreshControlButtonTooltips then
         Keybind.refreshControlButtonTooltips()
@@ -915,9 +1551,6 @@ function init_binds()
     chatModeGroup:selectWidget(Keybind.chatMode == CHAT_MODE.ON and panels.keybindsPanel.panel.chatMode.on
         or panels.keybindsPanel.panel.chatMode.off)
     syncingChatModeUI = false
-    scheduleEvent(function()
-        updateKeybinds()
-    end, 0)
 
     if Keybind.migrateLegacyPresetKeys then
         Keybind.migrateLegacyPresetKeys()
@@ -957,7 +1590,6 @@ function terminate_binds()
     if keyEditWindow then
         if keyEditWindow:isVisible() then
             keyEditWindow:ungrabKeyboard()
-            disconnect(keyEditWindow, { onKeyDown = editKeybindKeyDown })
         end
         keyEditWindow:destroy()
         keyEditWindow = nil
@@ -968,9 +1600,19 @@ function terminate_binds()
         actionSearchEvent = nil
     end
 
+    cancelGeneralHotkeyInlineEdit()
+    stopKeyColumnPulse()
+
     categoryExpandedState = {}
     keybindSections = {}
     pendingKeybindsUpdate = false
+    pendingKeybindsRefresh = false
+end
+
+function refreshGeneralHotkeysListIfNeeded()
+    if pendingKeybindsRefresh or #keybindSections == 0 then
+        updateKeybinds()
+    end
 end
 
 function listKeybindsComboBox(value)

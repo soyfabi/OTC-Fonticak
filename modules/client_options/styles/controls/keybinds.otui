@@ -4,11 +4,18 @@ OptionContainer < FlatPanel
 
 KeybindsPrimaryKeyColumnCell < UIWidget
   focusable: false
+  height: 18
+  margin-top: 1
+  margin-bottom: 1
+  background-color: #363636
+  border-width: 1
+  border-color: #272727
+  change-cursor-image: true
 
   Label
     id: value
     anchors.left: parent.left
-    anchors.right: edit.left
+    anchors.right: parent.right
     anchors.top: parent.top
     anchors.bottom: parent.bottom
     margin-right: 2
@@ -16,23 +23,22 @@ KeybindsPrimaryKeyColumnCell < UIWidget
     text-align: left
     text-offset: 2 0
     font: verdana-11px-monochrome
-
-  Button
-    id: edit
-    anchors.right: parent.right
-    anchors.verticalCenter: parent.verticalCenter
-    size: 13 13
-    margin-right: 2
-    icon: /images/ui/icon-edit
-    visible: false
+    phantom: true
 
 KeybindsSecondaryKeyColumnCell < UIWidget
   focusable: false
+  height: 18
+  margin-top: 1
+  margin-bottom: 1
+  background-color: #363636
+  border-width: 1
+  border-color: #272727
+  change-cursor-image: true
 
   Label
     id: value
     anchors.left: parent.left
-    anchors.right: edit.left
+    anchors.right: parent.right
     anchors.top: parent.top
     anchors.bottom: parent.bottom
     margin-right: 2
@@ -40,15 +46,7 @@ KeybindsSecondaryKeyColumnCell < UIWidget
     text-align: left
     text-offset: 2 0
     font: verdana-11px-monochrome
-
-  Button
-    id: edit
-    anchors.right: parent.right
-    anchors.verticalCenter: parent.verticalCenter
-    size: 13 13
-    margin-right: 0
-    icon: /images/ui/icon-edit
-    visible: false
+    phantom: true
 
 KeybindsHotkeyRow < UIWidget
   focusable: true
@@ -57,16 +55,6 @@ KeybindsHotkeyRow < UIWidget
   even-background-color: alpha
   odd-background-color: #484848
   layout: horizontalBox
-  @onFocusChange: |
-    local focused = self:isFocused()
-    local primary = self:getChildByIndex(3)
-    local secondary = self:getChildByIndex(5)
-    if primary and primary.edit then
-      primary.edit:setVisible(focused)
-    end
-    if secondary and secondary.edit then
-      secondary.edit:setVisible(focused)
-    end
 
   $focus:
     background-color: #585858
@@ -77,7 +65,7 @@ KeybindsHotkeyRow < UIWidget
     color: #c0c0c0
     text-align: left
     focusable: false
-    text-offset: 2 0
+    text-offset: 18 0
     font: verdana-11px-monochrome
 
   VerticalSeparator
@@ -91,41 +79,36 @@ KeybindsHotkeyRow < UIWidget
     width: 127
 
 KeybindsCategoryHeader < UIButton
-  height: 22
-  margin-top: 2
-  image-source: /images/ui/button-grey-up
-  image-border: 3
-  opacity: 0.95
+  height: 20
+  margin-top: 1
+  background-color: alpha
   focusable: false
 
   $hover:
-    opacity: 1
+    background-color: #484848
 
   $pressed:
-    image-source: /images/ui/button-grey-down
+    background-color: #585858
 
-  Label
+  UIWidget
     id: indicator
-    width: 14
+    size: 7 7
     anchors.left: parent.left
     anchors.verticalCenter: parent.verticalCenter
     margin-left: 4
-    font: verdana-11px-monochrome
-    color: #c0c0c0
-    text-align: left
-    !text: tr('▼')
+    image-source: /images/arrows/icon-arrow7x7-down
     focusable: false
     phantom: true
 
   Label
     id: title
     anchors.left: indicator.right
+    margin-left: 4
     anchors.right: parent.right
     anchors.verticalCenter: parent.verticalCenter
-    margin-left: 2
     margin-right: 6
     font: verdana-11px-monochrome
-    color: #dfdfdf
+    color: #8cb4d9
     text-align: left
     focusable: false
     phantom: true
@@ -133,7 +116,6 @@ KeybindsCategoryHeader < UIButton
 KeybindsCategorySection < UIWidget
   layout:
     type: verticalBox
-    fit-children: true
 
   KeybindsCategoryHeader
     id: header
@@ -142,7 +124,6 @@ KeybindsCategorySection < UIWidget
     id: rowsPanel
     layout:
       type: verticalBox
-      fit-children: true
 
 KeybindsListHeader < Panel
   height: 18
@@ -154,7 +135,7 @@ KeybindsListHeader < Panel
     text-offset: 2 0
     text-align: left
     color: #c0c0c0
-    !text: tr('Action')
+    !text: tr('Function')
 
   VerticalSeparator
 
@@ -175,6 +156,107 @@ KeybindsListHeader < Panel
     text-align: left
     color: #c0c0c0
     !text: tr('Secondary Key')
+
+KeybindsTreeHelpDemoLine < Label
+  height: 16
+  font: verdana-11px-monochrome
+  color: #c0c0c0
+  text-align: left
+  focusable: false
+  phantom: true
+
+KeybindsTreeHelpDemoCategory < Label
+  height: 18
+  font: verdana-11px-monochrome
+  color: #8cb4d9
+  text-align: left
+  focusable: false
+  phantom: true
+
+KeybindsTreeHelpSection < UIWidget
+  layout:
+    type: verticalBox
+  height: 128
+  margin-top: 8
+  margin-left: 2
+  margin-right: 2
+  focusable: false
+
+  HorizontalSeparator
+    margin-top: 4
+    margin-bottom: 6
+
+  Label
+    id: helpIntro
+    height: 28
+    font: verdana-11px-monochrome
+    color: #c0c0c0
+    text-align: left
+    text-wrap: true
+    focusable: false
+    phantom: true
+    !text: tr('Clicking the category header toggles the category:')
+
+  Panel
+    id: helpColumns
+    layout:
+      type: horizontalBox
+      spacing: 8
+    height: 92
+
+    Panel
+      id: helpExpanded
+      width: 248
+      layout:
+        type: verticalBox
+
+      Label
+        id: expandedCaption
+        height: 16
+        font: verdana-11px-monochrome
+        color: #a0a0a0
+        text-align: left
+        focusable: false
+        phantom: true
+        !text: tr('Expanded:')
+
+      KeybindsTreeHelpDemoCategory
+        id: expandedCategory
+        text-offset: 0 0
+        !text: tr('- Windows')
+
+      KeybindsTreeHelpDemoLine
+        text-offset: 18 0
+        !text: tr('Bestiary Tracker')
+
+      KeybindsTreeHelpDemoLine
+        text-offset: 18 0
+        !text: tr('Battle List')
+
+      KeybindsTreeHelpDemoLine
+        text-offset: 18 0
+        !text: tr('VIP List')
+
+    Panel
+      id: helpCollapsed
+      width: 248
+      layout:
+        type: verticalBox
+
+      Label
+        id: collapsedCaption
+        height: 16
+        font: verdana-11px-monochrome
+        color: #a0a0a0
+        text-align: left
+        focusable: false
+        phantom: true
+        !text: tr('Collapsed:')
+
+      KeybindsTreeHelpDemoCategory
+        id: collapsedCategory
+        text-offset: 0 0
+        !text: tr('> Windows')
 
 UIWidget
   anchors.fill: parent
@@ -310,6 +392,7 @@ UIWidget
 
   Panel
     id: tablePanel
+    focusable: true
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
@@ -326,6 +409,32 @@ UIWidget
       anchors.right: parent.right
       margin: 1 15 0 1
       background: #363636
+
+    Label
+      id: overwriteNotice
+      anchors.top: listHeader.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      height: 0
+      margin: 0 15 0 1
+      font: verdana-11px-monochrome
+      color: #f0c040
+      text-align: center
+      focusable: false
+      phantom: true
+      visible: false
+
+    UIWidget
+      id: overwriteNoticeIcon
+      size: 12 12
+      anchors.top: listHeader.bottom
+      anchors.left: parent.left
+      margin-top: 4
+      margin-left: 0
+      image-source: /images/ui/hotkey-conflict-warning
+      focusable: false
+      phantom: true
+      visible: false
 
     UIScrollArea
       id: keybindsScroll
