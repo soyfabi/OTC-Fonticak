@@ -38,6 +38,9 @@
 #include <framework/core/eventdispatcher.h>
 #include "framework/graphics/drawpoolmanager.h"
 #include "framework/graphics/painter.h"
+#ifdef FRAMEWORK_SOUND
+#include <framework/sound/soundmanager.h>
+#endif
 #include <framework/ui/uiwidget.h>
 
 namespace
@@ -130,6 +133,10 @@ void Map::clean()
 {
     cleanDynamicThings();
 
+    #ifdef FRAMEWORK_SOUND
+    g_sounds.resetItemAmbience();
+    #endif
+
     for (auto i = -1; ++i <= g_gameConfig.getMapMaxZ();)
         m_floors[i].tileBlocks.clear();
 
@@ -143,6 +150,10 @@ void Map::clean()
 
 void Map::cleanDynamicThings()
 {
+    #ifdef FRAMEWORK_SOUND
+    g_sounds.resetItemAmbience();
+    #endif
+
     for (const auto& mapview : m_mapViews)
         mapview->followCreature(nullptr);
 
@@ -196,6 +207,11 @@ void Map::addThing(const ThingPtr& thing, const Position& pos, const int16_t sta
         if (m_floatingEffect || !thing->isEffect() || tile->getGround()) {
             tile->addThing(thing, stackPos);
             notificateTileUpdate(pos, thing, Otc::OPERATION_ADD);
+
+            #ifdef FRAMEWORK_SOUND
+            if (thing->isItem())
+                g_sounds.onItemTileChanged(pos);
+            #endif
         }
     }
 }
@@ -283,6 +299,10 @@ bool Map::removeThing(const ThingPtr& thing)
     if (const auto& tile = thing->getTile()) {
         if (tile->removeThing(thing)) {
             notificateTileUpdate(thing->getServerPosition(), thing, Otc::OPERATION_REMOVE);
+            #ifdef FRAMEWORK_SOUND
+            if (thing->isItem())
+                g_sounds.onItemTileChanged(thing->getServerPosition());
+            #endif
             return true;
         }
     }
@@ -449,6 +469,10 @@ void Map::cleanTile(const Position& pos)
                 ++itt;
         }
     });
+
+    #ifdef FRAMEWORK_SOUND
+    g_sounds.onItemTileChanged(pos);
+    #endif
 }
 
 #ifdef FRAMEWORK_EDITOR
@@ -579,6 +603,8 @@ void Map::removeUnawareThings()
         }
     });
 
+    bool tileCleanupRemovedTiles = false;
+
     if (!g_game.getFeature(Otc::GameKeepUnawareTiles)) {
         const auto& customAwareRange = g_game.getFeature(Otc::GameMapCache) ? AwareRange{
             .left = static_cast<uint8_t>(m_awareRange.left * 4),
@@ -607,6 +633,7 @@ void Map::removeUnawareThings()
 
                     block.remove(pos);
                     notificateTileUpdate(pos, nullptr, Otc::OPERATION_CLEAN);
+                    tileCleanupRemovedTiles = true;
                 }
 
                 if (blockEmpty)
@@ -616,6 +643,11 @@ void Map::removeUnawareThings()
             }
         }
     }
+
+    #ifdef FRAMEWORK_SOUND
+    if (tileCleanupRemovedTiles)
+        g_sounds.markItemAmbienceDirty();
+    #endif
 }
 
 void Map::setCentralPosition(const Position& centralPosition)
@@ -623,9 +655,15 @@ void Map::setCentralPosition(const Position& centralPosition)
     if (m_centralPosition == centralPosition)
         return;
 
+    const auto oldCentralPosition = m_centralPosition;
     m_centralPosition = centralPosition;
 
     removeUnawareThings();
+
+    #ifdef FRAMEWORK_SOUND
+    if (!oldCentralPosition.isMapPosition() || oldCentralPosition.z != centralPosition.z || oldCentralPosition.distance(centralPosition) > 1.5)
+        g_sounds.markItemAmbienceDirty();
+    #endif
 
     // this fixes local player position when the local player is removed from the map,
     // the local player is removed from the map when there are too many creatures on his tile,

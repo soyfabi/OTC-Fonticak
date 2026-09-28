@@ -82,7 +82,9 @@ local function load(version)
 
     loaded = #errorList == 0
     if loaded then
-        g_sounds.loadClientFiles(resolvepath(string.format('/sounds/%d/', version)))
+        if g_sounds then
+            g_sounds.loadClientFiles(resolvepath(string.format('/data/sounds/%d/', version)))
+        end
         if modules.client_bottommenu and modules.client_bottommenu.onThingsLoaded then
             modules.client_bottommenu.onThingsLoaded()
         end
