@@ -6,6 +6,98 @@ local actionSearchEvent
 keyEditWindow = nil
 local chatModeGroup
 local syncingChatModeUI = false
+local categoryExpandedState = {}
+local keybindSections = {}
+local updatingKeybinds = false
+local pendingKeybindsUpdate = false
+
+local function getGeneralHotkeysScroll()
+    if not panels or not panels.keybindsPanel then
+        return nil
+    end
+    return panels.keybindsPanel:recursiveGetChildById('keybindsScroll')
+end
+
+local function getKeybindSectionParts(section)
+    if not section then
+        return nil, nil, nil, nil
+    end
+    local header = section:getChildById('header')
+    local rowsPanel = section:getChildById('rowsPanel')
+    local title = header and header:getChildById('title')
+    local indicator = header and header:getChildById('indicator')
+    return header, rowsPanel, title, indicator
+end
+
+-- UI-only grouping for General Hotkeys (registration categories are unchanged).
+local GENERAL_HOTKEY_UI_SECTIONS = {
+    { id = 'windows', title = tr('Windows'), categories = { Windows = true } },
+    { id = 'game', title = tr('Game'), categories = { UI = true, Movement = true, ['Battle List'] = true } },
+    { id = 'chat', title = tr('Chat'), categories = { Chat = true, ['Chat Channel'] = true, ['Chat Mode'] = true } },
+    { id = 'actions', title = tr('Actions'), categories = {
+        Misc = true,
+        ['Misc.'] = true,
+        Dialogs = true,
+        Loot = true,
+        Containers = true,
+        Sound = true,
+        Debug = true,
+    } },
+}
+
+local UI_SECTION_ORDER = { 'windows', 'game', 'chat', 'actions', 'other' }
+
+local function resolveKeybindUiSectionId(category)
+    for _, section in ipairs(GENERAL_HOTKEY_UI_SECTIONS) do
+        if section.categories[category] then
+            return section.id
+        end
+    end
+    return 'other'
+end
+
+local function getUiSectionTitle(sectionId)
+    if sectionId == 'other' then
+        return tr('Other')
+    end
+    for _, section in ipairs(GENERAL_HOTKEY_UI_SECTIONS) do
+        if section.id == sectionId then
+            return section.title
+        end
+    end
+    return sectionId
+end
+
+local function isKeybindCategoryExpanded(sectionId)
+    if categoryExpandedState[sectionId] == nil then
+        return true
+    end
+    return categoryExpandedState[sectionId]
+end
+
+local function setKeybindCategoryExpanded(section, expanded)
+    categoryExpandedState[section.sectionId] = expanded
+    local _, rowsPanel, _, indicator = getKeybindSectionParts(section)
+    if rowsPanel then
+        rowsPanel:setVisible(expanded)
+    end
+    if indicator then
+        indicator:setText(expanded and tr('▼') or tr('▶'))
+    end
+end
+
+local function toggleKeybindCategorySection(section)
+    setKeybindCategoryExpanded(section, not isKeybindCategoryExpanded(section.sectionId))
+end
+
+local function clearGeneralHotkeysList()
+    local scroll = getGeneralHotkeysScroll()
+    if not scroll then
+        return
+    end
+    scroll:destroyChildren()
+    keybindSections = {}
+end
 
 local function getKeyColumnText(column)
     if column.value then
@@ -483,70 +575,131 @@ function resetActions()
     applyChangedOptions()
 end
 
-function updateKeybinds()
-    panels.keybindsPanel.tablePanel.keybinds:clearData()
-
-    local sortedKeybinds = {}
-
-    for index, _ in pairs(Keybind.defaultKeybinds) do
-        table.insert(sortedKeybinds, index)
+local function getActiveChatMode()
+    if chatModeGroup and panels and panels.keybindsPanel then
+        return getChatMode()
     end
+    return Keybind.chatMode
+end
 
-    table.sort(sortedKeybinds, function(a, b)
-        local keybindA = Keybind.defaultKeybinds[a]
-        local keybindB = Keybind.defaultKeybinds[b]
-
-        if keybindA.category ~= keybindB.category then
-            return keybindA.category < keybindB.category
-        end
-        return keybindA.action < keybindB.action
-    end)
-
-
-    local comboBox = panels.keybindsPanel.presets.list:getCurrentOption()
-    if not comboBox then
+function updateKeybinds()
+    if updatingKeybinds then
+        pendingKeybindsUpdate = true
         return
     end
-    for _, index in ipairs(sortedKeybinds) do
-        local keybind = Keybind.defaultKeybinds[index]
-        local keys = Keybind.getKeybindKeys(keybind.category, keybind.action, getChatMode(), comboBox.text,
-            changedOptions['resetKeybinds'])
-        addKeybind(keybind.category, keybind.action, keys.primary, keys.secondary)
+    if not panels or not panels.keybindsPanel then
+        return
+    end
+
+    updatingKeybinds = true
+
+    local ok, err = pcall(function()
+        clearGeneralHotkeysList()
+
+        local scroll = getGeneralHotkeysScroll()
+        if not scroll then
+            return
+        end
+
+        local presetList = panels.keybindsPanel.presets and panels.keybindsPanel.presets.list
+        local comboBox = presetList and presetList:getCurrentOption()
+        if not comboBox then
+            return
+        end
+
+        local chatMode = getActiveChatMode()
+
+        local sectionBuckets = {}
+        for _, sectionId in ipairs(UI_SECTION_ORDER) do
+            sectionBuckets[sectionId] = {}
+        end
+
+        for index, _ in pairs(Keybind.defaultKeybinds) do
+            local keybind = Keybind.defaultKeybinds[index]
+            local sectionId = resolveKeybindUiSectionId(keybind.category)
+            table.insert(sectionBuckets[sectionId], keybind)
+        end
+
+        for _, sectionId in ipairs(UI_SECTION_ORDER) do
+            local entries = sectionBuckets[sectionId]
+            if #entries > 0 then
+                table.sort(entries, function(a, b)
+                    if a.category ~= b.category then
+                        return a.category < b.category
+                    end
+                    return a.action < b.action
+                end)
+
+                local section = g_ui.createWidget('KeybindsCategorySection', scroll)
+                if not section then
+                    g_logger.error('[keybinds] Failed to create KeybindsCategorySection')
+                    return
+                end
+
+                section.sectionId = sectionId
+                local header, rowsPanel, title = getKeybindSectionParts(section)
+                if title then
+                    title:setText(getUiSectionTitle(sectionId))
+                end
+                if header then
+                    header.onClick = function()
+                        toggleKeybindCategorySection(section)
+                    end
+                end
+                if not rowsPanel then
+                    g_logger.error('[keybinds] Category section missing rowsPanel')
+                    return
+                end
+
+                for rowIndex, keybind in ipairs(entries) do
+                    local keys = Keybind.getKeybindKeys(keybind.category, keybind.action, chatMode, comboBox.text,
+                        changedOptions['resetKeybinds'])
+                    addKeybindRow(rowsPanel, keybind.category, keybind.action, keys.primary, keys.secondary, rowIndex)
+                end
+
+                setKeybindCategoryExpanded(section, isKeybindCategoryExpanded(sectionId))
+                table.insert(keybindSections, section)
+            end
+        end
+
+        scroll:updateLayout()
+
+        local searchField = panels.keybindsPanel.search and panels.keybindsPanel.search.field
+        if searchField and searchField:getText():len() > 0 then
+            performeSearchActions()
+        end
+    end)
+
+    updatingKeybinds = false
+
+    if not ok then
+        g_logger.error('[keybinds] updateKeybinds failed: ' .. tostring(err))
+    end
+
+    if pendingKeybindsUpdate then
+        pendingKeybindsUpdate = false
+        scheduleEvent(updateKeybinds, 0)
     end
 end
 
-function addKeybind(category, action, primary, secondary)
+function addKeybindRow(parent, category, action, primary, secondary, rowIndex)
     local rawText = string.format('%s: %s', category, action)
-    local text = string.format('[color=#ffffff]%s:[/color] %s', category, action)
     local tooltip = nil
+    local actionText = action
 
     if rawText:len() > actionNameLimit then
         tooltip = rawText
-        -- 15 and 8 are length of color codes
-        text = text:sub(1, actionNameLimit + 15 + 8) .. '...'
+        if action:len() > actionNameLimit then
+            actionText = action:sub(1, actionNameLimit) .. '...'
+        end
     end
 
-    local row = panels.keybindsPanel.tablePanel.keybinds:addRow({ {
-        coloredText = {
-            text = text,
-            color = '#c0c0c0'
-        },
-        width = 286
-    }, {
-        style = 'VerticalSeparator'
-    }, {
-        style = 'KeybindsPrimaryKeyColumnCell',
-        width = 100
-    }, {
-        style = 'VerticalSeparator'
-    }, {
-        style = 'KeybindsSecondaryKeyColumnCell',
-        width = 127
-    } })
-
+    local row = g_ui.createWidget('KeybindsHotkeyRow', parent)
     row.category = category
     row.action = action
+    row.rowIndex = rowIndex
 
+    row:getChildById('actionName'):setText(actionText)
     setKeyColumnText(row:getChildByIndex(3), Keybind.formatKeyComboForDisplay(primary))
     setKeyColumnText(row:getChildByIndex(5), Keybind.formatKeyComboForDisplay(secondary))
 
@@ -556,6 +709,21 @@ function addKeybind(category, action, primary, secondary)
 
     row:getChildByIndex(3).edit.onClick = editKeybindPrimary
     row:getChildByIndex(5).edit.onClick = editKeybindSecondary
+
+    return row
+end
+
+function addKeybind(category, action, primary, secondary)
+    local sectionId = resolveKeybindUiSectionId(category)
+    for _, section in ipairs(keybindSections) do
+        if section.sectionId == sectionId then
+            local _, rowsPanel = getKeybindSectionParts(section)
+            if rowsPanel then
+                addKeybindRow(rowsPanel, category, action, primary, secondary, rowsPanel:getChildCount() + 1)
+            end
+            return
+        end
+    end
 end
 
 function searchActions(field, text, oldText)
@@ -567,26 +735,59 @@ function searchActions(field, text, oldText)
 end
 
 function performeSearchActions()
-    local searchText = panels.keybindsPanel.search.field:getText():trim():lower():gsub("%+", "%%+")
+    if updatingKeybinds or not panels or not panels.keybindsPanel then
+        return
+    end
 
-    local rows = panels.keybindsPanel.tablePanel.keybinds.dataSpace:getChildren()
-    if searchText:len() > 0 then
-        for _, row in ipairs(rows) do
-            row:hide()
+    local searchField = panels.keybindsPanel.search and panels.keybindsPanel.search.field
+    if not searchField then
+        return
+    end
+
+    local searchText = searchField:getText():trim():lower():gsub("%+", "%%+")
+    local hasSearch = searchText:len() > 0
+
+    for _, section in ipairs(keybindSections) do
+        local sectionVisible = not hasSearch
+        local _, rowsPanel = getKeybindSectionParts(section)
+        if not rowsPanel then
+            goto continue_search_section
         end
 
-        for _, row in ipairs(rows) do
-            local actionText = row:getChildByIndex(1):getText():lower()
-            local primaryText = getKeyColumnText(row:getChildByIndex(3)):lower()
-            local secondaryText = getKeyColumnText(row:getChildByIndex(5)):lower()
-            if actionText:find(searchText) or primaryText:find(searchText) or secondaryText:find(searchText) then
-                row:show()
+        for _, row in ipairs(rowsPanel:getChildren()) do
+            if row.category and row.action then
+                local actionWidget = row:getChildById('actionName')
+                local actionText = actionWidget and actionWidget:getText():lower() or row.action:lower()
+                local categoryText = row.category:lower()
+                local primaryText = getKeyColumnText(row:getChildByIndex(3)):lower()
+                local secondaryText = getKeyColumnText(row:getChildByIndex(5)):lower()
+                local matches = not hasSearch
+                    or actionText:find(searchText, 1, true)
+                    or categoryText:find(searchText, 1, true)
+                    or primaryText:find(searchText, 1, true)
+                    or secondaryText:find(searchText, 1, true)
+
+                if hasSearch then
+                    row:setVisible(matches and true or false)
+                    if matches then
+                        sectionVisible = true
+                    end
+                else
+                    row:show()
+                end
             end
         end
-    else
-        for _, row in ipairs(rows) do
-            row:show()
+
+        if hasSearch then
+            section:setVisible(sectionVisible)
+            if sectionVisible then
+                setKeybindCategoryExpanded(section, true)
+            end
+        else
+            section:show()
         end
+
+        ::continue_search_section::
     end
 
     removeEvent(actionSearchEvent)
@@ -714,7 +915,9 @@ function init_binds()
     chatModeGroup:selectWidget(Keybind.chatMode == CHAT_MODE.ON and panels.keybindsPanel.panel.chatMode.on
         or panels.keybindsPanel.panel.chatMode.off)
     syncingChatModeUI = false
-    updateKeybinds()
+    scheduleEvent(function()
+        updateKeybinds()
+    end, 0)
 
     if Keybind.migrateLegacyPresetKeys then
         Keybind.migrateLegacyPresetKeys()
@@ -764,6 +967,10 @@ function terminate_binds()
         removeEvent(actionSearchEvent)
         actionSearchEvent = nil
     end
+
+    categoryExpandedState = {}
+    keybindSections = {}
+    pendingKeybindsUpdate = false
 end
 
 function listKeybindsComboBox(value)

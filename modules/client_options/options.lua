@@ -349,6 +349,11 @@ local function setupComboBox()
         setOption('listKeybindsPanel', option)
     end
     panels.keybindsPanel.presets.list:setCurrentOption(Keybind.currentPreset)
+    scheduleEvent(function()
+        if updateKeybinds then
+            updateKeybinds()
+        end
+    end, 0)
 end
 
 local function setup()
@@ -1884,6 +1889,9 @@ local function createSubWidget(parent, subId, subButton)
             panelToShow:show()
             panelToShow:setVisible(true)
             controller.ui.selectedOption = panelToShow
+            if subWidget.open == 'keybindsPanel' and updateKeybinds then
+                updateKeybinds()
+            end
         else
             g_logger.error(string.format('[client_options] Missing options panel for subcategory "%s" (%s)',
                 tostring(subWidget.Button.Title:getText()), tostring(subWidget.open)))

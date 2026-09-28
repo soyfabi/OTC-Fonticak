@@ -1,30 +1,9 @@
 OptionContainer < FlatPanel
   height: 22
   padding: 3
-KeybindsTableRow < UITableRow
-  focusable: true
-  height: 20
-  background-color: alpha
-  even-background-color: alpha
-  odd-background-color: #484848
-  text-align: left
-  @onFocusChange: for _, child in ipairs(self:getChildren()) do child:setChecked(self:isFocused()) end
-  layout: horizontalBox
-
-  $focus:
-    background-color: #585858
-
-KeybindsTableColumn < Label
-  color: #c0c0c0
-  text-align: left
-  focusable: false
-  text-offset: 2 0
-  font: verdana-11px-monochrome
 
 KeybindsPrimaryKeyColumnCell < UIWidget
   focusable: false
-  checkable: true
-  @onCheckChange: self.edit:setVisible(self:isChecked())
 
   Label
     id: value
@@ -49,8 +28,6 @@ KeybindsPrimaryKeyColumnCell < UIWidget
 
 KeybindsSecondaryKeyColumnCell < UIWidget
   focusable: false
-  checkable: true
-  @onCheckChange: self.edit:setVisible(self:isChecked())
 
   Label
     id: value
@@ -73,17 +50,131 @@ KeybindsSecondaryKeyColumnCell < UIWidget
     icon: /images/ui/icon-edit
     visible: false
 
-KeybindsTableHeaderRow < TableHeaderRow
-  padding: 0
-  height: 18
+KeybindsHotkeyRow < UIWidget
+  focusable: true
+  height: 20
+  background-color: alpha
+  even-background-color: alpha
+  odd-background-color: #484848
+  layout: horizontalBox
+  @onFocusChange: |
+    local focused = self:isFocused()
+    local primary = self:getChildByIndex(3)
+    local secondary = self:getChildByIndex(5)
+    if primary and primary.edit then
+      primary.edit:setVisible(focused)
+    end
+    if secondary and secondary.edit then
+      secondary.edit:setVisible(focused)
+    end
 
-KeybindsTableHeaderColumn < UITableHeaderColumn
-  font: verdana-11px-monochrome
-  text-offset: 2 0
-  text-align: left
-  height: 14
-  color: #c0c0c0
-  background: #363636
+  $focus:
+    background-color: #585858
+
+  Label
+    id: actionName
+    width: 286
+    color: #c0c0c0
+    text-align: left
+    focusable: false
+    text-offset: 2 0
+    font: verdana-11px-monochrome
+
+  VerticalSeparator
+
+  KeybindsPrimaryKeyColumnCell
+    width: 100
+
+  VerticalSeparator
+
+  KeybindsSecondaryKeyColumnCell
+    width: 127
+
+KeybindsCategoryHeader < UIButton
+  height: 22
+  margin-top: 2
+  image-source: /images/ui/button-grey-up
+  image-border: 3
+  opacity: 0.95
+  focusable: false
+
+  $hover:
+    opacity: 1
+
+  $pressed:
+    image-source: /images/ui/button-grey-down
+
+  Label
+    id: indicator
+    width: 14
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 4
+    font: verdana-11px-monochrome
+    color: #c0c0c0
+    text-align: left
+    !text: tr('▼')
+    focusable: false
+    phantom: true
+
+  Label
+    id: title
+    anchors.left: indicator.right
+    anchors.right: parent.right
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 2
+    margin-right: 6
+    font: verdana-11px-monochrome
+    color: #dfdfdf
+    text-align: left
+    focusable: false
+    phantom: true
+
+KeybindsCategorySection < UIWidget
+  layout:
+    type: verticalBox
+    fit-children: true
+
+  KeybindsCategoryHeader
+    id: header
+
+  Panel
+    id: rowsPanel
+    layout:
+      type: verticalBox
+      fit-children: true
+
+KeybindsListHeader < Panel
+  height: 18
+  layout: horizontalBox
+
+  Label
+    width: 286
+    font: verdana-11px-monochrome
+    text-offset: 2 0
+    text-align: left
+    color: #c0c0c0
+    !text: tr('Action')
+
+  VerticalSeparator
+
+  Label
+    width: 100
+    font: verdana-11px-monochrome
+    text-offset: 2 0
+    text-align: left
+    color: #c0c0c0
+    !text: tr('Primary Key')
+
+  VerticalSeparator
+
+  Label
+    width: 127
+    font: verdana-11px-monochrome
+    text-offset: 2 0
+    text-align: left
+    color: #c0c0c0
+    !text: tr('Secondary Key')
 
 UIWidget
   anchors.fill: parent
@@ -228,47 +319,29 @@ UIWidget
     image-border: 1
     background: #404040
 
-    Table
-      id: keybinds
-      anchors.fill: parent
-      margin: 1 15 1 1
-      table-data: keybindsData
-      row-style: KeybindsTableRow
-      column-style: KeybindsTableColumn
-      header-row-style: KeybindsTableHeaderRow
-      header-column-style: KeybindsTableHeaderColumn
+    KeybindsListHeader
+      id: listHeader
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin: 1 15 0 1
+      background: #363636
 
-      KeybindsTableHeaderRow
-        id: header
-
-        KeybindsTableHeaderColumn
-          !text: tr("Action")
-          width: 286
-        
-        VerticalSeparator
-
-        KeybindsTableHeaderColumn
-          !text: tr("Primary Key")
-          width: 100
-        
-        VerticalSeparator
-
-        KeybindsTableHeaderColumn
-          !text: tr("Secondary Key")
-          width: 127
-    
-      HorizontalSeparator
-
-    TableData
-      id: keybindsData
-      anchors.fill: keybinds
-      margin-top: 20
+    UIScrollArea
+      id: keybindsScroll
+      anchors.top: listHeader.bottom
+      anchors.left: parent.left
+      anchors.right: scrollBar.left
+      anchors.bottom: parent.bottom
+      margin: 0 0 1 1
       padding-bottom: 1
       vertical-scrollbar: scrollBar
-    
+      layout:
+        type: verticalBox
+
     VerticalQtScrollBar
       id: scrollBar
-      anchors.top: parent.top
+      anchors.top: listHeader.bottom
       anchors.bottom: parent.bottom
       anchors.right: parent.right
       step: 16
