@@ -102,19 +102,75 @@ local function isHotkeyUsedByKeybinds(keyCombo)
     return false
 end
 
-function removeHotkeyFromActionBar(keyCombo)
+local function normalizeActionbarChatMode(chatMode)
+    if chatMode == nil then
+        if modules.game_console and modules.game_console.isChatEnabled then
+            return modules.game_console.isChatEnabled() and 'chatOn' or 'chatOff'
+        end
+        return 'chatOff'
+    end
+
+    if chatMode == CHAT_MODE.ON then
+        return 'chatOn'
+    end
+
+    if chatMode == CHAT_MODE.OFF then
+        return 'chatOff'
+    end
+
+    if chatMode == 'chatOn' or chatMode == 'chatOff' then
+        return chatMode
+    end
+
+    return 'chatOff'
+end
+
+local function refreshActionbarButtonsForHotkey(keyCombo)
+    if not keyCombo or keyCombo == '' or not actionBars then
+        return
+    end
+
+    local normalizedKey = keyCombo:lower()
+    for _, actionbar in pairs(actionBars) do
+        if actionbar and actionbar.tabBar then
+            for _, button in pairs(actionbar.tabBar:getChildren()) do
+                local hotkey = button.cache and button.cache.hotkey
+                if hotkey and hotkey:lower() == normalizedKey then
+                    updateButton(button)
+                end
+            end
+        end
+    end
+end
+
+function removeHotkeyFromActionBar(keyCombo, chatMode)
     if not keyCombo or keyCombo == "" then
         return false
     end
-    local button = getUsedHotkeyButton(keyCombo)
-    if button then
-        ApiJson.removeHotkey(button:getId())
-        unbindHotkey(keyCombo)
-        invalidateHotkeyButtonCache()
-        updateButton(button)
-        return true
+
+    if not ApiJson or not ApiJson.hasCurrentHotkeySet or not ApiJson.hasCurrentHotkeySet() then
+        return false
     end
-    return false
+
+    local chatModeKey = normalizeActionbarChatMode(chatMode)
+    local changed = ApiJson.clearHotkey(keyCombo, chatModeKey)
+    if not changed then
+        local button = getUsedHotkeyButton(keyCombo)
+        if button then
+            ApiJson.removeHotkey(button:getId(), chatModeKey)
+            changed = true
+        end
+    end
+
+    if not changed then
+        return false
+    end
+
+    unbindHotkey(keyCombo)
+    invalidateHotkeyButtonCache()
+    refreshActionbarButtonsForHotkey(keyCombo)
+    ApiJson.saveData()
+    return true
 end
 function assignHotkey(button)
     local actionbar = button:getParent():getParent()

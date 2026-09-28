@@ -99,13 +99,15 @@ local function clearConflictingCustomHotkeys(keyCombo, currentHotkeyId)
   end
 end
 
-local function clearConflictingActionbarHotkey(keyCombo)
+local function clearConflictingActionbarHotkey(keyCombo, chatMode)
   if isStringEmpty(keyCombo) then
     return
   end
 
+  chatMode = chatMode or Keybind.chatMode
+
   if modules.game_actionbar and modules.game_actionbar.removeHotkeyFromActionBar then
-    modules.game_actionbar.removeHotkeyFromActionBar(keyCombo)
+    modules.game_actionbar.removeHotkeyFromActionBar(keyCombo, chatMode)
   end
 
   if modules.game_hotkeys and modules.game_hotkeys.removeHotkeyByCombo then
@@ -113,10 +115,22 @@ local function clearConflictingActionbarHotkey(keyCombo)
   end
 end
 
-local function isActionbarHotkeyConflict(keyCombo)
+local function actionbarEntriesChatModeKey(chatMode)
+  if chatMode == CHAT_MODE.ON then
+    return 'chatOn'
+  end
+  if chatMode == CHAT_MODE.OFF then
+    return 'chatOff'
+  end
+  return 'chatOff'
+end
+
+local function isActionbarHotkeyConflict(keyCombo, chatMode)
   if isStringEmpty(keyCombo) then
     return false
   end
+
+  chatMode = chatMode or Keybind.chatMode
 
   if modules.game_hotkeys and modules.game_hotkeys.isHotkeyUsedByManager and modules.game_hotkeys.isHotkeyUsedByManager(keyCombo) then
     return true
@@ -124,10 +138,12 @@ local function isActionbarHotkeyConflict(keyCombo)
 
   local actionbarApi = modules.game_actionbar and modules.game_actionbar.ApiJson
   if actionbarApi and actionbarApi.hasCurrentHotkeySet and actionbarApi.hasCurrentHotkeySet() then
-    local chatMode = modules.game_console and modules.game_console.isChatEnabled and modules.game_console.isChatEnabled() and 'chatOn' or 'chatOff'
     if actionbarApi.getHotkeyEntries then
-      for _, data in ipairs(actionbarApi.getHotkeyEntries(chatMode)) do
-        if data["actionsetting"] and data["keysequence"] and data["keysequence"]:lower() == keyCombo:lower() then
+      for _, data in ipairs(actionbarApi.getHotkeyEntries(actionbarEntriesChatModeKey(chatMode))) do
+        if data["keysequence"] and data["keysequence"]:lower() == keyCombo:lower() then
+          return true
+        end
+        if data["secondarySequence"] and data["secondarySequence"]:lower() == keyCombo:lower() then
           return true
         end
       end

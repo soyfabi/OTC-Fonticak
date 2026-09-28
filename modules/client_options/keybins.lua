@@ -596,7 +596,17 @@ local function hasCustomHotkeyConflictForCombo(keyCombo, chatMode, preset)
     return false
 end
 
-local function hasActionbarHotkeyConflictForCombo(keyCombo)
+local function actionbarChatModeKey(chatMode)
+    if chatMode == CHAT_MODE.ON then
+        return 'chatOn'
+    end
+    if chatMode == CHAT_MODE.OFF then
+        return 'chatOff'
+    end
+    return 'chatOff'
+end
+
+local function hasActionbarHotkeyConflictForCombo(keyCombo, chatMode)
     if not keyCombo or keyCombo == '' then
         return false
     end
@@ -607,10 +617,12 @@ local function hasActionbarHotkeyConflictForCombo(keyCombo)
 
     local actionbarApi = modules.game_actionbar and modules.game_actionbar.ApiJson
     if actionbarApi and actionbarApi.hasCurrentHotkeySet and actionbarApi.hasCurrentHotkeySet() then
-        local chatMode = modules.game_console and modules.game_console.isChatEnabled and modules.game_console.isChatEnabled() and 'chatOn' or 'chatOff'
         if actionbarApi.getHotkeyEntries then
-            for _, data in ipairs(actionbarApi.getHotkeyEntries(chatMode)) do
-                if data['actionsetting'] and data['keysequence'] and data['keysequence']:lower() == keyCombo:lower() then
+            for _, data in ipairs(actionbarApi.getHotkeyEntries(actionbarChatModeKey(chatMode))) do
+                if data['keysequence'] and data['keysequence']:lower() == keyCombo:lower() then
+                    return true
+                end
+                if data['secondarySequence'] and data['secondarySequence']:lower() == keyCombo:lower() then
                     return true
                 end
             end
@@ -652,7 +664,7 @@ local function getInlineKeyConflictFeedback(keyCombo, category, action)
         }
     end
 
-    if hasCustomHotkeyConflictForCombo(keyCombo, chatMode, preset) or hasActionbarHotkeyConflictForCombo(keyCombo) then
+    if hasCustomHotkeyConflictForCombo(keyCombo, chatMode, preset) or hasActionbarHotkeyConflictForCombo(keyCombo, chatMode) then
         local message = tr('This hotkey will be overwritten.')
         return {
             blocked = false,
@@ -969,13 +981,13 @@ local function clearConflictingCustomHotkeys(keyCombo, chatMode, preset)
     return cleared
 end
 
-local function clearConflictingActionbarHotkey(keyCombo)
+local function clearConflictingActionbarHotkey(keyCombo, chatMode)
     if not keyCombo or keyCombo == '' then
         return false
     end
 
     if modules.game_actionbar and modules.game_actionbar.removeHotkeyFromActionBar then
-        modules.game_actionbar.removeHotkeyFromActionBar(keyCombo)
+        modules.game_actionbar.removeHotkeyFromActionBar(keyCombo, chatMode)
     end
 
     if modules.game_hotkeys and modules.game_hotkeys.removeHotkeyByCombo then
@@ -1490,7 +1502,7 @@ function applyChangedOptions()
                     if clearConflictingCustomHotkeys(keyCombo, chatMode, preset) then
                         needKeybindsUpdate = true
                     end
-                    clearConflictingActionbarHotkey(keyCombo)
+                    clearConflictingActionbarHotkey(keyCombo, chatMode)
                 end
                 if Keybind.setPrimaryActionKey(keybind.primary.category, keybind.primary.action, preset,
                         keyCombo, chatMode) then
@@ -1506,7 +1518,7 @@ function applyChangedOptions()
                     if clearConflictingCustomHotkeys(keyCombo, chatMode, preset) then
                         needKeybindsUpdate = true
                     end
-                    clearConflictingActionbarHotkey(keyCombo)
+                    clearConflictingActionbarHotkey(keyCombo, chatMode)
                 end
                 if Keybind.setSecondaryActionKey(keybind.secondary.category, keybind.secondary.action, preset,
                         keyCombo, chatMode) then

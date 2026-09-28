@@ -289,13 +289,32 @@ local function validateHotkeySet()
     return options.currentHotkeySet
 end
 
+local function normalizeChatModeKey(chatMode)
+    if chatMode == nil then
+        if modules.game_console and modules.game_console.isChatEnabled then
+            return modules.game_console.isChatEnabled() and 'chatOn' or 'chatOff'
+        end
+        return ensureState().isChatOnEnabled and 'chatOn' or 'chatOff'
+    end
+
+    if chatMode == CHAT_MODE.ON then
+        return 'chatOn'
+    end
+
+    if chatMode == CHAT_MODE.OFF then
+        return 'chatOff'
+    end
+
+    return chatMode
+end
+
 local function getCurrentHotkeyEntries(chatMode)
     local set = validateHotkeySet()
     if not set then
         return nil
     end
 
-    chatMode = chatMode or (ensureState().isChatOnEnabled and 'chatOn' or 'chatOff')
+    chatMode = normalizeChatModeKey(chatMode)
     return set[chatMode]
 end
 
@@ -761,12 +780,11 @@ function ApiJson.removeMultiAction(barId, buttonId, slotIndex)
     end
 end
 
-function ApiJson.removeHotkey(buttonId)
+function ApiJson.removeHotkey(buttonId, chatMode)
     if not buttonId then
         return
     end
 
-    local chatMode = modules.game_console.isChatEnabled() and 'chatOn' or 'chatOff'
     local entries = getCurrentHotkeyEntries(chatMode)
     if not entries then
         return
@@ -784,30 +802,36 @@ function ApiJson.removeHotkey(buttonId)
     end
 end
 
-function ApiJson.clearHotkey(hotkey)
+function ApiJson.clearHotkey(hotkey, chatMode)
     if not hotkey or hotkey == "" then
-        return
+        return false
     end
 
-    local chatMode = modules.game_console.isChatEnabled() and 'chatOn' or 'chatOff'
     local entries = getCurrentHotkeyEntries(chatMode)
     if not entries then
-        return
+        return false
     end
 
+    local changed = false
+    local normalizedHotkey = hotkey:lower()
     for index = #entries, 1, -1 do
         local data = entries[index]
         if isCustomAction(data) then
-            if data.keysequence == hotkey then
+            if data.keysequence and data.keysequence:lower() == normalizedHotkey then
                 data.keysequence = ""
+                changed = true
             end
-            if data.secondarySequence == hotkey then
+            if data.secondarySequence and data.secondarySequence:lower() == normalizedHotkey then
                 data.secondarySequence = ""
+                changed = true
             end
-        elseif data.keysequence == hotkey then
+        elseif data.keysequence and data.keysequence:lower() == normalizedHotkey then
             table.remove(entries, index)
+            changed = true
         end
     end
+
+    return changed
 end
 
 function ApiJson.updateActionBarHotkey(actionName, hotkey)

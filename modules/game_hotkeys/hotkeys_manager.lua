@@ -985,6 +985,7 @@ function removeHotkeyByCombo(keyCombo)
         end
         hotkeyLabel:destroy()
         updateHotkeyForm(true)
+        save()
         return true
     end
     return false
