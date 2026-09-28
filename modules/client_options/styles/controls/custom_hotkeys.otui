@@ -51,19 +51,58 @@ EditableCustomHotkeysTableColumn < Label
     icon: /images/ui/icon-edit
     visible: false
 
-EditableCustomKeysTableColumn < Label
+CustomHotkeysTableColumn < Label
   color: #c0c0c0
   text-align: left
   focusable: false
   text-offset: 2 0
   font: verdana-11px-monochrome
 
+CustomPrimaryKeyColumnCell < UIWidget
+  focusable: false
+
+  Label
+    id: value
+    anchors.left: parent.left
+    anchors.right: edit.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    margin-right: 2
+    color: #c0c0c0
+    text-align: left
+    text-offset: 2 0
+    font: verdana-11px-monochrome
+
   Button
     id: edit
-    anchors.verticalCenter: parent.verticalCenter
     anchors.right: parent.right
+    anchors.verticalCenter: parent.verticalCenter
     size: 13 13
     margin-right: 2
+    icon: /images/ui/icon-edit
+    visible: true
+
+CustomSecondaryKeyColumnCell < UIWidget
+  focusable: false
+
+  Label
+    id: value
+    anchors.left: parent.left
+    anchors.right: edit.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    margin-right: 2
+    color: #c0c0c0
+    text-align: left
+    text-offset: 2 0
+    font: verdana-11px-monochrome
+
+  Button
+    id: edit
+    anchors.right: parent.right
+    anchors.verticalCenter: parent.verticalCenter
+    size: 13 13
+    margin-right: 0
     icon: /images/ui/icon-edit
     visible: true
 
@@ -224,7 +263,7 @@ UIWidget
       margin: 1 15 1 1
       table-data: keybindsData
       row-style: CustomHotkeysTableRow
-      column-style: EditableCustomKeysTableColumn
+      column-style: CustomHotkeysTableColumn
       header-row-style: CustomHotkeysTableHeaderRow
       header-column-style: CustomHotkeysTableHeaderColumn
 

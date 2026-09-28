@@ -7,7 +7,21 @@ keyEditWindow = nil
 local chatModeGroup
 local syncingChatModeUI = false
 
-local KEY_EDIT_OVERWRITE_TEXT = tr('This hotkey is already in use and will be overwritten.')
+local function getKeyColumnText(column)
+    if column.value then
+        return column.value:getText()
+    end
+    return column:getText()
+end
+
+local function setKeyColumnText(column, text)
+    text = text or ''
+    if column.value then
+        column.value:setText(text)
+    else
+        column:setText(text)
+    end
+end
 
 local function clearConflictingGeneralKeybinds(keyCombo, category, action, chatMode, preset)
     if not keyCombo or keyCombo == '' then
@@ -280,9 +294,10 @@ function editKeybindSetCombo(keyCombo)
         keyEditWindow.used:setText(tr('This hotkey is already in use and cannot be overwritten.'))
         keyEditWindow.buttons.ok:setEnabled(false)
     elseif keyUsed then
-        keyEditWindow.used:setText(KEY_EDIT_OVERWRITE_TEXT)
+        keyEditWindow.used:setText(Keybind.formatKeyComboOverwriteMessage(keyCombo, category, action, chatMode))
         keyEditWindow.buttons.ok:setEnabled(true)
     else
+        keyEditWindow.used:setVisible(false)
         keyEditWindow.buttons.ok:setEnabled(true)
     end
 end
@@ -345,14 +360,14 @@ function editKeybindPrimary(button)
     }
 
     keyEditWindow:setText(tr('Edit Primary Key for \'%s\'', string.format('%s: %s', keybind.category, keybind.action)))
-    setKeyComboText(Keybind.getKeybindKeys(row.category, row.action, getChatMode(), preset).primary)
+    editKeybindSetCombo(Keybind.getKeybindKeys(row.category, row.action, getChatMode(), preset).primary)
 
     editKeybind(keybind)
 
     keyEditWindow.buttons.ok.onClick = function()
         local keyCombo = keyEditWindow.keyCombo:getText()
 
-        column:setText(keyEditWindow.keyCombo:getText())
+        setKeyColumnText(column, Keybind.formatKeyComboForDisplay(keyCombo))
 
         if not changedKeybinds[preset] then
             changedKeybinds[preset] = {}
@@ -386,7 +401,7 @@ function editKeybindPrimary(button)
             keyCombo = ''
         }
 
-        column:setText('')
+        setKeyColumnText(column, '')
 
         disconnectKeyEditListeners()
         keyEditWindow:hide()
@@ -409,14 +424,14 @@ function editKeybindSecondary(button)
     }
 
     keyEditWindow:setText(tr('Edit Secondary Key for \'%s\'', string.format('%s: %s', keybind.category, keybind.action)))
-    setKeyComboText(Keybind.getKeybindKeys(row.category, row.action, getChatMode(), preset).secondary)
+    editKeybindSetCombo(Keybind.getKeybindKeys(row.category, row.action, getChatMode(), preset).secondary)
 
     editKeybind(keybind)
 
     keyEditWindow.buttons.ok.onClick = function()
         local keyCombo = keyEditWindow.keyCombo:getText()
 
-        column:setText(keyEditWindow.keyCombo:getText())
+        setKeyColumnText(column, Keybind.formatKeyComboForDisplay(keyCombo))
 
         if not changedKeybinds[preset] then
             changedKeybinds[preset] = {}
@@ -450,7 +465,7 @@ function editKeybindSecondary(button)
             keyCombo = ''
         }
 
-        column:setText('')
+        setKeyColumnText(column, '')
 
         disconnectKeyEditListeners()
         keyEditWindow:hide()
@@ -520,19 +535,20 @@ function addKeybind(category, action, primary, secondary)
     }, {
         style = 'VerticalSeparator'
     }, {
-        style = 'EditableKeybindsTableColumn',
-        text = Keybind.formatKeyComboForDisplay(primary),
+        style = 'KeybindsPrimaryKeyColumnCell',
         width = 100
     }, {
         style = 'VerticalSeparator'
     }, {
-        style = 'EditableKeybindsTableColumn',
-        text = Keybind.formatKeyComboForDisplay(secondary),
-        width = 90
+        style = 'KeybindsSecondaryKeyColumnCell',
+        width = 127
     } })
 
     row.category = category
     row.action = action
+
+    setKeyColumnText(row:getChildByIndex(3), Keybind.formatKeyComboForDisplay(primary))
+    setKeyColumnText(row:getChildByIndex(5), Keybind.formatKeyComboForDisplay(secondary))
 
     if tooltip then
         row:setTooltip(tooltip)
@@ -561,8 +577,8 @@ function performeSearchActions()
 
         for _, row in ipairs(rows) do
             local actionText = row:getChildByIndex(1):getText():lower()
-            local primaryText = row:getChildByIndex(3):getText():lower()
-            local secondaryText = row:getChildByIndex(5):getText():lower()
+            local primaryText = getKeyColumnText(row:getChildByIndex(3)):lower()
+            local secondaryText = getKeyColumnText(row:getChildByIndex(5)):lower()
             if actionText:find(searchText) or primaryText:find(searchText) or secondaryText:find(searchText) then
                 row:show()
             end

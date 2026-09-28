@@ -9,6 +9,22 @@ local objectRadio = nil
 local activeRow = nil
 local customHotkeySearchEvent = nil
 
+local function getKeyColumnText(column)
+  if column.value then
+    return column.value:getText()
+  end
+  return column:getText()
+end
+
+local function setKeyColumnText(column, text)
+  text = text or ''
+  if column.value then
+    column.value:setText(text)
+  else
+    column:setText(text)
+  end
+end
+
 local ActionTexts = {
   [HOTKEY_ACTION.USE_YOURSELF] = "(use object on yourself)",
   [HOTKEY_ACTION.USE_CROSSHAIR] = "use object with crosshair",
@@ -173,7 +189,7 @@ local function editCustomHotkeyKey(row, secondary)
   keyEditWindow.info:setText(tr("Click 'Ok' to assign the keybind. Click 'Clear' to remove it."))
   keyEditWindow.alone:setVisible(false)
   keyEditWindow.used:setVisible(false)
-  setKeyComboText(row:getChildByIndex(column):getText())
+  setKeyComboText(getKeyColumnText(row:getChildByIndex(column)))
   keyEditWindow.buttons.ok:setEnabled(true)
 
   -- Applies a captured combo (keyboard or mouse) to the edit window and runs
@@ -233,9 +249,9 @@ local function editCustomHotkeyKey(row, secondary)
     clearConflictingActionbarHotkey(keyCombo)
 
     if secondary then
-      Keybind.editHotkeyKeys(row.hotkeyId, row:getChildByIndex(otherColumn):getText(), keyCombo, Keybind.chatMode)
+      Keybind.editHotkeyKeys(row.hotkeyId, getKeyColumnText(row:getChildByIndex(otherColumn)), keyCombo, Keybind.chatMode)
     else
-      Keybind.editHotkeyKeys(row.hotkeyId, keyCombo, row:getChildByIndex(otherColumn):getText(), Keybind.chatMode)
+      Keybind.editHotkeyKeys(row.hotkeyId, keyCombo, getKeyColumnText(row:getChildByIndex(otherColumn)), Keybind.chatMode)
     end
 
     closeWindow()
@@ -244,9 +260,9 @@ local function editCustomHotkeyKey(row, secondary)
 
   keyEditWindow.buttons.clear.onClick = function()
     if secondary then
-      Keybind.editHotkeyKeys(row.hotkeyId, row:getChildByIndex(otherColumn):getText(), "", Keybind.chatMode)
+      Keybind.editHotkeyKeys(row.hotkeyId, getKeyColumnText(row:getChildByIndex(otherColumn)), "", Keybind.chatMode)
     else
-      Keybind.editHotkeyKeys(row.hotkeyId, "", row:getChildByIndex(otherColumn):getText(), Keybind.chatMode)
+      Keybind.editHotkeyKeys(row.hotkeyId, "", getKeyColumnText(row:getChildByIndex(otherColumn)), Keybind.chatMode)
     end
 
     closeWindow()
@@ -473,20 +489,21 @@ function addCustomHotkeyRow(hotkeyId, action, data, primary, secondary)
   }, {
     style = 'VerticalSeparator'
   }, {
-    style = 'EditableCustomKeysTableColumn',
-    text = primary or "",
+    style = 'CustomPrimaryKeyColumnCell',
     width = 100
   }, {
     style = 'VerticalSeparator'
   }, {
-    style = 'EditableCustomKeysTableColumn',
-    text = secondary or "",
-    width = 90
+    style = 'CustomSecondaryKeyColumnCell',
+    width = 127
   } })
 
   row.hotkeyId = hotkeyId
   row.actionType = action
   row.hotkeyData = data
+
+  setKeyColumnText(row:getChildByIndex(3), Keybind.formatKeyComboForDisplay(primary))
+  setKeyColumnText(row:getChildByIndex(5), Keybind.formatKeyComboForDisplay(secondary))
 
   local spellData = nil
   if not isItem then
@@ -1220,8 +1237,8 @@ function performCustomHotkeySearch()
     for _, row in ipairs(rows) do
       local actionCol = row:getChildByIndex(1)
       local actionText = actionCol:getText():lower()
-      local primary = row:getChildByIndex(3):getText():lower()
-      local secondary = row:getChildByIndex(5):getText():lower()
+      local primary = getKeyColumnText(row:getChildByIndex(3)):lower()
+      local secondary = getKeyColumnText(row:getChildByIndex(5)):lower()
       if actionText:find(searchText) or primary:find(searchText) or secondary:find(searchText) then
         row:show()
       end

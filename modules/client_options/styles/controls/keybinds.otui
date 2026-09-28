@@ -21,20 +21,55 @@ KeybindsTableColumn < Label
   text-offset: 2 0
   font: verdana-11px-monochrome
 
-EditableKeybindsTableColumn < Label
-  color: #c0c0c0
-  text-align: left
+KeybindsPrimaryKeyColumnCell < UIWidget
   focusable: false
-  text-offset: 2 0
-  font: verdana-11px-monochrome
+  checkable: true
   @onCheckChange: self.edit:setVisible(self:isChecked())
+
+  Label
+    id: value
+    anchors.left: parent.left
+    anchors.right: edit.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    margin-right: 2
+    color: #c0c0c0
+    text-align: left
+    text-offset: 2 0
+    font: verdana-11px-monochrome
 
   Button
     id: edit
-    anchors.verticalCenter: parent.verticalCenter
     anchors.right: parent.right
+    anchors.verticalCenter: parent.verticalCenter
     size: 13 13
     margin-right: 2
+    icon: /images/ui/icon-edit
+    visible: false
+
+KeybindsSecondaryKeyColumnCell < UIWidget
+  focusable: false
+  checkable: true
+  @onCheckChange: self.edit:setVisible(self:isChecked())
+
+  Label
+    id: value
+    anchors.left: parent.left
+    anchors.right: edit.left
+    anchors.top: parent.top
+    anchors.bottom: parent.bottom
+    margin-right: 2
+    color: #c0c0c0
+    text-align: left
+    text-offset: 2 0
+    font: verdana-11px-monochrome
+
+  Button
+    id: edit
+    anchors.right: parent.right
+    anchors.verticalCenter: parent.verticalCenter
+    size: 13 13
+    margin-right: 0
     icon: /images/ui/icon-edit
     visible: false
 

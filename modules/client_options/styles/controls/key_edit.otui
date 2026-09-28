@@ -39,6 +39,8 @@ MainWindow
     font: verdana-11px-monochrome
     text-align: center
     color: #f75f5f
+    text-wrap: true
+    text-auto-resize: true
     !text: tr("This hotkey is already in use.")
     visible: false
 

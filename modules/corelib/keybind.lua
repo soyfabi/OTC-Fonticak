@@ -831,6 +831,45 @@ function Keybind.isKeyComboUsed(keyCombo, category, action, chatMode)
   return false
 end
 
+function Keybind.getKeyComboOverwriteTarget(keyCombo, category, action, chatMode, preset)
+  if not keyCombo or keyCombo == '' or Keybind.reservedKeys[keyCombo] then
+    return nil
+  end
+
+  if not chatMode then
+    chatMode = Keybind.chatMode
+  end
+
+  preset = preset or Keybind.currentPreset
+
+  if not category or not action then
+    return nil
+  end
+
+  local targetKeys = Keybind.getKeybindKeys(category, action, chatMode, preset)
+
+  for _, keybind in pairs(Keybind.defaultKeybinds) do
+    local keys = Keybind.getKeybindKeys(keybind.category, keybind.action, chatMode, preset)
+    if keys.primary == keyCombo and targetKeys.primary ~= keyCombo then
+      return keybind.category, keybind.action
+    end
+    if keys.secondary == keyCombo and targetKeys.secondary ~= keyCombo then
+      return keybind.category, keybind.action
+    end
+  end
+
+  return nil
+end
+
+function Keybind.formatKeyComboOverwriteMessage(keyCombo, category, action, chatMode, preset)
+  local conflictCategory, conflictAction = Keybind.getKeyComboOverwriteTarget(keyCombo, category, action, chatMode, preset)
+  if not conflictAction then
+    return tr('This hotkey is already in use and will be overwritten.')
+  end
+
+  return tr('This hotkey is already in use and will be overwritten by \'%s: %s\'.', conflictCategory, conflictAction)
+end
+
 function Keybind.saveHotkeys(preset, chatMode)
   preset = preset or Keybind.currentPreset
   chatMode = chatMode or Keybind.chatMode
