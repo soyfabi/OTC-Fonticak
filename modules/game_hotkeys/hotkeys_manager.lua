@@ -418,6 +418,16 @@ function addHotkey()
     comboLabel.keyCombo = ''
     assignWindow.onKeyDown = hotkeyCapture
     assignWindow.onMousePress = function(window, mousePos, button)
+        local clickedWidget = window:recursiveGetChildByPos(mousePos, false)
+        if clickedWidget then
+            local current = clickedWidget
+            while current and current ~= window do
+                if current.getClassName and current:getClassName() == 'UIButton' then
+                    return false
+                end
+                current = current:getParent()
+            end
+        end
         local keyCombo = Keybind.getMouseKeyCombo(button, g_keyboard.getModifiers())
         if not keyCombo then
             return false

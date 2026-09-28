@@ -52,6 +52,21 @@ end
 
 local assignHotkeyWindow = nil
 
+local function shouldIgnoreAssignHotkeyMousePress(window, mousePos)
+    local clickedWidget = window:recursiveGetChildByPos(mousePos, false)
+    if not clickedWidget then
+        return false
+    end
+    local current = clickedWidget
+    while current and current ~= window do
+        if current.getClassName and current:getClassName() == 'UIButton' then
+            return true
+        end
+        current = current:getParent()
+    end
+    return false
+end
+
 function closeAssignHotkeyWindow()
     if assignHotkeyWindow and not assignHotkeyWindow:isDestroyed() then
         assignHotkeyWindow:destroy()
@@ -316,7 +331,10 @@ function assignHotkey(button)
     end
 
     assignWindow.onMousePress = function(window, mousePos, rawButton)
-        local keyCombo = Keybind.getMouseKeyCombo(rawButton)
+        if shouldIgnoreAssignHotkeyMousePress(window, mousePos) then
+            return false
+        end
+        local keyCombo = Keybind.getMouseKeyCombo(rawButton, g_keyboard.getModifiers())
         if not keyCombo then
             return false
         end
