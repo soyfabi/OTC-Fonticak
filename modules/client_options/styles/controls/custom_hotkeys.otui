@@ -155,36 +155,39 @@ UIWidget
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
-    height: 22
+    height: 24
     margin-top: 7
     id: panel
 
     OptionContainer
       anchors.left: parent.left
       anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      height: 16
+      padding: 0
       image-source: ""
       !tooltip: tr('There are two chat modes for each hotkey preset: Chat On and Chat\n Off.You can find a small button that tells you which chat mode is\n currently active on the right side of the entry line of the chat console.Press this button to switch between the two chat modes.\nOf course, you can also set a hotkey to toggle between Chat On and Off.\n- Chat On\nIn this mode, you will be able to write text in the entry line of the chat console.\nHowever, if you have assigned an action to a letter key, the action will be triggered.\n- Chat On*\nThis is the temporary Chat On mode.\nIn the default hotkey preset, the Return key switches between Chat Off and this mode.\nIf the chat mode is off and you press this hotkey, it temporarily activates the chat mode so that you can write one message in the console.\nAs soon as you press Return to send the message, your chat mode will be set to Chat Off again so that you can continue walking with WASD, for example.\n- Chat Off\nIn this mode, you will not be able to write any text in the entry line of the console, but you can use your predefined hotkeys to walk or cast spells, for example.\nYou can assign functions to all keys of your keyboard, e.g. walk with WASD.')
 
       id: chatMode
       $!first:
         margin-left: 40
-      layout:
-        type: horizontalBox
-        spacing: 127
 
       CheckBoxCircle
         id: on
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
         text-horizontal-auto-resize: true
         !text: tr("Chat Mode On")
-        margin-bottom: -5
-        text-offset: 20 -3
+        text-offset: 20 -1
 
       CheckBoxCircle
         id: off
+        anchors.left: on.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-left: 127
         text-horizontal-auto-resize: true
         !text: tr("Chat Mode Off")
-        margin-bottom: -5
-        text-offset: 20 -3
+        text-offset: 20 -1
         $mobile:
           margin-left: -120
 
@@ -193,6 +196,7 @@ UIWidget
       image-source: /images/icons/show_gui_help_grey
       size: 12 12  
       anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
       margin-right: 3
       !tooltip: tr('There are two chat modes for each hotkey preset: Chat On and Chat\nOff. You can find a small button that tells you which mode is\n currently active on the right side of the entry line of the chat\n console. Press this button to switch between the two chat modes. Of\n course, you can also set a hotkey to toggle between Chat On and Off.\n\n                      * Chat On\n                          In this mode, you will be able to write text in the entry line of\n                          the chat console. However, if you have assigned an action to\n                          a letter key, the action will be triggered.\n\n                      * Chat On*\n                          This is the temporary Chat On mode. In the default hotkey\n                          preset, the Return key switches between Chat Off and this\n                          mode. If the chat mode is off and you press this hotkey, it\n                          temporarily activates the chat mode so that you can write\n                          one message in the console. As soon as you press Return to\n                          send the message, your chat mode will be set to Chat Off\n                          again so that you can continue walking with WASD, for\n                          example.\n                      * Chat Off\n                          In this mode, you will not be able to write any text in the\n                          entry line of the console, but you can use your predefined\n                          hotkeys to walk or cast spells, for example. You can assign\n                          functions to all keys of your keyboard, e.g., walk with WASD.')
      
@@ -202,7 +206,7 @@ UIWidget
     anchors.top: prev.bottom
     id: search
     height: 20
-    margin-top: 5
+    margin-top: 7
     
     Label
       anchors.left: parent.left

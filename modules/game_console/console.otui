@@ -385,7 +385,7 @@ Panel
     margin-right: 3
     size: 64 18
     color: #c0c0c0ff
-    font: cipsoftFont
+    font: verdana-11px-antialised
     !text: tr('Chat Off')
     &isChecked: false
     @onClick: |

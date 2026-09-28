@@ -26,7 +26,7 @@ bottomSplitter = nil
 chatHeightResizeControl = nil
 chatHeightPercentLabel = nil
 
-DEFAULT_BOTTOM_CHAT_MARGIN = 200
+DEFAULT_BOTTOM_CHAT_MARGIN = 98
 local CHAT_HEIGHT_PERCENT_FADE_MS = 320
 local chatHeightPercentHideEvent = nil
 local chatHeightPercentSplitterDragging = false
@@ -2399,8 +2399,40 @@ function isBottomStatsBarDockActive()
         and gameBottomStatsBarPanel:getHeight() > 0
 end
 
-CHAT_MIN_HEIGHT = 125
+CHAT_MIN_HEIGHT = 98
 COOLDOWN_PANEL_HEIGHT = 26
+local MIN_GAME_MAP_HEIGHT = 300
+local MAP_ASPECT_RATIO_FALLBACK = 15 / 11
+
+local function getMapAspectRatioForSplitter()
+    if gameMapPanel and not gameMapPanel:isDestroyed() then
+        local dim = gameMapPanel:getVisibleDimension()
+        if dim and dim.width and dim.height and dim.height > 0 then
+            return dim.width / dim.height
+        end
+    end
+    return MAP_ASPECT_RATIO_FALLBACK
+end
+
+local function getMapContentSize()
+    if not gameMapPanel or gameMapPanel:isDestroyed() then
+        return 0, 0
+    end
+    local rect = gameMapPanel:getPaddingRect()
+    return rect.width, rect.height
+end
+
+local function getMinimumMapContentHeight()
+    local contentWidth, contentHeight = getMapContentSize()
+    if contentWidth <= 0 or contentHeight <= 0 then
+        return MIN_GAME_MAP_HEIGHT
+    end
+    local aspectMinHeight = math.ceil(contentWidth / getMapAspectRatioForSplitter())
+    if contentHeight < aspectMinHeight then
+        return MIN_GAME_MAP_HEIGHT
+    end
+    return math.max(MIN_GAME_MAP_HEIGHT, aspectMinHeight)
+end
 
 local function getCooldownVisibleExtraHeight()
     local cd = modules.game_cooldown and modules.game_cooldown.cooldownWindow
@@ -2459,6 +2491,22 @@ function getBottomSplitterMinMarginBottom()
     return CHAT_MIN_HEIGHT + physicalTotal
 end
 
+function getBottomSplitterMaxMarginBottom(parentH)
+    local minM = getBottomSplitterMinMarginBottom()
+    if not parentH or parentH <= 0 then
+        if bottomSplitter and not bottomSplitter:isDestroyed() then
+            local parent = bottomSplitter:getParent()
+            if parent and not parent:isDestroyed() then
+                parentH = parent:getHeight()
+            end
+        end
+    end
+    if not parentH or parentH <= 0 then
+        return minM
+    end
+    return math.max(minM, parentH - getMinimumMapContentHeight())
+end
+
 function bottomSplitterCanUpdateMargin(splitter, newMargin)
     if modules.client_options.getOption('dontStretchShrink') then
         return splitter:getMarginBottom()
@@ -2469,7 +2517,7 @@ function bottomSplitterCanUpdateMargin(splitter, newMargin)
     end
     local parentH = parent:getHeight()
     local minM = getBottomSplitterMinMarginBottom()
-    local maxM = math.max(minM, parentH - 150)
+    local maxM = getBottomSplitterMaxMarginBottom(parentH)
     return math.max(math.min(newMargin, maxM), minM)
 end
 
@@ -2480,7 +2528,7 @@ function bottomSplitterOnGeometryChange(splitter)
     end
     local parentH = parent:getHeight()
     local minM = getBottomSplitterMinMarginBottom()
-    local maxM = math.max(minM, parentH - 150)
+    local maxM = getBottomSplitterMaxMarginBottom(parentH)
     local m = splitter:getMarginBottom()
     local clamped = math.min(math.max(m, minM), maxM)
     if clamped ~= m then
@@ -2495,7 +2543,11 @@ function applyBottomSplitterLayoutHeight()
         return
     end
     local minM = getBottomSplitterMinMarginBottom()
-    if minM > bottomSplitter:getMarginBottom() then
+    local maxM = getBottomSplitterMaxMarginBottom()
+    local margin = bottomSplitter:getMarginBottom()
+    if margin > maxM then
+        bottomSplitter:setMarginBottom(maxM)
+    elseif minM > margin then
         bottomSplitter:setMarginBottom(minM)
     end
     bottomSplitterOnGeometryChange(bottomSplitter)

@@ -617,7 +617,7 @@ local function getBottomAreaMinMargin()
     if modules.game_actionbar and modules.game_actionbar.getActiveBottomBars then
         actionBars = modules.game_actionbar.getActiveBottomBars() or 0
     end
-    return 125 + (35 * actionBars)
+    return 98 + (35 * actionBars)
 end
 
 -- When side columns change map width, shrink/grow the map height via the bottom
@@ -661,7 +661,7 @@ function fitMapHeightToAspectRatio()
     local parent = bottomSplitter:getParent()
     local parentH = parent and parent:getHeight() or 0
     local minM = getBottomAreaMinMargin()
-    local maxM = math.max(minM, parentH - 150)
+    local maxM = modules.game_interface.getBottomSplitterMaxMarginBottom(parentH)
     targetMargin = math.max(minM, math.min(targetMargin, maxM))
 
     if math.abs(targetMargin - currentMargin) > 1 then

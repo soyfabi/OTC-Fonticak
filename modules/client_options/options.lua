@@ -548,7 +548,7 @@ function controller:onInit()
     Keybind.bind("UI", "Open Options", {
         {
             type = KEY_DOWN,
-            callback = show,
+            callback = toggle,
         }
     })
     Keybind.registerControlButtonHotkey('optionsMainButton', 'UI', 'Open Options')
