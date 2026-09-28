@@ -8,6 +8,17 @@ local spellRadio = nil
 local objectRadio = nil
 local activeRow = nil
 local customHotkeySearchEvent = nil
+local customInlineKeyEdit = nil
+local customInlineCaptureWidget = nil
+local customInlineDismissConnected = false
+local customInlinePulseEvent = nil
+local customInlineConfirmationKey = nil
+local CUSTOM_KEY_PLACEHOLDER = '[Press Key]'
+local CUSTOM_KEY_PLACEHOLDER_COLOR = '#787878'
+local CUSTOM_KEY_ASSIGNED_COLOR = '#c0c0c0'
+local CUSTOM_KEY_CONFLICT_COLOR = '#f0c040'
+local CUSTOM_KEY_CONFLICT_BACKGROUND = '#5a5028'
+local CUSTOM_KEY_CONFLICT_BORDER = '#a88828'
 
 local function getKeyColumnText(column)
   if column.value then
@@ -182,7 +193,7 @@ local function setKeyComboText(text)
   end
 end
 
-local function editCustomHotkeyKey(row, secondary)
+local function editCustomHotkeyKeyModal(row, secondary)
   local column = secondary and 5 or 3
   local otherColumn = secondary and 3 or 5
   keyEditWindow:setText(secondary and tr("Edit Secondary Key") or tr("Edit Primary Key"))
@@ -276,6 +287,341 @@ local function editCustomHotkeyKey(row, secondary)
   keyEditWindow:focus()
   keyEditWindow:grabKeyboard()
   hide()
+end
+
+local function customKeyColumnText(column)
+  local text = getKeyColumnText(column)
+  return text == CUSTOM_KEY_PLACEHOLDER and '' or text
+end
+
+local function setCustomKeyColumnDisplay(column, keyCombo)
+  local display = Keybind.formatKeyComboForDisplay(keyCombo)
+  local empty = not keyCombo or keyCombo == '' or not display or display == ''
+  setKeyColumnText(column, empty and CUSTOM_KEY_PLACEHOLDER or display)
+  if column.value then
+    column.value:setColor(empty and CUSTOM_KEY_PLACEHOLDER_COLOR or CUSTOM_KEY_ASSIGNED_COLOR)
+  end
+  column:setBackgroundColor('alpha')
+  column:setBorderColor('alpha')
+end
+
+local function stopCustomKeyPulse()
+  if customInlinePulseEvent then
+    removeEvent(customInlinePulseEvent)
+    customInlinePulseEvent = nil
+  end
+end
+
+local function startCustomKeyPulse(column)
+  stopCustomKeyPulse()
+  local phase = 0
+  customInlinePulseEvent = cycleEvent(function()
+    if not customInlineKeyEdit or customInlineKeyEdit.column ~= column then
+      stopCustomKeyPulse()
+      return
+    end
+    phase = (phase + 0.022) % 1
+    local intensity = math.max(0, math.sin(phase * math.pi * 2))
+    if customInlineKeyEdit.pending then
+      local red = 240 + math.floor(intensity * 15)
+      local green = 192 + math.floor(intensity * 48)
+      local color = string.format('#%02x%02x00', red, green)
+      if column.value then column.value:setColor(color) end
+      column:setBackgroundColor(CUSTOM_KEY_CONFLICT_BACKGROUND)
+      column:setBorderColor(color)
+      return
+    end
+    local value = math.floor(175 + intensity * 80)
+    local color = string.format('#%02x%02x%02x', value, value, value)
+    if column.value then
+      column.value:setColor(color)
+    end
+    column:setBackgroundColor(string.format('#%02x%02x%02x', 62 + math.floor(intensity * 38),
+      62 + math.floor(intensity * 38), 62 + math.floor(intensity * 38)))
+    column:setBorderColor(string.format('#%02x%02x%02x', 48 + math.floor(intensity * 72),
+      48 + math.floor(intensity * 72), 48 + math.floor(intensity * 72)))
+  end, 48)
+end
+
+local function setCustomKeyColumnListening(column, keyCombo)
+  local display = Keybind.formatKeyComboForDisplay(keyCombo)
+  setKeyColumnText(column, display and display ~= '' and display or CUSTOM_KEY_PLACEHOLDER)
+  column:setBackgroundColor('#585858')
+  startCustomKeyPulse(column)
+end
+
+local function getCustomConflictNotice()
+  local tablePanel = panels and panels.customHotkeys and panels.customHotkeys.tablePanel
+  return tablePanel and tablePanel:recursiveGetChildById('overwriteNotice') or nil
+end
+
+local function hideCustomConflictNotice()
+  local tablePanel = panels and panels.customHotkeys and panels.customHotkeys.tablePanel
+  local notice = getCustomConflictNotice()
+  if notice then
+    notice:setVisible(false)
+    notice:setHeight(0)
+    notice:setText('')
+  end
+  if tablePanel then
+    tablePanel.keybindsData:setMarginTop(20)
+    local icon = tablePanel:recursiveGetChildById('overwriteNoticeIcon')
+    if icon then icon:setVisible(false) end
+  end
+end
+
+local function showCustomConflictNotice(message)
+  local tablePanel = panels.customHotkeys.tablePanel
+  local notice = getCustomConflictNotice()
+  if not notice then return end
+  local confirm = tr('Press [Enter] to confirm or [Esc] to cancel.')
+  local text = tr('This hotkey is already in use. %s %s', message, confirm)
+  notice:setText(text)
+  local height = 20
+  if notice:getTextSize().width > notice:getWidth() then
+    text = tr('This hotkey is already in use. %s\n%s', message, confirm)
+    notice:setText(text)
+    height = 30
+    if notice:getTextSize().width > notice:getWidth() then
+      text = tr('This hotkey is already in use.\n%s\n%s', message, confirm)
+      notice:setText(text)
+      height = 42
+    end
+  end
+  notice:setColor('#f0c040')
+  notice:setHeight(height)
+  notice:setVisible(true)
+  tablePanel.keybindsData:setMarginTop(20 + height)
+  local icon = tablePanel:recursiveGetChildById('overwriteNoticeIcon')
+  if icon then
+    local start = math.floor((notice:getWidth() - notice:getTextSize().width) / 2)
+    icon:setMarginLeft(math.max(2, start - icon:getWidth() - 2))
+    icon:setVisible(true)
+  end
+end
+
+local function findCustomConflictMessage(keyCombo, row)
+  if Keybind.reservedKeys[keyCombo] then
+    return nil, true
+  end
+  for _, candidate in ipairs(panels.customHotkeys.tablePanel.keybinds.dataSpace:getChildren()) do
+    if candidate ~= row and candidate.hotkeyId then
+      local primary = customKeyColumnText(candidate:getChildByIndex(3))
+      local secondary = customKeyColumnText(candidate:getChildByIndex(5))
+      if primary == keyCombo or secondary == keyCombo then
+        return tr("'%s' will be overwritten.", candidate:getChildByIndex(1):getText()), false
+      end
+    end
+  end
+  for _, keybind in pairs(Keybind.defaultKeybinds) do
+    local keys = Keybind.getKeybindKeys(keybind.category, keybind.action, Keybind.chatMode, Keybind.currentPreset)
+    if keys.primary == keyCombo or keys.secondary == keyCombo then
+      return tr("'%s: %s' will be overwritten.", keybind.category, keybind.action), false
+    end
+  end
+  if isActionbarHotkeyConflict(keyCombo) then
+    return tr('This hotkey will be overwritten.'), false
+  end
+  return nil, false
+end
+
+local function stopCustomInlineCapture()
+  if customInlineDismissConnected then
+    disconnect(panels.customHotkeys, { onMousePress = customInlineDismissPress })
+    customInlineDismissConnected = false
+  end
+  if customInlineCaptureWidget then
+    local captureWidget = customInlineCaptureWidget
+    disconnect(captureWidget, { onKeyDown = customInlineKeyDown })
+    disconnect(captureWidget, { onMousePress = customInlineMouse })
+    customInlineCaptureWidget = nil
+    scheduleEvent(function()
+      if customInlineCaptureWidget then return end
+      disconnect(captureWidget, { onKeyPress = customInlineKeyPress })
+      captureWidget:ungrabKeyboard()
+    end, 0)
+  end
+end
+
+function cancelCustomHotkeyInlineEdit()
+  if not customInlineKeyEdit then return end
+  local session = customInlineKeyEdit
+  customInlineKeyEdit = nil
+  stopCustomKeyPulse()
+  hideCustomConflictNotice()
+  stopCustomInlineCapture()
+  setCustomKeyColumnDisplay(session.column, session.previous)
+end
+
+local function commitCustomInlineKey(keyCombo)
+  local session = customInlineKeyEdit
+  if not session then return end
+  hideCustomConflictNotice()
+
+  keyCombo = keyCombo or ''
+  clearConflictingCustomHotkeys(keyCombo, session.row.hotkeyId)
+  clearConflictingDefaultKeybinds(keyCombo)
+  clearConflictingActionbarHotkey(keyCombo)
+  local other = customKeyColumnText(session.row:getChildByIndex(session.secondary and 3 or 5))
+  if session.secondary then
+    Keybind.editHotkeyKeys(session.row.hotkeyId, other, keyCombo, Keybind.chatMode)
+  else
+    Keybind.editHotkeyKeys(session.row.hotkeyId, keyCombo, other, Keybind.chatMode)
+  end
+
+  for _, row in ipairs(panels.customHotkeys.tablePanel.keybinds.dataSpace:getChildren()) do
+    local hotkeys = Keybind.hotkeys[Keybind.chatMode] and Keybind.hotkeys[Keybind.chatMode][Keybind.currentPreset]
+    if hotkeys and row.hotkeyId then
+      for _, hotkey in ipairs(hotkeys) do
+        if hotkey.hotkeyId == row.hotkeyId then
+          setCustomKeyColumnDisplay(row:getChildByIndex(3), hotkey.primary)
+          setCustomKeyColumnDisplay(row:getChildByIndex(5), hotkey.secondary)
+          break
+        end
+      end
+    end
+  end
+
+  session.pending = nil
+  session.previous = keyCombo
+  setCustomKeyColumnListening(session.column, keyCombo)
+end
+
+local function beginCustomHotkeyInlineEdit(row, secondary)
+  local column = row:getChildByIndex(secondary and 5 or 3)
+  if customInlineKeyEdit and customInlineKeyEdit.column == column then
+    return
+  end
+  cancelCustomHotkeyInlineEdit()
+  local previous = customKeyColumnText(column)
+  customInlineKeyEdit = { row = row, column = column, secondary = secondary, previous = previous }
+  setCustomKeyColumnListening(column, previous)
+  customInlineCaptureWidget = panels.customHotkeys.tablePanel
+  connect(customInlineCaptureWidget, { onKeyDown = customInlineKeyDown })
+  connect(customInlineCaptureWidget, { onMousePress = customInlineMouse })
+  connect(customInlineCaptureWidget, { onKeyPress = customInlineKeyPress })
+  customInlineCaptureWidget:focus()
+  customInlineCaptureWidget:grabKeyboard()
+  connect(panels.customHotkeys, { onMousePress = customInlineDismissPress })
+  customInlineDismissConnected = true
+end
+
+function editCustomHotkeyKey(row, secondary)
+  beginCustomHotkeyInlineEdit(row, secondary)
+end
+
+function customInlineDismissPress(widget, mousePos, mouseButton)
+  if mouseButton == MouseLeftButton and customInlineKeyEdit
+      and not customInlineKeyEdit.column:containsPoint(mousePos) then
+    cancelCustomHotkeyInlineEdit()
+  end
+  return false
+end
+
+function customInlineKeyDown(widget, keyCode, keyboardModifiers)
+  local session = customInlineKeyEdit
+  if not session then return false end
+
+  local isEnter = keyCode == KeyEnter or keyCode == KeyReturn or keyCode == 5 or keyCode == 13
+      or (KeyNumpadEnter and keyCode == KeyNumpadEnter)
+      or (g_keyboard and g_keyboard.isEnterKey and g_keyboard.isEnterKey(keyCode))
+  if session.pending then
+    if isEnter then
+      customInlineConfirmationKey = keyCode
+      commitCustomInlineKey(session.pending)
+      return true
+    end
+    if keyCode == KeyEscape then
+      customInlineConfirmationKey = keyCode
+      cancelCustomHotkeyInlineEdit()
+      return true
+    end
+    session.pending = nil
+    hideCustomConflictNotice()
+    setCustomKeyColumnListening(session.column, session.previous)
+  end
+
+  if keyCode == KeyEscape then
+    customInlineConfirmationKey = keyCode
+    cancelCustomHotkeyInlineEdit()
+    return true
+  end
+  if keyCode == KeyDelete or keyCode == KeyBackspace then
+    commitCustomInlineKey('')
+    return true
+  end
+
+  local keyCombo = determineKeyComboDesc(keyCode, keyboardModifiers)
+  if keyCombo == 'Shift' or keyCombo == 'Ctrl' or keyCombo == 'Alt' then
+    return true
+  end
+
+  local message, blocked = findCustomConflictMessage(keyCombo, session.row)
+  if blocked then
+    setKeyColumnText(session.column, Keybind.formatKeyComboForDisplay(keyCombo))
+    if session.column.value then session.column.value:setColor('#f75f5f') end
+    session.column:setBorderColor('#f75f5f')
+    showCustomConflictNotice(tr('This hotkey is already in use and cannot be overwritten.'))
+    scheduleEvent(function()
+      if customInlineKeyEdit == session and not session.pending then
+        hideCustomConflictNotice()
+        setCustomKeyColumnListening(session.column, session.previous)
+      end
+    end, 350)
+    return true
+  end
+
+  if message then
+    session.pending = keyCombo
+    setKeyColumnText(session.column, Keybind.formatKeyComboForDisplay(keyCombo))
+    showCustomConflictNotice(message)
+    startCustomKeyPulse(session.column)
+    return true
+  end
+
+  commitCustomInlineKey(keyCombo)
+  return true
+end
+
+function customInlineKeyPress(widget, keyCode)
+  if customInlineConfirmationKey ~= keyCode then return false end
+  customInlineConfirmationKey = nil
+  return true
+end
+
+function customInlineMouse(widget, mousePos, mouseButton)
+  local session = customInlineKeyEdit
+  if not session then return false end
+  if not session.column:containsPoint(mousePos) then
+    cancelCustomHotkeyInlineEdit()
+    return false
+  end
+  if session.pending then return true end
+  local keyCombo = Keybind.getMouseKeyCombo(mouseButton, g_keyboard.getModifiers())
+  if not keyCombo then return false end
+  local message, blocked = findCustomConflictMessage(keyCombo, session.row)
+  if blocked then
+    setKeyColumnText(session.column, Keybind.formatKeyComboForDisplay(keyCombo))
+    if session.column.value then session.column.value:setColor('#f75f5f') end
+    session.column:setBorderColor('#f75f5f')
+    showCustomConflictNotice(tr('This hotkey is already in use and cannot be overwritten.'))
+    scheduleEvent(function()
+      if customInlineKeyEdit == session and not session.pending then
+        hideCustomConflictNotice()
+        setCustomKeyColumnListening(session.column, session.previous)
+      end
+    end, 350)
+    return true
+  end
+  if message then
+    session.pending = keyCombo
+    setKeyColumnText(session.column, Keybind.formatKeyComboForDisplay(keyCombo))
+    showCustomConflictNotice(message)
+    startCustomKeyPulse(session.column)
+    return true
+  end
+  commitCustomInlineKey(keyCombo)
+  return true
 end
 
 local function getThingClassification(item)
@@ -396,6 +742,7 @@ function init_custom_hotkeys()
 end
 
 function terminate_custom_hotkeys()
+  cancelCustomHotkeyInlineEdit()
   if customHotkeySearchEvent then
     removeEvent(customHotkeySearchEvent)
     customHotkeySearchEvent = nil
@@ -452,6 +799,7 @@ function updateCustomHotkeys()
     return
   end
 
+  cancelCustomHotkeyInlineEdit()
   panels.customHotkeys.tablePanel.keybinds:clearData()
 
   local chatMode = Keybind.chatMode
@@ -502,8 +850,8 @@ function addCustomHotkeyRow(hotkeyId, action, data, primary, secondary)
   row.actionType = action
   row.hotkeyData = data
 
-  setKeyColumnText(row:getChildByIndex(3), Keybind.formatKeyComboForDisplay(primary))
-  setKeyColumnText(row:getChildByIndex(5), Keybind.formatKeyComboForDisplay(secondary))
+  setCustomKeyColumnDisplay(row:getChildByIndex(3), primary)
+  setCustomKeyColumnDisplay(row:getChildByIndex(5), secondary)
 
   local spellData = nil
   if not isItem then
@@ -580,8 +928,20 @@ function addCustomHotkeyRow(hotkeyId, action, data, primary, secondary)
       return true
     end
   end
-  row:getChildByIndex(3).edit.onClick = function() editCustomHotkeyPrimary(row) end
-  row:getChildByIndex(5).edit.onClick = function() editCustomHotkeySecondary(row) end
+  row:getChildByIndex(3).onMousePress = function(_, _, button)
+    if button == MouseLeftButton then
+      editCustomHotkeyPrimary(row)
+      return true
+    end
+    return false
+  end
+  row:getChildByIndex(5).onMousePress = function(_, _, button)
+    if button == MouseLeftButton then
+      editCustomHotkeySecondary(row)
+      return true
+    end
+    return false
+  end
 end
 
 -- Key assignment

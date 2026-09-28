@@ -64,7 +64,7 @@ CustomPrimaryKeyColumnCell < UIWidget
   Label
     id: value
     anchors.left: parent.left
-    anchors.right: edit.left
+    anchors.right: parent.right
     anchors.top: parent.top
     anchors.bottom: parent.bottom
     margin-right: 2
@@ -72,15 +72,7 @@ CustomPrimaryKeyColumnCell < UIWidget
     text-align: left
     text-offset: 2 0
     font: verdana-11px-monochrome
-
-  Button
-    id: edit
-    anchors.right: parent.right
-    anchors.verticalCenter: parent.verticalCenter
-    size: 13 13
-    margin-right: 2
-    icon: /images/ui/icon-edit
-    visible: true
+    phantom: true
 
 CustomSecondaryKeyColumnCell < UIWidget
   focusable: false
@@ -88,7 +80,7 @@ CustomSecondaryKeyColumnCell < UIWidget
   Label
     id: value
     anchors.left: parent.left
-    anchors.right: edit.left
+    anchors.right: parent.right
     anchors.top: parent.top
     anchors.bottom: parent.bottom
     margin-right: 2
@@ -96,15 +88,7 @@ CustomSecondaryKeyColumnCell < UIWidget
     text-align: left
     text-offset: 2 0
     font: verdana-11px-monochrome
-
-  Button
-    id: edit
-    anchors.right: parent.right
-    anchors.verticalCenter: parent.verticalCenter
-    size: 13 13
-    margin-right: 0
-    icon: /images/ui/icon-edit
-    visible: true
+    phantom: true
 
 CustomHotkeysTableHeaderRow < TableHeaderRow
   padding: 0
@@ -248,6 +232,7 @@ UIWidget
 
   Panel
     id: tablePanel
+    focusable: true
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
@@ -302,6 +287,32 @@ UIWidget
       anchors.right: parent.right
       step: 16
       pixels-scroll: true
+
+    Label
+      id: overwriteNotice
+      anchors.top: parent.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      height: 0
+      margin: 20 15 0 1
+      font: verdana-11px-monochrome
+      color: #f0c040
+      text-align: center
+      focusable: false
+      phantom: true
+      visible: false
+
+    UIWidget
+      id: overwriteNoticeIcon
+      size: 12 12
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 24
+      margin-left: 0
+      image-source: /images/ui/hotkey-conflict-warning
+      focusable: false
+      phantom: true
+      visible: false
   
   Panel
     id: buttons

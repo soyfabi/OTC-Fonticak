@@ -1369,7 +1369,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
             if g_game.getFeature(GamePrey) then
                 menu:addOption(tr('Open Prey Dialog'), function()
                     modules.game_prey.show()
-                end)
+                end, Keybind.formatActionShortcut('Dialogs', 'Open Prey Dialog'))
             end
 
             if g_game.getFeature(GamePlayerMounts) then

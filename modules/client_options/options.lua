@@ -1562,6 +1562,9 @@ function hide()
     if cancelGeneralHotkeyInlineEdit then
         cancelGeneralHotkeyInlineEdit()
     end
+    if cancelCustomHotkeyInlineEdit then
+        cancelCustomHotkeyInlineEdit()
+    end
     commitRenderBackendChange()
     g_settings.save()
     cancelCategoryAnimations()
