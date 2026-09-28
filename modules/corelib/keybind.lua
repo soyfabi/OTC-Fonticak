@@ -1408,7 +1408,10 @@ function Keybind.bindHotkey(hotkeyId, chatMode)
     return
   end
 
-  local keys = Keybind.getHotkeyKeys(hotkeyId, Keybind.currentPreset, chatMode)
+  local keys = {
+    primary = hotkey.primary or '',
+    secondary = hotkey.secondary or ''
+  }
   local gameRootPanel = modules.game_interface.getRootPanel()
   local action = hotkey.action
 
@@ -1439,7 +1442,10 @@ function Keybind.unbindHotkey(hotkeyId, chatMode)
     return
   end
 
-  local keys = Keybind.getHotkeyKeys(hotkeyId, Keybind.currentPreset, chatMode)
+  local keys = {
+    primary = hotkey.primary or '',
+    secondary = hotkey.secondary or ''
+  }
   local gameRootPanel = modules.game_interface.getRootPanel()
   local action = hotkey.action
 

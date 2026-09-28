@@ -462,7 +462,9 @@ local function commitCustomInlineKey(keyCombo)
   clearConflictingCustomHotkeys(keyCombo, session.row.hotkeyId)
   clearConflictingDefaultKeybinds(keyCombo)
   clearConflictingActionbarHotkey(keyCombo)
-  local other = customKeyColumnText(session.row:getChildByIndex(session.secondary and 3 or 5))
+  local hotkeys = Keybind.hotkeys[Keybind.chatMode] and Keybind.hotkeys[Keybind.chatMode][Keybind.currentPreset]
+  local hotkey = hotkeys and hotkeys[session.row.hotkeyId]
+  local other = hotkey and (session.secondary and hotkey.primary or hotkey.secondary) or ''
   if session.secondary then
     Keybind.editHotkeyKeys(session.row.hotkeyId, other, keyCombo, Keybind.chatMode)
   else
