@@ -12,8 +12,8 @@ function init()
     window = g_ui.displayUI('tasks')
     window:setVisible(false)
 
-    Keybind.new('Windows', 'show/hide Tasks Windows', 'Ctrl+A', '')
-    Keybind.bind('Windows', 'show/hide Tasks Windows', {
+    Keybind.new('Windows', 'Open Tasks Window', 'Alt+T', '')
+    Keybind.bind('Windows', 'Open Tasks Window', {
       {
         type = KEY_DOWN,
         callback = toggleWindow,
@@ -32,7 +32,7 @@ function terminate()
     ProtocolGame.unregisterExtendedJSONOpcode(215, parseOpcode)
     taskButton:destroy()
     destroy()
-    Keybind.delete('Windows', 'show/hide Tasks Windows')
+    Keybind.delete('Windows', 'Open Tasks Window')
 end
 
 function onGameStart()

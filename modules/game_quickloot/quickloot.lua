@@ -1,5 +1,8 @@
 QuickLoot = {}
 QuickLoot.TOGGLE_LOOT_LIST_ACTION = 'Toggle Loot List Item'
+QuickLoot.QUICK_LOOT_AT_CURSOR_ACTION = 'Quick Loot at Cursor'
+QuickLoot.QUICK_LOOT_CONTAINER_ACTION = 'Quick Loot Container'
+QuickLoot.OPEN_MANAGE_CONTAINERS_ACTION = 'Open Manage Loot Containers'
 
 local function pickQuickLootListItem(lookThing, useThing)
     if lookThing and not lookThing:isCreature() and lookThing:isPickupable() then
@@ -275,6 +278,193 @@ end
 function QuickLoot.toggleLootListUnderMouse()
     local lookThing, useThing = QuickLoot.resolveMouseTargetThings()
     QuickLoot.toggleLootListAt(lookThing, useThing)
+end
+
+function QuickLoot.getAreaLootVariant()
+    if modules.client_options and modules.client_options.getOption('quickAllCorpses') then
+        return 1
+    end
+    return 0
+end
+
+function QuickLoot.canQuickLootGroundThing(thing)
+    if not thing or not g_game.isQuickLootEnabled() then
+        return false
+    end
+
+    local pos = thing.getPosition and thing:getPosition()
+    if not pos or pos.x == 0xffff then
+        return false
+    end
+
+    if thing.getParentContainer and thing:getParentContainer() then
+        return false
+    end
+
+    if not thing.isContainer or not thing:isContainer() then
+        if not thing.isLyingCorpse or not thing:isLyingCorpse() then
+            return false
+        end
+    end
+
+    if thing.isPickupable and thing:isPickupable() and thing.isLyingCorpse and not thing:isLyingCorpse() then
+        return false
+    end
+
+    return true
+end
+
+local function quickLootGroundThing(thing)
+    if not QuickLoot.canQuickLootGroundThing(thing) then
+        return false
+    end
+
+    g_game.sendQuickLoot(QuickLoot.getAreaLootVariant(), thing)
+    return true
+end
+
+function QuickLoot.quickLootAtCursor()
+    if not g_game.isOnline() or not g_game.isQuickLootEnabled() then
+        return
+    end
+
+    local lookThing, useThing = QuickLoot.resolveMouseTargetThings()
+    if useThing and quickLootGroundThing(useThing) then
+        return
+    end
+
+    if lookThing and lookThing ~= useThing then
+        quickLootGroundThing(lookThing)
+    end
+end
+
+function QuickLoot.quickLootContainerAtCursor()
+    if not g_game.isOnline() or not g_game.isQuickLootEnabled() then
+        return
+    end
+
+    local lookThing, useThing = QuickLoot.resolveMouseTargetThings()
+    local target = useThing
+    if not target or not target.isContainer or not target:isContainer() then
+        target = lookThing
+    end
+
+    quickLootGroundThing(target)
+end
+
+function QuickLoot.openManageContainers()
+    if not g_game.isOnline() then
+        return
+    end
+
+    if not quickLootController or not quickLootController.ui then
+        return
+    end
+
+    QuickLoot.ensureManageContainersUi()
+
+    if not QuickLoot.toggle then
+        return
+    end
+
+    QuickLoot.toggle()
+end
+
+local function getLootKeybindWidget()
+    if modules.game_interface and modules.game_interface.getRootPanel then
+        local panel = modules.game_interface.getRootPanel()
+        if panel and not panel:isDestroyed() then
+            return panel
+        end
+    end
+    return nil
+end
+
+function QuickLoot.ensureManageContainersUi()
+    if not quickLootController or not quickLootController.ui or not quickLootController.ui.list then
+        return false
+    end
+
+    if quickLootController.ui.list:getChildCount() > 0 then
+        return true
+    end
+
+    if not QuickLoot.start then
+        return false
+    end
+
+    local containers = {}
+    if QuickLoot.lootContainers then
+        for i, entry in ipairs(QuickLoot.lootContainers) do
+            containers[i] = entry
+        end
+    end
+
+    QuickLoot.start(QuickLoot.lastQuickLootFallback or false, containers)
+    return true
+end
+
+function QuickLoot.bindKeybinds()
+    local widget = getLootKeybindWidget()
+    local binds = {
+        {
+            'Quick Loot Nearby Corpses',
+            {
+                {
+                    type = KEY_DOWN,
+                    callback = function()
+                        g_game.sendQuickLoot(2)
+                    end
+                }
+            }
+        },
+        {
+            QuickLoot.TOGGLE_LOOT_LIST_ACTION,
+            {
+                {
+                    type = KEY_DOWN,
+                    callback = function()
+                        if not g_game.isOnline() then
+                            return
+                        end
+                        QuickLoot.toggleLootListUnderMouse()
+                    end,
+                }
+            }
+        },
+        {
+            QuickLoot.QUICK_LOOT_AT_CURSOR_ACTION,
+            {
+                {
+                    type = KEY_DOWN,
+                    callback = QuickLoot.quickLootAtCursor,
+                }
+            }
+        },
+        {
+            QuickLoot.QUICK_LOOT_CONTAINER_ACTION,
+            {
+                {
+                    type = KEY_DOWN,
+                    callback = QuickLoot.quickLootContainerAtCursor,
+                }
+            }
+        },
+        {
+            QuickLoot.OPEN_MANAGE_CONTAINERS_ACTION,
+            {
+                {
+                    type = KEY_DOWN,
+                    callback = QuickLoot.openManageContainers,
+                }
+            }
+        },
+    }
+
+    for _, bind in ipairs(binds) do
+        Keybind.unbind('Loot', bind[1])
+        Keybind.bind('Loot', bind[1], bind[2], widget)
+    end
 end
 
 local function showModal(widget)
@@ -829,33 +1019,26 @@ function quickLootController:onInit()
     quickLootController:registerEvents(g_game, {
         onQuickLootContainers = QuickLoot.start
     })
-    Keybind.new("Loot", "Quick Loot Nearby Corpses", "Alt+Q", "")
-    Keybind.bind("Loot", "Quick Loot Nearby Corpses", {
-        {
-            type = KEY_DOWN,
-            callback = function()
-                g_game.sendQuickLoot(2)
-            end
-        }
+    Keybind.new("Loot", "Quick Loot Nearby Corpses", "Alt+Q", {
+        [CHAT_MODE.ON] = "",
+        [CHAT_MODE.OFF] = "Space",
     })
     Keybind.new("Loot", QuickLoot.TOGGLE_LOOT_LIST_ACTION, "Shift+MB2", "")
-    Keybind.bind("Loot", QuickLoot.TOGGLE_LOOT_LIST_ACTION, {
-        {
-            type = KEY_DOWN,
-            callback = function()
-                if not g_game.isOnline() then
-                    return
-                end
-                QuickLoot.toggleLootListUnderMouse()
-            end,
-        }
-    })
+    Keybind.new("Loot", QuickLoot.QUICK_LOOT_AT_CURSOR_ACTION, "", "")
+    Keybind.new("Loot", QuickLoot.QUICK_LOOT_CONTAINER_ACTION, "", "")
+    Keybind.new("Loot", QuickLoot.OPEN_MANAGE_CONTAINERS_ACTION, "Shift+L", "")
+
+    QuickLoot.bindKeybinds()
+
     g_game.openContainerQuickLoot(3, nil, {}, nil, nil, true)
 end
 
 function quickLootController:onTerminate()
     Keybind.delete("Loot", QuickLoot.TOGGLE_LOOT_LIST_ACTION)
     Keybind.delete("Loot", "Quick Loot Nearby Corpses")
+    Keybind.delete("Loot", QuickLoot.QUICK_LOOT_AT_CURSOR_ACTION)
+    Keybind.delete("Loot", QuickLoot.QUICK_LOOT_CONTAINER_ACTION)
+    Keybind.delete("Loot", QuickLoot.OPEN_MANAGE_CONTAINERS_ACTION)
 
     if QuickLoot.mouseGrabberWidget then
         QuickLoot.mouseGrabberWidget:destroy()
@@ -898,6 +1081,7 @@ function quickLootController:onGameStart()
     quickLootController.ui.information.vipPanel.premium:setOn(not g_game.getLocalPlayer():isPremium())
     QuickLoot.load()
     g_game.requestQuickLootBlackWhiteList(getFilter(QuickLoot.data.filter), #QuickLoot.data.loots[QuickLoot.data.filter], QuickLoot.data.loots[QuickLoot.data.filter])
+    QuickLoot.bindKeybinds()
     scheduleEvent(function()
         QuickLoot.refreshAllQuickLootIcons()
     end, 100)

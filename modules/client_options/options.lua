@@ -518,11 +518,98 @@ function controller:onInit()
         }
     })
 
-    Keybind.new("Sound", "Mute/unmute", "", "")
-    Keybind.bind("Sound", "Mute/unmute", {
+    Keybind.new("Sound", "Mute/unmute music", "", "")
+    Keybind.bind("Sound", "Mute/unmute music", {
         {
             type = KEY_DOWN,
             callback = function() toggleOption('enableAudio') end,
+        }
+    })
+
+    Keybind.new("UI", "Open Custom Hotkeys", "Ctrl+K", "")
+    Keybind.bind("UI", "Open Custom Hotkeys", {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                openOptionsCategory('Controls', 'Custom Hotk...')
+            end,
+        }
+    })
+
+    Keybind.new("UI", "Switch Hotkey Preset", "Ctrl+J", "")
+    Keybind.bind("UI", "Switch Hotkey Preset", {
+        {
+            type = KEY_DOWN,
+            callback = cycleHotkeyPreset,
+        }
+    })
+
+    Keybind.new("UI", "Open Options", "Ctrl+X", "")
+    Keybind.bind("UI", "Open Options", {
+        {
+            type = KEY_DOWN,
+            callback = toggle,
+        }
+    })
+    Keybind.registerControlButtonHotkey('optionsMainButton', 'UI', 'Open Options')
+    Keybind.registerControlButtonHotkey('optionsButton', 'UI', 'Open Options')
+    if extraWidgets.optionsButton and Keybind.applyControlButtonTooltip then
+        Keybind.applyControlButtonTooltip(extraWidgets.optionsButton, 'optionsButton')
+    end
+
+    Keybind.new("UI", "Manage Control Buttons", "Ctrl+Shift+M", "")
+    Keybind.bind("UI", "Manage Control Buttons", {
+        {
+            type = KEY_DOWN,
+            callback = openManageControlButtonsPage,
+        }
+    })
+    Keybind.registerControlButtonHotkey('manageControlButtons', 'UI', 'Manage Control Buttons')
+
+    Keybind.new("UI", "Open General Hotkeys", "", "")
+    Keybind.bind("UI", "Open General Hotkeys", {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                openOptionsCategory('Controls', 'General Hotk...')
+            end,
+        }
+    })
+
+    Keybind.new("UI", "Open Options Action Bars", "", "")
+    Keybind.bind("UI", "Open Options Action Bars", {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                openOptionsCategory('Interface', 'Action Bars')
+            end,
+        }
+    })
+
+    Keybind.new("UI", "Toggle Action Bars", "", "")
+    Keybind.bind("UI", "Toggle Action Bars", {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                if modules.game_actionbar and modules.game_actionbar.toggleAllActionBars then
+                    modules.game_actionbar.toggleAllActionBars()
+                end
+            end,
+        }
+    })
+
+    Keybind.new("UI", "Toggle Minimap Fullscreen", "", "")
+    Keybind.bind("UI", "Toggle Minimap Fullscreen", {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                if not g_game.isOnline() then
+                    return
+                end
+                if modules.game_minimap and modules.game_minimap.fullscreen then
+                    modules.game_minimap.fullscreen()
+                end
+            end,
         }
     })
 end
@@ -553,7 +640,15 @@ function controller:onTerminate()
     Keybind.delete("UI", "Toggle Fullscreen")
     Keybind.delete("UI", "Show/hide Creature Names and Bars")
     Keybind.delete("UI", "Show/hide FPS / lag indicator")
-    Keybind.delete("Sound", "Mute/unmute")
+    Keybind.delete("Sound", "Mute/unmute music")
+    Keybind.delete("UI", "Open Custom Hotkeys")
+    Keybind.delete("UI", "Switch Hotkey Preset")
+    Keybind.delete("UI", "Open Options")
+    Keybind.delete("UI", "Manage Control Buttons")
+    Keybind.delete("UI", "Open General Hotkeys")
+    Keybind.delete("UI", "Open Options Action Bars")
+    Keybind.delete("UI", "Toggle Action Bars")
+    Keybind.delete("UI", "Toggle Minimap Fullscreen")
 
     terminate_binds()
     terminate_custom_hotkeys()
@@ -653,6 +748,15 @@ local function applyAutomaticPreset(attempt)
                 g_logger.warning(string.format("[client_options] Failed to sync action bar hotkey set '%s' on startup.", preset))
             end
         end
+    end
+end
+
+function syncChatModePanels(chatMode)
+    if syncKeybindsPanelChatMode then
+        syncKeybindsPanelChatMode(chatMode)
+    end
+    if syncCustomHotkeysPanelChatMode then
+        syncCustomHotkeysPanelChatMode(chatMode)
     end
 end
 
@@ -834,17 +938,21 @@ function setupOptionsMainButton()
         extraWidgets.optionsButtons = modules.game_mainpanel.addSpecialToggleButton('optionsMainButton', tr('Options'),
             '/images/options/button_options', toggle, true)
     end
+    if extraWidgets.optionsButtons and Keybind.applyControlButtonTooltip then
+        Keybind.applyControlButtonTooltip(extraWidgets.optionsButtons, 'optionsMainButton')
+    end
 
     if not extraWidgets.manageControlButtonsButton then
         extraWidgets.manageControlButtonsButton = modules.game_mainpanel.addToggleButton(
             'manageControlButtons',
-            tr('Manage control buttons'),
+            tr('Manage Control Buttons'),
             '/images/options/button_control',
             openManageControlButtonsPage,
             false,
             9999
         )
         extraWidgets.manageControlButtonsButton:setOn(false)
+        Keybind.applyControlButtonTooltip(extraWidgets.manageControlButtonsButton, 'manageControlButtons')
     end
 end
 
@@ -1451,6 +1559,12 @@ end
 
 function hide()
     -- Save all settings when closing the options window
+    if cancelGeneralHotkeyInlineEdit then
+        cancelGeneralHotkeyInlineEdit()
+    end
+    if cancelCustomHotkeyInlineEdit then
+        cancelCustomHotkeyInlineEdit()
+    end
     commitRenderBackendChange()
     g_settings.save()
     cancelCategoryAnimations()
@@ -1478,7 +1592,11 @@ function toggle()
         end
     end
     show()
-    updateKeybinds()
+    if controller.ui.selectedOption == panels.keybindsPanel and updateKeybinds then
+        updateKeybinds()
+    elseif refreshGeneralHotkeysListIfNeeded then
+        refreshGeneralHotkeysListIfNeeded()
+    end
     updateCustomHotkeys()
 end
 
@@ -1776,6 +1894,9 @@ local function createSubWidget(parent, subId, subButton)
             panelToShow:show()
             panelToShow:setVisible(true)
             controller.ui.selectedOption = panelToShow
+            if subWidget.open == 'keybindsPanel' and updateKeybinds then
+                updateKeybinds()
+            end
         else
             g_logger.error(string.format('[client_options] Missing options panel for subcategory "%s" (%s)',
                 tostring(subWidget.Button.Title:getText()), tostring(subWidget.open)))
@@ -1993,6 +2114,44 @@ end
 
 function getPanel()
     return controller.ui.optionsTabContent
+end
+
+function cycleHotkeyPreset()
+    local presets = Keybind and Keybind.presets
+    if not presets or #presets == 0 then
+        return
+    end
+
+    local currentIdx = 1
+    for i, preset in ipairs(presets) do
+        if preset == Keybind.currentPreset then
+            currentIdx = i
+            break
+        end
+    end
+
+    local nextIdx = currentIdx % #presets + 1
+    local nextPreset = presets[nextIdx]
+    if not nextPreset or nextPreset == Keybind.currentPreset then
+        return
+    end
+
+    Keybind.selectPreset(nextPreset)
+    if panels and panels.keybindsPanel and panels.keybindsPanel.presets and panels.keybindsPanel.presets.list then
+        panels.keybindsPanel.presets.list:setCurrentOption(nextPreset, true)
+        if updateKeybinds then
+            updateKeybinds()
+        end
+    end
+    if panels and panels.customHotkeys and panels.customHotkeys.presets and panels.customHotkeys.presets.list then
+        panels.customHotkeys.presets.list:setCurrentOption(nextPreset, true)
+        if updateCustomHotkeys then
+            updateCustomHotkeys()
+        end
+    end
+    if modules.game_actionbar and modules.game_actionbar.selectHotkeySet then
+        modules.game_actionbar.selectHotkeySet(nextPreset)
+    end
 end
 
 function openOptionsCategory(category, subcategory)

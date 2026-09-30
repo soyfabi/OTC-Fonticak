@@ -835,7 +835,8 @@ local function syncQuestLogTrackerMainPanelButton()
 	buttonQuestLogTrackerButton:setOn(on)
 
 	if buttonQuestLogTrackerButton.setTooltip then
-		buttonQuestLogTrackerButton:setTooltip(tr(on and "Close Quest Tracker Window" or "Open Quest Tracker Window"))
+		buttonQuestLogTrackerButton.hotkeyTooltipBase = tr(on and "Close Quest Tracker" or "Open Quest Tracker")
+		Keybind.applyControlButtonTooltip(buttonQuestLogTrackerButton, 'questTrackerButton')
 	end
 end
 
@@ -1925,12 +1926,21 @@ function questLogController:onInit()
 		toggle()
 	end, false, 1000)
 
-	Keybind.new("Windows", "Show/hide quest Log", "", "")
-	Keybind.bind("Windows", "Show/hide quest Log", {
+	Keybind.new("Windows", "Open Quest Log", "Ctrl+Shift+Q", "")
+	Keybind.bind("Windows", "Open Quest Log", {
 		{
 			type = KEY_DOWN,
 			callback = function()
-				show()
+				toggle()
+			end
+		}
+	})
+	Keybind.new("Windows", "Open Quest Tracker", "Alt+Shift+T", "")
+	Keybind.bind("Windows", "Open Quest Tracker", {
+		{
+			type = KEY_DOWN,
+			callback = function()
+				questLogController:toggleMiniWindowsTracker()
 			end
 		}
 	})
@@ -1943,7 +1953,8 @@ function questLogController:onTerminate()
 		buttonQuestLogTrackerButton
 	})
 
-	Keybind.delete("Windows", "Show/hide quest Log")
+	Keybind.delete("Windows", "Open Quest Log")
+	Keybind.delete("Windows", "Open Quest Tracker")
 end
 
 function questLogController:onGameStart()
@@ -1972,7 +1983,7 @@ function questLogController:onGameStart()
 	end
 
 	if not buttonQuestLogTrackerButton then
-		buttonQuestLogTrackerButton = modules.game_mainpanel.addToggleButton("questTrackerButton", tr("Open Quest Tracker Window"), "/images/options/button_questlog_tracker", function()
+		buttonQuestLogTrackerButton = modules.game_mainpanel.addToggleButton("questTrackerButton", tr("Open Quest Tracker"), "/images/options/button_questlog_tracker", function()
 			questLogController:toggleMiniWindowsTracker()
 		end, false, 1001)
 	end

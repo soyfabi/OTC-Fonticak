@@ -1034,6 +1034,37 @@ function init()
 
 	modules.game_cyclopedia.Cyclopedia = Cyclopedia
 
+	function Cyclopedia.toggleBosstiaryTracker()
+		-- Bosstiary tracker window is not implemented in this client yet.
+	end
+
+	Keybind.new('Windows', 'Open Bosstiary Tracker', 'Alt+Shift+B', '')
+	Keybind.bind('Windows', 'Open Bosstiary Tracker', {
+		{
+			type = KEY_DOWN,
+			callback = Cyclopedia.toggleBosstiaryTracker
+		}
+	})
+	Keybind.new('Windows', 'Open Bestiary Tracker', 'Alt+B', '')
+	Keybind.bind('Windows', 'Open Bestiary Tracker', {
+		{
+			type = KEY_DOWN,
+			callback = toggleTracker
+		}
+	})
+	Keybind.new('Windows', 'Open Cyclopedia', 'Alt+C', '')
+	Keybind.bind('Windows', 'Open Cyclopedia', {
+		{
+			type = KEY_DOWN,
+			callback = function()
+				if not g_game.isOnline() then
+					return
+				end
+				toggle()
+			end
+		}
+	})
+
 	if g_game.isOnline() then
 		connectCyclopediaCharacterEvents()
 		connectCyclopediaMoneyListeners()
@@ -1071,6 +1102,10 @@ function terminate()
 	if Cyclopedia.uninstallSpellAimTalkHook then
 		Cyclopedia.uninstallSpellAimTalkHook()
 	end
+
+	Keybind.delete('Windows', 'Open Bosstiary Tracker')
+	Keybind.delete('Windows', 'Open Bestiary Tracker')
+	Keybind.delete('Windows', 'Open Cyclopedia')
 
 	-- Hooked opcodes
 	ProtocolGame.unregisterOpcode(0x29)

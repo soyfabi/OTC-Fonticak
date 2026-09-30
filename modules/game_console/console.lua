@@ -240,18 +240,8 @@ function consoleController:onInit()
         return true
     end
 
-    g_keyboard.bindKeyPress('Shift+Up', function()
-        navigateMessageHistory(1)
-    end, consolePanel)
-    g_keyboard.bindKeyPress('Shift+Down', function()
-        navigateMessageHistory(-1)
-    end, consolePanel)
-  
     g_keyboard.bindKeyDown('Enter', switchChatOnCall, consolePanel)
     g_keyboard.bindKeyDown('Escape', disableChatOnCall, consolePanel)
-    g_keyboard.bindKeyPress('Ctrl+A', function()
-        consoleTextEdit:clearText()
-    end, consolePanel)
 
     -- apply buttom functions after loaded
     consoleTabBar:setNavigation(consolePanel:getChildById('prevChannelButton'),
@@ -315,6 +305,47 @@ function consoleController:onInit()
         }
       }, consolePanel)
 
+    Keybind.new("Chat", "Scroll Message History Up", { [CHAT_MODE.ON] = "Shift+Up", [CHAT_MODE.OFF] = "" }, "")
+    Keybind.bind("Chat", "Scroll Message History Up", {
+        {
+            type = KEY_PRESS,
+            callback = function()
+                navigateMessageHistory(1)
+            end,
+        }
+    }, consolePanel)
+    Keybind.new("Chat", "Scroll Message History Down", { [CHAT_MODE.ON] = "Shift+Down", [CHAT_MODE.OFF] = "" }, "")
+    Keybind.bind("Chat", "Scroll Message History Down", {
+        {
+            type = KEY_PRESS,
+            callback = function()
+                navigateMessageHistory(-1)
+            end,
+        }
+    }, consolePanel)
+    Keybind.new("Chat", "Select all in Console", { [CHAT_MODE.ON] = "Ctrl+A", [CHAT_MODE.OFF] = "" }, "")
+    Keybind.bind("Chat", "Select all in Console", {
+        {
+            type = KEY_PRESS,
+            callback = selectAllConsoleHotkey,
+        }
+    }, consolePanel)
+
+    Keybind.new("Chat Mode", "Set to Chat On", "", "")
+    Keybind.bind("Chat Mode", "Set to Chat On", {
+        {
+            type = KEY_DOWN,
+            callback = setChatModeOn,
+        }
+    }, gameRootPanel)
+    Keybind.new("Chat Mode", "Set to Chat Off", "", "")
+    Keybind.bind("Chat Mode", "Set to Chat Off", {
+        {
+            type = KEY_DOWN,
+            callback = setChatModeOff,
+        }
+    }, gameRootPanel)
+
     -- toggle WASD
     consoleToggleChat = consolePanel:getChildById('toggleChat')
     readOnlyButton = consolePanel:getChildById("readOnlyButton")
@@ -353,6 +384,17 @@ function selectAll(consoleBuffer)
             last = consoleBuffer:getChildIndex(consoleBuffer:getLastChild())
         }
     end
+end
+
+function selectAllConsoleHotkey()
+    if not isChatEnabled() then
+        return
+    end
+    local tab = consoleTabBar:getCurrentTab()
+    if not tab then
+        return
+    end
+    selectAll(tab.tabPanel:getChildById('consoleBuffer'))
 end
 
 function toggleChat()
@@ -411,9 +453,21 @@ local function bindMovingKeys()
     gameWalk.bindTurnKey('Ctrl+A', West)
 end
 
-function switchChat(enabled)
+local function syncConsoleToggleChatButton(chatEnabled)
+    if not consoleToggleChat then
+        return
+    end
+
+    consoleToggleChat.isChecked = not chatEnabled
+    if chatEnabled then
+        consoleToggleChat:setText(walkAfterSend and (tr('Chat On') .. '*') or tr('Chat On'))
+    else
+        consoleToggleChat:setText(tr('Chat Off'))
+    end
+end
+
+function switchChat(enabled, skipKeybindUpdate)
     -- enabled should be true if we enabling the chat and false if disabling it
-    -- consoleToggleChat:setChecked(not consoleToggleChat.isChecked)
     if not (enabled and consoleTextEdit:isVisible()) then
         consoleTextEdit:setVisible(enabled)
         consoleTextEdit:setText('')
@@ -422,13 +476,38 @@ function switchChat(enabled)
     if enabled then
         unbindMovingKeys()
         consoleToggleChat:setTooltip(tr('Disable chat mode, allow to walk using WASD'))
-        Keybind.setChatMode(CHAT_MODE.ON)
+        if not skipKeybindUpdate then
+            Keybind.setChatMode(CHAT_MODE.ON)
+        end
     else
         walkAfterSend = false -- leaving chat -> clear temporary state (covers manual button toggle too)
         bindMovingKeys()
         consoleToggleChat:setTooltip(tr('Enable chat mode'))
-        Keybind.setChatMode(CHAT_MODE.OFF)
+        if not skipKeybindUpdate then
+            Keybind.setChatMode(CHAT_MODE.OFF)
+        end
     end
+
+    syncConsoleToggleChatButton(enabled)
+end
+
+function applyChatModeFromKeybind(chatMode)
+    if not g_game.isOnline() or modules.game_hotkeys.areHotkeysDisabled() then
+        return
+    end
+
+    if not consoleToggleChat or not consoleTextEdit then
+        return
+    end
+
+    local chatEnabled = chatMode == CHAT_MODE.ON
+    if isChatEnabled() == chatEnabled then
+        syncConsoleToggleChatButton(chatEnabled)
+        return
+    end
+
+    walkAfterSend = false
+    switchChat(chatEnabled, true)
 end
 
 function switchChatOnCall()
@@ -471,6 +550,40 @@ function toggleChatHotkey()
     toggleChat()
 end
 
+function setChatModeOn()
+    if not g_game.isOnline() or modules.game_hotkeys.areHotkeysDisabled() then
+        return
+    end
+
+    if not consoleToggleChat or not consoleTextEdit then
+        return
+    end
+
+    walkAfterSend = false
+    if not isChatEnabled() then
+        consoleToggleChat.isChecked = false
+        consoleToggleChat:setText(walkAfterSend and (tr('Chat On') .. '*') or tr('Chat On'))
+        switchChat(true)
+    end
+end
+
+function setChatModeOff()
+    if not g_game.isOnline() or modules.game_hotkeys.areHotkeysDisabled() then
+        return
+    end
+
+    if not consoleToggleChat or not consoleTextEdit then
+        return
+    end
+
+    walkAfterSend = false
+    if isChatEnabled() then
+        consoleToggleChat.isChecked = true
+        consoleToggleChat:setText(tr('Chat Off'))
+        switchChat(false)
+    end
+end
+
 function disableChatOnCall()
     if not g_game.isOnline() or modules.game_hotkeys.areHotkeysDisabled() then
         return
@@ -502,6 +615,11 @@ function consoleController:onTerminate()
     Keybind.delete("Chat Channel", "Open Help Channel")
     Keybind.delete("Chat", "Send current chat line")
     Keybind.delete("Chat", "Enable/Disable Chat")
+    Keybind.delete("Chat", "Scroll Message History Up")
+    Keybind.delete("Chat", "Scroll Message History Down")
+    Keybind.delete("Chat", "Select all in Console")
+    Keybind.delete("Chat Mode", "Set to Chat On")
+    Keybind.delete("Chat Mode", "Set to Chat Off")
     saveCommunicationSettings()
     clearReadOnlyTab()
     if readOnlyModeEnabled then

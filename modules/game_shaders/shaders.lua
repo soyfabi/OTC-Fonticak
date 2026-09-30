@@ -157,8 +157,8 @@ function ShaderController:onInit()
         registerShader(opts, 'setupTextShader')
     end
 
-    Keybind.new('Windows', 'show/hide Shader Windows', HOTKEY, '')
-    Keybind.bind('Windows', 'show/hide Shader Windows', {
+    Keybind.new('Windows', 'Open Shader Window', HOTKEY, '')
+    Keybind.bind('Windows', 'Open Shader Window', {
         {
             type = KEY_DOWN,
             callback = function()
@@ -174,7 +174,7 @@ end
 
 function ShaderController:onTerminate()
     g_shaders.clear()
-    Keybind.delete('Windows', 'show/hide Shader Windows')
+    Keybind.delete('Windows', 'Open Shader Window')
 end
 
 function ShaderController:onGameStart()

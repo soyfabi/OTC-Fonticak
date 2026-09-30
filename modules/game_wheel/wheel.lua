@@ -144,10 +144,25 @@ function init()
 
   wheelButton = createWheelButton()
   setWheelButtonState(false)
+
+  Keybind.new('Windows', 'Open Wheel of Destiny', 'Ctrl+Shift+W', '')
+  Keybind.bind('Windows', 'Open Wheel of Destiny', {
+    {
+      type = KEY_DOWN,
+      callback = function()
+        if not g_game.isOnline() then
+          return
+        end
+        toggle()
+      end
+    }
+  })
 end
 
 function terminate()
   WheelOfDestiny.cancelPendingAutoApply()
+
+  Keybind.delete('Windows', 'Open Wheel of Destiny')
 
   disconnect(g_game, {
     onGameEnd = onGameEnd,

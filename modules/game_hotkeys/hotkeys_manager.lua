@@ -67,8 +67,8 @@ local hotkeysWindowButton = nil
 -- public functions
 function init()
 
-    Keybind.new("Windows", "Show/hide Hotkeys", "Ctrl+K", "")
-    Keybind.bind("Windows", "Show/hide Hotkeys", {
+    Keybind.new("Windows", "Open Hotkeys", "Alt+K", "")
+    Keybind.bind("Windows", "Open Hotkeys", {
       {
         type = KEY_DOWN,
         callback = openCustomHotkeys,
@@ -138,7 +138,7 @@ function terminate()
         onGameEnd = offline
     })
 
-    Keybind.delete("Windows", "Show/hide Hotkeys")
+    Keybind.delete("Windows", "Open Hotkeys")
 
     unload()
 
@@ -418,6 +418,16 @@ function addHotkey()
     comboLabel.keyCombo = ''
     assignWindow.onKeyDown = hotkeyCapture
     assignWindow.onMousePress = function(window, mousePos, button)
+        local clickedWidget = window:recursiveGetChildByPos(mousePos, false)
+        if clickedWidget then
+            local current = clickedWidget
+            while current and current ~= window do
+                if current.getClassName and current:getClassName() == 'UIButton' then
+                    return false
+                end
+                current = current:getParent()
+            end
+        end
         local keyCombo = Keybind.getMouseKeyCombo(button, g_keyboard.getModifiers())
         if not keyCombo then
             return false
@@ -543,6 +553,11 @@ function doKeyCombo(keyCombo)
 end
 
 function toggleChaseMode()
+    if modules.game_inventory and modules.game_inventory.toggleChaseMode then
+        modules.game_inventory.toggleChaseMode()
+        return
+    end
+
     local currentMode = g_game.getChaseMode()
     local nextMode = currentMode == ChaseOpponent and DontChase or ChaseOpponent
     g_game.setChaseMode(nextMode)
@@ -980,6 +995,7 @@ function removeHotkeyByCombo(keyCombo)
         end
         hotkeyLabel:destroy()
         updateHotkeyForm(true)
+        save()
         return true
     end
     return false

@@ -357,6 +357,10 @@ function inventoryController:onInit()
     connect(pvpModeRadioGroup, {
         onSelectionChange = onSetPVPMode
     })
+
+    Keybind.new('Movement', 'Stop Attack', '', '')
+    Keybind.new('Movement', 'Stop Follow', '', '')
+    Keybind.new('Movement', 'Toggle Chase Mode', '', '')
 end
 
 local function onItemStateFeatures()
@@ -429,6 +433,16 @@ function inventoryController:onGameStart()
     end
     inventoryController.ui.onPanel.purseButton:setVisible(g_game.getFeature(GamePurseSlot))
 
+    Keybind.new('Windows', 'Open Inventory', 'Ctrl+Shift+I', '')
+    Keybind.bind('Windows', 'Open Inventory', {
+        {
+            type = KEY_DOWN,
+            callback = toggleInventoryHotkey
+        }
+    }, modules.game_interface and modules.game_interface.getRootPanel())
+
+    bindCombatKeybinds()
+
     if isPlayerMonk() and player then
         local leftItem = player:getInventoryItem(InventorySlotLeft)
         if leftItem then
@@ -464,6 +478,11 @@ function inventoryController:onGameEnd()
 end
 
 function inventoryController:onTerminate()
+    Keybind.delete('Windows', 'Open Inventory')
+    Keybind.delete('Movement', 'Stop Attack')
+    Keybind.delete('Movement', 'Stop Follow')
+    Keybind.delete('Movement', 'Toggle Chase Mode')
+
     disconnect(g_game, {
         onItemStateFeatures = onItemStateFeatures
     })
@@ -509,6 +528,51 @@ function selectPosture(key, ignoreUpdate)
         if not ignoreUpdate then
             g_game.setChaseMode(ChaseOpponent)
         end
+    end
+end
+
+function toggleChaseMode()
+    if not g_game.isOnline() then
+        return
+    end
+
+    if g_game.getChaseMode() == ChaseOpponent then
+        selectPosture('stand', false)
+    else
+        selectPosture('follow', false)
+    end
+end
+
+local function stopAttackHotkey()
+    if not g_game.isOnline() then
+        return
+    end
+    g_game.cancelAttack()
+end
+
+local function stopFollowHotkey()
+    if not g_game.isOnline() then
+        return
+    end
+    g_game.cancelFollow()
+end
+
+function bindCombatKeybinds()
+    local widget = modules.game_interface and modules.game_interface.getRootPanel()
+    local binds = {
+        { 'Stop Attack', stopAttackHotkey },
+        { 'Stop Follow', stopFollowHotkey },
+        { 'Toggle Chase Mode', toggleChaseMode },
+    }
+
+    for _, bind in ipairs(binds) do
+        Keybind.unbind('Movement', bind[1])
+        Keybind.bind('Movement', bind[1], {
+            {
+                type = KEY_DOWN,
+                callback = bind[2],
+            }
+        }, widget)
     end
 end
 
@@ -620,7 +684,23 @@ function extendedView(extendedView)
         inventoryController.ui:show()
     end
     inventoryController.ui.moveOnlyToMain = not extendedView
+end
 
+function toggleInventoryHotkey()
+    if not inventoryController or not inventoryController.ui then
+        return
+    end
+
+    if iconTopMenu then
+        toggle()
+        return
+    end
+
+    if inventoryController.ui:isVisible() then
+        inventoryController.ui:hide()
+    else
+        inventoryController.ui:show()
+    end
 end
 
 function toggle()

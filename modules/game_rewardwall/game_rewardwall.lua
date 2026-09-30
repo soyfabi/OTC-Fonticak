@@ -1623,12 +1623,27 @@ function rewardWallController:onInit()
 	})
 	setupRewardWallUi()
 	rewardWallController.updateButtonHighlight = updateButtonHighlight
+
+	Keybind.new('Windows', 'Open Reward Wall', 'Alt+Shift+R', '')
+	Keybind.bind('Windows', 'Open Reward Wall', {
+		{
+			type = KEY_DOWN,
+			callback = function()
+				if not g_game.isOnline() then
+					return
+				end
+				toggle()
+			end
+		}
+	})
 end
 
 function rewardWallController:onTerminate()
 	cancelClearInfoPanel()
 	stopDailyRewardSlotTimer()
 	stopRestingAreaTimer()
+
+	Keybind.delete('Windows', 'Open Reward Wall')
 
 	generalBox, windowsPickWindow, ButtonRewardWall = destroyWindows({
 		generalBox,

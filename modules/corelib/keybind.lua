@@ -28,8 +28,115 @@ Keybind = {
     ["Down"] = true,
     ["Left"] = true,
     ["Right"] = true
-  }
+  },
+
+  -- Old preset node id -> { category, action }
+  legacyActionRenames = {
+    ["Dialogs_Open Bugreport"] = { "Dialogs", "Open Bug Report" },
+    ["Sound_Mute/unmute"] = { "Sound", "Mute/unmute music" },
+    ["Windows_show/hide Tasks Windows"] = { "Windows", "Open Tasks Window" },
+    ["Windows_Show/hide Tasks Windows"] = { "Windows", "Open Tasks Window" },
+    ["Windows_Show/hide Tasks Window"] = { "Windows", "Open Tasks Window" },
+    ["Windows_show/hide Shader Windows"] = { "Windows", "Open Shader Window" },
+    ["Windows_Show/hide Shader Windows"] = { "Windows", "Open Shader Window" },
+    ["Windows_Show/hide Shader Window"] = { "Windows", "Open Shader Window" },
+    ["Windows_show/hide inventory"] = { "Windows", "Open Inventory" },
+    ["Windows_Show/hide Inventory"] = { "Windows", "Open Inventory" },
+    ["Windows_show/hide cyclopedia"] = { "Windows", "Open Cyclopedia" },
+    ["Windows_Show/hide Cyclopedia"] = { "Windows", "Open Cyclopedia" },
+    ["Windows_show/hide battle list"] = { "Windows", "Open Battle List" },
+    ["Windows_Show/hide Battle List"] = { "Windows", "Open Battle List" },
+    ["Windows_show/hide VIP list"] = { "Windows", "Open VIP List" },
+    ["Windows_Show/hide VIP List"] = { "Windows", "Open VIP List" },
+    ["Windows_show/hide skills windows"] = { "Windows", "Open Skills Window" },
+    ["Windows_Show/hide Skills Window"] = { "Windows", "Open Skills Window" },
+    ["Windows_show/hide spell list"] = { "Windows", "Open Spell List" },
+    ["Windows_Show/hide Spell List"] = { "Windows", "Open Spell List" },
+    ["Windows_show/hide quest Log"] = { "Windows", "Open Quest Log" },
+    ["Windows_Show/hide Quest Log"] = { "Windows", "Open Quest Log" },
+    ["Windows_show/hide quest tracker"] = { "Windows", "Open Quest Tracker" },
+    ["Windows_Show/hide Quest Tracker"] = { "Windows", "Open Quest Tracker" },
+    ["Windows_show/hide prey tracker"] = { "Windows", "Open Prey Tracker" },
+    ["Windows_Show/hide Prey Tracker"] = { "Windows", "Open Prey Tracker" },
+    ["Windows_show/hide imbuement tracker"] = { "Windows", "Open Imbuement Tracker" },
+    ["Windows_Show/hide Imbuement Tracker"] = { "Windows", "Open Imbuement Tracker" },
+    ["Windows_show/hide analyser window"] = { "Windows", "Open Analyser Window" },
+    ["Windows_Show/hide Analyser Window"] = { "Windows", "Open Analyser Window" },
+    ["Windows_show/hide wheel of destiny"] = { "Windows", "Open Wheel of Destiny" },
+    ["Windows_Show/hide Wheel of Destiny"] = { "Windows", "Open Wheel of Destiny" },
+    ["Windows_show/hide exaltation forge"] = { "Windows", "Open Exaltation Forge" },
+    ["Windows_Show/hide Exaltation Forge"] = { "Windows", "Open Exaltation Forge" },
+    ["Windows_show/hide reward wall"] = { "Windows", "Open Reward Wall" },
+    ["Windows_Show/hide Reward Wall"] = { "Windows", "Open Reward Wall" },
+    ["Windows_show/hide store"] = { "Windows", "Open Store" },
+    ["Windows_Show/hide Store"] = { "Windows", "Open Store" },
+    ["Windows_show/hide Hotkeys"] = { "Windows", "Open Hotkeys" },
+    ["Windows_Show/hide Hotkeys"] = { "Windows", "Open Hotkeys" },
+    ["Windows_show/hide bestiary tracker"] = { "Windows", "Open Bestiary Tracker" },
+    ["Windows_Show/hide Bestiary Tracker"] = { "Windows", "Open Bestiary Tracker" },
+    ["Windows_show/hide bosstiary tracker"] = { "Windows", "Open Bosstiary Tracker" },
+    ["Windows_Show/hide Bosstiary Tracker"] = { "Windows", "Open Bosstiary Tracker" },
+  },
+
+  legacyPresetKeysMigrated = false
 }
+
+function Keybind.makeIndex(category, action)
+  return category .. '_' .. action
+end
+
+function Keybind.normalizeKeybindIdentity(category, action)
+  if not category or not action then
+    return category, action
+  end
+
+  local renamed = Keybind.legacyActionRenames[Keybind.makeIndex(category, action)]
+  if renamed then
+    return renamed[1], renamed[2]
+  end
+
+  return category, action
+end
+
+function Keybind.getLegacyIndex(category, action)
+  local newIndex = Keybind.makeIndex(category, action)
+  for oldIndex, identity in pairs(Keybind.legacyActionRenames) do
+    if Keybind.makeIndex(identity[1], identity[2]) == newIndex then
+      return oldIndex
+    end
+  end
+  return nil
+end
+
+function Keybind.migrateLegacyPresetKeys()
+  if Keybind.legacyPresetKeysMigrated then
+    return
+  end
+  Keybind.legacyPresetKeysMigrated = true
+
+  for _, preset in ipairs(Keybind.presets) do
+    local config = Keybind.configs.keybinds[preset]
+    if config then
+      local changed = false
+      for oldIndex, identity in pairs(Keybind.legacyActionRenames) do
+        local newIndex = Keybind.makeIndex(identity[1], identity[2])
+        if Keybind.defaultKeybinds[newIndex] then
+          local oldNode = config:getNode(oldIndex)
+          if oldNode then
+            if not config:getNode(newIndex) then
+              config:setNode(newIndex, oldNode)
+            end
+            config:remove(oldIndex)
+            changed = true
+          end
+        end
+      end
+      if changed then
+        config:save()
+      end
+    end
+  end
+end
 
 KEY_UP = 1
 KEY_DOWN = 2
@@ -254,6 +361,62 @@ function Keybind.delete(category, action)
   Keybind.defaultKeybinds[index] = nil
 end
 
+local function getKeybindMouseWidget(widget)
+  if widget and not widget:isDestroyed() then
+    return widget
+  end
+  if modules.game_interface and modules.game_interface.getRootPanel then
+    return modules.game_interface.getRootPanel()
+  end
+  return g_ui.getRootWidget()
+end
+
+local function bindKeybindCombo(keyCombo, callbackInfo, widget)
+  if not keyCombo then
+    return
+  end
+  keyCombo = tostring(keyCombo)
+  if keyCombo:len() == 0 then
+    return
+  end
+  if Keybind.isMouseKeyCombo(keyCombo) then
+    if callbackInfo.type == KEY_DOWN or callbackInfo.type == KEY_PRESS then
+      Keybind.bindMouseButtonKey(keyCombo, callbackInfo.callback, getKeybindMouseWidget(widget))
+    end
+    return
+  end
+  if callbackInfo.type == KEY_UP then
+    g_keyboard.bindKeyUp(keyCombo, callbackInfo.callback, widget, callbackInfo.alone)
+  elseif callbackInfo.type == KEY_DOWN then
+    g_keyboard.bindKeyDown(keyCombo, callbackInfo.callback, widget, callbackInfo.alone)
+  elseif callbackInfo.type == KEY_PRESS then
+    g_keyboard.bindKeyPress(keyCombo, callbackInfo.callback, widget)
+  end
+end
+
+local function unbindKeybindCombo(keyCombo, callbackInfo, widget)
+  if not keyCombo then
+    return
+  end
+  keyCombo = tostring(keyCombo)
+  if keyCombo:len() == 0 then
+    return
+  end
+  if Keybind.isMouseKeyCombo(keyCombo) then
+    if callbackInfo.type == KEY_DOWN or callbackInfo.type == KEY_PRESS then
+      Keybind.unbindMouseButtonKey(keyCombo, getKeybindMouseWidget(widget))
+    end
+    return
+  end
+  if callbackInfo.type == KEY_UP then
+    g_keyboard.unbindKeyUp(keyCombo, callbackInfo.callback, widget)
+  elseif callbackInfo.type == KEY_DOWN then
+    g_keyboard.unbindKeyDown(keyCombo, callbackInfo.callback, widget)
+  elseif callbackInfo.type == KEY_PRESS then
+    g_keyboard.unbindKeyPress(keyCombo, callbackInfo.callback, widget)
+  end
+end
+
 function Keybind.bind(category, action, callbacks, widget)
   local index = category .. '_' .. action
   local keybind = Keybind.defaultKeybinds[index]
@@ -268,46 +431,8 @@ function Keybind.bind(category, action, callbacks, widget)
   local keys = Keybind.getKeybindKeys(category, action)
 
   for _, callback in ipairs(keybind.callbacks) do
-    if callback.type == KEY_UP then
-      if keys.primary then
-        keys.primary = tostring(keys.primary)
-        if keys.primary:len() > 0 and not Keybind.isMouseKeyCombo(keys.primary) then
-          g_keyboard.bindKeyUp(keys.primary, callback.callback, keybind.widget, callback.alone)
-        end
-      end
-      if keys.secondary then
-        keys.secondary = tostring(keys.secondary)
-        if keys.secondary:len() > 0 and not Keybind.isMouseKeyCombo(keys.secondary) then
-          g_keyboard.bindKeyUp(keys.secondary, callback.callback, keybind.widget, callback.alone)
-        end
-      end
-    elseif callback.type == KEY_DOWN then
-      if keys.primary then
-        keys.primary = tostring(keys.primary)
-        if keys.primary:len() > 0 and not Keybind.isMouseKeyCombo(keys.primary) then
-          g_keyboard.bindKeyDown(keys.primary, callback.callback, keybind.widget, callback.alone)
-        end
-      end
-      if keys.secondary then
-        keys.secondary = tostring(keys.secondary)
-        if keys.secondary:len() > 0 and not Keybind.isMouseKeyCombo(keys.secondary) then
-          g_keyboard.bindKeyDown(keys.secondary, callback.callback, keybind.widget, callback.alone)
-        end
-      end
-    elseif callback.type == KEY_PRESS then
-      if keys.primary then
-        keys.primary = tostring(keys.primary)
-        if keys.primary:len() > 0 and not Keybind.isMouseKeyCombo(keys.primary) then
-          g_keyboard.bindKeyPress(keys.primary, callback.callback, keybind.widget)
-        end
-      end
-      if keys.secondary then
-        keys.secondary = tostring(keys.secondary)
-        if keys.secondary:len() > 0 and not Keybind.isMouseKeyCombo(keys.secondary) then
-          g_keyboard.bindKeyPress(keys.secondary, callback.callback, keybind.widget)
-        end
-      end
-    end
+    bindKeybindCombo(keys.primary, callback, keybind.widget)
+    bindKeybindCombo(keys.secondary, callback, keybind.widget)
   end
 end
 
@@ -322,46 +447,8 @@ function Keybind.unbind(category, action)
   local keys = Keybind.getKeybindKeys(category, action)
 
   for _, callback in ipairs(keybind.callbacks) do
-    if callback.type == KEY_UP then
-      if keys.primary then
-        keys.primary = tostring(keys.primary)
-        if keys.primary:len() > 0 and not Keybind.isMouseKeyCombo(keys.primary) then
-          g_keyboard.unbindKeyUp(keys.primary, callback.callback, keybind.widget)
-        end
-      end
-      if keys.secondary then
-        keys.secondary = tostring(keys.secondary)
-        if keys.secondary:len() > 0 and not Keybind.isMouseKeyCombo(keys.secondary) then
-          g_keyboard.unbindKeyUp(keys.secondary, callback.callback, keybind.widget)
-        end
-      end
-    elseif callback.type == KEY_DOWN then
-      if keys.primary then
-        keys.primary = tostring(keys.primary)
-        if keys.primary:len() > 0 and not Keybind.isMouseKeyCombo(keys.primary) then
-          g_keyboard.unbindKeyDown(keys.primary, callback.callback, keybind.widget)
-        end
-      end
-      if keys.secondary then
-        keys.secondary = tostring(keys.secondary)
-        if keys.secondary:len() > 0 and not Keybind.isMouseKeyCombo(keys.secondary) then
-          g_keyboard.unbindKeyDown(keys.secondary, callback.callback, keybind.widget)
-        end
-      end
-    elseif callback.type == KEY_PRESS then
-      if keys.primary then
-        keys.primary = tostring(keys.primary)
-        if keys.primary:len() > 0 and not Keybind.isMouseKeyCombo(keys.primary) then
-          g_keyboard.unbindKeyPress(keys.primary, callback.callback, keybind.widget)
-        end
-      end
-      if keys.secondary then
-        keys.secondary = tostring(keys.secondary)
-        if keys.secondary:len() > 0 and not Keybind.isMouseKeyCombo(keys.secondary) then
-          g_keyboard.unbindKeyPress(keys.secondary, callback.callback, keybind.widget)
-        end
-      end
-    end
+    unbindKeybindCombo(keys.primary, callback, keybind.widget)
+    unbindKeybindCombo(keys.secondary, callback, keybind.widget)
   end
 end
 
@@ -523,19 +610,30 @@ function Keybind.selectPreset(presetName)
     Keybind.bindHotkey(hotkey.hotkeyId, Keybind.chatMode)
   end
 
+  Keybind.refreshControlButtonTooltips()
   return true
 end
 
 function Keybind.getAction(category, action)
-  local index = category .. '_' .. action
-  return Keybind.defaultKeybinds[index]
+  category, action = Keybind.normalizeKeybindIdentity(category, action)
+  return Keybind.defaultKeybinds[Keybind.makeIndex(category, action)]
 end
 
 function Keybind.setPrimaryActionKey(category, action, preset, keyCombo, chatMode)
-  local index = category .. '_' .. action
+  category, action = Keybind.normalizeKeybindIdentity(category, action)
+  local index = Keybind.makeIndex(category, action)
   local keybind = Keybind.defaultKeybinds[index]
+  if not keybind then
+    return false
+  end
 
   local keys = Keybind.configs.keybinds[preset]:getNode(index)
+  if not keys then
+    local legacyIndex = Keybind.getLegacyIndex(category, action)
+    if legacyIndex then
+      keys = Keybind.configs.keybinds[preset]:getNode(legacyIndex)
+    end
+  end
   if not keys then
     keys = table.recursivecopy(keybind.keys)
   else
@@ -560,18 +658,34 @@ function Keybind.setPrimaryActionKey(category, action, preset, keyCombo, chatMod
 
   Keybind.configs.keybinds[preset]:setNode(index, keys)
 
+  local legacyIndex = Keybind.getLegacyIndex(category, action)
+  if legacyIndex and legacyIndex ~= index then
+    Keybind.configs.keybinds[preset]:remove(legacyIndex)
+  end
+
   if keybind.callbacks then
     Keybind.bind(category, action, keybind.callbacks, keybind.widget)
   end
 
+  Keybind.refreshControlButtonTooltips()
   return ret
 end
 
 function Keybind.setSecondaryActionKey(category, action, preset, keyCombo, chatMode)
-  local index = category .. '_' .. action
+  category, action = Keybind.normalizeKeybindIdentity(category, action)
+  local index = Keybind.makeIndex(category, action)
   local keybind = Keybind.defaultKeybinds[index]
+  if not keybind then
+    return false
+  end
 
   local keys = Keybind.configs.keybinds[preset]:getNode(index)
+  if not keys then
+    local legacyIndex = Keybind.getLegacyIndex(category, action)
+    if legacyIndex then
+      keys = Keybind.configs.keybinds[preset]:getNode(legacyIndex)
+    end
+  end
   if not keys then
     keys = table.recursivecopy(keybind.keys)
   else
@@ -596,10 +710,16 @@ function Keybind.setSecondaryActionKey(category, action, preset, keyCombo, chatM
 
   Keybind.configs.keybinds[preset]:setNode(index, keys)
 
+  local legacyIndex = Keybind.getLegacyIndex(category, action)
+  if legacyIndex and legacyIndex ~= index then
+    Keybind.configs.keybinds[preset]:remove(legacyIndex)
+  end
+
   if keybind.callbacks then
     Keybind.bind(category, action, keybind.callbacks, keybind.widget)
   end
 
+  Keybind.refreshControlButtonTooltips()
   return ret
 end
 
@@ -624,6 +744,8 @@ function Keybind.resetKeybindsToDefault(presetName, chatMode)
       Keybind.bind(keybind.category, keybind.action, keybind.callbacks, keybind.widget)
     end
   end
+
+  Keybind.refreshControlButtonTooltips()
 end
 
 function Keybind.getKeybindKeys(category, action, chatMode, preset, forceDefault)
@@ -631,15 +753,32 @@ function Keybind.getKeybindKeys(category, action, chatMode, preset, forceDefault
     chatMode = Keybind.chatMode
   end
 
-  local index = category .. '_' .. action
+  category, action = Keybind.normalizeKeybindIdentity(category, action)
+
+  local index = Keybind.makeIndex(category, action)
   local keybind = Keybind.defaultKeybinds[index]
-  local keys = Keybind.configs.keybinds[preset or Keybind.currentPreset]:getNode(index)
+  local config = Keybind.configs.keybinds[preset or Keybind.currentPreset]
+  local keys = config and config:getNode(index)
+
+  if not keys and config then
+    local legacyIndex = Keybind.getLegacyIndex(category, action)
+    if legacyIndex then
+      keys = config:getNode(legacyIndex)
+    end
+  end
 
   if not keys or forceDefault then
-    keys = {
-      primary = keybind.keys[chatMode].primary,
-      secondary = keybind.keys[chatMode].secondary
-    }
+    if not keybind then
+      keys = {
+        primary = "",
+        secondary = ""
+      }
+    else
+      keys = {
+        primary = keybind.keys[chatMode].primary,
+        secondary = keybind.keys[chatMode].secondary
+      }
+    end
   else
     keys = keys[chatMode] or keys[tostring(chatMode)]
   end
@@ -690,6 +829,45 @@ function Keybind.isKeyComboUsed(keyCombo, category, action, chatMode)
   end
 
   return false
+end
+
+function Keybind.getKeyComboOverwriteTarget(keyCombo, category, action, chatMode, preset)
+  if not keyCombo or keyCombo == '' or Keybind.reservedKeys[keyCombo] then
+    return nil
+  end
+
+  if not chatMode then
+    chatMode = Keybind.chatMode
+  end
+
+  preset = preset or Keybind.currentPreset
+
+  if not category or not action then
+    return nil
+  end
+
+  local targetKeys = Keybind.getKeybindKeys(category, action, chatMode, preset)
+
+  for _, keybind in pairs(Keybind.defaultKeybinds) do
+    local keys = Keybind.getKeybindKeys(keybind.category, keybind.action, chatMode, preset)
+    if keys.primary == keyCombo and targetKeys.primary ~= keyCombo then
+      return keybind.category, keybind.action
+    end
+    if keys.secondary == keyCombo and targetKeys.secondary ~= keyCombo then
+      return keybind.category, keybind.action
+    end
+  end
+
+  return nil
+end
+
+function Keybind.formatKeyComboOverwriteMessage(keyCombo, category, action, chatMode, preset)
+  local conflictCategory, conflictAction = Keybind.getKeyComboOverwriteTarget(keyCombo, category, action, chatMode, preset)
+  if not conflictAction then
+    return tr('This hotkey is already in use and will be overwritten.')
+  end
+
+  return tr('This hotkey is already in use and will be overwritten by \'%s: %s\'.', conflictCategory, conflictAction)
 end
 
 function Keybind.saveHotkeys(preset, chatMode)
@@ -1031,8 +1209,129 @@ function Keybind.formatKeyComboForDisplay(keyCombo)
   return text
 end
 
+function Keybind.formatActionShortcut(category, action, chatMode, preset)
+  local keys = Keybind.getKeybindKeys(category, action, chatMode, preset)
+  local primary = keys and keys.primary
+  if not primary or primary == '' then
+    return nil
+  end
+  return string.format('(%s)', Keybind.formatKeyComboForDisplay(primary))
+end
+
+Keybind.controlButtonHotkeys = {
+  cyclopediaButton = { 'Windows', 'Open Cyclopedia' },
+  bestiaryTrackerButton = { 'Windows', 'Open Bestiary Tracker' },
+  preyButton = { 'Dialogs', 'Open Prey Dialog' },
+  preyTrackerButton = { 'Windows', 'Open Prey Tracker' },
+  wheelButton = { 'Windows', 'Open Wheel of Destiny' },
+  skillsButton = { 'Windows', 'Open Skills Window' },
+  battleButton = { 'Windows', 'Open Battle List' },
+  vipListButton = { 'Windows', 'Open VIP List' },
+  questLogButton = { 'Windows', 'Open Quest Log' },
+  questTrackerButton = { 'Windows', 'Open Quest Tracker' },
+  forgeButton = { 'Windows', 'Open Exaltation Forge' },
+  rewardWall = { 'Windows', 'Open Reward Wall' },
+  spelllistButton = { 'Windows', 'Open Spell List' },
+  analyzerButton = { 'Windows', 'Open Analyser Window' },
+  imbuementTrackerButton = { 'Windows', 'Open Imbuement Tracker' },
+  highscoresButton = { 'Windows', 'Open Highscore Dialog' },
+  unjustifiedPointsButton = { 'Windows', 'Open Unjustified Points' },
+  manageControlButtons = { 'UI', 'Manage Control Buttons' },
+}
+
+function Keybind.registerControlButtonHotkey(buttonId, category, action)
+  Keybind.controlButtonHotkeys[buttonId] = { category, action }
+end
+
+function Keybind.stripHotkeySuffix(text)
+  if not text or text == '' then
+    return text
+  end
+  return text:gsub('%s*%b()$', '')
+end
+
+function Keybind.formatTooltipWithHotkey(baseText, category, action, chatMode, preset)
+  if not baseText or baseText == '' then
+    return baseText
+  end
+
+  local keys = Keybind.getKeybindKeys(category, action, chatMode, preset)
+  local primary = keys and keys.primary
+  if not primary or primary == '' then
+    return baseText
+  end
+
+  return string.format('%s (%s)', baseText, Keybind.formatKeyComboForDisplay(primary))
+end
+
+local function findControlButton(buttonId)
+  if modules.game_mainpanel and modules.game_mainpanel.getButton then
+    local button = modules.game_mainpanel.getButton(buttonId)
+    if button and not button:isDestroyed() then
+      return button
+    end
+  end
+
+  if modules.client_topmenu and modules.client_topmenu.getButton then
+    local button = modules.client_topmenu.getButton(buttonId)
+    if button and not button:isDestroyed() then
+      return button
+    end
+  end
+
+  return nil
+end
+
+function Keybind.applyControlButtonTooltip(button, buttonId)
+  if not button or button:isDestroyed() then
+    return
+  end
+
+  local hotkey = Keybind.controlButtonHotkeys[buttonId]
+  if not hotkey then
+    return
+  end
+
+  local base = button.hotkeyTooltipBase
+  if not base or base == '' then
+    if button.getTooltip then
+      base = Keybind.stripHotkeySuffix(button:getTooltip() or '')
+    end
+  end
+
+  if not base or base == '' then
+    return
+  end
+
+  button.hotkeyTooltipBase = base
+  button:setTooltip(Keybind.formatTooltipWithHotkey(base, hotkey[1], hotkey[2]))
+end
+
+function Keybind.syncToggleButtonTooltip(button, buttonId, openLabel, closeLabel)
+  if not button or button:isDestroyed() then
+    return
+  end
+
+  local on = button:isOn()
+  button.hotkeyTooltipBase = tr(on and closeLabel or openLabel)
+  Keybind.applyControlButtonTooltip(button, buttonId)
+end
+
+function Keybind.refreshControlButtonTooltips()
+  if not g_game.isOnline() then
+    return
+  end
+
+  for buttonId in pairs(Keybind.controlButtonHotkeys) do
+    local button = findControlButton(buttonId)
+    if button then
+      Keybind.applyControlButtonTooltip(button, buttonId)
+    end
+  end
+end
+
 local function mouseKeyPressHandler(self, mousePos, rawButton)
-  local combo = Keybind.getMouseKeyCombo(rawButton)
+  local combo = Keybind.getMouseKeyCombo(rawButton, g_keyboard.getModifiers())
   if combo then
     local callback = self.mouseKeyBindings and self.mouseKeyBindings[combo]
     if callback then
@@ -1045,9 +1344,10 @@ end
 -- Registers a callback for a mouse-button combo on a widget. Other mouse
 -- presses (and unbound MB4/MB5) fall through to the remaining handlers.
 function Keybind.bindMouseButtonKey(keyCombo, callback, widget)
-  if not widget or not Keybind.isMouseKey(keyCombo) then
+  if not widget or not Keybind.isMouseKeyCombo(keyCombo) then
     return
   end
+  keyCombo = tostring(keyCombo)
   if not widget.mouseKeyBindings then
     widget.mouseKeyBindings = {}
     connect(widget, { onMousePress = mouseKeyPressHandler })
@@ -1061,7 +1361,7 @@ function Keybind.unbindMouseButtonKey(keyCombo, widget)
   if not widget or not widget.mouseKeyBindings then
     return
   end
-  widget.mouseKeyBindings[keyCombo] = nil
+  widget.mouseKeyBindings[tostring(keyCombo)] = nil
   if not next(widget.mouseKeyBindings) then
     disconnect(widget, { onMousePress = mouseKeyPressHandler })
     widget.mouseKeyBindings = nil
@@ -1075,9 +1375,7 @@ end
 
 local function bindHotkeyKey(keyCombo, action, callback, widget)
   if Keybind.isMouseKeyCombo(keyCombo) then
-    if Keybind.isMouseKey(keyCombo) then
-      Keybind.bindMouseButtonKey(keyCombo, callback, widget)
-    end
+    Keybind.bindMouseButtonKey(keyCombo, callback, widget)
   elseif isKeyDownAction(action) then
     g_keyboard.bindKeyDown(keyCombo, callback, widget)
   else
@@ -1087,9 +1385,7 @@ end
 
 local function unbindHotkeyKey(keyCombo, action, callback, widget)
   if Keybind.isMouseKeyCombo(keyCombo) then
-    if Keybind.isMouseKey(keyCombo) then
-      Keybind.unbindMouseButtonKey(keyCombo, widget)
-    end
+    Keybind.unbindMouseButtonKey(keyCombo, widget)
   elseif isKeyDownAction(action) then
     g_keyboard.unbindKeyDown(keyCombo, callback, widget)
   else
@@ -1112,7 +1408,10 @@ function Keybind.bindHotkey(hotkeyId, chatMode)
     return
   end
 
-  local keys = Keybind.getHotkeyKeys(hotkeyId, Keybind.currentPreset, chatMode)
+  local keys = {
+    primary = hotkey.primary or '',
+    secondary = hotkey.secondary or ''
+  }
   local gameRootPanel = modules.game_interface.getRootPanel()
   local action = hotkey.action
 
@@ -1143,7 +1442,10 @@ function Keybind.unbindHotkey(hotkeyId, chatMode)
     return
   end
 
-  local keys = Keybind.getHotkeyKeys(hotkeyId, Keybind.currentPreset, chatMode)
+  local keys = {
+    primary = hotkey.primary or '',
+    secondary = hotkey.secondary or ''
+  }
   local gameRootPanel = modules.game_interface.getRootPanel()
   local action = hotkey.action
 
@@ -1157,8 +1459,23 @@ function Keybind.unbindHotkey(hotkeyId, chatMode)
   end
 end
 
+function Keybind.syncChatModeUI(chatMode)
+  if modules.client_options and modules.client_options.syncChatModePanels then
+    modules.client_options.syncChatModePanels(chatMode)
+  end
+
+  if modules.game_console and modules.game_console.applyChatModeFromKeybind then
+    modules.game_console.applyChatModeFromKeybind(chatMode)
+  end
+
+  Keybind.refreshControlButtonTooltips()
+end
+
 function Keybind.setChatMode(chatMode)
-  if Keybind.chatMode == chatMode then
+  local modeChanged = Keybind.chatMode ~= chatMode
+
+  if not modeChanged then
+    Keybind.syncChatModeUI(chatMode)
     return
   end
 
@@ -1191,4 +1508,6 @@ function Keybind.setChatMode(chatMode)
   if modules.game_walking then
     modules.game_walking.bindTurnKeys()
   end
+
+  Keybind.syncChatModeUI(chatMode)
 end

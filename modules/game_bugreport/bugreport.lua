@@ -12,8 +12,8 @@ function init()
 
     bugTextEdit = bugReportWindow:getChildById('bugTextEdit')
 
-    Keybind.new("Dialogs", "Open Bugreport", HOTKEY, "")
-    Keybind.bind("Dialogs", "Open Bugreport", {
+    Keybind.new("Dialogs", "Open Bug Report", HOTKEY, "")
+    Keybind.bind("Dialogs", "Open Bug Report", {
       {
         type = KEY_DOWN,
         callback = show,
@@ -22,7 +22,7 @@ function init()
 end
 
 function terminate()
-    Keybind.delete("Dialogs", "Open Bugreport")
+    Keybind.delete("Dialogs", "Open Bug Report")
     bugReportWindow:destroy()
 end
 

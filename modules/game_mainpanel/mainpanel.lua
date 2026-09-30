@@ -157,7 +157,11 @@ local function createButton_large(id, description, image, callback, special, fro
         end
     end
     button:setId(id)
+    button.hotkeyTooltipBase = description
     button:setTooltip(description)
+    if Keybind.applyControlButtonTooltip then
+        Keybind.applyControlButtonTooltip(button, id)
+    end
     button:setImageSource(image)
     button:setImageClip('0 0 108 20')
     if button.setImageBorder then
@@ -271,7 +275,11 @@ local function createButton(id, description, image, callback, special, front, in
     end
 
     button:setId(id)
+    button.hotkeyTooltipBase = description
     button:setTooltip(description)
+    if Keybind.applyControlButtonTooltip then
+        Keybind.applyControlButtonTooltip(button, id)
+    end
     button:setSize('20 20')
     button:setImageSource(image)
     button:setImageClip('0 0 20 20')
@@ -385,6 +393,9 @@ function optionsController:onGameStart()
             updateAvailableButtonsList()
         end
         configLoaded = true
+        if Keybind.refreshControlButtonTooltips then
+            Keybind.refreshControlButtonTooltips()
+        end
     end, 50, "onGameStart")
 
     optionsController:scheduleEvent(function()
@@ -419,7 +430,41 @@ function addStoreButton(id, description, image, callback, front)
 end
 
 function getButton(id)
-    return optionsController.ui.onPanel.options:recursiveGetChildById(id)
+    local onPanel = optionsController.ui.onPanel
+    if not onPanel then
+        return nil
+    end
+
+    local button = onPanel.options:recursiveGetChildById(id)
+    if button then
+        return button
+    end
+
+    if onPanel.specials then
+        button = onPanel.specials:recursiveGetChildById(id)
+        if button then
+            return button
+        end
+    end
+
+    if onPanel.store then
+        button = onPanel.store:recursiveGetChildById(id)
+        if button then
+            return button
+        end
+    end
+
+    if modules.client_topmenu and modules.client_topmenu.getRightGameButtonsPanel then
+        local rightGamePanel = modules.client_topmenu.getRightGameButtonsPanel()
+        if rightGamePanel then
+            button = rightGamePanel:recursiveGetChildById(id)
+            if button then
+                return button
+            end
+        end
+    end
+
+    return nil
 end
 
 function toggleExtendedViewButtons(extended)
@@ -457,8 +502,14 @@ function toggleExtendedViewButtons(extended)
         optionsController.ui:show()
         optionsController.ui:setHeight(28)
         local mainRightPanel = modules.game_interface.getMainRightPanel()
-        if mainRightPanel:hasChild(optionsController.ui) then
-            mainRightPanel:moveChildToIndex(optionsController.ui, 4)
+        local optionsPanelWidget = optionsController.ui
+        if mainRightPanel and optionsPanelWidget and not optionsPanelWidget:isDestroyed()
+            and mainRightPanel:hasChild(optionsPanelWidget) then
+            local childCount = mainRightPanel:getChildCount()
+            local targetIndex = math.min(4, childCount)
+            if targetIndex >= 1 then
+                mainRightPanel:moveChildToIndex(optionsPanelWidget, targetIndex)
+            end
         end
     end
     refreshOptionsSizes()

@@ -673,6 +673,13 @@ function displayBroadcastMessage(text)
     displayMessage(MessageModes.Warning, text)
 end
 
+function clearOldestMessage()
+    local oldestLabel = findOldestVisibleCenterLabel(true)
+    if oldestLabel then
+        hideLabelMessage(oldestLabel)
+    end
+end
+
 function clearMessages()
     labelMessageSequence = 0
 

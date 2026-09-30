@@ -1565,9 +1565,10 @@ function init()
     end
     
     g_ui.importStyle('battlebutton')
-    battleButton = modules.game_mainpanel.addToggleButton('battleButton', tr('Battle') .. ' (Ctrl+B)',
+    battleButton = modules.game_mainpanel.addToggleButton('battleButton', tr('Open Battle List'),
         '/images/options/button_battlelist', toggle, false, 2)
     battleButton:setOn(true)
+    Keybind.syncToggleButtonTooltip(battleButton, 'battleButton', 'Open Battle List', 'Close Battle List')
     battleWindow = g_ui.loadUI('battle')
 
     -- Initialize main instance
@@ -1590,8 +1591,34 @@ function init()
     toggleFilterButton = mainInstance.toggleFilterButton
 
     -- Setup keybind
-    Keybind.new("Windows", "Show/hide battle list", "Ctrl+B", "")
-    Keybind.bind("Windows", "Show/hide battle list", {{ type = KEY_DOWN, callback = toggle }})
+    Keybind.new("Windows", "Open Battle List", "Ctrl+B", "")
+    Keybind.bind("Windows", "Open Battle List", {{ type = KEY_DOWN, callback = toggle }})
+
+    Keybind.new("Battle List", "Attack Next Target", "", "")
+    Keybind.bind("Battle List", "Attack Next Target", {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                if not g_game.isOnline() then
+                    return
+                end
+                attackNext()
+            end
+        }
+    })
+
+    Keybind.new("Battle List", "Attack Previous Target", "", "")
+    Keybind.bind("Battle List", "Attack Previous Target", {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                if not g_game.isOnline() then
+                    return
+                end
+                attackNext(true)
+            end
+        }
+    })
 
     -- Setup scrollbar - use default MiniWindow behavior
     local scrollbar = battleWindow:getChildById('miniwindowScrollBar')
@@ -2130,25 +2157,36 @@ function toggleFilterPanel() -- Switching modes of filter panel (hide/show)
 end
 
 function attackNext(previous)
-    local foundTarget = false
-    local firstElement = nil
-    local lastElement = nil
-    local prevElement = nil
-    local nextElement = nil
-
-    local mainInstance = BattleListManager.instances[0]
-    if not mainInstance or not mainInstance.panel then
-        return
+    if not g_game.isOnline() then
+        return false
     end
 
-    local children = mainInstance.panel:getChildren()
+    if not eventsConnected then
+        connecting()
+    end
 
-    for _, battleButton in pairs(mainInstance.panel:getChildren()) do
-        if battleButton:isVisible() then
-            -- select visible first child
-            if not firstElement then
-                firstElement = battleButton
-            end
+    local mainInstance = BattleListManager.instances[0]
+    if not mainInstance then
+        return false
+    end
+
+    if not mainInstance.binaryTree or #mainInstance.binaryTree == 0 then
+        mainInstance:checkCreatures()
+    end
+
+    local foundTarget = false
+    local firstElement, lastElement, prevElement, nextElement
+    local sortOrder = mainInstance:getSortOrder()
+    local start = sortOrder == 'A' and 1 or #mainInstance.binaryTree
+    local finish = #mainInstance.binaryTree - start + 1
+    local increment = start <= finish and 1 or -1
+
+    for i = start, finish, increment do
+        local entry = mainInstance.binaryTree[i]
+        local battleButton = entry and mainInstance.battleButtons[entry.id]
+
+        if battleButton and battleButton.creature and canBeSeen(battleButton.creature) then
+            firstElement = firstElement or battleButton
             lastElement = battleButton
 
             if battleButton.isTarget then
@@ -2168,18 +2206,17 @@ function attackNext(previous)
             else
                 g_game.attack(lastElement.creature)
             end
+        elseif nextElement then
+            g_game.attack(nextElement.creature)
         else
-            if nextElement then
-                g_game.attack(nextElement.creature)
-            else
-                g_game.attack(firstElement.creature)
-            end
+            g_game.attack(firstElement.creature)
         end
     elseif firstElement then
         g_game.attack(firstElement.creature)
     else
         return false
     end
+
     return true
 end
 
@@ -2749,6 +2786,7 @@ end
 
 function onOpen()
     battleButton:setOn(true)
+    Keybind.syncToggleButtonTooltip(battleButton, 'battleButton', 'Open Battle List', 'Close Battle List')
     connecting()
     
     -- Ensure default filters are applied for the main battle list
@@ -2778,6 +2816,7 @@ end
 
 function onClose()
     battleButton:setOn(false)
+    Keybind.syncToggleButtonTooltip(battleButton, 'battleButton', 'Open Battle List', 'Close Battle List')
     
     -- Only disconnect global events if there are no other battle list instances open
     local hasOpenInstances = false
@@ -2854,7 +2893,9 @@ function terminate() -- Terminating the Module (unload)
     filterPanel = nil
     toggleFilterButton = nil
 
-    Keybind.delete("Windows", "Show/hide battle list")
+    Keybind.delete("Windows", "Open Battle List")
+    Keybind.delete("Battle List", "Attack Next Target")
+    Keybind.delete("Battle List", "Attack Previous Target")
 
     disconnect(g_game, {
         onAttackingCreatureChange = onAttack,

@@ -26,7 +26,7 @@ bottomSplitter = nil
 chatHeightResizeControl = nil
 chatHeightPercentLabel = nil
 
-DEFAULT_BOTTOM_CHAT_MARGIN = 200
+DEFAULT_BOTTOM_CHAT_MARGIN = 98
 local CHAT_HEIGHT_PERCENT_FADE_MS = 320
 local chatHeightPercentHideEvent = nil
 local chatHeightPercentSplitterDragging = false
@@ -280,6 +280,119 @@ function init()
     StatsBar.init()
 end
 
+local function inspectItemThing(item)
+    if not item or item:getId() <= 0 then
+        return false
+    end
+
+    local pos = item.getPosition and item:getPosition()
+    if pos then
+        g_game.inspectionNormalObject(pos)
+        return true
+    end
+
+    local itemId = item:getId()
+    local count = 1
+    if item.getCountOrSubType then
+        count = math.max(1, item:getCountOrSubType())
+    elseif item.getCount then
+        count = math.max(1, item:getCount())
+    end
+    g_game.inspectionObject(InspectObjectTypes.INSPECT_CYCLOPEDIA, itemId, count)
+    return true
+end
+
+local function resolveItemUnderMouseWidget(widget)
+    if not widget or widget:isDestroyed() then
+        return nil
+    end
+
+    local current = widget
+    for _ = 1, 12 do
+        if not current or current:isDestroyed() then
+            break
+        end
+
+        if current.getClassName and current:getClassName() == 'UIItem' and current.getItem then
+            if not current.isVirtual or not current:isVirtual() then
+                local item = current:getItem()
+                if item and item:getId() > 0 then
+                    return item
+                end
+            end
+        end
+
+        if current.getChildById then
+            local itemSlot = current:getChildById('item')
+            if itemSlot and not itemSlot:isDestroyed() and itemSlot.getItem then
+                local item = itemSlot:getItem()
+                if item and item:getId() > 0 then
+                    return item
+                end
+            end
+        end
+
+        current = current:getParent()
+    end
+
+    return nil
+end
+
+local function inspectObjectUnderCursor()
+    if not g_game.isOnline() or not modules.game_inspect then
+        return
+    end
+
+    local mousePos = g_window.getMousePosition()
+
+    local rootWidget = g_ui.getRootWidget()
+    if rootWidget then
+        local clickedWidget = rootWidget:recursiveGetChildByPos(mousePos, false)
+        if not clickedWidget then
+            clickedWidget = rootWidget:recursiveGetChildByPos(mousePos, true)
+        end
+
+        if clickedWidget then
+            local item = resolveItemUnderMouseWidget(clickedWidget)
+            if item and inspectItemThing(item) then
+                return
+            end
+
+            if clickedWidget:getClassName() == 'UIGameMap' then
+                local tile = clickedWidget:getTile(mousePos)
+                if tile then
+                    local positionOffset = clickedWidget:getPositionOffset(mousePos)
+                    local lookThing = tile:getTopLookThingEx(positionOffset)
+                    if lookThing and lookThing:isItem() and not lookThing:isNotMoveable() then
+                        g_game.inspectionNormalObject(lookThing:getPosition())
+                        return
+                    end
+                end
+            end
+        end
+    end
+
+    local map = gameMapPanel or getMapPanel()
+    if not map or map:isDestroyed() then
+        return
+    end
+
+    if map.containsPoint and not map:containsPoint(mousePos) then
+        return
+    end
+
+    local tile = map:getTile(mousePos)
+    if not tile then
+        return
+    end
+
+    local positionOffset = map:getPositionOffset(mousePos)
+    local lookThing = tile:getTopLookThingEx(positionOffset)
+    if lookThing and lookThing:isItem() and not lookThing:isNotMoveable() then
+        g_game.inspectionNormalObject(lookThing:getPosition())
+    end
+end
+
 function bindKeys()
     if type(applyKeyboardDelay) == 'function' then
         applyKeyboardDelay()
@@ -287,12 +400,29 @@ function bindKeys()
         gameRootPanel:setAutoRepeatDelay(50)
     end
 
-    g_keyboard.bindKeyPress('Ctrl+=', function()
-        gameMapPanel:zoomIn()
-    end, gameRootPanel)
-    g_keyboard.bindKeyPress('Ctrl+-', function()
-        gameMapPanel:zoomOut()
-    end, gameRootPanel)
+    Keybind.new("UI", "Map zoom in", "Ctrl+=", "")
+    Keybind.bind("UI", "Map zoom in", {
+        {
+            type = KEY_PRESS,
+            callback = function()
+                if gameMapPanel then
+                    gameMapPanel:zoomIn()
+                end
+            end,
+        }
+    }, gameRootPanel)
+
+    Keybind.new("UI", "Map zoom out", "Ctrl+-", "")
+    Keybind.bind("UI", "Map zoom out", {
+        {
+            type = KEY_PRESS,
+            callback = function()
+                if gameMapPanel then
+                    gameMapPanel:zoomOut()
+                end
+            end,
+        }
+    }, gameRootPanel)
 
     Keybind.new("Movement", "Stop All Actions", "Escape", "", true)
     Keybind.bind("Movement", "Stop All Actions", {
@@ -326,31 +456,33 @@ function bindKeys()
         }
     }, gameRootPanel)
 
-    g_keyboard.bindKeyDown('Ctrl+.', nextViewMode, gameRootPanel)
-
-    g_keyboard.bindKeyDown('Ctrl+I', function()
-        if not g_game.isOnline() or not modules.game_inspect then return end
-        local mousePos = g_window.getMousePosition()
-        local widget = g_ui.getRootWidget():recursiveGetChildByPos(mousePos, false)
-        if widget then
-            if widget:getClassName() == 'UIItem' then
-                local item = widget:getItem()
-                if item and item:getId() > 0 then
-                    g_game.inspectionObject(InspectObjectTypes.INSPECT_CYCLOPEDIA, item:getId(), 1)
-                    return
+    Keybind.new("Misc", "Clear oldest message from Game Window", "Alt+W", "")
+    Keybind.bind("Misc", "Clear oldest message from Game Window", {
+        {
+            type = KEY_DOWN,
+            callback = function()
+                if modules.game_textmessage and modules.game_textmessage.clearOldestMessage then
+                    modules.game_textmessage.clearOldestMessage()
                 end
-            end
-        end
-        local map = gameMapPanel or getMapPanel()
-        if not map then return end
-        local tile = map:getTile(mousePos)
-        if not tile then return end
-        local positionOffset = map:getPositionOffset(mousePos)
-        local lookThing = tile:getTopLookThingEx(positionOffset)
-        if lookThing and lookThing:isItem() and not lookThing:isNotMoveable() then
-            g_game.inspectionNormalObject(lookThing:getPosition())
-        end
-    end, gameRootPanel)
+            end,
+        }
+    }, gameRootPanel)
+
+    Keybind.new("UI", "Next map view mode", "Ctrl+.", "")
+    Keybind.bind("UI", "Next map view mode", {
+        {
+            type = KEY_DOWN,
+            callback = nextViewMode,
+        }
+    }, gameRootPanel)
+
+    Keybind.new("UI", "Inspect object under cursor", "Ctrl+I", "")
+    Keybind.bind("UI", "Inspect object under cursor", {
+        {
+            type = KEY_DOWN,
+            callback = inspectObjectUnderCursor,
+        }
+    })
 end
 
 function terminate()
@@ -391,6 +523,11 @@ function terminate()
     Keybind.delete("Movement", "Stop All Actions")
     Keybind.delete("Misc", "Logout")
     Keybind.delete("UI", "Clear All Texts")
+    Keybind.delete("Misc", "Clear oldest message from Game Window")
+    Keybind.delete("UI", "Map zoom in")
+    Keybind.delete("UI", "Map zoom out")
+    Keybind.delete("UI", "Next map view mode")
+    Keybind.delete("UI", "Inspect object under cursor")
 end
 
 function onGameStart()
@@ -1125,7 +1262,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
         if modules.game_inspect and canInspectItem then
             menu:addOption(tr('Inspect'), function()
                 g_game.inspectionNormalObject(lookThing:getPosition())
-            end, '(Ctrl+I)')
+            end, Keybind.formatActionShortcut('UI', 'Inspect object under cursor'))
         end
         if lookThing:isItem() and lookThing:isPickupable() and not lookThing:isNotMoveable()
             and modules.game_cyclopedia
@@ -1196,9 +1333,11 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
             end)
         end
         if useThing:isLyingCorpse() and g_game.isQuickLootEnabled() and modules.game_quickloot and useThing:getPosition().x ~= 0xffff then
+            local lootCorpseShortcut = Keybind.formatActionShortcut('Loot', 'Quick Loot at Cursor')
+                or Keybind.formatActionShortcut('Loot', 'Quick Loot Container')
             menu.addOption(menu, tr("Loot corpse"), function()
                 g_game.sendQuickLoot(getQuickLootVariant(), useThing)
-            end)
+            end, lootCorpseShortcut)
         end
     end
 
@@ -1230,7 +1369,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
             if g_game.getFeature(GamePrey) then
                 menu:addOption(tr('Open Prey Dialog'), function()
                     modules.game_prey.show()
-                end)
+                end, Keybind.formatActionShortcut('Dialogs', 'Open Prey Dialog'))
             end
 
             if g_game.getFeature(GamePlayerMounts) then
@@ -1386,7 +1525,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
         if lookThing:isContainer() then
             menu.addOption(menu, tr("Manage Loot Containers"), function()
                 quickLoot.toggle()
-            end)
+            end, Keybind.formatActionShortcut('Loot', 'Open Manage Loot Containers'))
         end
 
         local lootExists = quickLoot.lootExists(lookThing:getId())
@@ -2260,8 +2399,40 @@ function isBottomStatsBarDockActive()
         and gameBottomStatsBarPanel:getHeight() > 0
 end
 
-CHAT_MIN_HEIGHT = 125
+CHAT_MIN_HEIGHT = 98
 COOLDOWN_PANEL_HEIGHT = 26
+local MIN_GAME_MAP_HEIGHT = 300
+local MAP_ASPECT_RATIO_FALLBACK = 15 / 11
+
+local function getMapAspectRatioForSplitter()
+    if gameMapPanel and not gameMapPanel:isDestroyed() then
+        local dim = gameMapPanel:getVisibleDimension()
+        if dim and dim.width and dim.height and dim.height > 0 then
+            return dim.width / dim.height
+        end
+    end
+    return MAP_ASPECT_RATIO_FALLBACK
+end
+
+local function getMapContentSize()
+    if not gameMapPanel or gameMapPanel:isDestroyed() then
+        return 0, 0
+    end
+    local rect = gameMapPanel:getPaddingRect()
+    return rect.width, rect.height
+end
+
+local function getMinimumMapContentHeight()
+    local contentWidth, contentHeight = getMapContentSize()
+    if contentWidth <= 0 or contentHeight <= 0 then
+        return MIN_GAME_MAP_HEIGHT
+    end
+    local aspectMinHeight = math.ceil(contentWidth / getMapAspectRatioForSplitter())
+    if contentHeight < aspectMinHeight then
+        return MIN_GAME_MAP_HEIGHT
+    end
+    return math.max(MIN_GAME_MAP_HEIGHT, aspectMinHeight)
+end
 
 local function getCooldownVisibleExtraHeight()
     local cd = modules.game_cooldown and modules.game_cooldown.cooldownWindow
@@ -2320,6 +2491,22 @@ function getBottomSplitterMinMarginBottom()
     return CHAT_MIN_HEIGHT + physicalTotal
 end
 
+function getBottomSplitterMaxMarginBottom(parentH)
+    local minM = getBottomSplitterMinMarginBottom()
+    if not parentH or parentH <= 0 then
+        if bottomSplitter and not bottomSplitter:isDestroyed() then
+            local parent = bottomSplitter:getParent()
+            if parent and not parent:isDestroyed() then
+                parentH = parent:getHeight()
+            end
+        end
+    end
+    if not parentH or parentH <= 0 then
+        return minM
+    end
+    return math.max(minM, parentH - getMinimumMapContentHeight())
+end
+
 function bottomSplitterCanUpdateMargin(splitter, newMargin)
     if modules.client_options.getOption('dontStretchShrink') then
         return splitter:getMarginBottom()
@@ -2330,7 +2517,7 @@ function bottomSplitterCanUpdateMargin(splitter, newMargin)
     end
     local parentH = parent:getHeight()
     local minM = getBottomSplitterMinMarginBottom()
-    local maxM = math.max(minM, parentH - 150)
+    local maxM = getBottomSplitterMaxMarginBottom(parentH)
     return math.max(math.min(newMargin, maxM), minM)
 end
 
@@ -2341,7 +2528,7 @@ function bottomSplitterOnGeometryChange(splitter)
     end
     local parentH = parent:getHeight()
     local minM = getBottomSplitterMinMarginBottom()
-    local maxM = math.max(minM, parentH - 150)
+    local maxM = getBottomSplitterMaxMarginBottom(parentH)
     local m = splitter:getMarginBottom()
     local clamped = math.min(math.max(m, minM), maxM)
     if clamped ~= m then
@@ -2356,7 +2543,11 @@ function applyBottomSplitterLayoutHeight()
         return
     end
     local minM = getBottomSplitterMinMarginBottom()
-    if minM > bottomSplitter:getMarginBottom() then
+    local maxM = getBottomSplitterMaxMarginBottom()
+    local margin = bottomSplitter:getMarginBottom()
+    if margin > maxM then
+        bottomSplitter:setMarginBottom(maxM)
+    elseif minM > margin then
         bottomSplitter:setMarginBottom(minM)
     end
     bottomSplitterOnGeometryChange(bottomSplitter)

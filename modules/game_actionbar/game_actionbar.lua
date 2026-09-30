@@ -1214,6 +1214,37 @@ function toggleCooldownOption()
     end
 end
 
+local ACTION_BAR_VISIBILITY_KEYS = {
+    'actionBarShowBottom1',
+    'actionBarShowBottom2',
+    'actionBarShowBottom3',
+    'actionBarShowLeft1',
+    'actionBarShowLeft2',
+    'actionBarShowLeft3',
+    'actionBarShowRight1',
+    'actionBarShowRight2',
+    'actionBarShowRight3',
+}
+
+function toggleAllActionBars()
+    if not modules.client_options or not modules.client_options.getOption then
+        return
+    end
+
+    local anyVisible = false
+    for _, key in ipairs(ACTION_BAR_VISIBILITY_KEYS) do
+        if modules.client_options.getOption(key) then
+            anyVisible = true
+            break
+        end
+    end
+
+    local target = not anyVisible
+    for _, key in ipairs(ACTION_BAR_VISIBILITY_KEYS) do
+        modules.client_options.setOption(key, target, true)
+    end
+end
+
 function configureActionBar(key, value)
     local map = {
         actionBarShowBottom1 = 1,

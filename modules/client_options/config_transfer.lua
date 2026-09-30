@@ -416,8 +416,12 @@ local function importGeneralHotkeys(payload)
         if chatMode and type(binds) == 'table' then
             for _, bind in ipairs(binds) do
                 if bind.category and bind.action then
-                    Keybind.setPrimaryActionKey(bind.category, bind.action, preset, bind.primary or '', chatMode)
-                    Keybind.setSecondaryActionKey(bind.category, bind.action, preset, bind.secondary or '', chatMode)
+                    local category, action = bind.category, bind.action
+                    if CipImportMappings and CipImportMappings.resolveKeybindIdentity then
+                        category, action = CipImportMappings.resolveKeybindIdentity(category, action)
+                    end
+                    Keybind.setPrimaryActionKey(category, action, preset, bind.primary or '', chatMode)
+                    Keybind.setSecondaryActionKey(category, action, preset, bind.secondary or '', chatMode)
                 end
             end
         end

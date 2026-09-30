@@ -159,8 +159,8 @@ function init()
 	skillsWindow = g_ui.loadUI("skills")
 
 	skillsWindow:setContentMinimumHeight(80)
-	Keybind.new("Windows", "Show/hide skills windows", "Alt+S", "")
-	Keybind.bind("Windows", "Show/hide skills windows", {
+	Keybind.new("Windows", "Open Skills Window", "Alt+S", "")
+	Keybind.bind("Windows", "Open Skills Window", {
 		{
 			type = KEY_DOWN,
 			callback = toggle
@@ -230,7 +230,7 @@ function terminate()
 		onGameStart = online,
 		onGameEnd = offline
 	})
-	Keybind.delete("Windows", "Show/hide skills windows")
+	Keybind.delete("Windows", "Open Skills Window")
 	ProtocolGame.unregisterExtendedJSONOpcode(ExtendedIds.WheelSkills)
 
 	if xpBoostCountdownEvent then
@@ -1586,7 +1586,8 @@ function syncSkillsMainPanelButton()
 	skillsButton:setOn(on)
 
 	if skillsButton.setTooltip then
-		skillsButton:setTooltip(tr(on and "Close Skills Window" or "Open Skills Window"))
+		skillsButton.hotkeyTooltipBase = tr(on and "Close Skills Window" or "Open Skills Window")
+		Keybind.applyControlButtonTooltip(skillsButton, 'skillsButton')
 	end
 end
 

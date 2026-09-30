@@ -155,10 +155,25 @@ function init()
     onRecvPixURL = onRecvPixURL,
     onCharacterBazarCheckInformations = onCharacterBazarCheckInformations
   })
+
+  Keybind.new('Windows', 'Open Store', 'Ctrl+Shift+O', '')
+  Keybind.bind('Windows', 'Open Store', {
+    {
+      type = KEY_DOWN,
+      callback = function()
+        if not g_game.isOnline() then
+          return
+        end
+        toggle()
+      end
+    }
+  })
 end
 
 function terminate()
   cancelPendingStoreUpdates(true)
+
+  Keybind.delete('Windows', 'Open Store')
 
   if terminateStoreDescription then
     terminateStoreDescription()
