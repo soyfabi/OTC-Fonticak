@@ -1,18 +1,5 @@
 containerSettings = nil
 
--- Window chrome outside the item-grid padding rect (title, margins, borders).
--- Measured dynamically from live geometry when available, with calibrated fallback.
-local function getContainerChromeHeight(containerWindow, containerPanel, hasPages)
-    if containerWindow and containerPanel then
-        local paddingRect = containerPanel:getPaddingRect()
-        local windowHeight = containerWindow:getHeight()
-        if paddingRect and paddingRect.height and paddingRect.height > 0 and windowHeight > paddingRect.height then
-            return windowHeight - paddingRect.height
-        end
-    end
-    return hasPages and 49 or 31
-end
-
 local function getContainerRowsHeight(cellSize, step, rows)
     rows = math.max(rows or 1, 1)
     return cellSize.height + (rows - 1) * step
@@ -1174,19 +1161,13 @@ function onContainerOpen(container, previousContainer)
     toggleContainerPages(containerWindow, container:hasPages())
     refreshContainerPages(container)
 
+    -- Initialize MiniWindow handlers before applying its content-based size.
+    containerWindow:setup()
+
     local layout = containerPanel:getLayout()
     local cellSize = layout:getCellSize()
     local step = cellSize.height + layout:getCellSpacing()
     local numLines = math.max(layout:getNumLines(), 1)
-    local hasPages = container:hasPages()
-    local chromeHeight = getContainerChromeHeight(containerWindow, containerPanel, hasPages)
-    containerWindow:setContentMinimumHeight(cellSize.height)
-
-    local resizeBorder = containerWindow:getChildById('bottomResizeBorder')
-    if resizeBorder then
-        resizeBorder:setMinimum(getContainerRowsHeight(cellSize, step, 1) + chromeHeight)
-        resizeBorder:setMaximum(getContainerRowsHeight(cellSize, step, numLines) + chromeHeight)
-    end
     -- Enables dragging only when mouse press occurs within window bounds (with tolerance margins)
     -- and not over the containerPanel child widget
     -- On Drop: When an item is dropped, it is placed at the nearest valid parent location, such as in a grid.
@@ -1224,42 +1205,78 @@ function onContainerOpen(container, previousContainer)
         end
     end
 
-    -- Set the initial height only when the container window is first opened. If
-    -- the window is reused, preserve any height selected manually by the player.
-    -- Re-measure chrome after parenting so padding/title match the live layout
-    -- (avoids the partial next-row peek from a stale magic chromeHeight).
+    local function getWindowHeightForGridRows(rows)
+        local paddingRect = containerPanel:getPaddingRect()
+        local visibleGridHeight = paddingRect and paddingRect.height or 0
+        local fixedWindowHeight = containerWindow:getHeight() - visibleGridHeight
+        local paddingBottom = containerPanel:getPaddingBottom()
+        local trailingPeek = rows < numLines and math.max(0, paddingBottom - layout:getCellSpacing()) or 0
+        return fixedWindowHeight + getContainerRowsHeight(cellSize, step, rows) - trailingPeek
+    end
+
+    local rows = 1
+    if not modules.client_options.getOption('openMinimized') then
+        local numColumns = math.max(layout:getNumColumns(), 1)
+        rows = math.max(math.ceil(container:getItemsCount() / numColumns), 1)
+    end
+    rows = math.min(rows, numLines)
+    local contentHeight = getContainerRowsHeight(cellSize, step, rows)
+
     if not previousContainer then
-        chromeHeight = getContainerChromeHeight(containerWindow, containerPanel, hasPages)
-        if resizeBorder then
-            resizeBorder:setMinimum(getContainerRowsHeight(cellSize, step, 1) + chromeHeight)
-            resizeBorder:setMaximum(getContainerRowsHeight(cellSize, step, math.max(layout:getNumLines(), 1)) + chromeHeight)
-        end
-
-        local rows = 1
-        if not modules.client_options.getOption('openMinimized') then
-            local numColumns = math.max(layout:getNumColumns(), 1)
-            rows = math.max(math.ceil(container:getItemsCount() / numColumns), 1)
-        end
-        rows = math.min(rows, numLines)
-        local contentHeight = getContainerRowsHeight(cellSize, step, rows)
-        local windowHeight = contentHeight + chromeHeight
-
         local gi = modules.game_interface
-        local placementContentHeight = windowHeight - gi.getMiniWindowContentsInsets(containerWindow)
-        if not gi.ensureMiniWindowSidebarPlacement(containerWindow, placementContentHeight) then
+        if not gi.ensureMiniWindowSidebarPlacement(containerWindow, contentHeight) then
             g_game.close(container)
             return
         end
-        containerWindow:setHeight(windowHeight)
     end
 
-    containerWindow:setup()
-    
+    -- Parenting can change the panel geometry, so calculate resize limits afterwards.
+    local resizeBorder = containerWindow:getChildById('bottomResizeBorder')
+    if resizeBorder then
+        resizeBorder:setMinimum(getWindowHeightForGridRows(1))
+        resizeBorder:setMaximum(getWindowHeightForGridRows(numLines))
+    end
+    containerWindow:setHeight(getWindowHeightForGridRows(rows))
+
+    if resizeBorder then
+        local originalOnMouseRelease = resizeBorder.onMouseRelease
+        resizeBorder.onMouseRelease = function(widget, mousePos, mouseButton)
+            if originalOnMouseRelease then
+                originalOnMouseRelease(widget, mousePos, mouseButton)
+            end
+            if widget:isDestroyed() or containerWindow:isDestroyed() then
+                return
+            end
+
+            local paddingRect = containerPanel:getPaddingRect()
+            if not paddingRect or paddingRect.height <= 0 then
+                return
+            end
+
+            local visibleGridHeight = paddingRect.height
+            local nearestRow = math.floor((visibleGridHeight - cellSize.height) / step + 0.5) + 1
+            nearestRow = math.max(1, math.min(numLines, nearestRow))
+            containerWindow:setHeight(getWindowHeightForGridRows(nearestRow))
+        end
+    end
+
     -- Apply current sorting mode if one is active and manual sort mode is disabled
     local currentSortMode = containerSettings and containerSettings['currentSortMode']
     local isManualSortEnabled = containerSettings and containerSettings['useManualSortMode'] == 1
     if currentSortMode and currentSortMode ~= 'none' and not isManualSortEnabled then
         sortContainerItems(container, currentSortMode)
+    end
+
+    -- Reused MiniWindows retain their old scroll position; start each opened
+    -- container at its first row so the final row is not shown partially.
+    local scrollbar = containerPanel.verticalScrollBar or containerWindow:getChildById('miniwindowScrollBar')
+    if scrollbar then
+        scrollbar:setValue(0)
+        scheduleEvent(function()
+            if not scrollbar:isDestroyed() then
+                scrollbar:setValue(0)
+            end
+        end, 0)
     end
 end
 
