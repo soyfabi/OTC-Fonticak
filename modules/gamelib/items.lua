@@ -2,6 +2,7 @@ ItemsDatabase = {}
 
 ItemsDatabase.serverValues = ItemsDatabase.serverValues or {}
 ItemsDatabase.serverNpcSaleData = ItemsDatabase.serverNpcSaleData or {}
+ItemsDatabase.rarityWidgets = ItemsDatabase.rarityWidgets or setmetatable({}, { __mode = 'k' })
 
 local OPCODE_ITEM_VALUES = 0xC6
 local OPCODE_ITEM_DETAILS = 0xC7
@@ -430,12 +431,35 @@ function ItemsDatabase.applyContainerRarityStackOrder(slotWidget, extraOverlayId
 end
 
 function ItemsDatabase.setRarityItem(widget, item, style)
+    if not widget then
+        return
+    end
+
     if not item then
+        ItemsDatabase.rarityWidgets[widget] = nil
         applyRarityToWidget(widget, 0, style)
         return
     end
 
+    ItemsDatabase.rarityWidgets[widget] = resolveItemId(item)
     applyRarityToWidget(widget, ItemsDatabase.getItemPrice(item), style)
+end
+
+function ItemsDatabase.refreshItemRarity(itemId)
+    itemId = tonumber(itemId) or 0
+    if itemId <= 0 then
+        return
+    end
+
+    local price = ItemsDatabase.getItemPrice(itemId)
+    for widget, registeredItemId in pairs(ItemsDatabase.rarityWidgets) do
+        if registeredItemId == itemId then
+            local success = pcall(applyRarityToWidget, widget, price)
+            if not success then
+                ItemsDatabase.rarityWidgets[widget] = nil
+            end
+        end
+    end
 end
 
 function ItemsDatabase.setRarityItemByPrice(widget, price, style)

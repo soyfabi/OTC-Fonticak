@@ -1495,6 +1495,9 @@ function Cyclopedia.Items.onSourceValueChange(checked, npcSource)
 	if player.updateCyclopediaCustomPrice then
 		player:updateCyclopediaCustomPrice(itemId, currentPrice)
 	end
+	if ItemsDatabase and ItemsDatabase.refreshItemRarity then
+		ItemsDatabase.refreshItemRarity(itemId)
+	end
 	
 	-- Update analyzer modules if they exist
 	if modules.game_analyser then
@@ -1547,6 +1550,9 @@ function Cyclopedia.Items.onChangeCustomPrice(widget)
 		if player.updateCyclopediaCustomPrice then
 			player:updateCyclopediaCustomPrice(itemId, itemDefaultValue)
 		end
+		if ItemsDatabase and ItemsDatabase.refreshItemRarity then
+			ItemsDatabase.refreshItemRarity(itemId)
+		end
 		
 		-- Update analyzer modules if they exist
 		if modules.game_analyser then
@@ -1586,6 +1592,9 @@ function Cyclopedia.Items.onChangeCustomPrice(widget)
 	
 	if player.updateCyclopediaCustomPrice then
 		player:updateCyclopediaCustomPrice(itemId, numericValue)
+	end
+	if ItemsDatabase and ItemsDatabase.refreshItemRarity then
+		ItemsDatabase.refreshItemRarity(itemId)
 	end
 	
 	-- Update analyzer modules if they exist

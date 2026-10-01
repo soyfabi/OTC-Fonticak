@@ -17,6 +17,8 @@ local preserveSelectionOnNextOpen = false
 local isSyncingMagicalArchivesFilters = false
 local isSyncingAimTargetCheckbox = false
 local magicalArchivesGameStartRefreshEvent
+local magicalArchivesSearchCaretEvent
+local magicalArchivesSearchCaretRequested = false
 local FILTER_COLLAPSED_SIZE = {
 	height = 19,
 	width = 160
@@ -827,7 +829,62 @@ local function getSearchEditWidget()
 	return nil
 end
 
-local function focusMagicalArchivesSearchEdit()
+local function getMagicalArchivesSearchCaret()
+	if not UI or UI:isDestroyed() then
+		return nil, nil
+	end
+
+	return UI:recursiveGetChildById("SearchCaret"), UI:recursiveGetChildById("SearchCaretMeasure")
+end
+
+local function updateMagicalArchivesSearchCaret()
+	local searchEdit = getSearchEditWidget()
+	local caret, measure = getMagicalArchivesSearchCaret()
+	if not searchEdit or not caret or not measure then
+		return
+	end
+
+	local text = searchEdit:getText() or ""
+	local cursorPos = math.max(0, searchEdit:getCursorPos() or #text)
+	measure:setText(text:sub(1, cursorPos))
+	caret:setMarginLeft(4 + measure:getTextSize().width)
+end
+
+local function stopMagicalArchivesSearchCaret()
+	if magicalArchivesSearchCaretEvent then
+		removeEvent(magicalArchivesSearchCaretEvent)
+		magicalArchivesSearchCaretEvent = nil
+	end
+
+	local caret = getMagicalArchivesSearchCaret()
+	if caret then
+		caret:hide()
+	end
+end
+
+local function startMagicalArchivesSearchCaret()
+	stopMagicalArchivesSearchCaret()
+
+	local searchEdit = getSearchEditWidget()
+	local caret = getMagicalArchivesSearchCaret()
+	if not magicalArchivesSearchCaretRequested or not searchEdit or not caret or not searchEdit:isFocused() then
+		return
+	end
+
+	updateMagicalArchivesSearchCaret()
+	caret:show()
+	local blinkStartedAt = g_clock.millis()
+	magicalArchivesSearchCaretEvent = cycleEvent(function()
+		if not magicalArchivesSearchCaretRequested or not UI or UI:isDestroyed() or searchEdit:isDestroyed() or not searchEdit:isFocused() then
+			stopMagicalArchivesSearchCaret()
+			return
+		end
+
+		caret:setVisible(math.floor((g_clock.millis() - blinkStartedAt) / 333) % 2 == 0)
+	end, 30)
+end
+
+local function focusMagicalArchivesSearchEdit(moveCursorToEnd)
 	local searchEdit = getSearchEditWidget()
 
 	if not searchEdit then
@@ -842,11 +899,18 @@ local function focusMagicalArchivesSearchEdit()
 	pcall(function()
 		searchEdit:setEditable(true)
 		searchEdit:setCursorVisible(true)
-		searchEdit:setCursorPos(-1)
+		if moveCursorToEnd ~= false then
+			searchEdit:setCursorPos(-1)
+		end
+		searchEdit:blinkCursor()
 	end)
+	startMagicalArchivesSearchCaret()
 end
 
 local function releaseMagicalArchivesSearchFocus()
+	magicalArchivesSearchCaretRequested = false
+	stopMagicalArchivesSearchCaret()
+
 	local searchEdit = getSearchEditWidget()
 
 	if not searchEdit then
@@ -1110,20 +1174,22 @@ local function setupSearchUI()
 	searchEdit:setFocusable(true)
 
 	function searchEdit.onFocusChange(widget, focused)
-		if focused and not widget:isDestroyed() then
-			pcall(function()
-				widget:grabKeyboard()
-			end)
-			pcall(function()
-				widget:setEditable(true)
-				widget:setCursorVisible(true)
-			end)
-		else
+		if not focused then
 			releaseMagicalArchivesSearchFocus()
 		end
 	end
 
+	function searchEdit.onClick()
+		magicalArchivesSearchCaretRequested = true
+		focusMagicalArchivesSearchEdit(false)
+		updateMagicalArchivesSearchCaret()
+	end
+
 	function searchEdit.onKeyDown(widget, keyCode, keyboardModifiers)
+		if keyCode == KeyLeft or keyCode == KeyRight or keyCode == KeyHome or keyCode == KeyEnd then
+			scheduleEvent(updateMagicalArchivesSearchCaret, 0)
+		end
+
 		if keyboardModifiers ~= KeyboardNoModifier then
 			return false
 		end
@@ -1142,6 +1208,7 @@ local function setupSearchUI()
 	end
 
 	function searchEdit:onTextChange()
+		updateMagicalArchivesSearchCaret()
 		Cyclopedia.MagicalArchivesSearchText(self:getText() or "")
 	end
 
@@ -1149,6 +1216,7 @@ local function setupSearchUI()
 
 	if clearButton then
 		function clearButton.onClick()
+			magicalArchivesSearchCaretRequested = true
 			searchEdit:setText("")
 			focusMagicalArchivesSearchEdit()
 		end
@@ -1689,6 +1757,9 @@ function Cyclopedia.MagicalArchivesSearchText(text)
 end
 
 function Cyclopedia.releaseMagicalArchivesInput()
+	magicalArchivesSearchCaretRequested = false
+	stopMagicalArchivesSearchCaret()
+
 	if not UI or UI:isDestroyed() then
 		restoreGameKeyboardForWalking()
 
@@ -1923,6 +1994,8 @@ Cyclopedia._onBeforeSpellTalkHandler = onBeforeSpellTalk
 
 function showMagicalArchives()
 	closeFilterPopup()
+	magicalArchivesSearchCaretRequested = false
+	stopMagicalArchivesSearchCaret()
 
 	if UI and not UI:isDestroyed() then
 		UI:destroy()

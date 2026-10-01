@@ -82,6 +82,26 @@ MagicalArchivesSearchEdit < Panel
     placeholder: Type to search
     placeholder-color: #6E706F
 
+  Label
+    id: SearchCaretMeasure
+    font: $var-cip-font-new
+    text-auto-resize: true
+    visible: false
+    phantom: true
+    focusable: false
+
+  UIWidget
+    id: SearchCaret
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 4
+    margin-left: 4
+    size: 1 11
+    background-color: #c0c0c0
+    visible: false
+    phantom: true
+    focusable: false
+
   UIWidget
     id: SearchClearButton
     size: 18 18
