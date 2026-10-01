@@ -1236,7 +1236,16 @@ function onContainerOpen(container, previousContainer)
         resizeBorder:setMinimum(getWindowHeightForGridRows(1))
         resizeBorder:setMaximum(getWindowHeightForGridRows(numLines))
     end
-    containerWindow:setHeight(getWindowHeightForGridRows(rows))
+
+    local manualHeight = containerWindow._manualContainerHeight or containerWindow:getSettings('manualContainerHeight')
+    if manualHeight and manualHeight > 0 then
+        containerWindow._manualContainerHeight = manualHeight
+        local minHeight = getWindowHeightForGridRows(1)
+        local maxHeight = getWindowHeightForGridRows(numLines)
+        containerWindow:setHeight(math.max(minHeight, math.min(maxHeight, manualHeight)))
+    else
+        containerWindow:setHeight(getWindowHeightForGridRows(rows))
+    end
 
     if resizeBorder then
         local originalOnMouseRelease = resizeBorder.onMouseRelease
@@ -1248,15 +1257,10 @@ function onContainerOpen(container, previousContainer)
                 return
             end
 
-            local paddingRect = containerPanel:getPaddingRect()
-            if not paddingRect or paddingRect.height <= 0 then
-                return
-            end
-
-            local visibleGridHeight = paddingRect.height
-            local nearestRow = math.floor((visibleGridHeight - cellSize.height) / step + 0.5) + 1
-            nearestRow = math.max(1, math.min(numLines, nearestRow))
-            containerWindow:setHeight(getWindowHeightForGridRows(nearestRow))
+            containerWindow._manualContainerHeight = containerWindow:getHeight()
+            containerWindow:setSettings({
+                manualContainerHeight = containerWindow._manualContainerHeight
+            })
         end
     end
 
