@@ -419,6 +419,13 @@ function ProficiencyData:getProficiencyIdForItem(displayItem, thingType, marketD
         return 6 -- Default fallback
     end
 
+    if marketData and marketData.proficiencyId then
+        local id = tonumber(marketData.proficiencyId)
+        if id and id > 0 and self:isValidProficiencyId(id) then
+            return id
+        end
+    end
+
     -- Prefer the original ThingType over the visual Item, which may use marketData.showAs.
     if thingType and thingType.getProficiencyId then
         local id = thingType:getProficiencyId()

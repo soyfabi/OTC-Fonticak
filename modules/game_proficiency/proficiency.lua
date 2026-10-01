@@ -335,6 +335,9 @@ function initProficiencyButton(attempts)
 
     WeaponProficiency.button = createProficiencyButton()
     if WeaponProficiency.button then
+        if modules.game_mainpanel and modules.game_mainpanel.ensureControlButtonVisible then
+            modules.game_mainpanel.ensureControlButtonVisible('ProficiencyButton')
+        end
         setProficiencyButtonState(false)
         return
     end
@@ -565,8 +568,8 @@ function onGameEnd()
     WeaponProficiency:reset()
 end
 
-function onWeaponProficiencyCatalogItem(itemId, marketCategory, name)
-    WeaponProficiency:addCatalogItem(itemId, marketCategory, name)
+function onWeaponProficiencyCatalogItem(itemId, marketCategory, name, proficiencyId)
+    WeaponProficiency:addCatalogItem(itemId, marketCategory, name, proficiencyId)
 end
 
 function onWeaponProficiencyCatalogReady()
@@ -581,7 +584,7 @@ function onWeaponProficiencyCatalogReady()
 end
 
 -- Called when server sends proficiency info (opcode 0xC4)
-function onWeaponProficiency(itemId, experience, perks, marketCategory)
+function onWeaponProficiency(itemId, experience, perks, marketCategory, modifiedSlots)
     -- Ensure perks is a table
     if type(perks) ~= "table" then
         perks = {}
@@ -1176,7 +1179,7 @@ function WeaponProficiency:createItemCache()
     self._itemCacheReady = true
 end
 
-function WeaponProficiency:addCatalogItem(itemId, category, name)
+function WeaponProficiency:addCatalogItem(itemId, category, name, proficiencyId)
     if not self._itemCacheReady then
         self:createItemCache()
     end
@@ -1200,7 +1203,8 @@ function WeaponProficiency:addCatalogItem(itemId, category, name)
         marketData = {
             category = category,
             showAs = itemId,
-            name = name or tostring(itemId)
+            name = name or tostring(itemId),
+            proficiencyId = tonumber(proficiencyId) or 0
         },
         originalId = itemId,
         displayId = itemId
