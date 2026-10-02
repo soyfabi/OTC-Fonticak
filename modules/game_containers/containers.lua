@@ -100,6 +100,13 @@ local function refreshContainerSlotQuickLootIcon(slotWidget, item)
 
     icon:setVisible(show)
     icon:setTooltip(tooltip)
+
+    if show then
+        local quickLoot = modules.game_quickloot and modules.game_quickloot.QuickLoot
+        if quickLoot and quickLoot.updateQuickLootIconPosition then
+            quickLoot.updateQuickLootIconPosition(slotWidget, item)
+        end
+    end
 end
 
 local function refreshContainerHeaderQuickLootIcon(container, containerWindow)

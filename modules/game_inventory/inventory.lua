@@ -2,6 +2,98 @@ local iconTopMenu = nil
 
 local inventoryShrink = false
 
+local function inventoryItemIsQuiver(item)
+	if not item then
+		return false
+	end
+
+	if item.isQuiver then
+		return item:isQuiver()
+	end
+
+	local md = item:getMarketData()
+	return md and MarketCategory and md.category == MarketCategory.Quivers
+end
+
+local function countQuiverAmmoInContainer(container)
+	local total = 0
+
+	for slot = 0, container:getCapacity() - 1 do
+		local slotItem = container:getItem(slot)
+		if slotItem then
+			total = total + slotItem:getCount()
+		end
+	end
+
+	return total
+end
+
+local function refreshEquippedQuiverSlotDisplay(quiver, ammoCount)
+	if inventoryShrink or not quiver then
+		return
+	end
+
+	local ui = getInventoryUi()
+	local getSlotInfo = getSlotPanelBySlot[InventorySlotRight]
+	if not getSlotInfo then
+		return
+	end
+
+	local slotPanel = getSlotInfo(ui)
+	if not slotPanel or not slotPanel.item then
+		return
+	end
+
+	slotPanel.item:setItem(quiver)
+
+	if ammoCount ~= nil and slotPanel.item.setDisplayCount then
+		if ammoCount > 0 then
+			slotPanel.item:setDisplayCount(ammoCount)
+			if slotPanel.item.setShowCount then
+				slotPanel.item:setShowCount(true)
+			end
+		elseif slotPanel.item.clearDisplayCount then
+			slotPanel.item:clearDisplayCount()
+		end
+	end
+
+	local quickLoot = modules.game_quickloot and modules.game_quickloot.QuickLoot
+	if quickLoot and quickLoot.updateQuickLootIconPosition then
+		quickLoot.updateQuickLootIconPosition(slotPanel, quiver, ammoCount ~= nil and ammoCount > 0)
+	end
+end
+
+local function syncEquippedQuiverAmmoFromContainer(container)
+	if not g_game.getFeature(GameThingQuiver) or not container then
+		return
+	end
+
+	local player = g_game.getLocalPlayer()
+	if not player then
+		return
+	end
+
+	local quiver = player:getInventoryItem(InventorySlotRight)
+	if not quiver or not inventoryItemIsQuiver(quiver) then
+		return
+	end
+
+	if container:getContainerItem() ~= quiver then
+		return
+	end
+
+	local ammoCount = countQuiverAmmoInContainer(container)
+	if quiver.setQuiverAmmoCount then
+		quiver:setQuiverAmmoCount(ammoCount)
+	end
+
+	refreshEquippedQuiverSlotDisplay(quiver, ammoCount)
+end
+
+local function onEquippedQuiverContainerChange(container)
+	syncEquippedQuiverAmmoFromContainer(container)
+end
+
 local pvpModeRadioGroup = nil 
 local monkMirrorItem = nil
 
@@ -139,6 +231,13 @@ local function refreshInventorySlotQuickLootIcon(slotPanel, item)
 
     icon:setVisible(show)
     icon:setTooltip(tooltip)
+
+    if show then
+        local quickLoot = modules.game_quickloot and modules.game_quickloot.QuickLoot
+        if quickLoot and quickLoot.updateQuickLootIconPosition then
+            quickLoot.updateQuickLootIconPosition(slotPanel, item)
+        end
+    end
 end
 
 function refreshInventoryQuickLootIcons()
@@ -190,6 +289,17 @@ local function inventoryEvent(player, slot, item, oldItem)
     ItemsDatabase.applyExpiryDisplay(slotPanel.item, 'showExpiryInInvetory')
     ItemsDatabase.setTier(slotPanel.item, item)
     refreshInventorySlotQuickLootIcon(slotPanel, item)
+
+    if slot == InventorySlotRight and item and inventoryItemIsQuiver(item) then
+        for _, container in pairs(g_game.getContainers()) do
+            if container and container:getContainerItem() == item then
+                syncEquippedQuiverAmmoFromContainer(container)
+                break
+            end
+        end
+    elseif slot == InventorySlotRight and slotPanel.item and slotPanel.item.clearDisplayCount then
+        slotPanel.item:clearDisplayCount()
+    end
 
     if slot == InventorySlotLeft then
         updateMonkMirrorItem(item)
@@ -375,6 +485,13 @@ function inventoryController:onGameStart()
         onItemStateFeatures = onItemStateFeatures
     })
 
+    connect(Container, {
+        onOpen = onEquippedQuiverContainerChange,
+        onAddItem = onEquippedQuiverContainerChange,
+        onUpdateItem = onEquippedQuiverContainerChange,
+        onRemoveItem = onEquippedQuiverContainerChange
+    })
+
     local player = g_game.getLocalPlayer()
     if player then
         local char = g_game.getCharacterName()
@@ -454,6 +571,13 @@ end
 function inventoryController:onGameEnd()
     disconnect(g_game, {
         onItemStateFeatures = onItemStateFeatures
+    })
+
+    disconnect(Container, {
+        onOpen = onEquippedQuiverContainerChange,
+        onAddItem = onEquippedQuiverContainerChange,
+        onUpdateItem = onEquippedQuiverContainerChange,
+        onRemoveItem = onEquippedQuiverContainerChange
     })
 
     monkMirrorItem = nil

@@ -365,7 +365,12 @@ void ProtocolGame::parseMessage(const InputMessagePtr& msg)
                     parseAttachedPaperdoll(msg);
                     break;
                 case Proto::GameServerDetachPaperdoll:
-                    parseDetachPaperdoll(msg);
+                    // Weapon proficiency reshape offers share this custom opcode.
+                    // Detach uses a boolean at payload byte 4; reshape uses offer count 3.
+                    if (msg->getUnreadSize() >= 14 && msg->peekBytes(5)[4] == 3)
+                        parseWeaponProficiencyReshape(msg);
+                    else
+                        parseDetachPaperdoll(msg);
                     break;
                 case Proto::GameServerFeatures:
                     parseFeatures(msg);
@@ -7007,6 +7012,23 @@ void ProtocolGame::parseWeaponProficiencyInfoBatch(const InputMessagePtr& msg)
     for (uint16_t i = 0; i < count; ++i) {
         parseWeaponProficiencyInfoPayload(msg);
     }
+}
+
+void ProtocolGame::parseWeaponProficiencyReshape(const InputMessagePtr& msg)
+{
+    const uint16_t itemId = msg->getU16();
+    const uint8_t level = msg->getU8();
+    const uint8_t position = msg->getU8();
+    const uint8_t count = msg->getU8();
+    if (count == 0 || count > 3 || msg->getUnreadSize() < count * 3)
+        return;
+
+    std::vector<std::vector<uint16_t>> offers;
+    offers.reserve(count);
+    for (uint8_t i = 0; i < count; ++i)
+        offers.push_back({ msg->getU16(), msg->getU8() });
+
+    g_lua.callGlobalField("g_game", "onWeaponProficiencyReshape", itemId, level, position, offers);
 }
 
 // 0x5F - parse destiny wheel window (Fonticak custom 8.60, see server wheel.lua sendWheelWindow)

@@ -424,6 +424,11 @@ function QuickLoot.bindKeybinds()
                 {
                     type = KEY_DOWN,
                     callback = function()
+                        -- Mouse bindings are handled on release by processMouseAction.
+                        -- Toggling here on press and again on release adds then removes the item.
+                        if g_mouse.isPressed(MouseLeftButton) or g_mouse.isPressed(MouseRightButton) then
+                            return
+                        end
                         if not g_game.isOnline() then
                             return
                         end
@@ -781,6 +786,61 @@ function QuickLoot.getConfiguredLootFlags(itemId)
 	return lootFlags, obtainFlags
 end
 
+local function itemOccupiesBottomRightCount(item)
+	if not item then
+		return false
+	end
+
+	if item.isQuiver and item:isQuiver() then
+		local count = item:getCountOrSubType() or 0
+		if item.getQuiverAmmoCount then
+			count = math.max(count, item:getQuiverAmmoCount() or 0)
+		end
+		return count > 0
+	end
+
+	if item.isChargeable and item:isChargeable() then
+		return (item:getCountOrSubType() or 0) > 0
+	end
+
+	if item.isStackable and item:isStackable() then
+		return (item:getCount() or 0) > 1
+	end
+
+	return false
+end
+
+local function applyQuickLootIconAnchors(icon, atTop)
+	icon:breakAnchors()
+	if atTop then
+		icon:addAnchor(AnchorTop, 'parent', AnchorTop)
+		icon:addAnchor(AnchorRight, 'parent', AnchorRight)
+		icon:setMarginTop(1)
+		icon:setMarginBottom(0)
+		icon:setMarginRight(1)
+	else
+		icon:addAnchor(AnchorBottom, 'parent', AnchorBottom)
+		icon:addAnchor(AnchorRight, 'parent', AnchorRight)
+		icon:setMarginTop(0)
+		icon:setMarginBottom(1)
+		icon:setMarginRight(1)
+	end
+end
+
+function QuickLoot.updateQuickLootIconPosition(itemWidget, item, forceTop)
+	if not itemWidget then
+		return
+	end
+
+	local icon = itemWidget.quickloot or itemWidget:getChildById('quickloot')
+	if not icon then
+		return
+	end
+
+	local atTop = forceTop == true or itemOccupiesBottomRightCount(item)
+	applyQuickLootIconAnchors(icon, atTop)
+end
+
 local function refreshSlotQuickLootIcon(slotWidget, item)
 	if not slotWidget then
 		return
@@ -805,6 +865,10 @@ local function refreshSlotQuickLootIcon(slotWidget, item)
 
 	icon:setVisible(show)
 	icon:setTooltip(tooltip)
+
+	if show then
+		QuickLoot.updateQuickLootIconPosition(slotWidget, item)
+	end
 end
 
 function QuickLoot.refreshAllQuickLootIcons()

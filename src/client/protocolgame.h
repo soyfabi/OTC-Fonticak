@@ -156,6 +156,7 @@ public:
     // Weapon Proficiency
     void sendWeaponProficiencyAction(uint8_t actionType, uint16_t itemId = 0);
     void sendWeaponProficiencyApply(uint16_t itemId, const std::vector<uint8_t>& levels, const std::vector<uint8_t>& perkPositions);
+    void sendWeaponProficiencySlotAction(uint8_t actionType, uint16_t itemId, uint8_t level, uint8_t position, uint8_t offerIndex = 0);
 
     void sendOpenRewardWall();
     void sendOpenRewardHistory();
@@ -433,6 +434,7 @@ private:
     void parseWeaponProficiencyExperience(const InputMessagePtr& msg);
     void parseWeaponProficiencyInfo(const InputMessagePtr& msg);
     void parseWeaponProficiencyInfoBatch(const InputMessagePtr& msg);
+    void parseWeaponProficiencyReshape(const InputMessagePtr& msg);
 
     void parseHighscores(const InputMessagePtr& msg);
     void parseAttachedEffect(const InputMessagePtr& msg);
