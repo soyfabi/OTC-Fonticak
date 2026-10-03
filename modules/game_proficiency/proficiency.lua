@@ -3629,44 +3629,6 @@ function WeaponProficiency:applyVocationFilter(items)
     return filteredItems
 end
 
--- Apply filter for 1H (one-handed) weapons
-function WeaponProficiency:applyOneHandedFilter(items)
-    if not self.filters["oneButton"] then
-        return items
-    end
-
-    local filteredItems = {}
-    for _, item in ipairs(items) do
-        local thingType = item.thingType
-        if thingType then
-            local slotType = thingType:getClothSlot() or 0
-            if slotType == 6 then
-                table.insert(filteredItems, item)
-            end
-        end
-    end
-    return filteredItems
-end
-
--- Apply filter for 2H (two-handed) weapons
-function WeaponProficiency:applyTwoHandedFilter(items)
-    if not self.filters["twoButton"] then
-        return items
-    end
-
-    local filteredItems = {}
-    for _, item in ipairs(items) do
-        local thingType = item.thingType
-        if thingType then
-            local slotType = thingType:getClothSlot() or 0
-            if slotType == 0 then
-                table.insert(filteredItems, item)
-            end
-        end
-    end
-    return filteredItems
-end
-
 -- Apply button click handler
 function WeaponProficiency:onApplyClick()
     local success, err = pcall(function()
