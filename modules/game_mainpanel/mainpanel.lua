@@ -258,14 +258,17 @@ local function createButton(id, description, image, callback, special, front, in
     local panel
     if special then
         panel = optionsController.ui.onPanel.specials
-        specialsAmount = specialsAmount + 1
     else
         panel = optionsController.ui.onPanel.options
-        optionsAmount = optionsAmount + 1
     end
 
     local button = panel:getChildById(id)
     if not button then
+        if special then
+            specialsAmount = specialsAmount + 1
+        else
+            optionsAmount = optionsAmount + 1
+        end
         button = g_ui.createWidget('MainToggleButton')
         if front then
             panel:insertChild(1, button)
@@ -309,6 +312,12 @@ optionsController:setUI('mainoptionspanel', modules.game_interface.getMainRightP
 function optionsController:onInit()
     createButton_large('Store shop', tr('Store'), '/images/store/button-store-up', toggleStore,
     false, 8)
+    createButton('ProficiencyButton', tr('Open Weapon Proficiency'), '/images/options/button_proficiency', function()
+        local proficiency = modules.game_proficiency
+        if proficiency and proficiency.requestOpenWindow then
+            proficiency.requestOpenWindow()
+        end
+    end, false, false, 21)
     createGoldFrame(optionsController.ui.onPanel, 'resizer', 'resizerBorder')
     createGoldFrame(optionsController.ui.offPanel, 'collapsedResizer', 'collapsedResizerBorder')
 
@@ -532,6 +541,37 @@ function saveButtonConfig()
         config.order[tostring(i)] = id
     end
     g_settings.setNode('control_buttons', config)
+end
+
+function ensureControlButtonVisible(id)
+    local optionsPanel = optionsController and optionsController.ui and optionsController.ui.onPanel
+        and optionsController.ui.onPanel.options
+    local button = optionsPanel and optionsPanel:getChildById(id)
+    if not button then
+        return false
+    end
+
+    local config = loadButtonConfig()
+    buttonConfigs = config.buttons
+    buttonOrder = config.order
+
+    buttonConfigs[id] = buttonConfigs[id] or {}
+    if buttonConfigs[id].tooltip == nil then
+        buttonConfigs[id].tooltip = getControlButtonDisplayName(id, button)
+    end
+    if buttonConfigs[id].visible == nil then
+        buttonConfigs[id].visible = true
+    end
+    button:setVisible(buttonConfigs[id].visible)
+
+    if not table.find(buttonOrder, id) then
+        table.insert(buttonOrder, id)
+    end
+
+    reorderButtons()
+    refreshOptionsSizes()
+    saveButtonConfig()
+    return true
 end
 
 function loadButtonConfig()

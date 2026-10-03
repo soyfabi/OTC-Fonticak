@@ -1,0 +1,226 @@
+ReshapeActionButton < UIButton
+  size: 100 26
+  focusable: false
+  change-cursor-image: true
+  cursor: pointer
+  font: verdana-11px-antialised
+  color: #c0c0c0
+  text-offset: -1 1
+  image-source: /images/ui/button-grey-up
+  image-border: 5
+  image-clip: 0 0 98 40
+  $pressed:
+    image-source: /images/ui/button-grey-down
+    image-clip: 0 0 98 40
+    text-offset: 0 2
+
+ReshapeReplaceButtonContainer < UIWidget
+  size: 102 28
+
+  UIWidget
+    id: highlight
+    size: 102 28
+    anchors.fill: parent
+    phantom: true
+    image-source: /images/animations/button-highlight-102x28
+
+  ReshapeActionButton
+    id: replaceButton
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.verticalCenter: parent.verticalCenter
+    !text: tr('Replace')
+
+ReshapePerkPanelBlock < UIWidget
+  size: 200 300
+  image-source: /images/ui/t2pixel-up-frame-borderimage
+  image-border: 25
+
+  Label
+    id: panelTitle
+    font: verdana-11px-antialised
+    color: #909090
+    anchors.top: parent.top
+    anchors.horizontalCenter: parent.horizontalCenter
+    margin-top: 1
+
+  UIWidget
+    id: perkPreview
+    size: 80 80
+    anchors.left: parent.left
+    anchors.top: panelTitle.bottom
+    margin-left: 60
+    margin-top: 16
+
+    UIWidget
+      id: icon
+      size: 64 64
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.verticalCenter: parent.verticalCenter
+      image-source: /modules/game_proficiency/images/icons-0
+      image-clip: 0 0 64 64
+      phantom: true
+
+    UIWidget
+      id: border
+      size: 76 76
+      phantom: true
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.verticalCenter: parent.verticalCenter
+      image-source: /modules/game_proficiency/images/border-weaponmasterytreeicons-active
+
+    UIWidget
+      id: iconPerks
+      size: 32 32
+      anchors.top: icon.top
+      anchors.right: icon.right
+      margin-top: -16
+      margin-right: -16
+      visible: false
+      phantom: true
+      image-source: /modules/game_proficiency/images/augment-icons
+      image-clip: 0 0 32 32
+
+    UIWidget
+      id: manipulateRank
+      size: 32 32
+      anchors.bottom: icon.bottom
+      anchors.left: icon.left
+      margin-bottom: -16
+      margin-left: -16
+      visible: false
+      phantom: true
+      image-source: /modules/game_proficiency/images/backdrop_manipulation_rank
+      Label
+        id: rankValue
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.verticalCenter: parent.verticalCenter
+        text-align: center
+        color: #c0c0c0
+        font: verdana-11px-antialised
+        text-auto-resize: true
+        phantom: true
+
+  UIWidget
+    id: perkBonusFrame
+    size: 186 165
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.top: perkPreview.bottom
+    margin-top: 19
+    image-source: /images/ui/1pixel-down-frame
+    image-border: 3
+    border-width: 0
+    background-color: #363636
+    padding: 6 5 6 5
+
+    Label
+      id: perkBonusText
+      anchors.fill: parent
+      font: verdana-11px-monochrome
+      color: #c0c0c0
+      text-align: topLeft
+      text-wrap: true
+
+ReshapeOptionPanel < ReshapePerkPanelBlock
+
+ReshapeDialog < UIMessageBox
+  id: reshapeDialog
+  size: 874 418
+  image-source: /images/ui/window-high
+  image-border: 25
+  text: "Reshape"
+  font: verdana-11px-antialised
+  text-offset: 0 1
+  color: #909090
+  anchors.centerIn: parent
+  draggable: false
+  padding: 29 16 16 16
+  @onEscape: modules.game_proficiency.WeaponProficiency:onReshapeDialogKeyBlock()
+  @onEnter: modules.game_proficiency.WeaponProficiency:onReshapeDialogKeyBlock()
+
+  UIWidget
+    id: currentHeader
+    size: 200 27
+    anchors.left: parent.left
+    anchors.top: parent.top
+    image-source: /images/ui/2pixel_up_frame_borderimage
+    image-border: 4
+
+    Label
+      !text: tr('Current perk')
+      font: verdana-11px-antialised
+      color: #c0c0c0
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.horizontalCenter: parent.horizontalCenter
+
+  ReshapePerkPanelBlock
+    id: currentPerkPanel
+    anchors.left: currentHeader.left
+    anchors.top: currentHeader.bottom
+    margin-top: 6
+
+  ReshapeActionButton
+    id: reshapeKeepButton
+    anchors.top: currentPerkPanel.bottom
+    anchors.horizontalCenter: currentPerkPanel.horizontalCenter
+    margin-top: 6
+    !text: tr('Keep')
+    @onClick: modules.game_proficiency.WeaponProficiency:onReshapeKeepClicked()
+
+  VerticalSeparator
+    id: verticalSeparator
+    anchors.top: currentHeader.top
+    anchors.bottom: reshapeKeepButton.bottom
+    anchors.left: currentPerkPanel.right
+    margin-left: 11
+
+  UIWidget
+    id: selectionHeader
+    size: 620 27
+    anchors.left: verticalSeparator.right
+    anchors.top: currentHeader.top
+    margin-left: 11
+    image-source: /images/ui/2pixel_up_frame_borderimage
+    image-border: 4
+
+    Label
+      !text: tr('Reshape perk selection')
+      font: verdana-11px-antialised
+      color: #c0c0c0
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.horizontalCenter: parent.horizontalCenter
+
+  ReshapeOptionPanel
+    id: reshapeOption1
+    anchors.left: selectionHeader.left
+    anchors.top: selectionHeader.bottom
+    margin-top: 6
+
+  ReshapeReplaceButtonContainer
+    id: reshapeReplace1
+    anchors.top: reshapeOption1.bottom
+    anchors.horizontalCenter: reshapeOption1.horizontalCenter
+    margin-top: 5
+
+  ReshapeOptionPanel
+    id: reshapeOption2
+    anchors.left: reshapeOption1.right
+    anchors.top: reshapeOption1.top
+    margin-left: 11
+
+  ReshapeReplaceButtonContainer
+    id: reshapeReplace2
+    anchors.top: reshapeOption2.bottom
+    anchors.horizontalCenter: reshapeOption2.horizontalCenter
+    margin-top: 5
+
+  ReshapeOptionPanel
+    id: reshapeOption3
+    anchors.left: reshapeOption2.right
+    anchors.top: reshapeOption1.top
+    margin-left: 11
+
+  ReshapeReplaceButtonContainer
+    id: reshapeReplace3
+    anchors.top: reshapeOption3.bottom
+    anchors.horizontalCenter: reshapeOption3.horizontalCenter
+    margin-top: 5

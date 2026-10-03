@@ -663,6 +663,7 @@ function assignItem(button, itemId, itemTier, dragEvent, multiSlotIndex)
 
     closeAllAssignWindows('item')
 
+    g_ui.importStyle('/modules/game_actionbar/object_assign_styles')
     local ok, window = pcall(function()
         return g_ui.loadUI('/modules/game_actionbar/object', g_ui.getRootWidget())
     end)
@@ -700,7 +701,10 @@ function assignItem(button, itemId, itemTier, dragEvent, multiSlotIndex)
         or 0
 
     local titleSuffix = multiSlotIndex and (" (Slot " .. multiSlotIndex .. ")") or ""
-    window:setText("Assign Object to Action Button " .. button:getId() .. titleSuffix)
+    local isEdit = (slotData and slotData["useObject"] and slotData["useObject"] == itemId)
+        or (not multiSlotIndex and button.item:getItemId() > 100 and button.item:getItemId() == itemId)
+    local titleVerb = isEdit and tr('Edit Object') or tr('Assign Object')
+    window:setText(titleVerb .. " to Action Button " .. button:getId() .. titleSuffix)
     window:setId("assignItemWindow")
     window:show()
     window:raise()

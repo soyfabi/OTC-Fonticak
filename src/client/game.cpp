@@ -453,7 +453,7 @@ void Game::processRemoveAutomapFlag(const Position& pos, const uint8_t icon, con
     g_lua.callGlobalField("g_game", "onRemoveAutomapFlag", pos, icon, message);
 }
 
-void Game::processOpenOutfitWindow(const Outfit& currentOutfit, const std::vector<std::tuple<uint16_t, std::string, uint8_t, uint8_t>>& outfitList,
+void Game::processOpenOutfitWindow(const Outfit& currentOutfit, const std::vector<std::tuple<uint16_t, std::string, uint8_t, uint8_t, uint32_t>>& outfitList,
                                    const std::vector<std::tuple<uint16_t, std::string, uint8_t>>& mountList,
                                    const std::vector<std::tuple<uint16_t, std::string>>& familiarList,
                                    const std::vector<std::tuple<uint16_t, std::string>>& wingsList,
@@ -2157,6 +2157,14 @@ void Game::sendWeaponProficiencyApply(const uint16_t itemId, const std::vector<u
         return;
 
     m_protocolGame->sendWeaponProficiencyApply(itemId, levels, perkPositions);
+}
+
+void Game::sendWeaponProficiencySlotAction(const uint8_t actionType, const uint16_t itemId, const uint8_t level, const uint8_t position, const uint8_t offerIndex)
+{
+    if (!canPerformGameAction())
+        return;
+
+    m_protocolGame->sendWeaponProficiencySlotAction(actionType, itemId, level, position, offerIndex);
 }
 
 void Game::openWheelOfDestiny(uint32_t playerId)

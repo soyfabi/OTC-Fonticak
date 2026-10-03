@@ -1666,6 +1666,19 @@ void ProtocolGame::sendWeaponProficiencyApply(const uint16_t itemId, const std::
     send(msg);
 }
 
+void ProtocolGame::sendWeaponProficiencySlotAction(const uint8_t actionType, const uint16_t itemId, const uint8_t level, const uint8_t position, const uint8_t offerIndex)
+{
+    const auto& msg = std::make_shared<OutputMessage>();
+    msg->addU8(Proto::ClientWeaponProficiency);
+    msg->addU8(actionType);
+    msg->addU16(itemId);
+    msg->addU8(level);
+    msg->addU8(position);
+    if (actionType == Otc::WEAPON_PROFICIENCY_PICK_RESHAPE)
+        msg->addU8(offerIndex);
+    send(msg);
+}
+
 void ProtocolGame::sendOpenRewardWall()
 {
     const auto& msg = std::make_shared<OutputMessage>();

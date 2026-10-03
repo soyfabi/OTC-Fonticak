@@ -101,7 +101,7 @@ protected:
     static void processRemoveAutomapFlag(const Position& pos, uint8_t icon, std::string_view message);
 
     // outfit
-    void processOpenOutfitWindow(const Outfit& currentOutfit, const std::vector<std::tuple<uint16_t, std::string, uint8_t, uint8_t>>& outfitList,
+    void processOpenOutfitWindow(const Outfit& currentOutfit, const std::vector<std::tuple<uint16_t, std::string, uint8_t, uint8_t, uint32_t>>& outfitList,
                                 const std::vector<std::tuple<uint16_t, std::string, uint8_t>>& mountList,
                                 const std::vector<std::tuple<uint16_t, std::string>>& familiarList,
                                 const std::vector<std::tuple<uint16_t, std::string>>& wingsList,
@@ -424,6 +424,7 @@ public:
     // weapon proficiency related
     void sendWeaponProficiencyAction(uint8_t actionType, uint16_t itemId = 0);
     void sendWeaponProficiencyApply(uint16_t itemId, const std::vector<uint8_t>& levels, const std::vector<uint8_t>& perkPositions);
+    void sendWeaponProficiencySlotAction(uint8_t actionType, uint16_t itemId, uint8_t level, uint8_t position, uint8_t offerIndex = 0);
 
     void openWheelOfDestiny(uint32_t playerId);
     void applyWheelOfDestiny(const std::vector<uint16_t>& wheelPointsVec, const std::vector<uint16_t>& activeGemsVec);

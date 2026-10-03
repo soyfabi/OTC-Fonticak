@@ -1,47 +1,6 @@
-SmartMode < CheckBox
-  text: Smart mode
-  margin-top: 4
-  margin-left: 32
-  height: 14
-  font: Verdana Bold-11px
-  color: #c0c0c0
-  text-offset: 18 -1
-
-RoundCheckBox < CheckBoxCircle
-  height: 14
-  font: Verdana Bold-11px
-  color: #c0c0c0
-  text-offset: 18 -1
-  text-auto-resize: false
-  change-cursor-image: false
-  margin-top: 3
-
-  $hover !disabled:
-    color: #ffffff
-
-  $disabled:
-    color: #707070
-
-ObjectAssignButton < Button
-  font: verdana-11px-monochrome
-  color: #ffffff
-  size: 43 20
-  padding: 0
-  text-offset: 0 3
-  text-align: center
-
-  $pressed:
-    image-clip: 0 20 43 20
-    text-offset: 1 4
-
-  $disabled:
-    color: #ffffff88
-    opacity: 0.8
-
 CustomObjectWindow < NewMainWindow
-  id: assignItemWindow
+  id: customAssignItemWindow
   size: 275 210
-  text: Assign Object
   font: verdana-11px-antialised
   color: #ffffff
 
@@ -138,12 +97,21 @@ CustomObjectWindow < NewMainWindow
       id: buttonClose
       anchors.right: parent.right
       anchors.bottom: parent.bottom
-      size: 58 20
+      size: 43 20
       text: Cancel
 
     ObjectAssignButton
-      id: buttonOk
+      id: buttonApply
       anchors.right: buttonClose.left
       anchors.bottom: parent.bottom
       margin-right: 6
+      size: 43 20
+      text: Apply
+
+    ObjectAssignButton
+      id: buttonOk
+      anchors.right: buttonApply.left
+      anchors.bottom: parent.bottom
+      margin-right: 6
+      size: 43 20
       text: Ok

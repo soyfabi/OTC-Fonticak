@@ -1291,6 +1291,14 @@ return {
             end, 100)
         end
     },
+    showBlessingInventoryHighlight    = {
+        value = false,
+        action = function()
+            if modules.game_inventory and modules.game_inventory.refreshBlessingInventoryHighlight then
+                modules.game_inventory.refreshBlessingInventoryHighlight()
+            end
+        end
+    },
     showExpiryInContainers            = {
         value = true,
         event = nil,
@@ -1314,6 +1322,9 @@ return {
                 newValue = nil
             end
             panels.interface:recursiveGetChildById('frames'):setCurrentOptionByData(newValue, true)
+            if ItemsDatabase and ItemsDatabase.refreshAllItemRarity then
+                ItemsDatabase.refreshAllItemRarity()
+            end
             if options.framesRarity.event ~= nil then
                 removeEvent(options.framesRarity.event)
             end

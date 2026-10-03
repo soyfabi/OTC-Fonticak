@@ -57,6 +57,12 @@ function ItemsDatabase.registerServerItemValue(itemId, value)
         return
     end
     ItemsDatabase.serverValues[itemId] = value
+
+    -- Item values arrive after login, when inventory widgets are already
+    -- rendered. Refresh those widgets as soon as the authoritative value lands.
+    if ItemsDatabase.refreshItemRarity then
+        ItemsDatabase.refreshItemRarity(itemId)
+    end
 end
 
 function ItemsDatabase.clearServerItemValues()
@@ -462,6 +468,17 @@ function ItemsDatabase.refreshItemRarity(itemId)
     end
 end
 
+function ItemsDatabase.refreshAllItemRarity()
+    for widget, itemId in pairs(ItemsDatabase.rarityWidgets) do
+        local success = pcall(function()
+            applyRarityToWidget(widget, ItemsDatabase.getItemPrice(itemId))
+        end)
+        if not success then
+            ItemsDatabase.rarityWidgets[widget] = nil
+        end
+    end
+end
+
 function ItemsDatabase.setRarityItemByPrice(widget, price, style)
     applyRarityToWidget(widget, tonumber(price) or 0, style)
 end
@@ -689,4 +706,3 @@ connect(g_game, {
     onGameEnd = onGameEnd,
     onEnterGame = registerCustomItemOpcodes
 })
-

@@ -231,6 +231,7 @@ GameEffectSource = 133
 GamePlayerFamiliars = 138
 GameDisplayItemCharges = 139
 GameAstraQuiverCountU16 = 141
+GameAstraOutfitStoreMode = 142
 
 TextColors = {
     red = '#f55e5e',    -- '#c83200'
@@ -444,6 +445,7 @@ ResourceTypes = {
     PREY_WILDCARDS = 10,
     DAILYREWARD_STREAK = 20,
     DAILYREWARD_JOKERS = 21,
+    WEAPON_PROFICIENCY_FORGE_DUST = 23,
     CHARM = 30,
     MINOR_CHARM = 31,
     MAX_CHARM = 32,

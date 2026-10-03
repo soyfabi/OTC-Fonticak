@@ -703,9 +703,18 @@ local function closeObjectDialog()
   objectWindow = nil
 end
 
+local function isEditingHotkeyObject(row)
+  return row and row.hotkeyData and row.hotkeyData.itemId and row.hotkeyData.itemId > 0
+end
+
+local function importCustomObjectAssignStyles()
+  g_ui.importStyle('/modules/game_actionbar/object_assign_styles')
+  g_ui.importStyle('styles/controls/assign_object')
+end
+
 function init_custom_hotkeys()
   g_ui.importStyle('styles/controls/assign_spell')
-  g_ui.importStyle('styles/controls/assign_object')
+  importCustomObjectAssignStyles()
   g_ui.importStyle('styles/controls/assign_text')
 
   mouseGrabberWidget = g_ui.createWidget('UIWidget')
@@ -1314,7 +1323,13 @@ end
 function assignObjectDialog(row, itemId, itemTier)
   closeObjectDialog()
 
+  importCustomObjectAssignStyles()
   objectWindow = g_ui.createWidget('CustomObjectWindow', g_ui.getRootWidget())
+  if not objectWindow then
+    perror('Failed to open Custom Object window')
+    return
+  end
+  objectWindow:setText(isEditingHotkeyObject(row) and tr('Edit Object') or tr('Assign Object'))
   local currentObjectWindow = objectWindow
   objectWindow.onDestroy = function()
     if objectWindow ~= currentObjectWindow then
@@ -1343,12 +1358,15 @@ function assignObjectDialog(row, itemId, itemTier)
 
   objectRadio = UIRadioGroup.create()
   local item = objectWindow.contentPanel.item:getItem()
+  local hasSmartCast = item and modules.game_actionbar and modules.game_actionbar.getSmartCast and
+      modules.game_actionbar.getSmartCast(item:getId())
 
   -- Smart mode checkbox visibility
   objectWindow.contentPanel.checks.smart:setVisible(false)
   objectWindow.contentPanel.checks.smart:setEnabled(false)
   objectWindow.contentPanel.checks.smart:setChecked(false)
-  if item and item:getClothSlot() > 0 and item.hasExpireStop and item:hasExpireStop() then
+  if item and item:getClothSlot() > 0 and
+      ((item.hasExpireStop and item:hasExpireStop()) or hasSmartCast) then
     objectWindow.contentPanel.checks.smart:setVisible(true)
     if row and row.hotkeyData and row.hotkeyData.smartMode then
       objectWindow.contentPanel.checks.smart:setChecked(true)
@@ -1497,6 +1515,9 @@ function assignObjectDialog(row, itemId, itemTier)
   end
 
   objectWindow.contentPanel.buttonOk.onClick = okFunc
+  if objectWindow.contentPanel.buttonApply then
+    objectWindow.contentPanel.buttonApply.onClick = okFunc
+  end
   objectWindow.contentPanel.buttonClose.onClick = cancelFunc
   objectWindow.onEnter = okFunc
   objectWindow.onEscape = cancelFunc

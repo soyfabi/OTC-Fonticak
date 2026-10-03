@@ -16,7 +16,7 @@ UIWidget
     anchors.right: parent.right
     anchors.top: parent.top
     anchors.top: prev.bottom
-    margin-top: 7
+    margin-top: 5
     height: 22
 
     OptionCheckBox
@@ -28,7 +28,7 @@ UIWidget
     anchors.right: parent.right
     anchors.top: parent.top
     anchors.top: prev.bottom
-    margin-top: 7
+    margin-top: 5
     height: 22
 
     OptionCheckBoxMarked
@@ -39,7 +39,7 @@ UIWidget
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
-    margin-top: 7
+    margin-top: 5
     height: 22
 
     OptionCheckBox
@@ -50,7 +50,7 @@ UIWidget
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
-    margin-top: 7
+    margin-top: 5
     height: 22
 
     $mobile:
@@ -69,7 +69,7 @@ UIWidget
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
-    margin-top: 7
+    margin-top: 5
     height: 22
   
     OptionCheckBox
@@ -80,7 +80,7 @@ UIWidget
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
-    margin-top: 7
+    margin-top: 5
     height: 22
 
     OptionCheckBoxMarked
@@ -116,7 +116,19 @@ UIWidget
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
-    margin-top: 7
+    margin-top: 5
+    height: 22
+
+    OptionCheckBoxMarked
+      id: showBlessingInventoryHighlight
+      !text: tr('Show Blessing Highlight on Inventory')
+      !tooltip: tr('Highlights equipment slots while Adventurer Blessing is active')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 5
     height: 32
   
     OptionsLabel
@@ -138,7 +150,7 @@ UIWidget
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
-    margin-top: 7
+    margin-top: 5
     height: 32
 
     OptionsLabel
@@ -168,7 +180,7 @@ UIWidget
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
-    margin-top: 7
+    margin-top: 5
     height: 22
 
     OptionCheckBoxMarked
@@ -180,7 +192,7 @@ UIWidget
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
-    margin-top: 7
+    margin-top: 5
     height: 22
 
     OptionCheckBoxMarked
@@ -192,7 +204,7 @@ UIWidget
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: prev.bottom
-    margin-top: 7
+    margin-top: 5
     height: 22
 
     OptionCheckBoxMarked

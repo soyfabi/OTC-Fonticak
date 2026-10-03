@@ -365,7 +365,12 @@ void ProtocolGame::parseMessage(const InputMessagePtr& msg)
                     parseAttachedPaperdoll(msg);
                     break;
                 case Proto::GameServerDetachPaperdoll:
-                    parseDetachPaperdoll(msg);
+                    // Weapon proficiency reshape offers share this custom opcode.
+                    // Detach uses a boolean at payload byte 4; reshape uses offer count 3.
+                    if (msg->getUnreadSize() >= 14 && msg->peekBytes(5)[4] == 3)
+                        parseWeaponProficiencyReshape(msg);
+                    else
+                        parseDetachPaperdoll(msg);
                     break;
                 case Proto::GameServerFeatures:
                     parseFeatures(msg);
@@ -3347,7 +3352,7 @@ void ProtocolGame::parseOpenOutfitWindow(const InputMessagePtr& msg) const
         currentOutfit.setFamiliar(msg->getU16());
     }
 
-    std::vector<std::tuple<uint16_t, std::string, uint8_t, uint8_t>> outfitList;
+    std::vector<std::tuple<uint16_t, std::string, uint8_t, uint8_t, uint32_t>> outfitList;
 
     if (g_game.getFeature(Otc::GameNewOutfitProtocol)) {
         const uint16_t outfitCount = g_game.getClientVersion() >= 1281 ? msg->getU16() : msg->getU8();
@@ -3356,14 +3361,15 @@ void ProtocolGame::parseOpenOutfitWindow(const InputMessagePtr& msg) const
             const auto& outfitName = msg->getString();
             const uint8_t outfitAddons = msg->getU8();
             uint8_t outfitMode = 0;
-            if (g_game.getClientVersion() >= 1281) {
+            uint32_t storeOfferId = 0;
+            if (g_game.getClientVersion() >= 1281 || g_game.getFeature(Otc::GameAstraOutfitStoreMode)) {
                 outfitMode = msg->getU8(); // mode: 0x00 - available, 0x01 store (requires U32 store offerId), 0x02 golden outfit tooltip (hardcoded)
                 if (outfitMode == 1) {
-                    msg->getU32();
+                    storeOfferId = msg->getU32();
                 }
             }
 
-            outfitList.emplace_back(outfitId, outfitName, outfitAddons, outfitMode);
+            outfitList.emplace_back(outfitId, outfitName, outfitAddons, outfitMode, storeOfferId);
         }
     } else {
         uint16_t outfitStart;
@@ -3377,7 +3383,7 @@ void ProtocolGame::parseOpenOutfitWindow(const InputMessagePtr& msg) const
         }
 
         for (auto i = outfitStart; i <= outfitEnd; ++i) {
-            outfitList.emplace_back(i, "", 0, 0);
+            outfitList.emplace_back(i, "", 0, 0, 0);
         }
     }
 
@@ -6945,14 +6951,27 @@ void ProtocolGame::parseHighscores(const InputMessagePtr& msg)
     g_game.processHighscore(serverName, world, worldType, battlEye, vocations, categories, page, totalPages, highscores, entriesTs);
 }
 
+static bool weaponProficiencyExtendedProtocol()
+{
+    return g_game.getFeature(Otc::GameProficiency);
+}
+
 void ProtocolGame::parseWeaponProficiencyCatalog(const InputMessagePtr& msg)
 {
+    const bool extended = weaponProficiencyExtendedProtocol();
     const uint16_t count = msg->getU16();
     for (uint16_t i = 0; i < count; ++i) {
         const uint16_t itemId = msg->getU16();
         const uint16_t marketCategory = msg->getU16();
-        const std::string name = msg->getString();
-        g_lua.callGlobalField("g_game", "onWeaponProficiencyCatalogItem", itemId, marketCategory, name);
+        uint16_t proficiencyId = 0;
+        std::string name;
+        if (extended) {
+            proficiencyId = msg->getU16();
+            name = msg->getString();
+        } else {
+            name = msg->getString();
+        }
+        g_lua.callGlobalField("g_game", "onWeaponProficiencyCatalogItem", itemId, marketCategory, name, proficiencyId);
     }
     g_lua.callGlobalField("g_game", "onWeaponProficiencyCatalogReady");
 }
@@ -6976,8 +6995,25 @@ static void parseWeaponProficiencyInfoPayload(const InputMessagePtr& msg)
         const uint8_t perkPosition = msg->getU8();
         perks.push_back({ level, perkPosition });
     }
+    std::vector<std::map<std::string, uint16_t>> modifiedSlots;
+    if (weaponProficiencyExtendedProtocol()) {
+        const uint8_t modifiedSlotsCount = msg->getU8();
+        modifiedSlots.reserve(modifiedSlotsCount);
+        for (uint8_t i = 0; i < modifiedSlotsCount; ++i) {
+            const uint8_t level = msg->getU8();
+            const uint8_t perkPosition = msg->getU8();
+            const uint16_t modifierEnum = msg->getU16();
+            const uint8_t refineLevel = msg->getU8();
+            modifiedSlots.push_back({
+                { "grade", level },
+                { "slot", perkPosition },
+                { "modifierEnum", modifierEnum },
+                { "refineLevel", refineLevel }
+            });
+        }
+    }
     const uint16_t marketCategory = msg->getU16();
-    g_lua.callGlobalField("g_game", "onWeaponProficiency", itemId, experience, perks, marketCategory);
+    g_lua.callGlobalField("g_game", "onWeaponProficiency", itemId, experience, perks, marketCategory, modifiedSlots);
 }
 
 void ProtocolGame::parseWeaponProficiencyInfo(const InputMessagePtr& msg)
@@ -6991,6 +7027,23 @@ void ProtocolGame::parseWeaponProficiencyInfoBatch(const InputMessagePtr& msg)
     for (uint16_t i = 0; i < count; ++i) {
         parseWeaponProficiencyInfoPayload(msg);
     }
+}
+
+void ProtocolGame::parseWeaponProficiencyReshape(const InputMessagePtr& msg)
+{
+    const uint16_t itemId = msg->getU16();
+    const uint8_t level = msg->getU8();
+    const uint8_t position = msg->getU8();
+    const uint8_t count = msg->getU8();
+    if (count == 0 || count > 3 || msg->getUnreadSize() < count * 3)
+        return;
+
+    std::vector<std::vector<uint16_t>> offers;
+    offers.reserve(count);
+    for (uint8_t i = 0; i < count; ++i)
+        offers.push_back({ msg->getU16(), msg->getU8() });
+
+    g_lua.callGlobalField("g_game", "onWeaponProficiencyReshape", itemId, level, position, offers);
 }
 
 // 0x5F - parse destiny wheel window (Fonticak custom 8.60, see server wheel.lua sendWheelWindow)

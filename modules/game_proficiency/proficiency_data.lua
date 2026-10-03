@@ -419,6 +419,13 @@ function ProficiencyData:getProficiencyIdForItem(displayItem, thingType, marketD
         return 6 -- Default fallback
     end
 
+    if marketData and marketData.proficiencyId then
+        local id = tonumber(marketData.proficiencyId)
+        if id and id > 0 and self:isValidProficiencyId(id) then
+            return id
+        end
+    end
+
     -- Prefer the original ThingType over the visual Item, which may use marketData.showAs.
     if thingType and thingType.getProficiencyId then
         local id = thingType:getProficiencyId()
@@ -701,6 +708,75 @@ function ProficiencyData:getBonusNameAndTooltip(perkData)
     return bonusName, string.format(data.desc, value)
 end
 
+-- Build the display data for the server's proficiency modifier enum.
+function ProficiencyData:getModifierPerkData(modifierEnum, rank)
+    modifierEnum = tonumber(modifierEnum) or 0
+    rank = math.max(0, math.min(10, tonumber(rank) or 0))
+    local function percent(minimum, maximum)
+        return (minimum + math.floor((maximum - minimum) * rank / 10)) / 10000
+    end
+    local spellRegions = {
+        [0] = {80, 105, 106, 59, 316, 261},
+        [1] = {124, 302, 303, 258, 57, 122},
+        [2] = {13, 24, 240, 260, 310, 23},
+        [3] = {43, 120, 262, 263, 317, 318},
+        [4] = {289, 288, 294, 287, 301, 290}
+    }
+    if modifierEnum >= 1 and modifierEnum <= 250 then
+        local region = math.floor((modifierEnum - 1) / 50)
+        local offset = (modifierEnum - 1) % 50
+        local spellId = spellRegions[region] and spellRegions[region][(offset % 10) + 1]
+        local group = math.floor(offset / 10)
+        local augmentTypes = {17, 16, 2, 15, 14}
+        local ranges = {{100, 300}, {500, 2000}, {100, 300}, {100, 600}, {100, 1200}}
+        if spellId and group <= 4 then
+            return {Type = PERK_SPELL_AUGMENT, SpellId = spellId, AugmentType = augmentTypes[group + 1],
+                Value = percent(ranges[group + 1][1], ranges[group + 1][2])}
+        end
+    elseif modifierEnum >= 251 and modifierEnum <= 271 then
+        local bestiaryNames = {"Amphibic", "Aquatic", "Bird", "Construct", "Demon", "Dragon", "Elemental", "Fey", "Giant", "Human", "Humanoid", "Lycanthrope", "Magical", "Mammal", "Plant", "Reptile", "Slime", "Undead", "Vermin", "Extra Dimensional", "Inkborn"}
+        return {Type = PERK_BESTIARY_DAMAGE, BestiaryId = modifierEnum - 250,
+            BestiaryName = bestiaryNames[modifierEnum - 250], Value = percent(50, 250)}
+    end
+
+    local direct = {
+        [281] = {Type = PERK_LIFE_LEECH, min = 100, max = 800},
+        [282] = {Type = PERK_MANA_LEECH, min = 100, max = 1600},
+        [283] = {Type = PERK_LIFE_ON_HIT, min = 2, max = 12, flat = true},
+        [284] = {Type = PERK_MANA_ON_HIT, min = 5, max = 25, flat = true},
+        [285] = {Type = PERK_MANA_ON_KILL, min = 4, max = 24, flat = true},
+        [286] = {Type = PERK_LIFE_ON_KILL, min = 10, max = 50, flat = true},
+        [287] = {Type = PERK_ARMOR_PENETRATION, min = 200, max = 1000},
+        [288] = {Type = PERK_PIERCE, min = 100, max = 400},
+        [321] = {Type = PERK_DAMAGE_VS_FULL_HP, min = 500, max = 1500},
+        [322] = {Type = PERK_DAMAGE_VS_LOW_HP, min = 500, max = 1500, AllElements = true},
+        [323] = {Type = PERK_POWERFUL_FOE_DAMAGE, min = 100, max = 500}
+    }
+    local info = direct[modifierEnum]
+    if info then
+        local value = info.flat and (info.min + math.floor((info.max - info.min) * rank / 10)) or percent(info.min, info.max)
+        return {Type = info.Type, Value = value, AllElements = info.AllElements}
+    end
+
+    local rangeStart, perkType, minimum, maximum
+    if modifierEnum >= 291 and modifierEnum <= 297 then
+        rangeStart, perkType, minimum, maximum = 291, PERK_SKILL_BONUS, 200, 1000
+    elseif modifierEnum >= 301 and modifierEnum <= 307 then
+        rangeStart, perkType, minimum, maximum = 301, PERK_SPELL_SKILL_FLAT_DAMAGE, 100, 800
+    elseif modifierEnum >= 311 and modifierEnum <= 317 and modifierEnum ~= 313 then
+        rangeStart, perkType, minimum, maximum = 311, PERK_HEALING_SKILL_FLAT_DAMAGE, 200, 1000
+    end
+    if rangeStart then
+        local skillIds = {1, 6, 7, 8, 9, 10, 11}
+        local value = percent(minimum, maximum)
+        if perkType == PERK_SKILL_BONUS then
+            value = math.floor((minimum + math.floor((maximum - minimum) * rank / 10)) / 100)
+        end
+        return {Type = perkType, SkillId = skillIds[modifierEnum - rangeStart + 1], Value = value}
+    end
+    return nil
+end
+
 -- Get augment icon clip
 function ProficiencyData:getAugmentIconClip(perkData)
     local augmentData = AugmentPerkIcons[perkData.AugmentType]
@@ -742,6 +818,51 @@ function ProficiencyData:getMaxExperience(perkCount, displayItem, thingType, mar
     local vocation = self:getWeaponProfessionType(displayItem, thingType, marketData)
     local lastLevel = ExperienceTable[perkCount + 2]
     return (lastLevel and lastLevel[vocation]) or 0
+end
+
+-- True when the player earned star levels but has not chosen a perk for every unlocked level.
+function ProficiencyData:hasUnspentPerk(currentExperience, perks, displayItem, thingType, marketData)
+    local currentLevel = self:getCurrentLevelByExp(displayItem, currentExperience or 0, false, thingType, marketData) or 0
+    if currentLevel <= 0 then
+        return false
+    end
+
+    local perksByLevel = {}
+    for _, perk in ipairs(perks or {}) do
+        if type(perk) == 'table' then
+            local level = tonumber(perk[1])
+            if level then
+                perksByLevel[level] = true
+            end
+        end
+    end
+
+    for level = 1, currentLevel do
+        if not perksByLevel[level] then
+            return true
+        end
+    end
+
+    return false
+end
+
+-- Progress toward the next proficiency star (same math as star widgets in the dialog).
+function ProficiencyData:getNextStarProgress(currentExperience, displayItem, thingType, marketData)
+    local proficiencyId = self:getProficiencyIdForItem(displayItem, thingType, marketData)
+    local perkCount = self:getPerkLaneCount(proficiencyId)
+    local maxExperience = self:getMaxExperience(perkCount, displayItem, thingType, marketData)
+    local exp = tonumber(currentExperience) or 0
+
+    if maxExperience > 0 and exp >= maxExperience then
+        return 100, perkCount, perkCount, maxExperience
+    end
+
+    local currentLevel = self:getCurrentLevelByExp(displayItem, exp, false, thingType, marketData) or 0
+    local targetStar = math.min(currentLevel + 1, math.max(perkCount, 1))
+    local percent = self:getLevelPercent(exp, targetStar, displayItem, thingType, marketData) or 0
+    local targetExp = self:getMaxExperienceByLevel(targetStar, displayItem, thingType, marketData) or 0
+
+    return percent, currentLevel, targetStar, targetExp
 end
 
 -- Get level percent progress

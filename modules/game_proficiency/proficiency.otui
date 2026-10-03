@@ -1,3 +1,35 @@
+ProficiencyFilterButton < Button
+  checkable: true
+  text-offset: 0 0
+  $checked:
+    image-source: /images/ui/button-grey-down
+    text-offset: 1 1
+
+ModifyButton < UIButton
+  size: 128 26
+  image-source: /modules/game_proficiency/images/button-modify-small
+  image-clip: 0 0 128 26
+  $pressed:
+    image-clip: 0 26 128 26
+  $disabled:
+    image-clip: 0 52 128 26
+
+ModifyButtonLarge < UIButton
+  size: 185 26
+  image-source: /modules/game_proficiency/images/button-modify-large
+  image-clip: 0 0 185 26
+  $disabled:
+    image-clip: 0 0 185 26
+
+ShapeButton < UIButton
+  size: 185 26
+  image-source: /modules/game_proficiency/images/button-shape
+  image-clip: 0 0 185 26
+  $pressed:
+    image-clip: 0 26 185 26
+  $disabled:
+    image-clip: 0 52 185 26
+
 MiniStar < UIWidget
   id: miniStar
   size: 5 5
@@ -135,6 +167,35 @@ BonusIcon < UIWidget
     visible: false
     image-source: /modules/game_proficiency/images/big-icon-lock-grey
 
+  UIWidget
+    id: selected
+    size: 92 92
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.verticalCenter: parent.verticalCenter
+    visible: false
+    phantom: true
+    focusable: false
+    image-source: /modules/game_proficiency/images/border-arrow-selected
+
+  UIWidget
+    id: manipulateRank
+    size: 32 32
+    anchors.bottom: icon.bottom
+    anchors.left: icon.left
+    margin-bottom: -16
+    margin-left: -16
+    visible: false
+    phantom: true
+    image-source: /modules/game_proficiency/images/backdrop_manipulation_rank
+    Label
+      id: rankValue
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.verticalCenter: parent.verticalCenter
+      text-align: center
+      color: #c0c0c0
+      text-auto-resize: true
+      phantom: true
+
 BonusSelectPanel < UIWidget
   id: bonusSelectPanel
   size: 108 354
@@ -202,16 +263,21 @@ BonusSelectPanel < UIWidget
 BonusDetailPanel < UIWidget
   id: bonusDetailPanel
   size: 108 77
-  background-color: #404040
-  border-width: 1
-  border-color: #606060
+  image-source: /images/ui/textedit
+  image-border: 1
+  padding-left: 6
+  padding-top: 6
+  padding-right: 5
 
   UIWidget
     id: bonusName
-    anchors.fill: parent
-    margin: 4 4 4 4
+    size: 100 69
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-left: -2
+    margin-top: -1
     color: #c0c0c0
-    text-align: center
+    text-align: topLeft
     text-wrap: true
     tooltip-delayed: true
     image-source: /modules/game_proficiency/images/icon-lock-grey
@@ -306,18 +372,68 @@ MainWindow
           text-wrap: true
           text-align: center
 
-      Button
-        id: levelButton
-        size: 47 20
+      ModifyButton
+        id: modifyButton
         anchors.top: prev.bottom
         anchors.left: parent.left
-        margin-top: 6
+        margin-top: 11
+        @onClick: modules.game_proficiency.WeaponProficiency:onModifyClick()
+
+      UIWidget
+        id: modifyCost
+        size: 52 26
+        anchors.top: prev.top
+        anchors.left: prev.right
+        margin-left: 6
+        image-source: /images/ui/button-verydarkgrey-down
+        image-border: 3
+        focusable: false
+
+        Panel
+          id: modifyCostContainer
+          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.verticalCenter: parent.verticalCenter
+          height: 16
+          margin-top: 1
+          layout:
+            type: horizontalBox
+            spacing: 1
+            fit-children: true
+
+          Label
+            id: modifyCostText
+            !text: tr('250')
+            color: #c0c0c0
+            text-align: center
+            text-auto-resize: true
+
+          UIWidget
+            id: modifyCostIcon
+            size: 9 6
+            image-source: /images/icons/icon-currency-dust
+            fixed-size: true
+
+      UIWidget
+        id: modifyHelp
+        size: 12 12
+        anchors.verticalCenter: modifyButton.verticalCenter
+        anchors.right: itemPanel.right
+        image-source: /images/icons/show_gui_help_grey
+        tooltip-delayed: true
+        !tooltip: tr('You can modify up to 2 perks, replacing their bonus with another randomly selected one.\nOnce modified, you can further shape your perk. Refine the perk\'s rank up to a maximum of 10 or replace its bonus with another.\nYou can always restore the perk to its original state and choose another one to modify.')
+
+      ProficiencyFilterButton
+        id: levelButton
+        size: 47 20
+        anchors.top: modifyCost.bottom
+        anchors.left: parent.left
+        margin-top: 11
         !text: tr('Level')
         tooltip-delayed: true
         tooltip: Restrict list to objects that match your level
         @onClick: modules.game_proficiency.WeaponProficiency:toggleFilterOption(self)
 
-      Button
+      ProficiencyFilterButton
         id: vocButton
         size: 47 20
         anchors.top: prev.top
@@ -328,7 +444,7 @@ MainWindow
         tooltip: Restrict list to objects that match your vocation
         @onClick: modules.game_proficiency.WeaponProficiency:toggleFilterOption(self)
 
-      Button
+      ProficiencyFilterButton
         id: oneButton
         size: 47 20
         anchors.top: prev.top
@@ -339,7 +455,7 @@ MainWindow
         tooltip: Restrict list to one-handed weapons
         @onClick: modules.game_proficiency.WeaponProficiency:toggleFilterOption(self)
 
-      Button
+      ProficiencyFilterButton
         id: twoButton
         size: 47 20
         anchors.top: prev.top
@@ -438,7 +554,7 @@ MainWindow
         size: 756 14
         anchors.top: prev.bottom
         anchors.left: prev.left
-        margin-top: 2
+        margin-top: 6
         image-source: /modules/game_proficiency/images/progress-bg
 
         ProgressBarSD
@@ -453,7 +569,7 @@ MainWindow
         size: 756 354
         anchors.top: prev.bottom
         anchors.left: prev.left
-        margin-top: 3
+        margin-top: 11
         image-source: /modules/game_proficiency/images/full-bonus-select-bg
         layout:
           type: grid
@@ -478,7 +594,7 @@ MainWindow
         size: 756 77
         anchors.top: bonusProgressBackground.bottom
         anchors.left: bonusProgressBackground.left
-        margin-top: 3
+        margin-top: 11
         background-color: #404040
         border-width: 1
         border-color: #606060
@@ -492,9 +608,40 @@ MainWindow
     anchors.bottom: close.top
     anchors.left: parent.left
     anchors.right: parent.right
-    margin-bottom: 11
+    margin-bottom: 5
     margin-left: 12
     margin-right: 12
+
+  FlatPanel
+    id: forgeDustBalance
+    size: 80 20
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    margin-bottom: 4
+    margin-left: 12
+    image-source: /images/ui/containerslot
+    image-border: 3
+
+    UIWidget
+      id: text
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      text-align: right
+      margin-right: 12
+      color: #c0c0c0
+      text-horizontal-auto-resize: true
+      !text: '0/100'
+
+    UIWidget
+      id: icon
+      anchors.left: prev.right
+      anchors.verticalCenter: prev.verticalCenter
+      margin-left: 3
+      size: 9 6
+      image-source: /images/icons/icon-currency-dust
+      tooltip: Dusts
+      tooltip-delayed: true
+      phantom: false
 
   Button
     id: close
@@ -502,7 +649,7 @@ MainWindow
     anchors.right: parent.right
     !text: tr('Close')
     size: 60 20
-    margin-bottom: 12
+    margin-bottom: 4
     margin-right: 12
     @onClick: modules.game_proficiency.WeaponProficiency:onCloseWindow()
 
@@ -512,7 +659,7 @@ MainWindow
     anchors.right: prev.left
     !text: tr('Reset')
     size: 60 20
-    margin-bottom: 12
+    margin-bottom: 4
     margin-right: 5
     tooltip-delayed: true
     enabled: false
@@ -524,7 +671,7 @@ MainWindow
     anchors.right: prev.left
     !text: tr('Apply')
     size: 60 20
-    margin-bottom: 12
+    margin-bottom: 4
     margin-right: 5
     tooltip-delayed: true
     enabled: false
@@ -536,7 +683,7 @@ MainWindow
     anchors.right: prev.left
     !text: tr('Ok')
     size: 60 20
-    margin-bottom: 12
+    margin-bottom: 4
     margin-right: 5
     tooltip-delayed: true
     enabled: false
