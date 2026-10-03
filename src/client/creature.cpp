@@ -137,6 +137,28 @@ void Creature::draw(const Point& dest, const bool drawThings, LightView* /*light
             _dest -= ((Point(g_gameConfig.getSpriteSize()) + getDisplacement()) / 2) * (g_drawPool.getScaleFactor() - oldScaleFactor);
         }
 
+        if (g_gameConfig.isShowCreatureShadows() && !isDead()) {
+            const float scale = g_drawPool.getScaleFactor();
+            const int horizontalOffset = static_cast<int>(g_gameConfig.getSpriteSize() * 0.12f * scale);
+            const int verticalOffset = static_cast<int>(g_gameConfig.getSpriteSize() * 0.18f * scale);
+            int shadowOffsetX = 0;
+            int shadowOffsetY = 0;
+
+            switch (getDirection()) {
+            case Otc::North:     shadowOffsetX = -horizontalOffset; break;
+            case Otc::East:      shadowOffsetX = horizontalOffset; break;
+            case Otc::South:     shadowOffsetY = verticalOffset; break;
+            case Otc::West:      shadowOffsetY = -verticalOffset; break;
+            case Otc::NorthEast: shadowOffsetY = -verticalOffset; break;
+            case Otc::SouthEast: shadowOffsetX = horizontalOffset; break;
+            case Otc::SouthWest: shadowOffsetY = verticalOffset; break;
+            case Otc::NorthWest: shadowOffsetX = -horizontalOffset; break;
+            default:             shadowOffsetX = -horizontalOffset; shadowOffsetY = -verticalOffset; break;
+            }
+
+            internalDraw(_dest + Point(shadowOffsetX, shadowOffsetY), Color(0, 0, 0, 105));
+        }
+
         internalDraw(_dest);
 
         if (isMarked())
