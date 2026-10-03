@@ -104,146 +104,6 @@ local function getLeftSlotItem()
     return player and player:getInventoryItem(InventorySlotLeft) or nil
 end
 
-local PROFICIENCY_MODULE_HIGHLIGHT_DEBUG = false
-
-local function debugModuleHighlight(message)
-    if PROFICIENCY_MODULE_HIGHLIGHT_DEBUG then
-        print(string.format('[WeaponProficiency.highlight] %s', message))
-    end
-end
-
-local WEAPON_MARKET_CATEGORIES = {
-    [17] = true,
-    [18] = true,
-    [19] = true,
-    [20] = true,
-    [21] = true,
-    [27] = true
-}
-
-local function equippedItemMatchesProficiencyHighlight(item)
-    if not item or not item.getId then
-        return false
-    end
-
-    local itemId = item:getId()
-
-    if WeaponProficiency.unusedPerkItemId and WeaponProficiency.unusedPerkItemId == itemId then
-        debugModuleHighlight(string.format('equippedWeapon: server perk itemId=%s', tostring(itemId)))
-        return true
-    end
-
-    if WeaponProficiency.cacheList[itemId] then
-        debugModuleHighlight(string.format('equippedWeapon: cache itemId=%s', tostring(itemId)))
-        return true
-    end
-
-    if type(canOpenForItem) == 'function' and canOpenForItem(item) then
-        debugModuleHighlight(string.format('equippedWeapon: canOpen itemId=%s', tostring(itemId)))
-        return true
-    end
-
-    local thingType = item.getThingType and item:getThingType() or g_things.getThingType(itemId, ThingCategoryItem)
-    if thingType then
-        if getNumericCall(thingType, 'getProficiencyId') > 0 or getNumericCall(thingType, 'getWeaponType') > 0 then
-            debugModuleHighlight(string.format('equippedWeapon: thingType itemId=%s', tostring(itemId)))
-            return true
-        end
-
-        local marketData = thingType.getMarketData and thingType:getMarketData() or nil
-        if marketData and WEAPON_MARKET_CATEGORIES[marketData.category] then
-            debugModuleHighlight(string.format('equippedWeapon: marketCat itemId=%s', tostring(itemId)))
-            return true
-        end
-    end
-
-    debugModuleHighlight(string.format('equippedWeapon: no match itemId=%s', tostring(itemId)))
-    return false
-end
-
-local function equippedWeaponSupportsProficiencyHighlight()
-    local item = getLeftSlotItem()
-    if not item then
-        debugModuleHighlight('equippedWeapon: no left-hand item')
-        return false
-    end
-
-    return equippedItemMatchesProficiencyHighlight(item)
-end
-
-local function hasUnusedPerkHighlightFlag()
-    local flag = WeaponProficiency.hasUnusedPerk
-    if flag == true or flag == 1 then
-        return true
-    end
-    if type(flag) == 'number' and flag ~= 0 then
-        return true
-    end
-    return false
-end
-
-local function shouldShowProficiencyModuleButtonHighlight()
-    local windowVisible = WeaponProficiency.window and WeaponProficiency.window:isVisible()
-    local weaponOk = equippedWeaponSupportsProficiencyHighlight()
-    local unusedPerk = hasUnusedPerkHighlightFlag()
-
-    if windowVisible then
-        debugModuleHighlight(string.format('shouldShow=false (window open) unusedPerk=%s', tostring(WeaponProficiency.hasUnusedPerk)))
-        return false
-    end
-
-    if not weaponOk then
-        debugModuleHighlight(string.format('shouldShow=false (weapon) unusedPerk=%s raw=%s', tostring(unusedPerk),
-            tostring(WeaponProficiency.hasUnusedPerk)))
-        return false
-    end
-
-    if not unusedPerk then
-        debugModuleHighlight(string.format('shouldShow=false (no unused perk) raw=%s type=%s', tostring(WeaponProficiency.hasUnusedPerk),
-            type(WeaponProficiency.hasUnusedPerk)))
-        return false
-    end
-
-    debugModuleHighlight('shouldShow=true')
-    return true
-end
-
-local function onPlayerInventoryChange(player, slot, item, oldItem)
-    if slot ~= InventorySlotLeft then
-        return
-    end
-
-    debugModuleHighlight(string.format('inventory left slot: item=%s old=%s hasUnusedPerk=%s',
-        item and tostring(item:getId()) or 'nil',
-        oldItem and tostring(oldItem:getId()) or 'nil',
-        tostring(WeaponProficiency.hasUnusedPerk)))
-
-    refreshEquippedProficiencyStatusBar(nil, true)
-end
-
-local function hasWeaponProficiencyProtocol()
-    return type(g_game.sendWeaponProficiencyAction) == 'function' and
-               type(g_game.sendWeaponProficiencyApply) == 'function'
-end
-
-local function sendWeaponProficiencyAction(actionType, itemId)
-    if not hasWeaponProficiencyProtocol() then
-        return false
-    end
-
-    g_game.sendWeaponProficiencyAction(actionType, itemId or 0)
-    return true
-end
-
-local function sendWeaponProficiencyApply(itemId, levels, perkPositions)
-    if not hasWeaponProficiencyProtocol() then
-        return false
-    end
-
-    g_game.sendWeaponProficiencyApply(itemId, levels, perkPositions)
-    return true
-end
-
 local function findMarketItemByAnyId(itemId)
     itemId = tonumber(itemId)
     if not itemId then
@@ -276,14 +136,15 @@ local function getProficiencyCacheKey(itemId)
 end
 
 local function getWeaponProficiencyCache(itemId)
-    local key = getProficiencyCacheKey(itemId)
-    local cache = WeaponProficiency.cacheList[key]
+    itemId = tonumber(itemId) or itemId
+    local cache = WeaponProficiency.cacheList[itemId]
     if cache then
-        return cache, key
+        return cache, itemId
     end
-    cache = WeaponProficiency.cacheList[itemId]
+    local key = getProficiencyCacheKey(itemId)
+    cache = WeaponProficiency.cacheList[key]
     if cache then
-        WeaponProficiency.cacheList[key] = cache
+        WeaponProficiency.cacheList[itemId] = cache
         return cache, key
     end
     return nil, key
@@ -320,6 +181,114 @@ local function proficiencyItemsMatch(selectedItemId, incomingItemId)
         return false
     end
     return getProficiencyCacheKey(selectedItemId) == getProficiencyCacheKey(incomingItemId)
+end
+
+local function itemHasProficiencyCacheEntry(itemId)
+    -- O(1) only: setWeaponProficiencyCache mirrors entries under client/server ids.
+    return WeaponProficiency.cacheList[itemId] ~= nil
+end
+
+local WEAPON_MARKET_CATEGORIES = {
+    [17] = true,
+    [18] = true,
+    [19] = true,
+    [20] = true,
+    [21] = true,
+    [27] = true
+}
+
+local function equippedItemMatchesProficiencyHighlight(item)
+    if not item or not item.getId then
+        return false
+    end
+
+    local itemId = item:getId()
+
+    if WeaponProficiency.unusedPerkItemId and WeaponProficiency.unusedPerkItemId == itemId then
+        return true
+    end
+
+    if itemHasProficiencyCacheEntry(itemId) then
+        return true
+    end
+
+    if type(canOpenForItem) == 'function' and canOpenForItem(item) then
+        return true
+    end
+
+    local thingType = item.getThingType and item:getThingType() or g_things.getThingType(itemId, ThingCategoryItem)
+    if thingType then
+        if getNumericCall(thingType, 'getProficiencyId') > 0 or getNumericCall(thingType, 'getWeaponType') > 0 then
+            return true
+        end
+
+        local marketData = thingType.getMarketData and thingType:getMarketData() or nil
+        if marketData and WEAPON_MARKET_CATEGORIES[marketData.category] then
+            return true
+        end
+    end
+
+    return false
+end
+
+local function equippedWeaponSupportsProficiencyHighlight()
+    local item = getLeftSlotItem()
+    return item and equippedItemMatchesProficiencyHighlight(item)
+end
+
+local function hasUnusedPerkHighlightFlag()
+    local flag = WeaponProficiency.hasUnusedPerk
+    if flag == true or flag == 1 then
+        return true
+    end
+    if type(flag) == 'number' and flag ~= 0 then
+        return true
+    end
+    return false
+end
+
+local function shouldShowProficiencyModuleButtonHighlight()
+    if WeaponProficiency.window and WeaponProficiency.window:isVisible() then
+        return false
+    end
+    if not equippedWeaponSupportsProficiencyHighlight() then
+        return false
+    end
+    return hasUnusedPerkHighlightFlag()
+end
+
+local function onPlayerInventoryChange(player, slot, item, oldItem)
+    if slot ~= InventorySlotLeft then
+        return
+    end
+    scheduleEvent(function()
+        if g_game.isOnline() then
+            refreshEquippedProficiencyStatusBar(nil, true)
+        end
+    end, 0)
+end
+
+local function hasWeaponProficiencyProtocol()
+    return type(g_game.sendWeaponProficiencyAction) == 'function' and
+               type(g_game.sendWeaponProficiencyApply) == 'function'
+end
+
+local function sendWeaponProficiencyAction(actionType, itemId)
+    if not hasWeaponProficiencyProtocol() then
+        return false
+    end
+
+    g_game.sendWeaponProficiencyAction(actionType, itemId or 0)
+    return true
+end
+
+local function sendWeaponProficiencyApply(itemId, levels, perkPositions)
+    if not hasWeaponProficiencyProtocol() then
+        return false
+    end
+
+    g_game.sendWeaponProficiencyApply(itemId, levels, perkPositions)
+    return true
 end
 
 local function getPlayerWheelVocation()
@@ -1166,9 +1135,6 @@ function onWeaponProficiencyExperience(itemId, experience, hasUnusedPerk)
         WeaponProficiency.unusedPerkItemId = nil
     end
 
-    debugModuleHighlight(string.format('onWeaponProficiencyExperience itemId=%s exp=%s hasUnusedPerk=%s type=%s',
-        tostring(itemId), tostring(experience), tostring(hasUnusedPerk), type(hasUnusedPerk)))
-
     if proficiencyItemMatchesEquipped(itemId) then
         refreshEquippedProficiencyStatusBar(nil, false)
     else
@@ -1226,12 +1192,8 @@ end
 local function setProficiencyModuleButtonAttention(visible)
     local toggleButton = getProficiencyModuleToggleButton()
     if not toggleButton then
-        debugModuleHighlight(string.format('setAttention(%s): ProficiencyButton widget not found', tostring(visible)))
         return
     end
-
-    debugModuleHighlight(string.format('setAttention(%s): buttonId=%s class=%s', tostring(visible),
-        tostring(toggleButton:getId()), tostring(toggleButton:getClassName())))
 
     local highlight = toggleButton:getChildById('highlight')
     if not highlight then
@@ -1263,11 +1225,6 @@ local function setProficiencyModuleButtonAttention(visible)
     bright:setVisible(visible)
     highlight:raise()
     bright:raise()
-
-    debugModuleHighlight(string.format('widgets highlight=%s bright=%s highlightVisible=%s brightVisible=%s',
-        highlight and 'ok' or 'nil', bright and 'ok' or 'nil',
-        highlight and tostring(highlight:isVisible()) or 'n/a',
-        bright and tostring(bright:isVisible()) or 'n/a'))
 end
 
 function refreshProficiencyModuleButtonHighlight()
@@ -3135,10 +3092,6 @@ local function populateReshapePerkPanel(panel, modifierEnum, refineLevel)
     end
 end
 
-local function closeShapeMessageBox()
-    dismissShapeWindow(WeaponProficiency.shapeWindow)
-end
-
 function WeaponProficiency:closeReshapeDialog()
     local dialog = self.shapeWindow
     if not dialog or dialog:isDestroyed() or dialog:getId() ~= 'reshapeDialog' then
@@ -3161,9 +3114,9 @@ function WeaponProficiency:confirmReshapeReplace(optionIndex)
     if optionIndex >= 0 and optionIndex <= 2 then
         local option = data.options[optionIndex + 1]
         if option then
-            local cacheEntry = self.cacheList[data.itemId]
+            local cacheEntry = getWeaponProficiencyCache(data.itemId)
             if cacheEntry then
-                local modifierEntry = findCachedModifier(cacheEntry, data.grade, data.slot)
+                local modifierEntry = findCachedModifier(data.itemId, data.grade, data.slot)
                 if modifierEntry then
                     modifierEntry.modifierEnum = option.modifierEnum
                     modifierEntry.refineLevel = option.refineLevel
@@ -3187,7 +3140,7 @@ function WeaponProficiency:openReshapeDialog()
         return
     end
 
-    closeShapeMessageBox()
+    dismissShapeWindow(self.shapeWindow)
 
     local existing = root:recursiveGetChildById('reshapeDialog')
     if existing and not existing:isDestroyed() then
@@ -3197,7 +3150,7 @@ function WeaponProficiency:openReshapeDialog()
     local dialog = g_ui.createWidget('ReshapeDialog', root)
     dialog:setId('reshapeDialog')
 
-    local modifierEntry = findCachedModifier(self.cacheList[data.itemId], data.grade, data.slot)
+    local modifierEntry = findCachedModifier(data.itemId, data.grade, data.slot)
     if modifierEntry then
         populateReshapePerkPanel(dialog:recursiveGetChildById('currentPerkPanel'), modifierEntry.modifierEnum,
             modifierEntry.refineLevel)
@@ -3258,7 +3211,7 @@ function WeaponProficiency:onReshapeOptionSelected(optionIndex)
         return
     end
 
-    local modifierEntry = findCachedModifier(self.cacheList[data.itemId], data.grade, data.slot)
+    local modifierEntry = findCachedModifier(data.itemId, data.grade, data.slot)
     local currentModifier = modifierEntry and modifierEntry.modifierEnum
     if currentModifier and currentModifier == option.modifierEnum then
         self:confirmReshapeReplace(optionIndex)
@@ -3274,7 +3227,7 @@ function WeaponProficiency:openShapeMenu()
     local slot = self.selectedModifySlot
     local itemId = self.selectedItemId
     if not slot or not itemId then return end
-    local cache = self.cacheList[itemId]
+    local cache = getWeaponProficiencyCache(itemId)
     local modifier = getModifiedSlot(cache, slot)
     if not modifier then
         local modifierCount = #(cache and cache.modifiers or {})
@@ -3817,8 +3770,6 @@ function WeaponProficiency:applyPendingSelections()
         table.insert(perkPositions, sel[2])
     end
 
-    -- Send to server using the protocol function with two parallel arrays
-    -- g_game.sendWeaponProficiencyApply(itemId, levelsArray, perkPositionsArray)
     local protocolItemId = getProtocolItemId(self.selectedMarketItem, self.selectedItemId)
     sendWeaponProficiencyApply(protocolItemId, levels, perkPositions)
 
@@ -3857,7 +3808,6 @@ function WeaponProficiency:applyPendingSelections()
         end, 200)
     end
 
-    -- Pending selections already cleared above
 end
 
 -- Update Apply/Ok/Reset button enabled state based on pending selections
