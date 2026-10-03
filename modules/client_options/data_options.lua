@@ -1558,6 +1558,14 @@ return {
             end
         end
     },
+    showCreatureShadows = {
+        value = true,
+        action = function(value)
+            if g_gameConfig and g_gameConfig.setShowCreatureShadows then
+                g_gameConfig.setShowCreatureShadows(value ~= false)
+            end
+        end
+    },
     showAnimationSkillBar = {
         value = true
     },
