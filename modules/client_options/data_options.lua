@@ -1322,6 +1322,9 @@ return {
                 newValue = nil
             end
             panels.interface:recursiveGetChildById('frames'):setCurrentOptionByData(newValue, true)
+            if ItemsDatabase and ItemsDatabase.refreshAllItemRarity then
+                ItemsDatabase.refreshAllItemRarity()
+            end
             if options.framesRarity.event ~= nil then
                 removeEvent(options.framesRarity.event)
             end

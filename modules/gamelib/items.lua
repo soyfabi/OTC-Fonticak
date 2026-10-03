@@ -468,6 +468,17 @@ function ItemsDatabase.refreshItemRarity(itemId)
     end
 end
 
+function ItemsDatabase.refreshAllItemRarity()
+    for widget, itemId in pairs(ItemsDatabase.rarityWidgets) do
+        local success = pcall(function()
+            applyRarityToWidget(widget, ItemsDatabase.getItemPrice(itemId))
+        end)
+        if not success then
+            ItemsDatabase.rarityWidgets[widget] = nil
+        end
+    end
+end
+
 function ItemsDatabase.setRarityItemByPrice(widget, price, style)
     applyRarityToWidget(widget, tonumber(price) or 0, style)
 end
