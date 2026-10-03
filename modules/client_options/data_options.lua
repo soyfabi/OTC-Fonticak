@@ -1291,6 +1291,14 @@ return {
             end, 100)
         end
     },
+    showBlessingInventoryHighlight    = {
+        value = false,
+        action = function()
+            if modules.game_inventory and modules.game_inventory.refreshBlessingInventoryHighlight then
+                modules.game_inventory.refreshBlessingInventoryHighlight()
+            end
+        end
+    },
     showExpiryInContainers            = {
         value = true,
         event = nil,

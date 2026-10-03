@@ -283,9 +283,13 @@ local function inventoryEvent(player, slot, item, oldItem)
 
     slotPanel.item:setItem(item)
     toggler:setEnabled(not item)
+    -- Placeholders are declared before the UIItem in MainInventoryItem. Keep
+    -- them above it so empty equipment slots remain visible.
+    toggler:raise()
     slotPanel.item:setWidth(34)
     slotPanel.item:setHeight(34)
-    
+
+    ItemsDatabase.setRarityItem(slotPanel.item, item)
     ItemsDatabase.applyExpiryDisplay(slotPanel.item, 'showExpiryInInvetory')
     ItemsDatabase.setTier(slotPanel.item, item)
     refreshInventorySlotQuickLootIcon(slotPanel, item)
@@ -837,14 +841,46 @@ function toggle()
     end
 end
 
-function toggleAdventurerStyle(hasBlessing)
-    for slot, getSlotInfo in pairs(getSlotPanelBySlot) do
-        local ui = getInventoryUi()
-        local slotPanel, toggler = getSlotInfo(ui)
-        if slotPanel then
-            slotPanel:setOn(hasBlessing)
+local hasAdventurerBlessing = false
+
+local function isBlessingInventoryHighlightEnabled()
+    if modules.client_options and modules.client_options.hasOption and
+        modules.client_options.hasOption('showBlessingInventoryHighlight') then
+        return modules.client_options.getOption('showBlessingInventoryHighlight') ~= false
+    end
+    return g_settings.getBoolean('showBlessingInventoryHighlight')
+end
+
+local function applyAdventurerStyle()
+    if not inventoryController or not inventoryController.ui then
+        return
+    end
+
+    local inventorySlotWidgetIds = {
+        'helmet', 'amulet', 'backpack', 'armor', 'shield',
+        'sword', 'legs', 'boots', 'ring', 'tools'
+    }
+    local showHighlight = hasAdventurerBlessing and isBlessingInventoryHighlightEnabled()
+    for _, panelId in ipairs({'onPanel', 'offPanel'}) do
+        local ui = inventoryController.ui[panelId]
+        if ui then
+            for _, slotWidgetId in ipairs(inventorySlotWidgetIds) do
+                local slotPanel = ui:getChildById(slotWidgetId)
+                if slotPanel then
+                    slotPanel:setOn(showHighlight)
+                end
+            end
         end
     end
+end
+
+function toggleAdventurerStyle(hasBlessing)
+    hasAdventurerBlessing = hasBlessing == true
+    applyAdventurerStyle()
+end
+
+function refreshBlessingInventoryHighlight()
+    applyAdventurerStyle()
 end
 
 local BLESSING_BUTTON_IMAGES = {

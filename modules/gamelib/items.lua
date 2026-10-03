@@ -57,6 +57,12 @@ function ItemsDatabase.registerServerItemValue(itemId, value)
         return
     end
     ItemsDatabase.serverValues[itemId] = value
+
+    -- Item values arrive after login, when inventory widgets are already
+    -- rendered. Refresh those widgets as soon as the authoritative value lands.
+    if ItemsDatabase.refreshItemRarity then
+        ItemsDatabase.refreshItemRarity(itemId)
+    end
 end
 
 function ItemsDatabase.clearServerItemValues()
@@ -689,4 +695,3 @@ connect(g_game, {
     onGameEnd = onGameEnd,
     onEnterGame = registerCustomItemOpcodes
 })
-
