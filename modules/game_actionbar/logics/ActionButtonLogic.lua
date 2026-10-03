@@ -10,6 +10,7 @@ local EQUIP_VISUAL_PENDING_MS = 800
 local freeActionButtonCopies = {}
 local freeActionButtonLocks = {}
 local selectedFreeActionButtonCopies = {}
+local freeActionBarCopyCooldownSequence = 0
 local pendingFreeActionButtonSyncs = {}
 local scheduleFreeActionBarCopySync
 local freeActionSelectionClickAwayHandler = nil
@@ -284,9 +285,12 @@ end
 
 --- Sets up hotkey for a button
 local function setupHotkeyButton(button)
+    local isPlacementCopy = button.isFreeActionBarCopy == true
     if not ApiJson.hasCurrentHotkeySet() then
         if button.cache and button.cache.hotkey then
-            unbindHotkey(button.cache.hotkey)
+            if not isPlacementCopy then
+                unbindHotkey(button.cache.hotkey)
+            end
             button.cache.hotkey = nil
             if button.hotkeyLabel then
                 button.hotkeyLabel:setText('')
@@ -308,13 +312,17 @@ local function setupHotkeyButton(button)
     
     if keySequence then
         button.cache.hotkey = keySequence
-        unbindHotkey(keySequence)
-        bindHotkey(button, keySequence)
+        if not isPlacementCopy then
+            unbindHotkey(keySequence)
+            bindHotkey(button, keySequence)
+        end
     elseif button.cache and button.cache.hotkey then
         -- No hotkey is configured for this button anymore: drop the stale
         -- binding/cache so the button label really clears (e.g. Clear in the
         -- Edit Hotkey dialog on a button without an action).
-        unbindHotkey(button.cache.hotkey)
+        if not isPlacementCopy then
+            unbindHotkey(button.cache.hotkey)
+        end
         button.cache.hotkey = nil
     end
 end
@@ -1017,6 +1025,10 @@ function updateActionPassive(button)
                 copy.item.text.gray:setVisible(passiveData.max == 0)
                 if cache.cooldownEvent == nil then
                     updateCooldown(copy, passiveData.cooldown * 1000)
+                    if cache.removeCooldownEvent then
+                        removeEvent(cache.removeCooldownEvent)
+                        cache.removeCooldownEvent = nil
+                    end
                     cache.removeCooldownEvent = scheduleEvent(function()
                         removeCooldown(copy)
                     end, passiveData.cooldown * 1000)
@@ -1843,6 +1855,20 @@ local function removeFreeActionButtonCopy(id)
     freeActionButtonCopies[id] = nil
     freeActionButtonLocks[id] = nil
     if copy and not copy:isDestroyed() then
+        if cacheMultiActionButtons then
+            cacheMultiActionButtons[copy] = nil
+        end
+        if copy.freeActionBarCooldownKey and clearMultiActionCooldownEvents then
+            clearMultiActionCooldownEvents(copy.freeActionBarCooldownKey)
+        end
+        if copy.cache and copy.cache.removeCooldownEvent then
+            removeEvent(copy.cache.removeCooldownEvent)
+            copy.cache.removeCooldownEvent = nil
+        end
+        removeCooldown(copy)
+        if resetButtonCache then
+            resetButtonCache(copy)
+        end
         copy:destroy()
     end
 end
@@ -1877,6 +1903,9 @@ scheduleFreeActionBarCopySync = function(sourceButton)
             return
         end
 
+        if copy.freeActionBarCooldownKey and clearMultiActionCooldownEvents then
+            clearMultiActionCooldownEvents(copy.freeActionBarCooldownKey)
+        end
         updateButton(copy)
         copy.onMouseRelease = copy.freeActionBarMouseRelease
         if copy.item and copy.freeActionBarItemCallbacks then
@@ -1957,19 +1986,12 @@ function resetFreeActionBarRuntimeCopies(skipSave)
         pendingFreeActionButtonSyncs[id] = nil
     end
     clearFreeActionButtonSelection()
-    for id, copy in pairs(freeActionButtonCopies) do
-        if copy and not copy:isDestroyed() then
-            if copy.cache and copy.cache.removeCooldownEvent then
-                removeEvent(copy.cache.removeCooldownEvent)
-                copy.cache.removeCooldownEvent = nil
-            end
-            removeCooldown(copy)
-            if resetButtonCache then
-                resetButtonCache(copy)
-            end
-            copy:destroy()
-        end
-        freeActionButtonCopies[id] = nil
+    local copyIds = {}
+    for id in pairs(freeActionButtonCopies) do
+        copyIds[#copyIds + 1] = id
+    end
+    for _, id in ipairs(copyIds) do
+        removeFreeActionButtonCopy(id)
     end
     selectedFreeActionButtonCopies = {}
     freeActionButtonLocks = {}
@@ -1993,11 +2015,14 @@ end
 local function findFreeCopyPosition(copy, preferredPosition, placedCopies)
     local width = copy:getWidth()
     local height = copy:getHeight()
-    local maxX = math.max(0, gameRootPanel:getWidth() - width)
-    local maxY = math.max(0, gameRootPanel:getHeight() - height)
+    local rootPosition = gameRootPanel:getPosition()
+    local minX = rootPosition.x
+    local minY = rootPosition.y
+    local maxX = minX + math.max(0, gameRootPanel:getWidth() - width)
+    local maxY = minY + math.max(0, gameRootPanel:getHeight() - height)
     local origin = {
-        x = math.max(0, math.min(maxX, preferredPosition.x)),
-        y = math.max(0, math.min(maxY, preferredPosition.y))
+        x = math.max(minX, math.min(maxX, preferredPosition.x)),
+        y = math.max(minY, math.min(maxY, preferredPosition.y))
     }
     local overlapsAnotherCopy = copyOverlapsPosition(copy, origin, placedCopies)
     if #placedCopies == 0 then
@@ -2015,7 +2040,7 @@ local function findFreeCopyPosition(copy, preferredPosition, placedCopies)
             { x = anchor.x + placed:getWidth(), y = anchor.y } -- right
         }
         for _, candidate in ipairs(candidates) do
-            local inBounds = candidate.x >= 0 and candidate.y >= 0
+            local inBounds = candidate.x >= minX and candidate.y >= minY
                 and candidate.x <= maxX and candidate.y <= maxY
             if inBounds and not copyOverlapsPosition(copy, candidate, placedCopies) then
                 local dx = candidate.x - origin.x
@@ -2073,6 +2098,8 @@ local function createFreeActionButtonCopy(sourceButton, position)
     local copy = g_ui.createWidget(layout, gameRootPanel)
     copy:setId(id)
     copy.isFreeActionBarCopy = true
+    freeActionBarCopyCooldownSequence = freeActionBarCopyCooldownSequence + 1
+    copy.freeActionBarCooldownKey = id .. ':copy:' .. freeActionBarCopyCooldownSequence
     copy:setPosition(position)
     copy:setVisible(isFreeActionBarPlacementEnabled())
     updateButton(copy)
@@ -2193,10 +2220,13 @@ local function createFreeActionButtonCopy(sourceButton, position)
             if dragSelection then
                 local deltaX = mousePos.x - dragSelection.start.x
                 local deltaY = mousePos.y - dragSelection.start.y
-                deltaX = math.max(-dragSelection.minX,
-                    math.min(gameRootPanel:getWidth() - dragSelection.maxX, deltaX))
-                deltaY = math.max(-dragSelection.minY,
-                    math.min(gameRootPanel:getHeight() - dragSelection.maxY, deltaY))
+                local rootPosition = gameRootPanel:getPosition()
+                local minDeltaX = rootPosition.x - dragSelection.minX
+                local minDeltaY = rootPosition.y - dragSelection.minY
+                local maxDeltaX = rootPosition.x + gameRootPanel:getWidth() - dragSelection.maxX
+                local maxDeltaY = rootPosition.y + gameRootPanel:getHeight() - dragSelection.maxY
+                deltaX = math.max(minDeltaX, math.min(maxDeltaX, deltaX))
+                deltaY = math.max(minDeltaY, math.min(maxDeltaY, deltaY))
                 for selectedId, startPosition in pairs(dragSelection.positions) do
                     local selectedCopy = freeActionButtonCopies[selectedId]
                     if selectedCopy and not selectedCopy:isDestroyed() then

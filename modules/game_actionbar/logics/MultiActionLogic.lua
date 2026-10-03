@@ -455,7 +455,7 @@ function scheduleMultiActionCooldownEvent(button, eventKey, delay)
         return
     end
 
-    local buttonId = button:getId()
+    local buttonId = button.freeActionBarCooldownKey or button:getId()
     if not multiActionCooldownEvents[buttonId] then
         multiActionCooldownEvents[buttonId] = {}
     end
@@ -481,7 +481,7 @@ function registerMultiActionCooldownEvents(button)
         return
     end
 
-    local buttonId = button:getId()
+    local buttonId = button.freeActionBarCooldownKey or button:getId()
     if multiActionCooldownEvents[buttonId] then
         for _, eventId in pairs(multiActionCooldownEvents[buttonId]) do
             removeEvent(eventId)
