@@ -3352,7 +3352,7 @@ void ProtocolGame::parseOpenOutfitWindow(const InputMessagePtr& msg) const
         currentOutfit.setFamiliar(msg->getU16());
     }
 
-    std::vector<std::tuple<uint16_t, std::string, uint8_t, uint8_t>> outfitList;
+    std::vector<std::tuple<uint16_t, std::string, uint8_t, uint8_t, uint32_t>> outfitList;
 
     if (g_game.getFeature(Otc::GameNewOutfitProtocol)) {
         const uint16_t outfitCount = g_game.getClientVersion() >= 1281 ? msg->getU16() : msg->getU8();
@@ -3361,14 +3361,15 @@ void ProtocolGame::parseOpenOutfitWindow(const InputMessagePtr& msg) const
             const auto& outfitName = msg->getString();
             const uint8_t outfitAddons = msg->getU8();
             uint8_t outfitMode = 0;
-            if (g_game.getClientVersion() >= 1281) {
+            uint32_t storeOfferId = 0;
+            if (g_game.getClientVersion() >= 1281 || g_game.getFeature(Otc::GameAstraOutfitStoreMode)) {
                 outfitMode = msg->getU8(); // mode: 0x00 - available, 0x01 store (requires U32 store offerId), 0x02 golden outfit tooltip (hardcoded)
                 if (outfitMode == 1) {
-                    msg->getU32();
+                    storeOfferId = msg->getU32();
                 }
             }
 
-            outfitList.emplace_back(outfitId, outfitName, outfitAddons, outfitMode);
+            outfitList.emplace_back(outfitId, outfitName, outfitAddons, outfitMode, storeOfferId);
         }
     } else {
         uint16_t outfitStart;
@@ -3382,7 +3383,7 @@ void ProtocolGame::parseOpenOutfitWindow(const InputMessagePtr& msg) const
         }
 
         for (auto i = outfitStart; i <= outfitEnd; ++i) {
-            outfitList.emplace_back(i, "", 0, 0);
+            outfitList.emplace_back(i, "", 0, 0, 0);
         }
     }
 

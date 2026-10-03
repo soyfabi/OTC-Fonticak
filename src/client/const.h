@@ -587,6 +587,7 @@ namespace Otc
         GameDisplayItemCharges = 139,
         GamePackedPlayerInventory = 140,
         GameAstraQuiverCountU16 = 141,
+        GameAstraOutfitStoreMode = 142,
         LastGameFeature
     };
 
