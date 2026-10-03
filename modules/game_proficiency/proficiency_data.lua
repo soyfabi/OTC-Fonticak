@@ -768,7 +768,11 @@ function ProficiencyData:getModifierPerkData(modifierEnum, rank)
     end
     if rangeStart then
         local skillIds = {1, 6, 7, 8, 9, 10, 11}
-        return {Type = perkType, SkillId = skillIds[modifierEnum - rangeStart + 1], Value = percent(minimum, maximum)}
+        local value = percent(minimum, maximum)
+        if perkType == PERK_SKILL_BONUS then
+            value = math.floor((minimum + math.floor((maximum - minimum) * rank / 10)) / 100)
+        end
+        return {Type = perkType, SkillId = skillIds[modifierEnum - rangeStart + 1], Value = value}
     end
     return nil
 end
