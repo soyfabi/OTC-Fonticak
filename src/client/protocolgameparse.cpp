@@ -6951,14 +6951,26 @@ void ProtocolGame::parseHighscores(const InputMessagePtr& msg)
     g_game.processHighscore(serverName, world, worldType, battlEye, vocations, categories, page, totalPages, highscores, entriesTs);
 }
 
+static bool weaponProficiencyExtendedProtocol()
+{
+    return g_game.getFeature(Otc::GameProficiency);
+}
+
 void ProtocolGame::parseWeaponProficiencyCatalog(const InputMessagePtr& msg)
 {
+    const bool extended = weaponProficiencyExtendedProtocol();
     const uint16_t count = msg->getU16();
     for (uint16_t i = 0; i < count; ++i) {
         const uint16_t itemId = msg->getU16();
         const uint16_t marketCategory = msg->getU16();
-        const uint16_t proficiencyId = msg->getU16();
-        const std::string name = msg->getString();
+        uint16_t proficiencyId = 0;
+        std::string name;
+        if (extended) {
+            proficiencyId = msg->getU16();
+            name = msg->getString();
+        } else {
+            name = msg->getString();
+        }
         g_lua.callGlobalField("g_game", "onWeaponProficiencyCatalogItem", itemId, marketCategory, name, proficiencyId);
     }
     g_lua.callGlobalField("g_game", "onWeaponProficiencyCatalogReady");
@@ -6983,20 +6995,22 @@ static void parseWeaponProficiencyInfoPayload(const InputMessagePtr& msg)
         const uint8_t perkPosition = msg->getU8();
         perks.push_back({ level, perkPosition });
     }
-    const uint8_t modifiedSlotsCount = msg->getU8();
     std::vector<std::map<std::string, uint16_t>> modifiedSlots;
-    modifiedSlots.reserve(modifiedSlotsCount);
-    for (uint8_t i = 0; i < modifiedSlotsCount; ++i) {
-        const uint8_t level = msg->getU8();
-        const uint8_t perkPosition = msg->getU8();
-        const uint16_t modifierEnum = msg->getU16();
-        const uint8_t refineLevel = msg->getU8();
-        modifiedSlots.push_back({
-            { "grade", level },
-            { "slot", perkPosition },
-            { "modifierEnum", modifierEnum },
-            { "refineLevel", refineLevel }
-        });
+    if (weaponProficiencyExtendedProtocol()) {
+        const uint8_t modifiedSlotsCount = msg->getU8();
+        modifiedSlots.reserve(modifiedSlotsCount);
+        for (uint8_t i = 0; i < modifiedSlotsCount; ++i) {
+            const uint8_t level = msg->getU8();
+            const uint8_t perkPosition = msg->getU8();
+            const uint16_t modifierEnum = msg->getU16();
+            const uint8_t refineLevel = msg->getU8();
+            modifiedSlots.push_back({
+                { "grade", level },
+                { "slot", perkPosition },
+                { "modifierEnum", modifierEnum },
+                { "refineLevel", refineLevel }
+            });
+        }
     }
     const uint16_t marketCategory = msg->getU16();
     g_lua.callGlobalField("g_game", "onWeaponProficiency", itemId, experience, perks, marketCategory, modifiedSlots);
