@@ -1207,8 +1207,14 @@ function selectHotkeySet(name)
         return false
     end
 
+    if saveFreeActionBarCopies then
+        saveFreeActionBarCopies()
+    end
     if not ApiJson.setCurrentHotkeySetName(name) then
         return false
+    end
+    if resetFreeActionBarRuntimeCopies then
+        resetFreeActionBarRuntimeCopies(true)
     end
 
     if clearHotkeyCache then
@@ -1229,6 +1235,9 @@ function selectHotkeySet(name)
 
     for i = 1, #actionBars do
         setupActionBar(i)
+    end
+    if restoreFreeActionButtonCopies then
+        restoreFreeActionButtonCopies()
     end
 
     updateVisibleWidgets()

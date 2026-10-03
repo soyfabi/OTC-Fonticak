@@ -10,6 +10,8 @@ local EQUIP_VISUAL_PENDING_MS = 800
 local freeActionButtonCopies = {}
 local freeActionButtonLocks = {}
 local selectedFreeActionButtonCopies = {}
+local pendingFreeActionButtonSyncs = {}
+local scheduleFreeActionBarCopySync
 local freeActionSelectionClickAwayHandler = nil
 local previousFreeActionSelectionMouseReleaseHandler = nil
 
@@ -588,6 +590,9 @@ function clearButton(button, removeAction)
         local barID, buttonID = string.match(button:getId(), "(.*)%.(.*)")
         ApiJson.removeAction(tonumber(barID), tonumber(buttonID))
     end
+    if scheduleFreeActionBarCopySync then
+        scheduleFreeActionBarCopySync(button)
+    end
 end
 
 --- Updates the state of a button
@@ -1144,6 +1149,9 @@ end
 -- =============================================*/
 --- Updates the button's visual representation
 function updateButton(button)
+    if scheduleFreeActionBarCopySync then
+        scheduleFreeActionBarCopySync(button)
+    end
     local startUpdate = g_clock.millis()
     if not player then
         player = g_game.getLocalPlayer()
@@ -1729,6 +1737,12 @@ local function isFreeActionBarPlacementEnabled()
         and modules.client_options.getOption('freeActionBarPlacement') == true
 end
 
+local function getCurrentFreeActionBarPlacementKey()
+    local presetName = ApiJson.getCurrentHotkeySetName and ApiJson.getCurrentHotkeySetName() or 'default'
+    local profile = tostring(g_settings.getNumber('profile') or 1)
+    return profile .. ':' .. tostring(presetName or 'default')
+end
+
 local function saveFreeActionButtonCopies()
     local placements = {}
     for id, copy in pairs(freeActionButtonCopies) do
@@ -1741,7 +1755,35 @@ local function saveFreeActionButtonCopies()
             }
         end
     end
-    g_settings.setNode('freeActionBarButtonCopies', placements)
+    local allPlacements = g_settings.getNode('freeActionBarButtonCopiesByPreset') or {}
+    allPlacements[getCurrentFreeActionBarPlacementKey()] = placements
+    g_settings.setNode('freeActionBarButtonCopiesByPreset', allPlacements)
+    g_settings.set('freeActionBarCopiesMigrated', true)
+end
+
+function saveFreeActionBarCopies()
+    saveFreeActionButtonCopies()
+end
+
+local function getFreeActionButtonPlacementsForCurrentPreset()
+    local allPlacements = g_settings.getNode('freeActionBarButtonCopiesByPreset') or {}
+    local placementKey = getCurrentFreeActionBarPlacementKey()
+    local placements = allPlacements[placementKey]
+    if type(placements) == 'table' then
+        return placements
+    end
+
+    -- Import the old shared layout once into the first preset opened after upgrade.
+    if not g_settings.getBoolean('freeActionBarCopiesMigrated') then
+        local legacyPlacements = g_settings.getNode('freeActionBarButtonCopies')
+        if type(legacyPlacements) == 'table' and next(legacyPlacements) then
+            allPlacements[placementKey] = legacyPlacements
+            g_settings.setNode('freeActionBarButtonCopiesByPreset', allPlacements)
+            g_settings.set('freeActionBarCopiesMigrated', true)
+            return legacyPlacements
+        end
+    end
+    return {}
 end
 
 local function setFreeActionButtonSelected(id, selected)
@@ -1805,17 +1847,51 @@ local function removeFreeActionButtonCopy(id)
     end
 end
 
-local function removeFreeActionButtonCopies(selectedOnly, selectedIds)
-    local ids = selectedIds or {}
-    if selectedOnly and not selectedIds then
-        for id in pairs(selectedFreeActionButtonCopies) do
-            ids[#ids + 1] = id
-        end
-    elseif not selectedOnly then
-        for id in pairs(freeActionButtonCopies) do
-            ids[#ids + 1] = id
-        end
+scheduleFreeActionBarCopySync = function(sourceButton)
+    if not sourceButton or sourceButton.isFreeActionBarCopy then
+        return
     end
+    local id = sourceButton:getId()
+    if not freeActionButtonCopies[id] then
+        return
+    end
+    if pendingFreeActionButtonSyncs[id] then
+        removeEvent(pendingFreeActionButtonSyncs[id])
+    end
+    pendingFreeActionButtonSyncs[id] = scheduleEvent(function()
+        pendingFreeActionButtonSyncs[id] = nil
+        local copy = freeActionButtonCopies[id]
+        if not copy or copy:isDestroyed() then
+            return
+        end
+        local barId = tonumber(string.match(id, '^(%d+)%.'))
+        local sourceBar = barId and actionBars[barId]
+        local currentSource = sourceBar and sourceBar.tabBar and sourceBar.tabBar:getChildById(id)
+        if not currentSource or currentSource:isDestroyed() then
+            return
+        end
+        local cache = getButtonCache(currentSource)
+        if not cache or not cache.actionType or cache.actionType == 0 then
+            removeFreeActionButtonCopy(id)
+            saveFreeActionButtonCopies()
+            return
+        end
+
+        updateButton(copy)
+        copy.onMouseRelease = copy.freeActionBarMouseRelease
+        if copy.item and copy.freeActionBarItemCallbacks then
+            for callbackName, callback in pairs(copy.freeActionBarItemCallbacks) do
+                copy.item[callbackName] = callback
+            end
+            copy.item:setDraggable(not freeActionButtonLocks[id])
+        end
+        if copy.lockMarker then
+            copy.lockMarker:setVisible(freeActionButtonLocks[id] == true)
+        end
+    end, 1)
+end
+
+local function removeFreeActionButtonCopies(ids)
     for _, id in ipairs(ids) do
         removeFreeActionButtonCopy(id)
     end
@@ -1872,8 +1948,14 @@ function clearFreeActionButtonSelectionClickAwayHandler()
     previousFreeActionSelectionMouseReleaseHandler = nil
 end
 
-function resetFreeActionBarRuntimeCopies()
-    saveFreeActionButtonCopies()
+function resetFreeActionBarRuntimeCopies(skipSave)
+    if not skipSave then
+        saveFreeActionButtonCopies()
+    end
+    for id, event in pairs(pendingFreeActionButtonSyncs) do
+        removeEvent(event)
+        pendingFreeActionButtonSyncs[id] = nil
+    end
     clearFreeActionButtonSelection()
     for id, copy in pairs(freeActionButtonCopies) do
         if copy and not copy:isDestroyed() then
@@ -1890,6 +1972,7 @@ function resetFreeActionBarRuntimeCopies()
         freeActionButtonCopies[id] = nil
     end
     selectedFreeActionButtonCopies = {}
+    freeActionButtonLocks = {}
 end
 
 local function copyOverlapsPosition(copy, position, placedCopies)
@@ -1989,6 +2072,7 @@ local function createFreeActionButtonCopy(sourceButton, position)
     local layout = barId and barId < 4 and 'ActionButton' or 'SideActionButton'
     local copy = g_ui.createWidget(layout, gameRootPanel)
     copy:setId(id)
+    copy.isFreeActionBarCopy = true
     copy:setPosition(position)
     copy:setVisible(isFreeActionBarPlacementEnabled())
     updateButton(copy)
@@ -2052,7 +2136,7 @@ local function createFreeActionButtonCopy(sourceButton, position)
             end
         end)
         menu:addOption(tr('Remove All'), function()
-            removeFreeActionButtonCopies(#selectedIds > 1, selectedIds)
+            removeFreeActionButtonCopies(selectedIds)
         end)
         menu:display(mousePos)
         return true
@@ -2136,7 +2220,14 @@ local function createFreeActionButtonCopy(sourceButton, position)
             saveFreeActionButtonCopies()
             return true
         end
+        copy.freeActionBarItemCallbacks = {
+            onClick = copy.item.onClick,
+            onDragEnter = copy.item.onDragEnter,
+            onDragMove = copy.item.onDragMove,
+            onDragLeave = copy.item.onDragLeave
+        }
     end
+    copy.freeActionBarMouseRelease = copy.onMouseRelease
     freeActionButtonCopies[id] = copy
     resolveFreeActionBarCopyOverlaps(id)
     saveFreeActionButtonCopies()
@@ -2144,7 +2235,8 @@ local function createFreeActionButtonCopy(sourceButton, position)
 end
 
 function restoreFreeActionButtonCopies()
-    local placements = g_settings.getNode('freeActionBarButtonCopies') or {}
+    local placements = getFreeActionButtonPlacementsForCurrentPreset()
+    local removedStalePlacement = false
     local ids = {}
     for id in pairs(placements) do
         ids[#ids + 1] = id
@@ -2155,13 +2247,18 @@ function restoreFreeActionButtonCopies()
         if type(id) == 'string' and type(position) == 'table'
             and tonumber(string.match(id, '^(%d+)%.(%d+)$')) then
             freeActionButtonLocks[id] = position.locked == true
-            local barId, buttonId = string.match(id, '^(%d+)%.(%d+)$')
+            local barId = string.match(id, '^(%d+)%.%d+$')
             local source = actionBars[tonumber(barId)]
                 and actionBars[tonumber(barId)].tabBar:getChildById(id)
-            if source then
-                createFreeActionButtonCopy(source, { x = tonumber(position.x) or 0, y = tonumber(position.y) or 0 })
+            if not source or not createFreeActionButtonCopy(source,
+                { x = tonumber(position.x) or 0, y = tonumber(position.y) or 0 }) then
+                placements[id] = nil
+                removedStalePlacement = true
             end
         end
+    end
+    if removedStalePlacement then
+        saveFreeActionButtonCopies()
     end
     clearSelectionWhenClickingAway()
 end

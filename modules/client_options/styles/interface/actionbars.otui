@@ -136,7 +136,7 @@ UIWidget
     OptionCheckBoxMarked
       id: freeActionBarPlacement
       !text: tr('Free Action-Bar Placement')
-      !tooltip: tr('Drag action bar buttons onto the screen to create movable copies.')
+      !tooltip: tr('Drag action bar buttons onto the screen to create movable copies.\nAlt+Left-click to select multiple icons.')
 
   SmallReversedQtPanel
     anchors.left: parent.left

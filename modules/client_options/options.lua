@@ -1400,6 +1400,7 @@ function resetAnimation()
 end
 
 function resetActionBars()
+    setOption('freeActionBarPlacement', false, true)
     setOption('allActionBar13', true, true)
     setOption('actionBarShowBottom1', true, true)
     setOption('actionBarShowBottom2', false, true)
