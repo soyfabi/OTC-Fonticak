@@ -53,6 +53,11 @@ local function leftHandHasWeaponProficiency()
         return false
     end
 
+    local proficiency = modules.game_proficiency
+    if proficiency and proficiency.canOpenForItem then
+        return proficiency.canOpenForItem(item)
+    end
+
     local ok, pid = pcall(function()
         return item:getProficiencyId()
     end)
@@ -61,8 +66,8 @@ local function leftHandHasWeaponProficiency()
     end
 
     local PD = ProficiencyData
-    if not PD and modules.game_proficiency then
-        PD = modules.game_proficiency.ProficiencyData
+    if not PD and proficiency then
+        PD = proficiency.ProficiencyData
     end
     if PD and PD.isValidProfiencyId and PD.content and next(PD.content) ~= nil then
         return PD:isValidProfiencyId(pid)
@@ -101,24 +106,38 @@ function StatsBar.applyDefaultTopProficiencyLayout()
         StatsBar.setProficiencyHighlight(false)
         lastProficiencyCache = {}
     end
+
+    StatsBar.applyCompactTopProficiencyWeaponButton()
 end
 
 function StatsBar.switchCurrentLayout()
     StatsBar.applyDefaultTopProficiencyLayout()
-    if modules.game_proficiency and modules.game_proficiency.refreshEquippedProficiencyStatusBar then
-        modules.game_proficiency.refreshEquippedProficiencyStatusBar()
-        return
+    local perkHighlight = proficiencyHighlightActive
+    if modules.game_proficiency and modules.game_proficiency.WeaponProficiency then
+        local unused = modules.game_proficiency.WeaponProficiency.hasUnusedPerk
+        perkHighlight = unused == true or unused == 1
+    elseif lastProficiencyCache.hasHighlight then
+        perkHighlight = true
     end
 
-    if lastProficiencyCache.itemCache and lastProficiencyCache.thingType then
-        StatsBar.onUpdateProficiencyData(lastProficiencyCache.itemCache, lastProficiencyCache.hasHighlight,
-            lastProficiencyCache.thingType)
+    if modules.game_proficiency and modules.game_proficiency.refreshEquippedProficiencyStatusBar then
+        modules.game_proficiency.refreshEquippedProficiencyStatusBar(perkHighlight, false)
+    elseif lastProficiencyCache.itemCache and lastProficiencyCache.thingType then
+        StatsBar.onUpdateProficiencyData(lastProficiencyCache.itemCache, perkHighlight, lastProficiencyCache.thingType)
     end
+
+    StatsBar.resyncProficiencyPerkHighlightWidgets()
 end
 
 function StatsBar.onUpdateProficiencyData(itemCache, hasHighlight, thingType)
     if not itemCache or not thingType then
+        lastProficiencyCache = {}
+        proficiencyHighlightActive = false
         StatsBar.applyDefaultTopProficiencyLayout()
+        StatsBar.setProficiencyHighlight(false)
+        if modules.game_proficiency and modules.game_proficiency.refreshProficiencyModuleButtonHighlight then
+            modules.game_proficiency.refreshProficiencyModuleButtonHighlight()
+        end
         return
     end
 
@@ -137,31 +156,136 @@ function StatsBar.onUpdateProficiencyData(itemCache, hasHighlight, thingType)
     end
 
     StatsBar.setProficiencyHighlight(lastProficiencyCache.hasHighlight)
+    StatsBar.applyCompactTopProficiencyWeaponButton()
 end
-local PROFICIENCY_HIGHLIGHT_IDS = {
-    'highlightProficiencyButton',
-    'highlightProficiencyButtonCompact',
-    'highlightProficiencyButtonLarge'
+
+local PROFICIENCY_DEFAULT_LAYOUT_IDS = {
+    'defaultOnTop',
+    'parallelOnTop',
+    'defaultOnBottom',
+    'parallelOnBottom'
+}
+local PROFICIENCY_COMPACT_LAYOUT_IDS = {
+    'compactOnTop',
+    'compactOnBottom'
+}
+local PROFICIENCY_LARGE_LAYOUT_IDS = {
+    'largeOnTop',
+    'largeOnBottom'
 }
 
-local function applyProficiencyHighlightToLayout(layout, visible)
-    if not layout then
+local PROFICIENCY_BUTTON_COMPACT_EQUIPPED = '/images/game/topbar/proficiency-button-compact-equipped'
+local PROFICIENCY_BUTTON_COMPACT_UNEQUIPPED = '/images/game/topbar/proficiency-button-compact-unequipped'
+local PROFICIENCY_BUTTON_LARGE_EQUIPPED = '/images/game/topbar/proficiency-button-large-equipped'
+local PROFICIENCY_BUTTON_LARGE_UNEQUIPPED = '/images/game/topbar/proficiency-button-large-unequipped'
+
+local applyProficiencyPerkHighlightToBars
+
+local function applyCompactProficiencyWeaponButtonToRoot(root, equipped)
+    if not root then
         return
     end
-    for _, highlightId in ipairs(PROFICIENCY_HIGHLIGHT_IDS) do
-        local highlight = layout:recursiveGetChildById(highlightId)
-        if highlight then
-            highlight:setVisible(visible)
+
+    local srcCompact = equipped and PROFICIENCY_BUTTON_COMPACT_EQUIPPED or PROFICIENCY_BUTTON_COMPACT_UNEQUIPPED
+    local srcLarge = equipped and PROFICIENCY_BUTTON_LARGE_EQUIPPED or PROFICIENCY_BUTTON_LARGE_UNEQUIPPED
+
+    local compactButton = root:recursiveGetChildById('proficiencyButtonCompact')
+    if compactButton and compactButton.setImageSource then
+        compactButton:setImageSource(srcCompact)
+    end
+
+    local largeButton = root:recursiveGetChildById('proficiencyButtonLarge')
+    if largeButton and largeButton.setImageSource then
+        largeButton:setImageSource(srcLarge)
+    end
+end
+
+function StatsBar.applyCompactTopProficiencyWeaponButton()
+    local equipped = leftHandHasWeaponProficiency()
+
+    for _, bar in pairs(statsBars) do
+        if bar then
+            for _, layoutId in ipairs(PROFICIENCY_COMPACT_LAYOUT_IDS) do
+                applyCompactProficiencyWeaponButtonToRoot(bar:getChildById(layoutId), equipped)
+            end
+
+            for _, layoutId in ipairs(PROFICIENCY_LARGE_LAYOUT_IDS) do
+                applyCompactProficiencyWeaponButtonToRoot(bar:getChildById(layoutId), equipped)
+            end
         end
     end
-    local icon = layout:recursiveGetChildById('proficiencyIcon')
-    if icon then
-        icon:setOn(visible)
+end
+
+applyProficiencyPerkHighlightToBars = function(visible)
+    for _, bar in pairs(statsBars) do
+        if not bar then
+            goto proficiency_highlight_next_bar
+        end
+
+        for _, layoutId in ipairs(PROFICIENCY_DEFAULT_LAYOUT_IDS) do
+            local root = bar:getChildById(layoutId)
+            if root then
+                local highlight = root:recursiveGetChildById('highlightProficiencyButton')
+                if highlight then
+                    highlight:setVisible(visible)
+                end
+
+                local icon = root:recursiveGetChildById('proficiencyIcon')
+                if icon then
+                    icon:setOn(visible)
+                end
+            end
+        end
+
+        for _, layoutId in ipairs(PROFICIENCY_COMPACT_LAYOUT_IDS) do
+            local root = bar:getChildById(layoutId)
+            if root then
+                local highlight = root:recursiveGetChildById('highlightProficiencyButtonCompact')
+                if highlight then
+                    highlight:setVisible(visible)
+                end
+
+                local icon = root:recursiveGetChildById('proficiencyIcon')
+                if icon then
+                    icon:setOn(visible)
+                end
+            end
+        end
+
+        for _, layoutId in ipairs(PROFICIENCY_LARGE_LAYOUT_IDS) do
+            local root = bar:getChildById(layoutId)
+            if root then
+                local highlight = root:recursiveGetChildById('highlightProficiencyButtonLarge')
+                if highlight then
+                    highlight:setVisible(visible)
+                end
+
+                local icon = root:recursiveGetChildById('proficiencyIcon')
+                if icon then
+                    icon:setOn(visible)
+                end
+            end
+        end
+
+        ::proficiency_highlight_next_bar::
+    end
+end
+
+function StatsBar.resyncProficiencyPerkHighlightWidgets()
+    StatsBar.applyCompactTopProficiencyWeaponButton()
+
+    local show = leftHandHasWeaponProficiency() and
+        (proficiencyHighlightActive or lastProficiencyCache.hasHighlight == true)
+
+    applyProficiencyPerkHighlightToBars(show)
+
+    if modules.game_proficiency and modules.game_proficiency.refreshProficiencyModuleButtonHighlight then
+        modules.game_proficiency.refreshProficiencyModuleButtonHighlight()
     end
 end
 
 local function setProficiencyButtonHighlight(button, visible)
-    applyProficiencyHighlightToLayout(button, visible)
+    applyProficiencyPerkHighlightToBars(visible)
 end
 
 local function createStatsBarProficiencyButtons(statsBar)
@@ -202,17 +326,9 @@ function StatsBar.setProficiencyHighlight(visible)
     for _, statsBar in pairs(statsBars) do
         if statsBar then
             createStatsBarProficiencyButtons(statsBar)
-            for _, placement in ipairs(statsBarsPlacements) do
-                for dimension in pairs(statsBarsDimensions) do
-                    local layoutId = tostring(dimension):lower() .. 'On' .. placement
-                    local layout = statsBar:getChildById(layoutId)
-                    if layout then
-                        applyProficiencyHighlightToLayout(layout, proficiencyHighlightActive)
-                    end
-                end
-            end
         end
     end
+    applyProficiencyPerkHighlightToBars(proficiencyHighlightActive)
 end
 
 local skillsLineHeight = 20
@@ -783,6 +899,9 @@ function constructStatsBar(dimension, placement)
         modules.game_healthcircle.setStatsBarOption()
         createStatsBarProficiencyButtons(statsBar)
         StatsBar.switchCurrentLayout()
+        scheduleEvent(function()
+            StatsBar.resyncProficiencyPerkHighlightWidgets()
+        end, 0)
     else
         print("No stats bar found for:", dimensionOnPlacement .. " on constructStatsBar()")
     end
@@ -797,11 +916,6 @@ end
 
 function StatsBar.refreshProficiencyStatusBar()
     StatsBar.applyDefaultTopProficiencyLayout()
-    if modules.game_proficiency and modules.game_proficiency.refreshEquippedProficiencyStatusBar then
-        modules.game_proficiency.refreshEquippedProficiencyStatusBar(nil, true)
-    elseif modules.game_proficiency and modules.game_proficiency.updateTopBarProficiency then
-        modules.game_proficiency.updateTopBarProficiency()
-    end
 end
 
 local function openDropMenu(mousePos)
@@ -1045,7 +1159,6 @@ function StatsBar.init()
         onHarmonyChange = StatsBar.onHarmonyChange,
         onSereneChange = StatsBar.onSereneChange,
         onVocationChange = StatsBar.onVocationChange,
-        onInventoryChange = StatsBar.refreshProficiencyStatusBar,
         onExpBoostChange = StatsBar.updateXpBoostDisplay,
         onExperienceRateChange = StatsBar.updateXpBoostDisplay
     }

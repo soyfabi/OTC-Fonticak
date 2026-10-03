@@ -816,6 +816,51 @@ function ProficiencyData:getMaxExperience(perkCount, displayItem, thingType, mar
     return (lastLevel and lastLevel[vocation]) or 0
 end
 
+-- True when the player earned star levels but has not chosen a perk for every unlocked level.
+function ProficiencyData:hasUnspentPerk(currentExperience, perks, displayItem, thingType, marketData)
+    local currentLevel = self:getCurrentLevelByExp(displayItem, currentExperience or 0, false, thingType, marketData) or 0
+    if currentLevel <= 0 then
+        return false
+    end
+
+    local perksByLevel = {}
+    for _, perk in ipairs(perks or {}) do
+        if type(perk) == 'table' then
+            local level = tonumber(perk[1])
+            if level then
+                perksByLevel[level] = true
+            end
+        end
+    end
+
+    for level = 1, currentLevel do
+        if not perksByLevel[level] then
+            return true
+        end
+    end
+
+    return false
+end
+
+-- Progress toward the next proficiency star (same math as star widgets in the dialog).
+function ProficiencyData:getNextStarProgress(currentExperience, displayItem, thingType, marketData)
+    local proficiencyId = self:getProficiencyIdForItem(displayItem, thingType, marketData)
+    local perkCount = self:getPerkLaneCount(proficiencyId)
+    local maxExperience = self:getMaxExperience(perkCount, displayItem, thingType, marketData)
+    local exp = tonumber(currentExperience) or 0
+
+    if maxExperience > 0 and exp >= maxExperience then
+        return 100, perkCount, perkCount, maxExperience
+    end
+
+    local currentLevel = self:getCurrentLevelByExp(displayItem, exp, false, thingType, marketData) or 0
+    local targetStar = math.min(currentLevel + 1, math.max(perkCount, 1))
+    local percent = self:getLevelPercent(exp, targetStar, displayItem, thingType, marketData) or 0
+    local targetExp = self:getMaxExperienceByLevel(targetStar, displayItem, thingType, marketData) or 0
+
+    return percent, currentLevel, targetStar, targetExp
+end
+
 -- Get level percent progress
 function ProficiencyData:getLevelPercent(currentExperience, level, displayItem, thingType, marketData)
     local vocation = self:getWeaponProfessionType(displayItem, thingType, marketData)

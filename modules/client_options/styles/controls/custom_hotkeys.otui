@@ -325,11 +325,12 @@ UIWidget
     anchors.right: parent.right
     anchors.top: prev.bottom
 
-    SmallButton
+    OptionsQtButton
       id: newAction
       anchors.top: parent.top
       anchors.left: parent.left
-      width: 75
+      margin-top: 8
+      size: 90 20
       !text: tr('New Action')
       visible: true
 

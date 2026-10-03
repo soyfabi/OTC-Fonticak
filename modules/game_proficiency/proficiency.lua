@@ -104,6 +104,123 @@ local function getLeftSlotItem()
     return player and player:getInventoryItem(InventorySlotLeft) or nil
 end
 
+local PROFICIENCY_MODULE_HIGHLIGHT_DEBUG = false
+
+local function debugModuleHighlight(message)
+    if PROFICIENCY_MODULE_HIGHLIGHT_DEBUG then
+        print(string.format('[WeaponProficiency.highlight] %s', message))
+    end
+end
+
+local WEAPON_MARKET_CATEGORIES = {
+    [17] = true,
+    [18] = true,
+    [19] = true,
+    [20] = true,
+    [21] = true,
+    [27] = true
+}
+
+local function equippedItemMatchesProficiencyHighlight(item)
+    if not item or not item.getId then
+        return false
+    end
+
+    local itemId = item:getId()
+
+    if WeaponProficiency.unusedPerkItemId and WeaponProficiency.unusedPerkItemId == itemId then
+        debugModuleHighlight(string.format('equippedWeapon: server perk itemId=%s', tostring(itemId)))
+        return true
+    end
+
+    if WeaponProficiency.cacheList[itemId] then
+        debugModuleHighlight(string.format('equippedWeapon: cache itemId=%s', tostring(itemId)))
+        return true
+    end
+
+    if type(canOpenForItem) == 'function' and canOpenForItem(item) then
+        debugModuleHighlight(string.format('equippedWeapon: canOpen itemId=%s', tostring(itemId)))
+        return true
+    end
+
+    local thingType = item.getThingType and item:getThingType() or g_things.getThingType(itemId, ThingCategoryItem)
+    if thingType then
+        if getNumericCall(thingType, 'getProficiencyId') > 0 or getNumericCall(thingType, 'getWeaponType') > 0 then
+            debugModuleHighlight(string.format('equippedWeapon: thingType itemId=%s', tostring(itemId)))
+            return true
+        end
+
+        local marketData = thingType.getMarketData and thingType:getMarketData() or nil
+        if marketData and WEAPON_MARKET_CATEGORIES[marketData.category] then
+            debugModuleHighlight(string.format('equippedWeapon: marketCat itemId=%s', tostring(itemId)))
+            return true
+        end
+    end
+
+    debugModuleHighlight(string.format('equippedWeapon: no match itemId=%s', tostring(itemId)))
+    return false
+end
+
+local function equippedWeaponSupportsProficiencyHighlight()
+    local item = getLeftSlotItem()
+    if not item then
+        debugModuleHighlight('equippedWeapon: no left-hand item')
+        return false
+    end
+
+    return equippedItemMatchesProficiencyHighlight(item)
+end
+
+local function hasUnusedPerkHighlightFlag()
+    local flag = WeaponProficiency.hasUnusedPerk
+    if flag == true or flag == 1 then
+        return true
+    end
+    if type(flag) == 'number' and flag ~= 0 then
+        return true
+    end
+    return false
+end
+
+local function shouldShowProficiencyModuleButtonHighlight()
+    local windowVisible = WeaponProficiency.window and WeaponProficiency.window:isVisible()
+    local weaponOk = equippedWeaponSupportsProficiencyHighlight()
+    local unusedPerk = hasUnusedPerkHighlightFlag()
+
+    if windowVisible then
+        debugModuleHighlight(string.format('shouldShow=false (window open) unusedPerk=%s', tostring(WeaponProficiency.hasUnusedPerk)))
+        return false
+    end
+
+    if not weaponOk then
+        debugModuleHighlight(string.format('shouldShow=false (weapon) unusedPerk=%s raw=%s', tostring(unusedPerk),
+            tostring(WeaponProficiency.hasUnusedPerk)))
+        return false
+    end
+
+    if not unusedPerk then
+        debugModuleHighlight(string.format('shouldShow=false (no unused perk) raw=%s type=%s', tostring(WeaponProficiency.hasUnusedPerk),
+            type(WeaponProficiency.hasUnusedPerk)))
+        return false
+    end
+
+    debugModuleHighlight('shouldShow=true')
+    return true
+end
+
+local function onPlayerInventoryChange(player, slot, item, oldItem)
+    if slot ~= InventorySlotLeft then
+        return
+    end
+
+    debugModuleHighlight(string.format('inventory left slot: item=%s old=%s hasUnusedPerk=%s',
+        item and tostring(item:getId()) or 'nil',
+        oldItem and tostring(oldItem:getId()) or 'nil',
+        tostring(WeaponProficiency.hasUnusedPerk)))
+
+    refreshEquippedProficiencyStatusBar(nil, true)
+end
+
 local function hasWeaponProficiencyProtocol()
     return type(g_game.sendWeaponProficiencyAction) == 'function' and
                type(g_game.sendWeaponProficiencyApply) == 'function'
@@ -246,6 +363,10 @@ function init()
         onResourcesBalanceChange = onWeaponProficiencyResourceBalanceChange
     })
 
+    connect(LocalPlayer, {
+        onInventoryChange = onPlayerInventoryChange
+    })
+
     if g_game.isOnline() then
         onGameStart()
     end
@@ -254,6 +375,7 @@ end
 function terminate()
     cancelProficiencyButtonInit()
     cancelTopBarProficiencyInit()
+    cancelEquippedProficiencyRefreshTimers()
     cancelAutoSelect()
     if WeaponProficiency.itemListRenderEvent then
         removeEvent(WeaponProficiency.itemListRenderEvent)
@@ -270,6 +392,10 @@ function terminate()
         onWeaponProficiencyExperience = onWeaponProficiencyExperience,
         onWeaponProficiencyReshape = onWeaponProficiencyReshape,
         onResourcesBalanceChange = onWeaponProficiencyResourceBalanceChange
+    })
+
+    disconnect(LocalPlayer, {
+        onInventoryChange = onPlayerInventoryChange
     })
 
     if WeaponProficiency.window then
@@ -342,6 +468,7 @@ function initProficiencyButton(attempts)
 
     if WeaponProficiency.button and not WeaponProficiency.button:isDestroyed() then
         setProficiencyButtonState(false)
+        refreshProficiencyModuleButtonHighlight()
         return
     end
 
@@ -351,6 +478,7 @@ function initProficiencyButton(attempts)
             modules.game_mainpanel.ensureControlButtonVisible('ProficiencyButton')
         end
         setProficiencyButtonState(false)
+        refreshProficiencyModuleButtonHighlight()
         return
     end
 
@@ -408,6 +536,26 @@ function onGameStart()
 
     -- Initialize topbar proficiency widget
     initTopBarProficiency()
+    requestAllWeaponProficiencyDataIfNeeded()
+    scheduleEvent(function()
+        if g_game.isOnline() then
+            updateTopBarProficiency()
+        end
+    end, 0)
+end
+
+function requestAllWeaponProficiencyDataIfNeeded()
+    if not hasWeaponProficiencyProtocol() then
+        return false
+    end
+    if WeaponProficiency.allProficiencyRequested then
+        return true
+    end
+    if sendWeaponProficiencyAction(1) then
+        WeaponProficiency.allProficiencyRequested = true
+        return true
+    end
+    return false
 end
 
 -- Initialize the proficiency widget in the top stats bar
@@ -437,15 +585,8 @@ function initTopBarProficiency(attempts)
             if profWidget then
                 profWidget:setVisible(true)
 
-                -- Request proficiency data for equipped weapon
-                local player = g_game.getLocalPlayer()
-                if player then
-                    local leftSlotItem = player:getInventoryItem(InventorySlotLeft)
-                    if leftSlotItem then
-                        local itemId = leftSlotItem:getId()
-                        sendWeaponProficiencyAction(0, itemId)
-                    end
-                end
+                requestAllWeaponProficiencyDataIfNeeded()
+                requestEquippedWeaponProficiencyData()
                 refreshEquippedProficiencyStatusBar(WeaponProficiency.hasUnusedPerk, true)
             end
         else
@@ -456,31 +597,121 @@ function initTopBarProficiency(attempts)
     end, 500) -- 500ms delay
 end
 
-local proficiencyTopBarRefreshGeneration = 0
+local equippedProficiencyRefreshGeneration = 0
+local equippedProficiencyDebounceEvent = nil
+local equippedProficiencyFollowUpEvent = nil
+local lastEquippedProficiencyCacheKey = nil
 
-local function requestEquippedWeaponProficiencyData()
-    if not hasWeaponProficiencyProtocol() then
-        return
+local function cancelEquippedProficiencyRefreshTimers()
+    if equippedProficiencyDebounceEvent then
+        removeEvent(equippedProficiencyDebounceEvent)
+        equippedProficiencyDebounceEvent = nil
     end
+    if equippedProficiencyFollowUpEvent then
+        removeEvent(equippedProficiencyFollowUpEvent)
+        equippedProficiencyFollowUpEvent = nil
+    end
+end
 
+local function resolveEquippedProficiencyContext()
     local player = g_game.getLocalPlayer()
     if not player then
-        return
+        return nil
     end
 
     local leftSlotItem = player:getInventoryItem(InventorySlotLeft)
     if not leftSlotItem then
+        return nil
+    end
+
+    local itemId = leftSlotItem:getId()
+    local thingType = leftSlotItem.getThingType and leftSlotItem:getThingType()
+        or g_things.getThingType(itemId, ThingCategoryItem)
+    local marketItem = WeaponProficiency.findMarketItem and WeaponProficiency:findMarketItem(itemId)
+    local cacheId = itemId
+    local displayItem = leftSlotItem
+    local marketData = thingType and thingType.getMarketData and thingType:getMarketData() or nil
+
+    if marketItem then
+        cacheId = marketItem.originalId or cacheId
+        if marketItem.displayItem then
+            displayItem = marketItem.displayItem
+        end
+        if marketItem.thingType then
+            thingType = marketItem.thingType
+        end
+        if marketItem.marketData then
+            marketData = marketItem.marketData
+        end
+    end
+
+    local cacheData = WeaponProficiency.cacheList[cacheId] or WeaponProficiency.cacheList[itemId]
+
+    return {
+        leftSlotItem = leftSlotItem,
+        itemId = itemId,
+        cacheId = cacheId,
+        cacheData = cacheData,
+        displayItem = displayItem,
+        thingType = thingType,
+        marketData = marketData
+    }
+end
+
+local function proficiencyItemMatchesEquipped(itemId)
+    if not itemId then
+        return false
+    end
+    local context = resolveEquippedProficiencyContext()
+    if not context then
+        return false
+    end
+    return itemId == context.itemId or itemId == context.cacheId
+end
+
+local function refreshEquippedUnusedPerkState(itemId)
+    local context = resolveEquippedProficiencyContext()
+    if not context or not context.cacheData then
+        return
+    end
+    if itemId and not proficiencyItemMatchesEquipped(itemId) then
         return
     end
 
-    local ok, pid = pcall(function()
-        return leftSlotItem:getProficiencyId()
-    end)
-    if not ok or not pid or pid == 0 then
+    local cache = context.cacheData
+    local hasUnused = false
+    if ProficiencyData and ProficiencyData.hasUnspentPerk then
+        hasUnused = ProficiencyData:hasUnspentPerk(cache.exp, cache.perks, context.displayItem, context.thingType,
+            context.marketData)
+    end
+
+    WeaponProficiency.hasUnusedPerk = hasUnused
+    if hasUnused then
+        WeaponProficiency.unusedPerkItemId = context.cacheId
+    elseif proficiencyItemMatchesEquipped(WeaponProficiency.unusedPerkItemId) then
+        WeaponProficiency.unusedPerkItemId = nil
+    end
+end
+
+function requestEquippedWeaponProficiencyData()
+    if not hasWeaponProficiencyProtocol() then
         return
     end
 
-    sendWeaponProficiencyAction(0, leftSlotItem:getId())
+    local context = resolveEquippedProficiencyContext()
+    if not context or not context.leftSlotItem then
+        return
+    end
+
+    if not canOpenForItem(context.leftSlotItem) and not equippedWeaponSupportsProficiencyHighlight() then
+        local weaponType = getNumericCall(context.leftSlotItem, 'getWeaponType')
+        if weaponType <= 0 then
+            return
+        end
+    end
+
+    requestAllWeaponProficiencyDataIfNeeded()
+    sendWeaponProficiencyAction(0, context.cacheId)
 end
 
 local function syncEquippedProficiencyStatusBar(hasHighlight)
@@ -494,50 +725,117 @@ local function syncEquippedProficiencyStatusBar(hasHighlight)
         return
     end
 
-    local leftSlotItem = player:getInventoryItem(InventorySlotLeft)
-    if not leftSlotItem then
+    local context = resolveEquippedProficiencyContext()
+    if not context then
         statsBar.onUpdateProficiencyData(nil, false, nil)
         return
     end
 
-    local itemId = leftSlotItem:getId()
-    local itemCache = WeaponProficiency.cacheList[itemId]
-    local thingType = leftSlotItem.getThingType and leftSlotItem:getThingType()
-    if not thingType then
+    if not context.thingType then
         return
     end
 
-    if itemCache then
-        statsBar.onUpdateProficiencyData(itemCache, hasHighlight, thingType)
+    if context.cacheData then
+        if hasHighlight == nil then
+            refreshEquippedUnusedPerkState()
+            hasHighlight = WeaponProficiency.hasUnusedPerk
+        end
+        statsBar.onUpdateProficiencyData(context.cacheData, hasHighlight, context.thingType)
     else
         updateTopBarProficiency()
         requestEquippedWeaponProficiencyData()
     end
 end
 
-local function scheduleProficiencyTopBarRefresh(hasHighlight)
-    proficiencyTopBarRefreshGeneration = proficiencyTopBarRefreshGeneration + 1
-    local generation = proficiencyTopBarRefreshGeneration
-
-    for _, delay in ipairs({ 0, 50, 150, 350, 800 }) do
-        scheduleEvent(function()
-            if generation ~= proficiencyTopBarRefreshGeneration or not g_game.isOnline() then
-                return
-            end
-            syncEquippedProficiencyStatusBar(hasHighlight)
-            updateTopBarProficiency()
-        end, delay)
-    end
+local function flushEquippedProficiencyStatusBar()
+    syncEquippedProficiencyStatusBar(nil)
+    updateProficiencyHighlight()
 end
 
 function refreshEquippedProficiencyStatusBar(hasHighlight, requestServer)
-    if hasHighlight == nil then
-        hasHighlight = WeaponProficiency.hasUnusedPerk
+    equippedProficiencyRefreshGeneration = equippedProficiencyRefreshGeneration + 1
+    local generation = equippedProficiencyRefreshGeneration
+
+    cancelEquippedProficiencyRefreshTimers()
+
+    local context = resolveEquippedProficiencyContext()
+    local cacheKey = context and tostring(context.cacheId) or 'none'
+    if cacheKey ~= lastEquippedProficiencyCacheKey then
+        lastEquippedProficiencyCacheKey = cacheKey
+        if not context or not context.cacheData then
+            WeaponProficiency.hasUnusedPerk = false
+            WeaponProficiency.unusedPerkItemId = nil
+        end
     end
-    if requestServer ~= false then
+
+    if requestServer ~= false and context then
         requestEquippedWeaponProficiencyData()
     end
-    scheduleProficiencyTopBarRefresh(hasHighlight)
+
+    equippedProficiencyDebounceEvent = scheduleEvent(function()
+        equippedProficiencyDebounceEvent = nil
+        if generation ~= equippedProficiencyRefreshGeneration or not g_game.isOnline() then
+            return
+        end
+        flushEquippedProficiencyStatusBar()
+    end, 100)
+
+    equippedProficiencyFollowUpEvent = scheduleEvent(function()
+        equippedProficiencyFollowUpEvent = nil
+        if generation ~= equippedProficiencyRefreshGeneration or not g_game.isOnline() then
+            return
+        end
+        flushEquippedProficiencyStatusBar()
+    end, 400)
+end
+
+local TOP_BAR_PROFICIENCY_PLACEHOLDER = '---'
+
+local function setTopBarProficiencyProgressBar(progressBar, percent)
+    if not progressBar then
+        return
+    end
+    if progressBar.setOn then
+        progressBar:setOn(true)
+    end
+    if progressBar.setPercent then
+        progressBar:setPercent(percent)
+    elseif progressBar.setValue then
+        progressBar:setValue(percent, 0, 100)
+    end
+    if progressBar.updateBackground then
+        progressBar:updateBackground()
+    end
+end
+
+local function applyTopBarProficiencyPlaceholder(statsBar)
+    if not statsBar then
+        return
+    end
+    local progressPanel = statsBar:recursiveGetChildById('proficiencyPanel')
+    if progressPanel then
+        progressPanel:show()
+    end
+    local progressBar = statsBar:recursiveGetChildById('proficiencyProgress')
+    local label = statsBar:recursiveGetChildById('proficiencyLabel')
+    local bg = statsBar:recursiveGetChildById('proficiencyBg')
+    if progressBar then
+        if progressBar.setPercent then
+            progressBar:setPercent(0)
+        end
+        if progressBar.setOn then
+            progressBar:setOn(false)
+        end
+        if progressBar.updateBackground then
+            progressBar:updateBackground()
+        end
+    end
+    if label then
+        label:setText(TOP_BAR_PROFICIENCY_PLACEHOLDER)
+    end
+    if bg then
+        bg:setTooltip(tr('Proficiency Progress: loading'))
+    end
 end
 
 -- Update the proficiency progress bar in the top bar
@@ -553,14 +851,8 @@ function updateTopBarProficiency()
         return
     end
 
-    -- Get equipped weapon
-    local player = g_game.getLocalPlayer()
-    if not player then
-        return
-    end
-
-    local leftSlotItem = player:getInventoryItem(InventorySlotLeft)
-    if not leftSlotItem then
+    local context = resolveEquippedProficiencyContext()
+    if not context then
         -- No weapon equipped - show 0%
         local progressBar = statsBar:recursiveGetChildById('proficiencyProgress')
         local label = statsBar:recursiveGetChildById('proficiencyLabel')
@@ -568,17 +860,16 @@ function updateTopBarProficiency()
         if progressPanel then
             progressPanel:hide()
         end
-        if progressBar then
-            progressBar:setPercent(0)
-        end
+        setTopBarProficiencyProgressBar(progressBar, 0)
         if label then
             label:setText('0%')
         end
+        updateProficiencyHighlight()
         return
     end
 
-    local itemId = leftSlotItem:getId()
-    local cacheData = WeaponProficiency.cacheList[itemId]
+    local itemId = context.cacheId
+    local cacheData = context.cacheData
 
     if cacheData then
         local progressPanel = statsBar:recursiveGetChildById('proficiencyPanel')
@@ -586,33 +877,15 @@ function updateTopBarProficiency()
             progressPanel:show()
         end
         local exp = cacheData.exp or 0
+        local displayItem = context.displayItem
+        local thingType = context.thingType
+        local marketData = context.marketData
 
-        -- Get thingType for calculations
-        local thingType = nil
-        if leftSlotItem.getThingType then
-            thingType = leftSlotItem:getThingType()
-        end
-
-        -- Calculate percent for next level (not total)
         local percent = 0
-        local currentLevel = 0
-        local nextLevelExp = 0
-        local currentLevelExp = 0
+        local targetStarExp = 0
 
-        if ProficiencyData and ProficiencyData.getCurrentLevelByExp and ProficiencyData.getLevelPercent then
-            -- Get current level
-            currentLevel = ProficiencyData:getCurrentLevelByExp(leftSlotItem, exp, false, thingType) or 0
-            -- Get percent progress to next level
-            local nextLevel = currentLevel + 1
-            percent = ProficiencyData:getLevelPercent(exp, nextLevel, leftSlotItem, thingType) or 0
-
-            -- Get exp values for tooltip
-            if ProficiencyData.getMaxExperienceByLevel then
-                currentLevelExp = currentLevel > 0 and
-                                      (ProficiencyData:getMaxExperienceByLevel(currentLevel, leftSlotItem, thingType) or
-                                          0) or 0
-                nextLevelExp = ProficiencyData:getMaxExperienceByLevel(nextLevel, leftSlotItem, thingType) or 0
-            end
+        if ProficiencyData and ProficiencyData.getNextStarProgress then
+            percent, _, _, targetStarExp = ProficiencyData:getNextStarProgress(exp, displayItem, thingType, marketData)
         end
 
         percent = math.min(100, math.max(0, percent))
@@ -620,43 +893,50 @@ function updateTopBarProficiency()
         local progressBar = statsBar:recursiveGetChildById('proficiencyProgress')
         local label = statsBar:recursiveGetChildById('proficiencyLabel')
         local bg = statsBar:recursiveGetChildById('proficiencyBg')
-        local profButton = statsBar:recursiveGetChildById('proficiencyButton')
-
-        if progressBar then
-            progressBar:setPercent(percent)
+        if progressBar and progressBar.setOn then
+            progressBar:setOn(true)
         end
+        setTopBarProficiencyProgressBar(progressBar, percent)
         if label then
             label:setText(percent .. '%')
         end
         local tooltipText = nil
         if bg then
-            local expInLevel = exp - currentLevelExp
-            local expNeeded = nextLevelExp - currentLevelExp
-            tooltipText = string.format("Proficiency Progress: %s / %s", tostring(expInLevel), tostring(expNeeded))
+            if percent >= 100 and targetStarExp > 0 and exp >= targetStarExp then
+                tooltipText = tr('Mastery achieved')
+            else
+                tooltipText = string.format("%s / %s", comma_value(exp), comma_value(targetStarExp or 0))
+            end
             bg:setTooltip(tooltipText)
         end
-        if profButton then
-            if tooltipText then
-                profButton:setTooltip(tooltipText)
-            else
-                profButton:setTooltip(tr('Open Weapon Proficiency Dialog'))
+        local proficiencyButtonIds = {
+            'proficiencyButton',
+            'proficiencyButtonCompact',
+            'proficiencyButtonLarge'
+        }
+        for _, buttonId in ipairs(proficiencyButtonIds) do
+            local profButton = statsBar:recursiveGetChildById(buttonId)
+            if profButton then
+                if tooltipText then
+                    profButton:setTooltip(tooltipText)
+                else
+                    profButton:setTooltip(tr('Open Weapon Proficiency Dialog'))
+                end
             end
         end
 
         -- Store for reference
         WeaponProficiency.currentEquippedExp = exp
-        WeaponProficiency.currentEquippedMaxExp = nextLevelExp
+        WeaponProficiency.currentEquippedMaxExp = targetStarExp
     else
-        local progressPanel = statsBar:recursiveGetChildById('proficiencyPanel')
-        if progressPanel then
-            progressPanel:show()
-        end
-        sendWeaponProficiencyAction(0, itemId)
+        applyTopBarProficiencyPlaceholder(statsBar)
     end
 end
 
 function onGameEnd()
-    proficiencyTopBarRefreshGeneration = proficiencyTopBarRefreshGeneration + 1
+    equippedProficiencyRefreshGeneration = equippedProficiencyRefreshGeneration + 1
+    cancelEquippedProficiencyRefreshTimers()
+    lastEquippedProficiencyCacheKey = nil
     cancelProficiencyButtonInit()
     cancelTopBarProficiencyInit()
     cancelAutoSelect()
@@ -692,6 +972,9 @@ function onWeaponProficiencyCatalogReady()
     if WeaponProficiency.window and WeaponProficiency.window:isVisible() then
         WeaponProficiency:refreshItemList()
     end
+
+    requestEquippedWeaponProficiencyData()
+    refreshEquippedProficiencyStatusBar(nil, false)
 end
 
 -- Called when server sends proficiency info (opcode 0xC4)
@@ -781,7 +1064,10 @@ function onWeaponProficiency(itemId, experience, perks, marketCategory, modified
         WeaponProficiency:updateModifyCost()
     end
 
-    syncEquippedProficiencyStatusBar(WeaponProficiency.hasUnusedPerk)
+    if proficiencyItemMatchesEquipped(itemId) then
+        refreshEquippedUnusedPerkState(itemId)
+        refreshEquippedProficiencyStatusBar(nil, false)
+    end
 end
 
 function onWeaponProficiencyExperience(itemId, experience, hasUnusedPerk)
@@ -792,9 +1078,7 @@ function onWeaponProficiencyExperience(itemId, experience, hasUnusedPerk)
             perks = {}
         }
     else
-        if experience > 0 then
-            itemCache.exp = experience
-        end
+        itemCache.exp = experience
     end
 
     -- Re-sort all categories when experience changes
@@ -805,9 +1089,20 @@ function onWeaponProficiencyExperience(itemId, experience, hasUnusedPerk)
 
     -- Store the unused perk state globally
     WeaponProficiency.hasUnusedPerk = hasUnusedPerk
+    if hasUnusedPerk then
+        WeaponProficiency.unusedPerkItemId = itemId
+    else
+        WeaponProficiency.unusedPerkItemId = nil
+    end
 
-    updateProficiencyHighlight()
-    syncEquippedProficiencyStatusBar(hasUnusedPerk)
+    debugModuleHighlight(string.format('onWeaponProficiencyExperience itemId=%s exp=%s hasUnusedPerk=%s type=%s',
+        tostring(itemId), tostring(experience), tostring(hasUnusedPerk), type(hasUnusedPerk)))
+
+    if proficiencyItemMatchesEquipped(itemId) then
+        refreshEquippedProficiencyStatusBar(nil, false)
+    else
+        updateProficiencyHighlight()
+    end
 
     -- Update item stars if window is visible (lighter than full rebuild)
     if WeaponProficiency.window and WeaponProficiency.window:isVisible() then
@@ -841,24 +1136,86 @@ function WeaponProficiency:updateForgeDustBalance()
     balanceLabel:setText(formatNumber(balance) .. '/' .. formatNumber(maximum))
 end
 
--- Update the proficiency button highlight based on unused perk state
-function updateProficiencyHighlight()
-    local shouldShow = WeaponProficiency.hasUnusedPerk == true or WeaponProficiency.hasUnusedPerk == 1
-    if WeaponProficiency.button then
-        local highlight = WeaponProficiency.button:getChildById('highlight')
-        local bright = WeaponProficiency.button:getChildById('brightButton')
-        if highlight then
-            highlight:setVisible(shouldShow)
-        end
-        if bright then
-            bright:setVisible(shouldShow)
+local function getProficiencyModuleToggleButton()
+    if WeaponProficiency.button and not WeaponProficiency.button:isDestroyed() then
+        return WeaponProficiency.button
+    end
+
+    if modules.game_mainpanel and modules.game_mainpanel.getButton then
+        local button = modules.game_mainpanel.getButton('ProficiencyButton')
+        if button and not button:isDestroyed() then
+            WeaponProficiency.button = button
+            return button
         end
     end
+
+    return nil
+end
+
+local function setProficiencyModuleButtonAttention(visible)
+    local toggleButton = getProficiencyModuleToggleButton()
+    if not toggleButton then
+        debugModuleHighlight(string.format('setAttention(%s): ProficiencyButton widget not found', tostring(visible)))
+        return
+    end
+
+    debugModuleHighlight(string.format('setAttention(%s): buttonId=%s class=%s', tostring(visible),
+        tostring(toggleButton:getId()), tostring(toggleButton:getClassName())))
+
+    local highlight = toggleButton:getChildById('highlight')
+    if not highlight then
+        highlight = g_ui.createWidget('UIWidget', toggleButton)
+        highlight:setId('highlight')
+        highlight:setSize('22 22')
+        highlight:setPhantom(true)
+        highlight:setFocusable(false)
+        highlight:setVisible(false)
+        highlight:setImageSource('/images/topbuttons/highlight')
+        highlight:addAnchor(AnchorHorizontalCenter, 'parent', AnchorHorizontalCenter)
+        highlight:addAnchor(AnchorVerticalCenter, 'parent', AnchorVerticalCenter)
+    end
+
+    local bright = toggleButton:getChildById('brightButton')
+    if not bright then
+        bright = g_ui.createWidget('UIWidget', toggleButton)
+        bright:setId('brightButton')
+        bright:setSize('20 20')
+        bright:setPhantom(true)
+        bright:setFocusable(false)
+        bright:setVisible(false)
+        bright:setImageSource('/images/ui/bright-x20')
+        bright:addAnchor(AnchorTop, 'parent', AnchorTop)
+        bright:addAnchor(AnchorLeft, 'parent', AnchorLeft)
+    end
+
+    highlight:setVisible(visible)
+    bright:setVisible(visible)
+    highlight:raise()
+    bright:raise()
+
+    debugModuleHighlight(string.format('widgets highlight=%s bright=%s highlightVisible=%s brightVisible=%s',
+        highlight and 'ok' or 'nil', bright and 'ok' or 'nil',
+        highlight and tostring(highlight:isVisible()) or 'n/a',
+        bright and tostring(bright:isVisible()) or 'n/a'))
+end
+
+function refreshProficiencyModuleButtonHighlight()
+    setProficiencyModuleButtonAttention(shouldShowProficiencyModuleButtonHighlight())
+end
+
+-- Update highlights: module button (reward wall style) + stats bar perk indicators
+function updateProficiencyHighlight()
+    local shouldShow = shouldShowProficiencyModuleButtonHighlight()
+    refreshProficiencyModuleButtonHighlight()
 
     local statsBar = modules.game_interface and modules.game_interface.StatsBar
     if statsBar and statsBar.setProficiencyHighlight then
         statsBar.setProficiencyHighlight(shouldShow)
     end
+end
+
+function WeaponProficiency.hasModuleButtonHighlightActive()
+    return shouldShowProficiencyModuleButtonHighlight()
 end
 
 -- Public function to open the proficiency window
@@ -888,17 +1245,7 @@ function show()
     WeaponProficiency.window:focus()
 
     setProficiencyButtonState(true)
-    if WeaponProficiency.button then
-        -- Hide highlight when window is opened
-        local highlight = WeaponProficiency.button:getChildById('highlight')
-        local bright = WeaponProficiency.button:getChildById('brightButton')
-        if highlight then
-            highlight:setVisible(false)
-        end
-        if bright then
-            bright:setVisible(false)
-        end
-    end
+    setProficiencyModuleButtonAttention(false)
 
     local statsBar = modules.game_interface and modules.game_interface.StatsBar
     if statsBar and statsBar.setProficiencyHighlight then
@@ -1079,8 +1426,17 @@ function toggle()
 end
 
 function canOpenForItem(item)
-    if not item or not item.isItem or not item:isItem() then
+    if not item or not item.getId then
         return false
+    end
+
+    if item.isItem and not item:isItem() then
+        -- Equipped/inventory items are not always flagged as Item in the UI sense.
+        local thingType = item.getThingType and item:getThingType() or
+            g_things.getThingType(item:getId(), ThingCategoryItem)
+        if not thingType then
+            return false
+        end
     end
 
     if getNumericCall(item, "getProficiencyId") > 0 then
@@ -1152,12 +1508,10 @@ function requestOpenWindow(redirectItem)
         targetMarketItem = WeaponProficiency:findMarketItem(targetItemId)
     end
 
-    -- Request all proficiencies from server
-    if not WeaponProficiency.allProficiencyRequested then
-        if not sendWeaponProficiencyAction(1) then -- Request all weapons
-            return
-        end
-        WeaponProficiency.allProficiencyRequested = true
+    if not requestAllWeaponProficiencyDataIfNeeded() then
+        return
+    end
+    if redirectItem then
         WeaponProficiency.firstItemRequested = redirectItem
     end
 
@@ -1281,6 +1635,7 @@ function WeaponProficiency:reset()
     self.selectedMarketItem = nil
     self.pendingSelections = {}
     self.hasUnusedPerk = false
+    self.unusedPerkItemId = nil
     self.autoSelectRetries = 0
     self._itemCacheReady = false
 end
@@ -2463,8 +2818,6 @@ function WeaponProficiency:onPerkClick(bonusIcon)
         end
     end
 
-    -- Update visual state for all perks in this level column
-    self:updatePerkVisualState(levelIndex)
     self:updateSelectedPerkVisuals()
     self:updateModifyButtonState()
     self:updateModifyCost()
@@ -2667,6 +3020,21 @@ function onWeaponProficiencyReshape(itemId, level, position, offers)
     end
     buttons[#buttons + 1] = {text = tr('Cancel'), callback = function() end}
     WeaponProficiency.shapeWindow = displayShapeBox(tr('Choose a modifier'), tr('Select one of the generated modifiers. The reshape cost was already paid.'), buttons)
+end
+
+-- Refresh perk selection / modify visuals for every proficiency level column
+function WeaponProficiency:updateSelectedPerkVisuals()
+    if not self.perkPanel then
+        return
+    end
+
+    for _, child in ipairs(self.perkPanel:getChildren()) do
+        local id = child:getId() or ''
+        local levelIndex = tonumber(id:match('^perkColumn_(%d+)$'))
+        if levelIndex then
+            self:updatePerkVisualState(levelIndex)
+        end
+    end
 end
 
 -- Update visual state for perks in a level column

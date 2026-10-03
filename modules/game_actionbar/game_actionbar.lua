@@ -466,6 +466,7 @@ end
 function ActionBarController:onInit()
     g_ui.importStyle("otui/style.otui")
     g_ui.importStyle("otui/multiaction.otui")
+    g_ui.importStyle("/modules/game_actionbar/object_assign_styles")
     gameRootPanel = modules.game_interface.getRootPanel()
     mouseGrabberWidget = g_ui.createWidget('UIWidget')
     mouseGrabberWidget:setVisible(false)
