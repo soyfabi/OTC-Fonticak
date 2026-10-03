@@ -903,6 +903,35 @@ local function upsertLootContainerSlot(categoryId, field, value)
 	})
 end
 
+local function refreshManageLootContainerItemIcon(itemWidget)
+	if not itemWidget then
+		return
+	end
+
+	local icon = itemWidget.quickloot or itemWidget:getChildById('quickloot')
+	if not icon then
+		return
+	end
+
+	local item = itemWidget:getItem()
+	local itemId = item and item:getId() or 0
+	if itemId <= 0 and itemWidget.getItemId then
+		itemId = itemWidget:getItemId() or 0
+	end
+
+	local show = false
+	if itemId > 0 then
+		local thingType = g_things.getThingType(itemId, ThingCategoryItem)
+		show = thingType and thingType:isContainer()
+	end
+
+	icon:setVisible(show)
+
+	if show then
+		QuickLoot.updateQuickLootIconPosition(itemWidget, item)
+	end
+end
+
 local function updateManageContainerRow(parent, actionsId, item)
 	if not parent or not item then
 		return
@@ -922,6 +951,9 @@ local function updateManageContainerRow(parent, actionsId, item)
 		parent.removeBag:setIcon(CLEAR_ICON)
 		upsertLootContainerSlot(categoryId, "obtain", itemId)
 	end
+
+	refreshManageLootContainerItemIcon(parent.item)
+	refreshManageLootContainerItemIcon(parent.item2)
 end
 
 local function applyQuickLootFilterSlotVisuals(slotWidget, itemOrId)
@@ -1429,6 +1461,9 @@ function QuickLoot.Define()
                 widget.removeBag2:setEnabled(true)
                 widget.removeBag2:setIcon(CLEAR_ICON)
             end
+
+            refreshManageLootContainerItemIcon(widget.item)
+            refreshManageLootContainerItemIcon(widget.item2)
         end
 
 		quickLootController.ui.list:getLayout():enableUpdates()
@@ -1654,6 +1689,8 @@ function QuickLoot.Define()
 		end
 
 		g_game.openContainerQuickLoot(self.borrar, parent:getId(), {}, nil, nil, nil)
+		refreshManageLootContainerItemIcon(parent.item)
+		refreshManageLootContainerItemIcon(parent.item2)
 		QuickLoot.refreshAllQuickLootIcons()
 	end
 
