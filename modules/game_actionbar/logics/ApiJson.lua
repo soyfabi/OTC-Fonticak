@@ -1136,6 +1136,13 @@ function ApiJson.hasCurrentHotkeySet()
     return validateHotkeySet() ~= nil
 end
 
+function ApiJson.getCurrentHotkeySetName()
+    ApiJson.bootstrap()
+    local options = ensureState()
+    validateHotkeySet()
+    return options.currentHotkeySetName
+end
+
 function ApiJson.getHotkeyEntries(chatMode)
     local entries = getCurrentHotkeyEntries(chatMode)
     if not entries then

@@ -1515,6 +1515,14 @@ return {
             modules.game_actionbar.updateVisibleOptions('hotkey', value)
         end,
     },
+    freeActionBarPlacement = {
+        value = false,
+        action = function(value)
+            if modules.game_actionbar and modules.game_actionbar.setFreeActionBarPlacement then
+                modules.game_actionbar.setFreeActionBarPlacement(value)
+            end
+        end,
+    },
     actionBarBottomLocked = false,
     actionBarLeftLocked = false,
     actionBarRightLocked = false,
