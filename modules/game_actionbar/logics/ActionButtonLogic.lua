@@ -8,6 +8,10 @@ local SLOT_COLOR_FILLED_NORMAL = '#ffffff'
 local SLOT_COLOR_FILLED_EQUIPPED = '#d8d8d8'
 local EQUIP_VISUAL_PENDING_MS = 800
 local freeActionButtonCopies = {}
+local freeActionButtonLocks = {}
+local selectedFreeActionButtonCopies = {}
+local freeActionSelectionClickAwayHandler = nil
+local previousFreeActionSelectionMouseReleaseHandler = nil
 
 local function clearPendingEquipVisual(cache)
     if not cache then
@@ -1730,10 +1734,162 @@ local function saveFreeActionButtonCopies()
     for id, copy in pairs(freeActionButtonCopies) do
         if copy and not copy:isDestroyed() then
             local position = copy:getPosition()
-            placements[id] = { x = position.x, y = position.y }
+            placements[id] = {
+                x = position.x,
+                y = position.y,
+                locked = freeActionButtonLocks[id] == true
+            }
         end
     end
     g_settings.setNode('freeActionBarButtonCopies', placements)
+end
+
+local function setFreeActionButtonSelected(id, selected)
+    local copy = freeActionButtonCopies[id]
+    local state = selectedFreeActionButtonCopies[id]
+    if not copy or copy:isDestroyed() then
+        selectedFreeActionButtonCopies[id] = nil
+        return
+    end
+    local highlight = copy.item or copy
+
+    if not selected then
+        if state and state.event then
+            removeEvent(state.event)
+        end
+        selectedFreeActionButtonCopies[id] = nil
+        highlight:setBorderWidth(0)
+        highlight:setBorderColor('alpha')
+        return
+    end
+
+    if state then
+        return
+    end
+
+    state = { phase = 0 }
+    selectedFreeActionButtonCopies[id] = state
+    local function pulse()
+        if copy:isDestroyed() or selectedFreeActionButtonCopies[id] ~= state then
+            return
+        end
+        state.phase = state.phase + 0.12
+        local intensity = math.floor(190 + 65 * (0.5 + 0.5 * math.sin(state.phase)))
+        local channel = string.format('%02x', intensity)
+        highlight:setBorderWidth(1)
+        highlight:setBorderColor('#' .. channel .. channel .. channel)
+        state.event = scheduleEvent(pulse, 80)
+    end
+    pulse()
+end
+
+local function clearFreeActionButtonSelection(keepId)
+    local ids = {}
+    for id in pairs(selectedFreeActionButtonCopies) do
+        if id ~= keepId then
+            ids[#ids + 1] = id
+        end
+    end
+    for _, id in ipairs(ids) do
+        setFreeActionButtonSelected(id, false)
+    end
+end
+
+local function removeFreeActionButtonCopy(id)
+    local copy = freeActionButtonCopies[id]
+    setFreeActionButtonSelected(id, false)
+    freeActionButtonCopies[id] = nil
+    freeActionButtonLocks[id] = nil
+    if copy and not copy:isDestroyed() then
+        copy:destroy()
+    end
+end
+
+local function removeFreeActionButtonCopies(selectedOnly, selectedIds)
+    local ids = selectedIds or {}
+    if selectedOnly and not selectedIds then
+        for id in pairs(selectedFreeActionButtonCopies) do
+            ids[#ids + 1] = id
+        end
+    elseif not selectedOnly then
+        for id in pairs(freeActionButtonCopies) do
+            ids[#ids + 1] = id
+        end
+    end
+    for _, id in ipairs(ids) do
+        removeFreeActionButtonCopy(id)
+    end
+    saveFreeActionButtonCopies()
+end
+
+local function isFreeActionButtonInWidgetTree(widget, copy)
+    local current = widget
+    while current do
+        if current == copy then
+            return true
+        end
+        current = current:getParent()
+    end
+    return false
+end
+
+local function clearSelectionWhenClickingAway()
+    if not gameRootPanel then
+        return
+    end
+    if freeActionSelectionClickAwayHandler
+        and gameRootPanel.onMouseRelease == freeActionSelectionClickAwayHandler then
+        return
+    end
+    freeActionSelectionClickAwayHandler = function(root, mousePos, mouseButton)
+        if mouseButton == MouseLeftButton and not g_keyboard.isAltPressed() then
+            local clickedWidget = root:recursiveGetChildByPos(mousePos, false)
+            local clickedCopy = false
+            for _, copy in pairs(freeActionButtonCopies) do
+                if copy and not copy:isDestroyed() and isFreeActionButtonInWidgetTree(clickedWidget, copy) then
+                    clickedCopy = true
+                    break
+                end
+            end
+            if not clickedCopy then
+                clearFreeActionButtonSelection()
+            end
+        end
+        if previousFreeActionSelectionMouseReleaseHandler then
+            return previousFreeActionSelectionMouseReleaseHandler(root, mousePos, mouseButton)
+        end
+        return false
+    end
+    previousFreeActionSelectionMouseReleaseHandler = gameRootPanel.onMouseRelease
+    gameRootPanel.onMouseRelease = freeActionSelectionClickAwayHandler
+end
+
+function clearFreeActionButtonSelectionClickAwayHandler()
+    if gameRootPanel and gameRootPanel.onMouseRelease == freeActionSelectionClickAwayHandler then
+        gameRootPanel.onMouseRelease = previousFreeActionSelectionMouseReleaseHandler
+    end
+    freeActionSelectionClickAwayHandler = nil
+    previousFreeActionSelectionMouseReleaseHandler = nil
+end
+
+function resetFreeActionBarRuntimeCopies()
+    saveFreeActionButtonCopies()
+    clearFreeActionButtonSelection()
+    for id, copy in pairs(freeActionButtonCopies) do
+        if copy and not copy:isDestroyed() then
+            if copy.cache and copy.cache.removeCooldownEvent then
+                removeEvent(copy.cache.removeCooldownEvent)
+                copy.cache.removeCooldownEvent = nil
+            end
+            removeCooldown(copy)
+            if resetButtonCache then
+                resetButtonCache(copy)
+            end
+            copy:destroy()
+        end
+        freeActionButtonCopies[id] = nil
+    end
+    selectedFreeActionButtonCopies = {}
 end
 
 local function copyOverlapsPosition(copy, position, placedCopies)
@@ -1836,43 +1992,147 @@ local function createFreeActionButtonCopy(sourceButton, position)
     copy:setPosition(position)
     copy:setVisible(isFreeActionBarPlacementEnabled())
     updateButton(copy)
+    local lockMarker = g_ui.createWidget('UIWidget', copy)
+    lockMarker:setId('freeActionBarLockMarker')
+    lockMarker:setSize({ width = 12, height = 12 })
+    lockMarker:setImageSize({ width = 12, height = 12 })
+    lockMarker:addAnchor(AnchorLeft, 'parent', AnchorLeft)
+    lockMarker:addAnchor(AnchorTop, 'parent', AnchorTop)
+    lockMarker:setImageSource('/images/game/actionbar/locked')
+    lockMarker:setPhantom(true)
+    lockMarker:setVisible(freeActionButtonLocks[id] == true)
+    copy.lockMarker = lockMarker
     copy.onMouseRelease = function(self, mousePos, mouseButton)
         if mouseButton ~= MouseRightButton then
             return false
         end
 
+        if not selectedFreeActionButtonCopies[id] then
+            if not g_keyboard.isAltPressed() then
+                clearFreeActionButtonSelection()
+            end
+            setFreeActionButtonSelected(id, true)
+        end
+
         local menu = g_ui.createWidget('PopupMenu')
         menu:setGameMenu(true)
+        local lockOption = g_ui.createWidget(menu:getStyleName() .. 'Button', menu)
+        lockOption:setText(freeActionButtonLocks[id] and tr('Unlock') or tr('Lock'))
+        lockOption:setTextOffset('20 0')
+        lockOption.onClick = function()
+            menu:destroy()
+            freeActionButtonLocks[id] = not freeActionButtonLocks[id]
+            if copy.lockMarker then
+                copy.lockMarker:setVisible(freeActionButtonLocks[id])
+            end
+            if copy.item then
+                copy.item:setDraggable(not freeActionButtonLocks[id])
+            end
+            saveFreeActionButtonCopies()
+        end
+        local lockIcon = g_ui.createWidget('UIWidget', lockOption)
+        lockIcon:setSize({ width = 14, height = 14 })
+        lockIcon:addAnchor(AnchorLeft, 'parent', AnchorLeft)
+        lockIcon:addAnchor(AnchorVerticalCenter, 'parent', AnchorVerticalCenter)
+        lockIcon:setMarginLeft(3)
+        lockIcon:setImageSource(freeActionButtonLocks[id]
+            and '/images/game/actionbar/locked' or '/images/game/actionbar/unlocked')
+        lockIcon:setPhantom(true)
+        local lockOptionWidth = lockOption:getTextSize().width + lockOption:getMarginLeft()
+            + lockOption:getMarginRight() + 30
+        menu:setWidth(math.max(menu:getWidth(), lockOptionWidth))
+        local selectedIds = {}
+        for selectedId in pairs(selectedFreeActionButtonCopies) do
+            selectedIds[#selectedIds + 1] = selectedId
+        end
         menu:addOption(tr('Remove'), function()
             if freeActionButtonCopies[id] == self then
-                freeActionButtonCopies[id] = nil
-                self:destroy()
+                removeFreeActionButtonCopy(id)
                 saveFreeActionButtonCopies()
             end
         end)
         menu:addOption(tr('Remove All'), function()
-            for copyId, placedCopy in pairs(freeActionButtonCopies) do
-                freeActionButtonCopies[copyId] = nil
-                if placedCopy and not placedCopy:isDestroyed() then
-                    placedCopy:destroy()
-                end
-            end
-            saveFreeActionButtonCopies()
+            removeFreeActionButtonCopies(#selectedIds > 1, selectedIds)
         end)
         menu:display(mousePos)
         return true
     end
     if copy.item then
-        copy.item:setDraggable(true)
-        copy.item.onDragEnter = function()
-            return isFreeActionBarPlacementEnabled()
+        copy.item:setDraggable(not freeActionButtonLocks[id])
+        local dragSelection = nil
+        local activateAction = copy.item.onClick
+        copy.item.onClick = function(...)
+            if g_keyboard.isAltPressed() then
+                setFreeActionButtonSelected(id, not selectedFreeActionButtonCopies[id])
+                return true
+            end
+            clearFreeActionButtonSelection()
+            if activateAction then
+                return activateAction(...)
+            end
+        end
+        copy.item.onDragEnter = function(_, mousePos)
+            if not isFreeActionBarPlacementEnabled() or freeActionButtonLocks[id] then
+                return false
+            end
+            dragSelection = nil
+            if selectedFreeActionButtonCopies[id] then
+                local positions = {}
+                local minX, minY, maxX, maxY
+                for selectedId in pairs(selectedFreeActionButtonCopies) do
+                    local selectedCopy = freeActionButtonCopies[selectedId]
+                    if selectedCopy and not selectedCopy:isDestroyed() then
+                        local position = selectedCopy:getPosition()
+                        positions[selectedId] = position
+                        minX = math.min(minX or position.x, position.x)
+                        minY = math.min(minY or position.y, position.y)
+                        maxX = math.max(maxX or (position.x + selectedCopy:getWidth()),
+                            position.x + selectedCopy:getWidth())
+                        maxY = math.max(maxY or (position.y + selectedCopy:getHeight()),
+                            position.y + selectedCopy:getHeight())
+                    end
+                end
+                if table.size(positions) > 1 then
+                    dragSelection = {
+                        start = mousePos,
+                        positions = positions,
+                        minX = minX,
+                        minY = minY,
+                        maxX = maxX,
+                        maxY = maxY
+                    }
+                end
+            end
+            return true
         end
         copy.item.onDragMove = function(_, mousePos)
-            copy:setPosition({ x = mousePos.x - 17, y = mousePos.y - 17 })
+            if dragSelection then
+                local deltaX = mousePos.x - dragSelection.start.x
+                local deltaY = mousePos.y - dragSelection.start.y
+                deltaX = math.max(-dragSelection.minX,
+                    math.min(gameRootPanel:getWidth() - dragSelection.maxX, deltaX))
+                deltaY = math.max(-dragSelection.minY,
+                    math.min(gameRootPanel:getHeight() - dragSelection.maxY, deltaY))
+                for selectedId, startPosition in pairs(dragSelection.positions) do
+                    local selectedCopy = freeActionButtonCopies[selectedId]
+                    if selectedCopy and not selectedCopy:isDestroyed() then
+                        selectedCopy:setPosition({
+                            x = startPosition.x + deltaX,
+                            y = startPosition.y + deltaY
+                        })
+                    end
+                end
+            else
+                copy:setPosition({ x = mousePos.x - 17, y = mousePos.y - 17 })
+            end
             return true
         end
         copy.item.onDragLeave = function()
-            resolveFreeActionBarCopyOverlaps(id)
+            if dragSelection then
+                dragSelection = nil
+            else
+                resolveFreeActionBarCopyOverlaps(id)
+            end
             saveFreeActionButtonCopies()
             return true
         end
@@ -1894,6 +2154,7 @@ function restoreFreeActionButtonCopies()
         local position = placements[id]
         if type(id) == 'string' and type(position) == 'table'
             and tonumber(string.match(id, '^(%d+)%.(%d+)$')) then
+            freeActionButtonLocks[id] = position.locked == true
             local barId, buttonId = string.match(id, '^(%d+)%.(%d+)$')
             local source = actionBars[tonumber(barId)]
                 and actionBars[tonumber(barId)].tabBar:getChildById(id)
@@ -1902,6 +2163,7 @@ function restoreFreeActionButtonCopies()
             end
         end
     end
+    clearSelectionWhenClickingAway()
 end
 
 function setFreeActionBarPlacement(enabled)

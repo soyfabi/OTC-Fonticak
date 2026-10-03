@@ -488,6 +488,12 @@ end
 --- Handles termination event
 function ActionBarController:onTerminate()
     ApiJson.saveData()
+    if clearFreeActionButtonSelectionClickAwayHandler then
+        clearFreeActionButtonSelectionClickAwayHandler()
+    end
+    if resetFreeActionBarRuntimeCopies then
+        resetFreeActionBarRuntimeCopies()
+    end
     closeAllAssignWindows(nil, true)
     if resetEquipmentAssignOnModuleTerminate then
         resetEquipmentAssignOnModuleTerminate()
@@ -571,6 +577,9 @@ function ActionBarController:onGameEnd()
     spellCooldownCache = {}
     if clearActionBarCooldownVisuals then
         clearActionBarCooldownVisuals()
+    end
+    if resetFreeActionBarRuntimeCopies then
+        resetFreeActionBarRuntimeCopies()
     end
     for _, actionbar in pairs(activeActionBars) do
         unbindActionBarEvent(actionbar)
