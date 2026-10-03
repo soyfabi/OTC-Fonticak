@@ -54,6 +54,17 @@ lastHighlightWidget = nil
 isLoaded = false
 local areEventsConnected = false
 
+local function forEachFreeActionBarButton(callback)
+    if not getFreeActionBarButtonCopies then
+        return
+    end
+    for _, button in pairs(getFreeActionBarButtonCopies()) do
+        if button and not button:isDestroyed() then
+            callback(button)
+        end
+    end
+end
+
 --- checks if action bar is visible
 local function isActionBarVisible(actionBar)
     return actionBar and actionBar:isVisible()
@@ -525,6 +536,9 @@ function ActionBarController:onGameStart()
     for i = 1, #actionBars do
         setupActionBar(i)
     end
+    if restoreFreeActionButtonCopies then
+        restoreFreeActionButtonCopies()
+    end
     ActionBarController:scheduleEvent(function()
         onMultiUseCooldown()
         onUpdateActionBarStatus()
@@ -676,6 +690,24 @@ function onSpellCooldown(spellId, delay)
         end
     end
 
+    forEachFreeActionBarButton(function(button)
+        local cache = getButtonCache(button)
+        if cache and (cache.isSpell or cache.isRuneSpell) then
+            local matchesSpell = cache.isRuneSpell
+                and isRune and cache.spellData and cache.spellData.id == spellId
+                or (not cache.isRuneSpell and cache.spellID == spellId)
+            if matchesSpell then
+                updateCooldown(button, delay)
+                if cache.removeCooldownEvent then
+                    removeEvent(cache.removeCooldownEvent)
+                end
+                cache.removeCooldownEvent = scheduleEvent(function()
+                    removeCooldown(button)
+                end, delay)
+            end
+        end
+    end)
+
     schedulePendingMultiButtonUpdate()
 end
 
@@ -753,6 +785,24 @@ function onSpellGroupCooldown(groupId, delay)
             end
         end
     end
+
+    forEachFreeActionBarButton(function(button)
+        local cache = getButtonCache(button)
+        if cache and not cache.isRuneSpell and cache.spellData
+            and (Spells.getCooldownByGroup(cache.spellData, groupId)
+                or Spells.getCooldownBySecondaryGroup(cache.spellData, groupId)) then
+            local remaining = button.cooldown:getDuration() - button.cooldown:getTimeElapsed()
+            if remaining < delay then
+                updateCooldown(button, delay)
+                if cache.removeCooldownEvent then
+                    removeEvent(cache.removeCooldownEvent)
+                end
+                cache.removeCooldownEvent = scheduleEvent(function()
+                    removeCooldown(button)
+                end, delay)
+            end
+        end
+    end)
 
     schedulePendingMultiButtonUpdate()
 end
@@ -1054,6 +1104,19 @@ function onMultiUseCooldown(multiUseCooldown)
             end
         end
     end
+    if multiUseCooldown then
+        forEachFreeActionBarButton(function(button)
+            if button.item and button.cache and button.cache.itemId then
+                local item = button.item:getItem()
+                if item and item:isMultiUse() then
+                    local marketArray = { MarketCategory.Potions, MarketCategory.Runes, MarketCategory.Tools }
+                    if table.contains(marketArray, item:getMarketData().category) then
+                        updateCooldown(button, multiUseCooldown)
+                    end
+                end
+            end
+        end)
+    end
 end
 
 function updateInventoryItems(_)
@@ -1213,6 +1276,14 @@ function toggleCooldownOption()
             end
         end
     end
+    forEachFreeActionBarButton(function(button)
+        if button.cooldown and button.cooldown:getPercent() < 100 then
+            local remaining = button.cooldown:getDuration() - button.cooldown:getTimeElapsed()
+            if remaining > 0 then
+                updateCooldown(button, remaining)
+            end
+        end
+    end)
 end
 
 local ACTION_BAR_VISIBILITY_KEYS = {
