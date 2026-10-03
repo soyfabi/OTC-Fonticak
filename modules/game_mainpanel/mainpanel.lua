@@ -555,11 +555,14 @@ function ensureControlButtonVisible(id)
     buttonConfigs = config.buttons
     buttonOrder = config.order
 
-    buttonConfigs[id] = buttonConfigs[id] or {
-        tooltip = getControlButtonDisplayName(id, button)
-    }
-    buttonConfigs[id].visible = true
-    button:setVisible(true)
+    buttonConfigs[id] = buttonConfigs[id] or {}
+    if buttonConfigs[id].tooltip == nil then
+        buttonConfigs[id].tooltip = getControlButtonDisplayName(id, button)
+    end
+    if buttonConfigs[id].visible == nil then
+        buttonConfigs[id].visible = true
+    end
+    button:setVisible(buttonConfigs[id].visible)
 
     if not table.find(buttonOrder, id) then
         table.insert(buttonOrder, id)

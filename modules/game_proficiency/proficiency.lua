@@ -109,7 +109,8 @@ local function findMarketItemByAnyId(itemId)
     if not itemId then
         return nil
     end
-    for _, marketItem in ipairs(WeaponProficiency.itemList or {}) do
+    local allItems = WeaponProficiency.itemList[MarketCategory.WeaponsAll] or {}
+    for _, marketItem in ipairs(allItems) do
         local originalId = tonumber(marketItem.originalId)
         if originalId == itemId then
             return marketItem
@@ -767,7 +768,7 @@ function requestEquippedWeaponProficiencyData()
     sendWeaponProficiencyAction(0, context.cacheId)
 end
 
-local function syncEquippedProficiencyStatusBar(hasHighlight)
+local function syncEquippedProficiencyStatusBar(hasHighlight, requestServer)
     local statsBar = modules.game_interface and modules.game_interface.StatsBar
     if not statsBar or not statsBar.onUpdateProficiencyData then
         return
@@ -796,12 +797,14 @@ local function syncEquippedProficiencyStatusBar(hasHighlight)
         statsBar.onUpdateProficiencyData(context.cacheData, hasHighlight, context.thingType)
     else
         updateTopBarProficiency()
-        requestEquippedWeaponProficiencyData()
+        if requestServer ~= false then
+            requestEquippedWeaponProficiencyData()
+        end
     end
 end
 
 local function flushEquippedProficiencyStatusBar()
-    syncEquippedProficiencyStatusBar(nil)
+    syncEquippedProficiencyStatusBar(nil, false)
     updateProficiencyHighlight()
 end
 
@@ -1773,16 +1776,43 @@ function WeaponProficiency:createItemCache()
 end
 
 function WeaponProficiency:addCatalogItem(itemId, category, name, proficiencyId)
+    itemId = tonumber(itemId) or itemId
     if not self._itemCacheReady then
         self:createItemCache()
-    end
-    if self.catalogItems[itemId] then
-        return
     end
 
     category = tonumber(category) or MarketCategory.WeaponsAll
     if not self.itemList[category] then
         category = MarketCategory.WeaponsAll
+    end
+
+    if self.catalogItems[itemId] then
+        local marketItem = self:findMarketItem(itemId)
+        if marketItem then
+            local oldCategory = marketItem.marketData and marketItem.marketData.category
+            if oldCategory ~= category then
+                if oldCategory ~= MarketCategory.WeaponsAll then
+                    local oldCategoryItems = self.itemList[oldCategory]
+                    if oldCategoryItems then
+                        table.removevalue(oldCategoryItems, marketItem)
+                    end
+                end
+                if category ~= MarketCategory.WeaponsAll then
+                    table.insert(self.itemList[category], marketItem)
+                end
+            end
+
+            marketItem.marketData = marketItem.marketData or {}
+            marketItem.marketData.category = category
+            if name and name ~= '' then
+                marketItem.marketData.name = name
+            end
+            local serverProficiencyId = tonumber(proficiencyId)
+            if serverProficiencyId and serverProficiencyId > 0 then
+                marketItem.marketData.proficiencyId = serverProficiencyId
+            end
+        end
+        return
     end
 
     local item = Item.create(itemId)
