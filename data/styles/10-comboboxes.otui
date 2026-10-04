@@ -114,27 +114,29 @@ ComboBoxRounded < ComboBox
   image-border: 3
 
 QtComboBoxPopupScrollMenuButton < UIButton
-  height: 23
+  height: 17
   font: verdana-11px-antialised
   text-align: left
-  text-offset: 4 0
-  color: #dfdfdf
-  background-color: alpha
-  margin: 1
-  image-source: /images/ui/panel_flat_border
-  image-border: 1
+  text-offset: 5 0
+  color: #c0c0c0
+  background-color: #ffffff00
 
   $hover !disabled:
-    color: #dfdfdf
-    background-color: #355d89
+    color: #f4f4f4
+    background-color: #c0c0c033
+
+  $!hover !disabled:
+    color: #c0c0c0
+    background-color: #ffffff00
 
   $disabled:
-    color: #dfdfdf88
+    color: #888888
+    background-color: #ffffff00
 
 QtComboBoxPopupScrollMenu < UIPopupScrollMenu
-  image-source: /images/ui/combobox_square
-  image-clip: 0 69 91 23
-  image-border: 1
+  image-source: /images/ui/combobox_new
+  image-clip: 0 60 91 20
+  image-border: 2
 
 QtComboBoxPopupMenuButton < UIButton
   height: 20
