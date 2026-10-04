@@ -475,6 +475,14 @@ function inventoryController:onInit()
     Keybind.new('Movement', 'Stop Attack', '', '')
     Keybind.new('Movement', 'Stop Follow', '', '')
     Keybind.new('Movement', 'Toggle Chase Mode', '', '')
+
+    Keybind.new('Windows', 'Open Inventory', 'Ctrl+Shift+I', '')
+    Keybind.bind('Windows', 'Open Inventory', {
+        {
+            type = KEY_DOWN,
+            callback = toggleInventoryHotkey
+        }
+    }, modules.game_interface and modules.game_interface.getRootPanel())
 end
 
 local function onItemStateFeatures()
@@ -553,14 +561,6 @@ function inventoryController:onGameStart()
         end
     end
     inventoryController.ui.onPanel.purseButton:setVisible(g_game.getFeature(GamePurseSlot))
-
-    Keybind.new('Windows', 'Open Inventory', 'Ctrl+Shift+I', '')
-    Keybind.bind('Windows', 'Open Inventory', {
-        {
-            type = KEY_DOWN,
-            callback = toggleInventoryHotkey
-        }
-    }, modules.game_interface and modules.game_interface.getRootPanel())
 
     bindCombatKeybinds()
 

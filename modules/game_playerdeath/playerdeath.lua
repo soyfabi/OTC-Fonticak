@@ -1,21 +1,3 @@
-local deathTexts = {
-    regular = {
-        text = 'Alas! Brave adventurer, you have met a sad fate.\nBut do not despair, for the gods will bring you back\ninto this world in exchange for a small sacrifice\n\nSimply click on Ok to resume your journeys!',
-        height = 140,
-        width = 0
-    },
-    unfair = {
-        text = 'Alas! Brave adventurer, you have met a sad fate.\nBut do not despair, for the gods will bring you back\ninto this world in exchange for a small sacrifice\n\nThis death penalty has been reduced by %i%%\nbecause it was an unfair fight.\n\nSimply click on Ok to resume your journeys!',
-        height = 185,
-        width = 0
-    },
-    blessed = {
-        text = 'Alas! Brave adventurer, you have met a sad fate.\nBut do not despair, for the gods will bring you back into this world\n\nThis death penalty has been reduced by 100%\nbecause you are blessed with the Adventurer\'s Blessing\n\nSimply click on Ok to resume your journeys!',
-        height = 170,
-        width = 90
-    }
-}
-
 deathController = Controller:new()
 function deathController:onInit()
     deathController:registerEvents(g_game, {
@@ -33,6 +15,9 @@ end
 
 function destroyWindows()
     if deathController.ui and not deathController.ui:isDestroyed() then
+        if g_modalManager then
+            g_modalManager.hide(deathController.ui)
+        end
         deathController.ui:destroy()
     end
     return nil
@@ -57,25 +42,40 @@ function openWindow(deathType, penalty)
     deathController.ui = destroyWindows()
     deathController.ui = g_ui.displayUI('deathwindow', rootWidget)
 
-    local textLabel = deathController.ui:getChildById('labelText')
-    if deathType == DeathType.Regular then
-        if penalty == 100 then
-            textLabel:setText(deathTexts.regular.text)
-            deathController.ui:setHeight(deathController.ui.baseHeight + deathTexts.regular.height)
-            deathController.ui:setWidth(deathController.ui.baseWidth + deathTexts.regular.width)
-        else
-            textLabel:setText(string.format(deathTexts.unfair.text, 100 - penalty))
-            deathController.ui:setHeight(deathController.ui.baseHeight + deathTexts.unfair.height)
-            deathController.ui:setWidth(deathController.ui.baseWidth + deathTexts.unfair.width)
-        end
-    elseif deathType == DeathType.Blessed then
-        textLabel:setText(deathTexts.blessed.text)
-        deathController.ui:setHeight(deathController.ui.baseHeight + deathTexts.blessed.height)
-        deathController.ui:setWidth(deathController.ui.baseWidth + deathTexts.blessed.width)
+    local window = deathController.ui
+    local textLabel = window:getChildById('labelText')
+    local message = {}
+    local function addText(text, color)
+        table.insert(message, '{' .. text .. ', ' .. color .. '}')
     end
 
-    local okButton = deathController.ui:getChildById('buttonOk')
-    local cancelButton = deathController.ui:getChildById('buttonCancel')
+    local unfairDeath = deathType == DeathType.Regular and penalty ~= nil and penalty ~= 100
+    addText('Alas! Brave adventurer, you have met a sad fate.\nBut do not despair, for the gods will bring you back\ninto the world in exchange for a small sacrifice\n\n', '#c0c0c0')
+    if unfairDeath then
+        addText('This death penalty has been reduced by ' .. tostring(100 - penalty) .. '%\nbecause it was an unfair fight.\n\n', '#c0c0c0')
+    elseif deathType == DeathType.Blessed then
+        addText('This death penalty has been reduced by 100%\nbecause you are blessed with the Adventurer\'s Blessing\n\n', '#c0c0c0')
+    end
+    addText('Simply click on ', '#c0c0c0')
+    addText('Ok ', '#ffffff')
+    addText('to resume your journeys in game\nor on ', '#c0c0c0')
+    addText('Cancel ', '#ffffff')
+    addText('to get to your character list!\n\nClick on ', '#c0c0c0')
+    addText('Store ', '#ffffff')
+    addText('to resume your journeys and to shop\nblessings to ease the pain if you are unfortunate\nenough to lose another fight!', '#c0c0c0')
+
+    window:setWidth(window.baseWidth or 369)
+    local expandedMessage = unfairDeath or deathType == DeathType.Blessed
+    window:setHeight((window.baseHeight or 217) + (expandedMessage and 46 or 15))
+    textLabel:setColoredText(table.concat(message))
+
+    if g_modalManager then
+        g_modalManager.show(window)
+    end
+
+    local storeButton = window:getChildById('buttonStore')
+    local okButton = window:getChildById('buttonOk')
+    local cancelButton = window:getChildById('buttonCancel')
 
     local okFunc = function()
         CharacterList.doLogin()
@@ -86,11 +86,22 @@ function openWindow(deathType, penalty)
         deathController.ui = destroyWindows()
     end
 
+    local storeFunc = function()
+        if g_game.setDead then
+            g_game.setDead(false)
+        end
+        if modules.game_store and modules.game_store.show then
+            modules.game_store.show()
+        end
+        deathController.ui = destroyWindows()
+    end
+
     deathController.ui.onEnter = okFunc
     deathController.ui.onEscape = cancelFunc
 
     okButton.onClick = okFunc
     cancelButton.onClick = cancelFunc
+    storeButton.onClick = storeFunc
 end
 
 function scheduleReconnect()
