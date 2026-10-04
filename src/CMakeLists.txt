@@ -184,7 +184,7 @@ add_definitions(-D"BUILD_REVISION=\\\"${BUILD_REVISION}\\\"")
 # However if that is not available, we can check if PkgConfig is available.
 # PkgConfig is only intended for package maintainers.
 # *****************************************************************************
-if(NOT DEFINED VCPKG_TARGET_TRIPLET)
+if(NOT DEFINED VCPKG_TARGET_TRIPLET OR (UNIX AND NOT APPLE AND NOT ANDROID))
   find_package(PkgConfig REQUIRED)
 endif()
 find_package(OpenSSL QUIET)
@@ -294,7 +294,7 @@ if(ANDROID)
 else()
   if(NOT WASM)
     find_package(OpenGL REQUIRED)
-    if(DEFINED VCPKG_TARGET_TRIPLET)
+    if(DEFINED VCPKG_TARGET_TRIPLET AND (WIN32 OR APPLE))
       find_package(GLEW REQUIRED)
     else()
       pkg_check_modules(GLEW REQUIRED IMPORTED_TARGET glew)
