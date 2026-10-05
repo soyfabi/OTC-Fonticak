@@ -1235,6 +1235,11 @@ function createBattleListCreatureMenu(menuPosition, creature)
     menu:display(menuPosition)
 end
 
+local function isCorpseThing(thing)
+    -- Item 5967 is missing the lying-corpse flag in this client's item data.
+    return thing and (thing:isLyingCorpse() or thing:getId() == 5967)
+end
+
 function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
     if not g_game.isOnline() then
         return
@@ -1289,19 +1294,21 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
         shortcut = nil
     end
     if useThing then
-        if useThing:isContainer() then
-            if useThing:getParentContainer() then
-                menu:addOption(tr('Open'), function()
+        if isCorpseThing(useThing) then
+            menu:addOption(tr('Open'), function()
+                g_game.open(useThing)
+            end, shortcut)
+        elseif useThing:isContainer() then
+            menu:addOption(tr('Open'), function()
+                if useThing:getParentContainer() then
                     g_game.open(useThing, useThing:getParentContainer())
-                end, shortcut)
-                menu:addOption(tr('Open in new window'), function()
+                else
                     g_game.open(useThing)
-                end)
-            else
-                menu:addOption(tr('Open'), function()
-                    g_game.open(useThing)
-                end, shortcut)
-            end
+                end
+            end, shortcut)
+            menu:addOption(tr('Open in new window'), function()
+                g_game.open(useThing)
+            end)
         else
             if useThing:isMultiUse() then
                 menu:addOption(tr('Use with ...'), function()
@@ -1600,6 +1607,20 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
     menu:display(menuPosition)
 end
 
+local function openContainer(useThing)
+    if isCorpseThing(useThing) then
+        g_game.open(useThing)
+        return
+    end
+
+    local parentContainer = useThing:getParentContainer()
+    if parentContainer then
+        g_game.open(useThing, parentContainer)
+    else
+        g_game.open(useThing)
+    end
+end
+
 function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, useThing, creatureThing, attackCreature)
     local keyboardModifiers = g_keyboard.getModifiers()
 
@@ -1699,11 +1720,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
             if useThing then
                 modules.game_shortcuts.resetShortcuts()
                 if useThing:isContainer() then
-                    if useThing:getParentContainer() then
-                        g_game.open(useThing, useThing:getParentContainer())
-                    else
-                        g_game.open(useThing)
-                    end
+                    g_game.open(useThing)
                     return true
                 elseif useThing:isMultiUse() then
                     startUseWith(useThing)
@@ -1771,11 +1788,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                 if useThing:isUsable() then
                     -- Only use the item, don't look at it
                     if useThing:isContainer() then
-                        if useThing:getParentContainer() then
-                            g_game.open(useThing, useThing:getParentContainer())
-                        else
-                            g_game.open(useThing)
-                        end
+                        g_game.open(useThing)
                         return true
                     elseif useThing:isMultiUse() then
                         startUseWith(useThing)
@@ -1791,12 +1804,8 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                 -- Exception: If container has a parent container, open it instead of quicklooting
                 if useThing:isContainer() or useThing:isLyingCorpse() then
                     -- Prioritize containers/corpses even if there are creatures on the same tile
-                    if useThing:getParentContainer() then
-                        -- For containers inside other containers, we want to open them, not quickloot
-                        g_game.open(useThing, useThing:getParentContainer())
-                        return true
-                    elseif useThing:isPickupable() then
-                        -- For pickupable containers like quivers, backpacks, etc., open them instead of quicklooting
+                    if useThing:isPickupable() or useThing:getParentContainer() then
+                        -- For containers inside other containers, or pickupable containers: open them
                         g_game.open(useThing)
                         return true
                     elseif g_game.isQuickLootEnabled() and modules.game_quickloot then
@@ -1883,11 +1892,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                 end
             else
                 if useThing:isContainer() then
-                    if useThing:getParentContainer() then
-                        g_game.open(useThing, useThing:getParentContainer())
-                    else
-                        g_game.open(useThing)
-                    end
+                    g_game.open(useThing)
                     return true
                 elseif useThing:isMultiUse() then
                     startUseWith(useThing)
@@ -1946,24 +1951,20 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                 elseif useThing then
                     -- For containers/corpses
                     if useThing:isContainer() or useThing:isLyingCorpse() then
-                        -- For containers inside other containers, we want to open them
-                        if useThing:getParentContainer() then
-                            g_game.open(useThing, useThing:getParentContainer())
-                            return true
-                        elseif useThing:isPickupable() then
-                            -- For pickupable containers like quivers, backpacks, etc., open them instead of quicklooting
-                            g_game.open(useThing)
+                        -- For containers inside other containers or pickupable ones: open them
+                        if useThing:getParentContainer() or useThing:isPickupable() then
+                            openContainer(useThing)
                             return true
                         elseif table.find({ 3497, 3498, 3499, 3500, 3502, 12902 }, useThing:getId()) then
                             -- For depot chests, lockers, depot boxes, inbox, etc., always open them
-                            g_game.open(useThing)
+                            openContainer(useThing)
                             return true
                         elseif g_game.isQuickLootEnabled() and modules.game_quickloot then
                             -- For containers in the world, quickloot
                             g_game.sendQuickLoot(getQuickLootVariant(), useThing)
                             return true
                         else
-                            g_game.open(useThing)
+                            openContainer(useThing)
                             return true
                         end
                     elseif useThing:isMultiUse() then
@@ -1986,11 +1987,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
             if mouseButton == MouseRightButton and keyboardModifiers == KeyboardShiftModifier then
                 if useThing then
                     if useThing:isContainer() or useThing:isLyingCorpse() then
-                        if useThing:getParentContainer() then
-                            g_game.open(useThing, useThing:getParentContainer())
-                        else
-                            g_game.open(useThing)
-                        end
+                        openContainer(useThing)
                         return true
                     elseif useThing:isMultiUse() then
                         startUseWith(useThing)
@@ -2031,11 +2028,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                 elseif useThing then
                     -- For containers
                     if useThing:isContainer() or useThing:isLyingCorpse() then
-                        if useThing:getParentContainer() then
-                            g_game.open(useThing, useThing:getParentContainer())
-                        else
-                            g_game.open(useThing)
-                        end
+                        openContainer(useThing)
                         return true
                     elseif useThing:isMultiUse() then
                         startUseWith(useThing)
@@ -2120,13 +2113,8 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                     -- Use the item if it's a container in inventory or use other items
                 elseif useThing then
                     if useThing:isContainer() or useThing:isLyingCorpse() then
-                        if useThing:getParentContainer() then
-                            g_game.open(useThing, useThing:getParentContainer())
-                            return true
-                        else
-                            g_game.open(useThing)
-                            return true
-                        end
+                        openContainer(useThing)
+                        return true
                     elseif useThing:isMultiUse() then
                         startUseWith(useThing)
                         return true
@@ -2927,4 +2915,3 @@ function isChatVisible()
     end
     return false
 end
-
