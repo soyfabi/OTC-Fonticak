@@ -1235,9 +1235,51 @@ function createBattleListCreatureMenu(menuPosition, creature)
     menu:display(menuPosition)
 end
 
+local DEPOT_CONTAINER_IDS = { 3497, 3498, 3499, 3500, 3502, 12902 }
+
+local function isThingOnMap(thing)
+    local pos = thing:getPosition()
+    if not pos then
+        return false
+    end
+    return pos.x ~= 65535 and pos.x ~= 0xffff
+end
+
+local function isDepotContainer(thing)
+    return thing and table.find(DEPOT_CONTAINER_IDS, thing:getId()) ~= nil
+end
+
 local function isCorpseThing(thing)
+    if not thing then
+        return false
+    end
     -- Item 5967 is missing the lying-corpse flag in this client's item data.
-    return thing and (thing:isLyingCorpse() or thing:getId() == 5967)
+    if thing:isLyingCorpse() or thing:getId() == 5967 then
+        return true
+    end
+    -- Some 8.60 DATs omit DatLyingCorpse; corpses are non-pickupable containers on the map.
+    if thing:isContainer() and not thing:isPickupable() and isThingOnMap(thing) and not isDepotContainer(thing) then
+        return true
+    end
+    return false
+end
+
+local function isContainerOrCorpse(thing)
+    return thing and (isCorpseThing(thing) or thing:isContainer() or thing:isLyingCorpse())
+end
+
+local function openContainer(useThing)
+    if isCorpseThing(useThing) then
+        g_game.open(useThing)
+        return
+    end
+
+    local parentContainer = useThing:getParentContainer()
+    if parentContainer then
+        g_game.open(useThing, parentContainer)
+    else
+        g_game.open(useThing)
+    end
 end
 
 function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
@@ -1296,15 +1338,11 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
     if useThing then
         if isCorpseThing(useThing) then
             menu:addOption(tr('Open'), function()
-                g_game.open(useThing)
+                openContainer(useThing)
             end, shortcut)
         elseif useThing:isContainer() then
             menu:addOption(tr('Open'), function()
-                if useThing:getParentContainer() then
-                    g_game.open(useThing, useThing:getParentContainer())
-                else
-                    g_game.open(useThing)
-                end
+                openContainer(useThing)
             end, shortcut)
             menu:addOption(tr('Open in new window'), function()
                 g_game.open(useThing)
@@ -1342,7 +1380,7 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
                 g_game.browseField(useThing:getPosition())
             end)
         end
-        if useThing:isLyingCorpse() and g_game.isQuickLootEnabled() and modules.game_quickloot and useThing:getPosition().x ~= 0xffff then
+        if isCorpseThing(useThing) and g_game.isQuickLootEnabled() and modules.game_quickloot and isThingOnMap(useThing) then
             local lootCorpseShortcut = Keybind.formatActionShortcut('Loot', 'Quick Loot at Cursor')
                 or Keybind.formatActionShortcut('Loot', 'Quick Loot Container')
             menu.addOption(menu, tr("Loot corpse"), function()
@@ -1607,20 +1645,6 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
     menu:display(menuPosition)
 end
 
-local function openContainer(useThing)
-    if isCorpseThing(useThing) then
-        g_game.open(useThing)
-        return
-    end
-
-    local parentContainer = useThing:getParentContainer()
-    if parentContainer then
-        g_game.open(useThing, parentContainer)
-    else
-        g_game.open(useThing)
-    end
-end
-
 function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, useThing, creatureThing, attackCreature)
     local keyboardModifiers = g_keyboard.getModifiers()
 
@@ -1802,7 +1826,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                 -- Standard handling for other usable items
                 -- For containers (including corpses), only execute quicklooting with Smart Left-Click
                 -- Exception: If container has a parent container, open it instead of quicklooting
-                if useThing:isContainer() or useThing:isLyingCorpse() then
+                if isContainerOrCorpse(useThing) then
                     -- Prioritize containers/corpses even if there are creatures on the same tile
                     if useThing:isPickupable() or useThing:getParentContainer() then
                         -- For containers inside other containers, or pickupable containers: open them
@@ -1883,7 +1907,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
             if smartLeftClick then
                 local player = g_game.getLocalPlayer()
                 -- For containers in the world, Ctrl+Left Click opens them even if there's a creature
-                if (useThing:isContainer() or useThing:isLyingCorpse()) and not useThing:getParentContainer() then
+                if (isContainerOrCorpse(useThing)) and not useThing:getParentContainer() then
                     g_game.open(useThing)
                     return true
                 else
@@ -1950,12 +1974,12 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                     return true
                 elseif useThing then
                     -- For containers/corpses
-                    if useThing:isContainer() or useThing:isLyingCorpse() then
+                    if isContainerOrCorpse(useThing) then
                         -- For containers inside other containers or pickupable ones: open them
                         if useThing:getParentContainer() or useThing:isPickupable() then
                             openContainer(useThing)
                             return true
-                        elseif table.find({ 3497, 3498, 3499, 3500, 3502, 12902 }, useThing:getId()) then
+                        elseif isDepotContainer(useThing) then
                             -- For depot chests, lockers, depot boxes, inbox, etc., always open them
                             openContainer(useThing)
                             return true
@@ -1986,7 +2010,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
             -- SHIFT+Right click: opens containers without quicklooting
             if mouseButton == MouseRightButton and keyboardModifiers == KeyboardShiftModifier then
                 if useThing then
-                    if useThing:isContainer() or useThing:isLyingCorpse() then
+                    if isContainerOrCorpse(useThing) then
                         openContainer(useThing)
                         return true
                     elseif useThing:isMultiUse() then
@@ -2027,7 +2051,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                     return true
                 elseif useThing then
                     -- For containers
-                    if useThing:isContainer() or useThing:isLyingCorpse() then
+                    if isContainerOrCorpse(useThing) then
                         openContainer(useThing)
                         return true
                     elseif useThing:isMultiUse() then
@@ -2042,7 +2066,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
 
             -- SHIFT+Right click: quickloot on containers
             if mouseButton == MouseRightButton and keyboardModifiers == KeyboardShiftModifier then
-                if useThing and (useThing:isContainer() or useThing:isLyingCorpse()) then
+                if useThing and (isContainerOrCorpse(useThing)) then
                     if g_game.isQuickLootEnabled() and modules.game_quickloot then
                         g_game.sendQuickLoot(getQuickLootVariant(), useThing)
                         return true
@@ -2065,9 +2089,9 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                 -- ONLY for quicklooting and picking up items, NOT for attacking
                 if useThing then
                     -- ONLY quickloot containers/corpses in the game world
-                    if (useThing:isContainer() or useThing:isLyingCorpse()) and not useThing:getParentContainer() then
+                    if (isContainerOrCorpse(useThing)) and not useThing:getParentContainer() then
                         -- Only handle containers that are in the game world (not in inventory)
-                        if table.find({ 3497, 3498, 3499, 3500, 3502, 12902 }, useThing:getId()) then
+                        if isDepotContainer(useThing) then
                             -- For depot chests, lockers, depot boxes, inbox, etc., always open them
                             g_game.open(useThing)
                             return true
@@ -2112,7 +2136,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                     return true
                     -- Use the item if it's a container in inventory or use other items
                 elseif useThing then
-                    if useThing:isContainer() or useThing:isLyingCorpse() then
+                    if isContainerOrCorpse(useThing) then
                         openContainer(useThing)
                         return true
                     elseif useThing:isMultiUse() then
@@ -2174,7 +2198,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
         if classicControl and lootControlMode == 2 then
             -- Check if there's a corpse or item we should be looting instead of walking
             -- If not, proceed with autowalk
-            local isCorpseOrContainer = useThing and (useThing:isContainer() or useThing:isLyingCorpse())
+            local isCorpseOrContainer = isContainerOrCorpse(useThing)
 
             if not isCorpseOrContainer and
                 not (lookThing and not lookThing:isCreature() and lookThing:isPickupable()) then

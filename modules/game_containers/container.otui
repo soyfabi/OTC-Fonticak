@@ -4,7 +4,7 @@ PageButton < UIButton
 
 ContainerWindow < MiniWindow
   height: 150
-  &save: true
+  &save: false
   UIWidget
     id: miniwindowIcon
     anchors.top: miniwindowHeader.top

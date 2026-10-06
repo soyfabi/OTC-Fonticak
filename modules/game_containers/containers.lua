@@ -1244,15 +1244,9 @@ function onContainerOpen(container, previousContainer)
         resizeBorder:setMaximum(getWindowHeightForGridRows(numLines))
     end
 
-    local manualHeight = containerWindow._manualContainerHeight or containerWindow:getSettings('manualContainerHeight')
-    if manualHeight and manualHeight > 0 then
-        containerWindow._manualContainerHeight = manualHeight
-        local minHeight = getWindowHeightForGridRows(1)
-        local maxHeight = getWindowHeightForGridRows(numLines)
-        containerWindow:setHeight(math.max(minHeight, math.min(maxHeight, manualHeight)))
-    else
-        containerWindow:setHeight(getWindowHeightForGridRows(rows))
-    end
+    containerWindow.getWindowHeightForGridRows = getWindowHeightForGridRows
+    containerWindow._manualContainerHeight = nil
+    containerWindow:setHeight(getWindowHeightForGridRows(rows))
 
     if resizeBorder then
         local originalOnMouseRelease = resizeBorder.onMouseRelease
@@ -1265,9 +1259,6 @@ function onContainerOpen(container, previousContainer)
             end
 
             containerWindow._manualContainerHeight = containerWindow:getHeight()
-            containerWindow:setSettings({
-                manualContainerHeight = containerWindow._manualContainerHeight
-            })
         end
     end
 
@@ -1309,6 +1300,15 @@ function onContainerChangeSize(container, size)
     if preservedHeight then
         container.window:setHeight(preservedHeight)
         container.window.preservedHeight = nil -- Clear the preserved height
+    elseif not container.window._manualContainerHeight and container.window.getWindowHeightForGridRows and container.itemsPanel then
+        local layout = container.itemsPanel:getLayout()
+        if layout then
+            local numColumns = math.max(layout:getNumColumns(), 1)
+            local numLines = math.max(layout:getNumLines(), 1)
+            local rows = math.max(math.ceil(container:getItemsCount() / numColumns), 1)
+            rows = math.min(rows, numLines)
+            container.window:setHeight(container.window.getWindowHeightForGridRows(rows))
+        end
     end
 end
 
