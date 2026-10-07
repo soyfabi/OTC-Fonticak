@@ -34,6 +34,7 @@
 #include "thing.h"
 #include "thingtypemanager.h"
 #include "uimap.h"
+#include "negativeoffset.h"
 #include "framework/core/clock.h"
 #include "framework/core/eventdispatcher.h"
 #include "framework/graphics/drawpoolmanager.h"
@@ -72,6 +73,14 @@ int getTileLootHighlightPhase(const ThingTypePtr& effectType, Timer& timer)
 
 Tile::Tile(const Position& position) : m_position(position) {}
 
+namespace
+{
+bool useAstraMapLayers()
+{
+    return g_game.getFeature(Otc::GameNegativeOffset) || g_game.getFeature(Otc::GameMapDrawGroundFirst);
+}
+}
+
 void updateElevation(const ThingPtr& thing, uint8_t& drawElevation) {
     if (thing->hasElevation())
         drawElevation = std::min<uint8_t>(drawElevation + thing->getElevation(), g_gameConfig.getTileMaxElevation());
@@ -100,16 +109,209 @@ void drawThing(const ThingPtr& thing, const Point& dest, const int flags, uint8_
     }
 }
 
-void Tile::draw(const Point& dest, const int flags, LightView* lightView)
+void Tile::drawGround(const Point& dest, LightView* lightView, const bool negativeOffsetPass)
 {
-    m_lastDrawDest = dest;
-
-    uint8_t drawElevation = 0;
+    m_topDraws = 0;
+    m_drawElevation = 0;
 
     if (m_fill != Color::alpha) {
         g_drawPool.addFilledRect(Rect(dest, Size{ g_gameConfig.getSpriteSize() }), m_fill);
         return;
     }
+
+    const bool groundFirst = NegativeOffset::useGroundFirstPass(
+        g_game.getFeature(Otc::GameMapDrawGroundFirst), negativeOffsetPass);
+
+    const int flags = Otc::DrawThings;
+    for (const auto& thing : m_things) {
+        if (!thing->isGround() && !thing->isGroundBorder() && (groundFirst || !thing->isOnBottom()))
+            break;
+
+        const bool flatGround = NegativeOffset::isFlatGround(
+            thing->isGround(), thing->getWidth(), thing->getHeight(), thing->hasDisplacement());
+        if (!negativeOffsetPass || flatGround)
+            drawThing(thing, dest, flags, m_drawElevation, lightView);
+    }
+}
+
+void Tile::drawBottom(const Point& dest, const int flags, LightView* lightView, const bool negativeOffsetPass)
+{
+    if (m_fill != Color::alpha)
+        return;
+
+    if (negativeOffsetPass) {
+        uint8_t passElevation = 0;
+        for (const auto& thing : m_things) {
+            if (!thing->isGround() && !thing->isGroundBorder() && !thing->isOnBottom())
+                break;
+
+            const bool flatGround = NegativeOffset::isFlatGround(
+                thing->isGround(), thing->getWidth(), thing->getHeight(), thing->hasDisplacement());
+            if (!flatGround)
+                drawThing(thing, dest, flags, passElevation, lightView);
+        }
+        m_drawElevation = passElevation;
+    } else if (g_game.getFeature(Otc::GameMapDrawGroundFirst)) {
+        bool afterBottom = false;
+        for (const auto& thing : m_things) {
+            if (thing->isOnBottom())
+                afterBottom = true;
+            if (!thing->isGround() && !thing->isGroundBorder() && !thing->isOnBottom())
+                break;
+            if (!afterBottom)
+                continue;
+
+            drawThing(thing, dest, flags, m_drawElevation, lightView);
+        }
+    }
+
+    int redrawPreviousTopW = 0;
+    int redrawPreviousTopH = 0;
+    bool stopDrawing = false;
+    for (auto it = m_things.rbegin(); it != m_things.rend(); ++it) {
+        const auto& thing = *it;
+        if (thing->isLyingCorpse()) {
+            redrawPreviousTopW = std::max<int>(thing->getWidth() - 1, redrawPreviousTopW);
+            redrawPreviousTopH = std::max<int>(thing->getHeight() - 1, redrawPreviousTopH);
+        }
+        if (thing->isOnTop() || thing->isOnBottom() || thing->isGroundBorder() || thing->isGround() || thing->isCreature())
+            stopDrawing = true;
+
+        if (stopDrawing)
+            continue;
+
+        drawThing(thing, dest, flags, m_drawElevation, lightView);
+    }
+
+    if (!negativeOffsetPass && !g_game.getFeature(Otc::GameMapIgnoreCorpseCorrection)) {
+        const int spriteSize = g_gameConfig.getSpriteSize();
+        const float scale = g_drawPool.getScaleFactor();
+        for (int x = -redrawPreviousTopW; x <= 0; ++x) {
+            for (int y = -redrawPreviousTopH; y <= 0; ++y) {
+                if (x == 0 && y == 0)
+                    continue;
+                if (const auto& tile = g_map.getTile(m_position.translated(x, y))) {
+                    const Point offset(dest.x + x * spriteSize * scale, dest.y + y * spriteSize * scale);
+                    tile->drawMapCreatures(offset, flags, lightView);
+                    tile->drawMapTop(offset, flags, lightView);
+                }
+            }
+        }
+    }
+}
+
+void Tile::drawMapCreatures(const Point& dest, const int flags, LightView* lightView, const bool globalLayerPass)
+{
+    if (m_fill != Color::alpha)
+        return;
+    if (!globalLayerPass && m_topDraws < m_topCorrection)
+        return;
+
+    drawCreature(dest, flags, true, m_drawElevation, lightView);
+}
+
+void Tile::drawMapTop(const Point& dest, const int flags, LightView* lightView, const bool globalLayerPass)
+{
+    if (m_fill != Color::alpha)
+        return;
+    if (!globalLayerPass && m_topDraws++ < m_topCorrection)
+        return;
+
+    if (m_effects) {
+        for (const auto& effect : *m_effects) {
+            if (effect->isExpired()) continue;
+            drawThing(effect, dest, flags & Otc::DrawThings, m_drawElevation, lightView);
+        }
+    }
+
+    if (hasTopItem()) {
+        for (const auto& item : m_things) {
+            if (!item->isOnTop()) continue;
+            if (flags == Otc::DrawLights)
+                item->drawLight(dest - m_drawElevation * g_drawPool.getScaleFactor(), lightView);
+            else
+                item->draw(dest, flags & Otc::DrawThings, lightView);
+        }
+    }
+
+    drawAttachedEffect(dest, dest, lightView, true);
+    drawAttachedParticlesEffect(dest);
+}
+
+void Tile::drawLootHighlights(const Point& dest, LightView* lightView)
+{
+    drawLootHighlights(dest, m_drawElevation, lightView);
+}
+
+bool Tile::hasNegativeDisplacementCreature() const
+{
+    const auto needsSpecialRendering = [](const CreaturePtr& creature) {
+        return creature && creature->usesNegativeDisplacement();
+    };
+
+    for (const auto& creature : m_walkingCreatures) {
+        if (needsSpecialRendering(creature))
+            return true;
+    }
+
+    for (const auto& thing : m_things) {
+        if (thing->isCreature() && needsSpecialRendering(thing->static_self_cast<Creature>()))
+            return true;
+    }
+    return false;
+}
+
+void Tile::draw(const Point& dest, const int flags, LightView* lightView)
+{
+    m_lastDrawDest = dest;
+
+    if (m_fill != Color::alpha) {
+        g_drawPool.addFilledRect(Rect(dest, Size{ g_gameConfig.getSpriteSize() }), m_fill);
+        return;
+    }
+
+    if (useAstraMapLayers()) {
+        drawGround(dest, lightView);
+        drawBottom(dest, flags, lightView);
+        drawAttachedEffect(dest, dest, lightView, false);
+
+        if (!(flags & Otc::DrawLights) && m_hasLootHighlight)
+            drawLootHighlights(dest, lightView);
+
+        if (hasWalkingCreature()) {
+            g_drawPool.setDrawOrder(DrawOrder::THIRD);
+            for (const auto& creature : m_walkingCreatures) {
+                if (creature->getDirection() == Otc::NorthEast || creature->getDirection() == Otc::SouthWest) {
+                    if (creature->getLastStepToPosition() == getPosition())
+                        continue;
+
+                    const auto& cDest = Point(
+                        dest.x + ((creature->getPosition().x - m_position.x) * g_gameConfig.getSpriteSize() - creature->getDrawElevation()) * g_drawPool.getScaleFactor(),
+                        dest.y + ((creature->getPosition().y - m_position.y) * g_gameConfig.getSpriteSize() - creature->getDrawElevation()) * g_drawPool.getScaleFactor()
+                    );
+
+                    if (flags == Otc::DrawLights)
+                        creature->drawLight(cDest, lightView);
+                    else
+                        creature->draw(cDest, flags & Otc::DrawThings);
+                }
+            }
+            g_drawPool.resetDrawOrder();
+        }
+
+        if (m_tilesRedraw) {
+            for (const auto& tile : *m_tilesRedraw) {
+                tile->drawMapCreatures(tile->m_lastDrawDest, flags, lightView, true);
+                tile->drawMapTop(tile->m_lastDrawDest, flags, lightView, true);
+            }
+        }
+
+        drawMapCreatures(dest, flags, lightView);
+        drawMapTop(dest, flags, lightView);
+        return;
+    }
+
+    uint8_t drawElevation = 0;
 
     std::vector<ThingPtr> skipped_non_walkable;
     for (const auto& thing : m_things) {

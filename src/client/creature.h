@@ -106,6 +106,7 @@ public:
 
     int getDisplacementX() const override;
     int getDisplacementY() const override;
+    bool usesNegativeDisplacement() const;
     int getExactSize(int layer = 0, int xPattern = 0, int yPattern = 0, int zPattern = 0, int animationPhase = 0) override;
 
     float getStepProgress() { return m_walkTimer.ticksElapsed() / static_cast<float>(m_stepCache.duration); }

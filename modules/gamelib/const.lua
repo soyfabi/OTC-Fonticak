@@ -232,6 +232,8 @@ GamePlayerFamiliars = 138
 GameDisplayItemCharges = 139
 GameAstraQuiverCountU16 = 141
 GameAstraOutfitStoreMode = 142
+GameMapDrawGroundFirst = 143
+GameMapIgnoreCorpseCorrection = 144
 
 TextColors = {
     red = '#f55e5e',    -- '#c83200'

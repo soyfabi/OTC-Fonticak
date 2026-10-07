@@ -44,13 +44,6 @@ end
 local function load(version)
     local errorList = {}
 
-    -- Astra's 8.60 DAT stores sprite displacements as signed 16-bit values.
-    -- Enable this before loadDat parses those attributes, or negative offsets
-    -- are interpreted as large positive offsets and furniture renders broken.
-    if version == 860 then
-        g_game.enableFeature(GameNegativeOffset)
-    end
-
     if version >= 1281 and not g_game.getFeature(GameLoadSprInsteadProtobuf) then
         local filePath = resolvepath(string.format('/things/%d/', version))
         if not g_things.loadAppearances(filePath) then
@@ -89,9 +82,6 @@ local function load(version)
 
     loaded = #errorList == 0
     if loaded then
-        -- loading client files was successful, try to load sounds now
-        -- sound files are optional, this means that failing to load them
-        -- will not block logging into game
         g_sounds.loadClientFiles(resolvepath(string.format('/sounds/%d/', version)))
         if modules.client_bottommenu and modules.client_bottommenu.onThingsLoaded then
             modules.client_bottommenu.onThingsLoaded()
