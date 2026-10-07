@@ -43,6 +43,7 @@
 #include "framework/graphics/texturemanager.h"
 #include <framework/platform/platformwindow.h>
 
+#include <algorithm>
 #include <initializer_list>
 
 namespace
@@ -158,6 +159,51 @@ void MapView::drawFloor()
         const bool alwaysTransparent = m_floorViewMode == Otc::ALWAYS_WITH_TRANSPARENCY && z < m_cachedFirstVisibleFloor && _camera.coveredUp(cameraPosition.z - z);
 
         const auto& map = m_floors[z].cachedVisibleTiles;
+        const bool layeredMapDraw = g_game.getFeature(Otc::GameNegativeOffset) || g_game.getFeature(Otc::GameMapDrawGroundFirst);
+        const bool negativeOffsetPass = layeredMapDraw && g_game.getFeature(Otc::GameNegativeOffset) &&
+            std::any_of(map.tiles.begin(), map.tiles.end(), [](const TilePtr& tile) {
+                return tile && tile->hasNegativeDisplacementCreature();
+            });
+
+        if (layeredMapDraw && negativeOffsetPass) {
+            const auto drawNegativeOffsetTile = [&](const TilePtr& tile, const auto& drawTile) {
+                uint32_t tileFlags = flags;
+                if (!m_drawViewportEdge && !tile->canRender(tileFlags, cameraPosition, m_viewport))
+                    return;
+
+                if (alwaysTransparent) {
+                    const bool inRange = tile->getPosition().isInRange(_camera, g_gameConfig.getTileTransparentFloorViewRange(), g_gameConfig.getTileTransparentFloorViewRange(), true);
+                    g_drawPool.setOpacity(inRange ? .16f : .7f);
+                }
+
+                const auto tileDrawPos = transformPositionTo2D(tile->getPosition());
+                drawTile(tile, tileDrawPos, tileFlags);
+
+                if (alwaysTransparent)
+                    g_drawPool.resetOpacity();
+            };
+
+            for (const auto& tile : map.tiles) {
+                drawNegativeOffsetTile(tile, [&](const TilePtr& t, const Point& tileDrawPos, uint32_t) {
+                    t->drawGround(tileDrawPos, m_lightView.get(), true);
+                });
+            }
+
+            for (const auto& tile : map.tiles) {
+                drawNegativeOffsetTile(tile, [&](const TilePtr& t, const Point& tileDrawPos, uint32_t tileFlags) {
+                    t->drawBottom(tileDrawPos, tileFlags, m_lightView.get(), true);
+                    if (!(tileFlags & Otc::DrawLights))
+                        t->drawLootHighlights(tileDrawPos, m_lightView.get());
+                });
+            }
+
+            for (const auto& tile : map.tiles) {
+                drawNegativeOffsetTile(tile, [&](const TilePtr& t, const Point& tileDrawPos, uint32_t tileFlags) {
+                    t->drawMapCreatures(tileDrawPos, tileFlags, m_lightView.get(), true);
+                    t->drawMapTop(tileDrawPos, tileFlags, m_lightView.get(), true);
+                });
+            }
+        } else {
         std::vector<std::pair<TilePtr, uint32_t>> walking_tiles;
 
         const auto flushWalkingTiles = [&] {
@@ -193,6 +239,7 @@ void MapView::drawFloor()
 
         // Safety: draw any tiles still queued at the end of this floor
         flushWalkingTiles();
+        }
 
         for (const auto& missile : g_map.getFloorMissiles(z))
             missile->draw(transformPositionTo2D(missile->getPosition()), true);

@@ -588,6 +588,8 @@ namespace Otc
         GamePackedPlayerInventory = 140,
         GameAstraQuiverCountU16 = 141,
         GameAstraOutfitStoreMode = 142,
+        GameMapDrawGroundFirst = 143,
+        GameMapIgnoreCorpseCorrection = 144,
         LastGameFeature
     };
 

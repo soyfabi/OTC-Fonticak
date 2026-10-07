@@ -135,6 +135,7 @@ public:
     bool isDontHide() { return (m_flags & ThingFlagAttrDontHide); }
     bool isTranslucent() { return (m_flags & ThingFlagAttrTranslucent); }
     bool hasDisplacement() { return (m_flags & ThingFlagAttrDisplacement); }
+    bool hasNegativeDisplacement() const { return m_displacement.x < 0 || m_displacement.y < 0; }
     bool hasElevation() { return (m_flags & ThingFlagAttrElevation); }
     bool hasFloorChange() const { return (m_flags & ThingFlagAttrFloorChange); }
     bool isLyingCorpse() { return (m_flags & ThingFlagAttrLyingCorpse); }

@@ -31,6 +31,8 @@
 #include "localplayer.h"
 #include "luavaluecasts_client.h"
 #include "map.h"
+#include "negativeoffset.h"
+#include "thingtypemanager.h"
 #include "framework/core/eventdispatcher.h"
 #include "framework/graphics/texturemanager.h"
 #include "protocolcodes.h"
@@ -1292,6 +1294,19 @@ bool Creature::isInsideOffset(const Point& offset)
     return rect.contains(offset);
 }
 
+bool Creature::usesNegativeDisplacement() const
+{
+    if (m_outfit.getCategory() != ThingCategoryCreature)
+        return false;
+
+    const auto& outfitType = g_things.getThingType(m_outfit.getId(), ThingCategoryCreature);
+    const bool outfitNegative = outfitType && !outfitType->isNull() && outfitType->hasNegativeDisplacement();
+
+    const ThingTypePtr mountType = m_outfit.getMount() > 0
+        ? g_things.getThingType(m_outfit.getMount(), ThingCategoryCreature) : nullptr;
+    const bool mountNegative = mountType && !mountType->isNull() && mountType->hasNegativeDisplacement();
+    return NegativeOffset::usesNegativeDisplacement(outfitNegative, mountNegative);
+}
 
 int Creature::getDisplacementX() const
 {

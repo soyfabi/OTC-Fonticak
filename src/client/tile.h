@@ -41,8 +41,14 @@ public:
 
     void onAddInMapView();
     void draw(const Point& dest, int flags, LightView* lightView = nullptr);
+    void drawGround(const Point& dest, LightView* lightView = nullptr, bool negativeOffsetPass = false);
+    void drawBottom(const Point& dest, int flags, LightView* lightView = nullptr, bool negativeOffsetPass = false);
+    void drawMapCreatures(const Point& dest, int flags, LightView* lightView = nullptr, bool globalLayerPass = false);
+    void drawMapTop(const Point& dest, int flags, LightView* lightView = nullptr, bool globalLayerPass = false);
     void drawLight(const Point& dest, LightView* lightView);
     void drawLootHighlights(const Point& dest, uint8_t drawElevation, LightView* lightView);
+    void drawLootHighlights(const Point& dest, LightView* lightView);
+    bool hasNegativeDisplacementCreature() const;
     void updateLootHighlightFlag();
     bool hasLootHighlightItems() const { return m_hasLootHighlight; }
 
@@ -232,6 +238,8 @@ private:
 
     bool m_drawTopAndCreature{ true };
     bool m_hasLootHighlight{ false };
+    int m_topDraws{ 0 };
+    int m_topCorrection{ 0 };
 
     Timer m_lootHighlightTimer;
 };
