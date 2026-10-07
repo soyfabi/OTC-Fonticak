@@ -165,15 +165,9 @@ void Tile::drawBottom(const Point& dest, const int flags, LightView* lightView, 
         }
     }
 
-    int redrawPreviousTopW = 0;
-    int redrawPreviousTopH = 0;
     bool stopDrawing = false;
     for (auto it = m_things.rbegin(); it != m_things.rend(); ++it) {
         const auto& thing = *it;
-        if (thing->isLyingCorpse()) {
-            redrawPreviousTopW = std::max<int>(thing->getWidth() - 1, redrawPreviousTopW);
-            redrawPreviousTopH = std::max<int>(thing->getHeight() - 1, redrawPreviousTopH);
-        }
         if (thing->isOnTop() || thing->isOnBottom() || thing->isGroundBorder() || thing->isGround() || thing->isCreature())
             stopDrawing = true;
 
@@ -182,30 +176,18 @@ void Tile::drawBottom(const Point& dest, const int flags, LightView* lightView, 
 
         drawThing(thing, dest, flags, m_drawElevation, lightView);
     }
-
-    if (!negativeOffsetPass && !g_game.getFeature(Otc::GameMapIgnoreCorpseCorrection)) {
-        const int spriteSize = g_gameConfig.getSpriteSize();
-        const float scale = g_drawPool.getScaleFactor();
-        for (int x = -redrawPreviousTopW; x <= 0; ++x) {
-            for (int y = -redrawPreviousTopH; y <= 0; ++y) {
-                if (x == 0 && y == 0)
-                    continue;
-                if (const auto& tile = g_map.getTile(m_position.translated(x, y))) {
-                    const Point offset(dest.x + x * spriteSize * scale, dest.y + y * spriteSize * scale);
-                    tile->drawMapCreatures(offset, flags, lightView);
-                    tile->drawMapTop(offset, flags, lightView);
-                }
-            }
-        }
-    }
 }
 
 void Tile::drawMapCreatures(const Point& dest, const int flags, LightView* lightView, const bool globalLayerPass)
 {
     if (m_fill != Color::alpha)
         return;
-    if (!globalLayerPass && m_topDraws < m_topCorrection)
-        return;
+    if (!globalLayerPass) {
+        if (!m_drawTopAndCreature)
+            return;
+        if (m_topDraws < m_topCorrection)
+            return;
+    }
 
     drawCreature(dest, flags, true, m_drawElevation, lightView);
 }
@@ -214,8 +196,12 @@ void Tile::drawMapTop(const Point& dest, const int flags, LightView* lightView, 
 {
     if (m_fill != Color::alpha)
         return;
-    if (!globalLayerPass && m_topDraws++ < m_topCorrection)
-        return;
+    if (!globalLayerPass) {
+        if (!m_drawTopAndCreature)
+            return;
+        if (m_topDraws++ < m_topCorrection)
+            return;
+    }
 
     if (m_effects) {
         for (const auto& effect : *m_effects) {

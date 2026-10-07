@@ -166,31 +166,42 @@ void MapView::drawFloor()
             });
 
         if (layeredMapDraw && negativeOffsetPass) {
-            for (const auto& tile : map.tiles) {
+            const auto drawNegativeOffsetTile = [&](const TilePtr& tile, const auto& drawTile) {
                 uint32_t tileFlags = flags;
                 if (!m_drawViewportEdge && !tile->canRender(tileFlags, cameraPosition, m_viewport))
-                    continue;
+                    return;
+
+                if (alwaysTransparent) {
+                    const bool inRange = tile->getPosition().isInRange(_camera, g_gameConfig.getTileTransparentFloorViewRange(), g_gameConfig.getTileTransparentFloorViewRange(), true);
+                    g_drawPool.setOpacity(inRange ? .16f : .7f);
+                }
+
                 const auto tileDrawPos = transformPositionTo2D(tile->getPosition());
-                tile->drawGround(tileDrawPos, m_lightView.get(), true);
+                drawTile(tile, tileDrawPos, tileFlags);
+
+                if (alwaysTransparent)
+                    g_drawPool.resetOpacity();
+            };
+
+            for (const auto& tile : map.tiles) {
+                drawNegativeOffsetTile(tile, [&](const TilePtr& t, const Point& tileDrawPos, uint32_t) {
+                    t->drawGround(tileDrawPos, m_lightView.get(), true);
+                });
             }
 
             for (const auto& tile : map.tiles) {
-                uint32_t tileFlags = flags;
-                if (!m_drawViewportEdge && !tile->canRender(tileFlags, cameraPosition, m_viewport))
-                    continue;
-                const auto tileDrawPos = transformPositionTo2D(tile->getPosition());
-                tile->drawBottom(tileDrawPos, tileFlags, m_lightView.get(), true);
-                if (!(tileFlags & Otc::DrawLights))
-                    tile->drawLootHighlights(tileDrawPos, m_lightView.get());
+                drawNegativeOffsetTile(tile, [&](const TilePtr& t, const Point& tileDrawPos, uint32_t tileFlags) {
+                    t->drawBottom(tileDrawPos, tileFlags, m_lightView.get(), true);
+                    if (!(tileFlags & Otc::DrawLights))
+                        t->drawLootHighlights(tileDrawPos, m_lightView.get());
+                });
             }
 
             for (const auto& tile : map.tiles) {
-                uint32_t tileFlags = flags;
-                if (!m_drawViewportEdge && !tile->canRender(tileFlags, cameraPosition, m_viewport))
-                    continue;
-                const auto tileDrawPos = transformPositionTo2D(tile->getPosition());
-                tile->drawMapCreatures(tileDrawPos, tileFlags, m_lightView.get(), true);
-                tile->drawMapTop(tileDrawPos, tileFlags, m_lightView.get(), true);
+                drawNegativeOffsetTile(tile, [&](const TilePtr& t, const Point& tileDrawPos, uint32_t tileFlags) {
+                    t->drawMapCreatures(tileDrawPos, tileFlags, m_lightView.get(), true);
+                    t->drawMapTop(tileDrawPos, tileFlags, m_lightView.get(), true);
+                });
             }
         } else {
         std::vector<std::pair<TilePtr, uint32_t>> walking_tiles;
