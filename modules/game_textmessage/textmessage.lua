@@ -235,14 +235,6 @@ local function isQuickLootFeedbackText(text)
     return lower:find('you looted') ~= nil or lower:find('no loot') ~= nil
 end
 
-local function isLootMessageText(text)
-    if type(text) ~= 'string' then
-        return false
-    end
-    local lower = text:lower()
-    return lower:find('^loot of') ~= nil or lower:find('^loot de') ~= nil
-end
-
 local function isUiWidgetValid(widget)
     if not widget then
         return false
@@ -297,7 +289,7 @@ local function isProtectedCenterLabel(label)
     if PROTECTED_CENTER_MESSAGE_MODES[label.gameMessageMode] then
         return true
     end
-    return isLootMessageText(label:getText())
+    return ItemsDatabase.isLootMessageText(label:getText())
 end
 
 local function findOldestVisibleCenterLabel(excludeProtected)
@@ -413,12 +405,12 @@ local function showScreenMessage(label, text, color, useColoredLoot, modeNum, is
     end
 
     label:setColor(color or TextColors.white)
-    if useColoredLoot then
+    if useColoredLoot or ItemsDatabase.hasColorLootMarkup(text) then
         local coloredText = ItemsDatabase.setColorLootMessage(text, color or TextColors.green)
-        if type(coloredText) == 'string' and coloredText:find('{.-,.+}') then
+        if #coloredText > 0 then
             label:setColoredText(coloredText)
         else
-            label:setText(type(coloredText) == 'string' and coloredText or text)
+            label:setText(text)
         end
     else
         label:setText(text)
@@ -514,18 +506,6 @@ local function isOptionEnabled(key, defaultValue)
     return defaultValue and true or false
 end
 
-local function getLootConsoleSpeaktype(msgtype)
-    if msgtype and msgtype.colored then
-        return msgtype
-    end
-    return {
-        color = (msgtype and msgtype.color) or TextColors.green,
-        consoleTab = msgtype and msgtype.consoleTab,
-        consoleOption = msgtype and msgtype.consoleOption,
-        colored = true
-    }
-end
-
 function displayMessage(mode, text)
 
     if not g_game.isOnline() then
@@ -563,9 +543,10 @@ function displayMessage(mode, text)
     end
 
     local isQuickLootFeedback = isQuickLootFeedbackText(text)
+    local isRewardChestMsg = ItemsDatabase.isRewardChestMessageText(text)
     local isLootMsg = not isQuickLootFeedback and (modeNum == MessageModes.Loot or modeNum == MessageModes.ValuableLoot
         or msgtype == MessageSettings.loot or msgtype == MessageSettings.valuableLoot
-        or isLootMessageText(text))
+        or ItemsDatabase.isLootMessageText(text) or ItemsDatabase.hasColorLootMarkup(text))
 
     if isQuickLootFeedback then
         msgtype = MessageSettings.centerWhite
@@ -575,7 +556,7 @@ function displayMessage(mode, text)
         (msgtype.consoleOption == nil or isOptionEnabled(msgtype.consoleOption, true)) then
         if isLootMsg then
             local lootColoredText = ItemsDatabase.setColorLootMessage(text)
-            local lootSpeaktype = getLootConsoleSpeaktype(msgtype)
+            local lootSpeaktype = ItemsDatabase.getColoredLootSpeaktype(msgtype)
             local serverLogTab = tr("Server Log")
             local lootTab = tr(msgtype.consoleTab or 'Loot')
             modules.game_console.addText(lootColoredText, lootSpeaktype, serverLogTab)
@@ -588,11 +569,11 @@ function displayMessage(mode, text)
     end
 
     local screenTargetId = msgtype.screenTarget
-    if isLootMsg and not screenTargetId then
+    if isLootMsg and not isRewardChestMsg and not screenTargetId then
         screenTargetId = CENTER_LABEL_SLOTS[1]
     end
 
-    if screenTargetId then
+    if screenTargetId or isRewardChestMsg then
         -- Master switch for on-screen messages (Game Window → Show Messages).
         if not isOptionEnabled('showMessages', true) then
             return
@@ -614,9 +595,16 @@ function displayMessage(mode, text)
             return
         end
 
-        if isLootMsg or isCenterScreenTarget(screenTargetId) then
-            showCenterScreenMessage(modeNum, text, msgtype, isLootMsg)
-        else
+        if isRewardChestMsg then
+            local label = messagesPanel:recursiveGetChildById('statusLabel')
+            if label then
+                showScreenMessage(label, text, TextColors.white, true, modeNum, true)
+            end
+        elseif isLootMsg then
+            showCenterScreenMessage(modeNum, text, msgtype, true)
+        elseif isCenterScreenTarget(screenTargetId) then
+            showCenterScreenMessage(modeNum, text, msgtype, false)
+        elseif screenTargetId then
             local label = messagesPanel:recursiveGetChildById(screenTargetId)
             if not label then
                 return
@@ -627,7 +615,7 @@ function displayMessage(mode, text)
                 displayColor = TextColors.green
             end
 
-            showScreenMessage(label, text, displayColor, false)
+            showScreenMessage(label, text, displayColor, false, modeNum, false)
         end
     end
 end

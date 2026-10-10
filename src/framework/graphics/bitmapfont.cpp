@@ -558,7 +558,8 @@ void BitmapFont::updateColors(std::vector<std::pair<int, Color>>* colors, const 
 {
     if (!colors) return;
     for (auto& it : *colors) {
-        if (it.first > pos) {
+        // Insertions at pos shift the character that was at pos as well.
+        if (it.first >= pos) {
             it.first += newTextLen;
         }
     }

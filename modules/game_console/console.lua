@@ -1695,7 +1695,12 @@ function addTabText(text, speaktype, tab, creatureName, options)
     options = options or {}
 
     if not options.restored and modules.client_options.getOption('showTimestampsInConsole') then
-        text = os.date('%H:%M') .. ' ' .. text
+        local timestamp = os.date('%H:%M') .. ' '
+        if type(text) == 'table' then
+            text = ItemsDatabase.prependColoredTextPrefix(text, timestamp, TextColors.white)
+        else
+            text = timestamp .. text
+        end
     end
 
     local panel = consoleTabBar:getTabPanel(tab)
@@ -2211,18 +2216,7 @@ function navigateMessageHistory(step)
 end
 
 local function isLootChannelMessage(message)
-    if type(message) ~= 'string' then
-        return false
-    end
-    local lower = message:lower()
-    return lower:find('^loot of') ~= nil or lower:find('^loot de') ~= nil
-end
-
-local function getColoredLootSpeaktype(speaktype)
-    return {
-        color = (speaktype and speaktype.color) or TextColors.green,
-        colored = true
-    }
+    return ItemsDatabase.isLootMessageText(message)
 end
 
 function applyMessagePrefixies(name, level, message)
@@ -2426,9 +2420,10 @@ function onTalk(name, level, mode, message, channelId, creaturePos)
         if channel then
             local displayMessage = composedMessage
             local displaySpeaktype = speaktype
-            if isLootChannelMessage(message) and ItemsDatabase and ItemsDatabase.setColorLootMessage then
-                displayMessage = ItemsDatabase.setColorLootMessage(composedMessage)
-                displaySpeaktype = getColoredLootSpeaktype(speaktype)
+            if isLootChannelMessage(message) then
+                local lootText = ItemsDatabase.stripLootMessageTimePrefix(message)
+                displayMessage = ItemsDatabase.setColorLootMessage(lootText)
+                displaySpeaktype = ItemsDatabase.getColoredLootSpeaktype(speaktype)
             end
             addText(displayMessage, displaySpeaktype, channel, name)
         else

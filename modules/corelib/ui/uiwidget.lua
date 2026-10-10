@@ -73,9 +73,77 @@ local function coloredTextTableToString(data)
     return table.concat(parts)
 end
 
+local function trimColoredTextToken(value)
+    if type(value) ~= "string" then
+        return ""
+    end
+    return value:gsub("^%s+", ""):gsub("%s+$", "")
+end
+
+-- C++ std::regex can fail on long loot lines; parse {text, color} in Lua first.
+local function parseFonticakColoredMarkup(markup, defaultColor)
+    if type(markup) ~= "string" or markup == "" then
+        return nil
+    end
+
+    defaultColor = defaultColor or "#ffffff"
+    local plain = {}
+    local colors = {}
+    local pos = 1
+
+    local function appendPlain(chunk, chunkColor)
+        if chunk == "" then
+            return
+        end
+        plain[#plain + 1] = chunk
+        colors[#colors + 1] = chunkColor or defaultColor
+    end
+
+    while pos <= #markup do
+        local open = markup:find("{", pos, true)
+        if not open then
+            appendPlain(markup:sub(pos), defaultColor)
+            break
+        end
+        if open > pos then
+            appendPlain(markup:sub(pos, open - 1), defaultColor)
+        end
+        local close = markup:find("}", open + 1, true)
+        if not close then
+            appendPlain(markup:sub(open), defaultColor)
+            break
+        end
+        local segment = markup:sub(open + 1, close - 1)
+        local content, colorToken = segment:match("^(.-),%s*(.+)$")
+        colorToken = trimColoredTextToken(colorToken)
+        if not content or colorToken == "" or not isColoredTextColorToken(colorToken) then
+            appendPlain(markup:sub(open, close), defaultColor)
+        else
+            appendPlain(content, colorToken)
+        end
+        pos = close + 1
+    end
+
+    if #plain == 0 then
+        return nil
+    end
+
+    local parts = {}
+    for index, chunk in ipairs(plain) do
+        parts[#parts + 1] = chunk
+        parts[#parts + 1] = colors[index]
+    end
+    return parts
+end
+
 function UIWidget:setColoredText(coloredText, dontFireLuaCall)
     if type(coloredText) == "table" then
         coloredText = coloredTextTableToString(coloredText)
+    elseif type(coloredText) == "string" then
+        local parsed = parseFonticakColoredMarkup(coloredText, "#ffffff")
+        if parsed then
+            coloredText = coloredTextTableToString(parsed)
+        end
     end
     return UIWidget_setColoredText(self, coloredText, dontFireLuaCall)
 end

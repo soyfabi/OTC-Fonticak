@@ -23,6 +23,8 @@
 #include "uiwidget.h"
 #include "uitranslator.h"
 
+#include <cctype>
+
 #include <framework/graphics/drawpoolmanager.h>
 #include <framework/graphics/fontmanager.h>
 #include <framework/html/htmlnode.h>
@@ -401,16 +403,14 @@ void UIWidget::setColoredText(const std::string_view coloredText, bool dontFireL
     m_coordsBuffer->clear();
     m_textEvents.clear();
 
-    static const std::regex expColor(R"(\{([^\}]+),[ ]*([^\}]+)\})");
     static const std::regex expEvent(R"(\[text-event\](.*?)\[/text-event\])");
 
-    std::string _text{ coloredText.data() };
+    std::string _text(coloredText);
     std::string text;
     text.reserve(coloredText.size());
 
     Color baseColor = m_color;
     m_baseTextColor = baseColor;
-    std::smatch res;
     text.clear();
     auto processTextEvents = [&](const std::string& fragment, size_t basePosition) -> std::string {
         if (fragment.find("[text-event]") == std::string::npos) {
@@ -481,25 +481,54 @@ void UIWidget::setColoredText(const std::string_view coloredText, bool dontFireL
 
     m_textColors.reserve(coloredText.size() / 20 + 5);
 
-    while (std::regex_search(_text, res, expColor)) {
-        std::string prefix = res.prefix().str();
-        if (!prefix.empty()) {
-            std::string processedPrefix = processTextEvents(prefix, text.size());
-            m_textColors.emplace_back(text.size(), baseColor);
-            text.append(processedPrefix);
+    auto trimToken = [](std::string_view token) {
+        while (!token.empty() && std::isspace(static_cast<unsigned char>(token.front()))) {
+            token.remove_prefix(1);
         }
-        auto color = Color(res[2].str());
-        std::string colorContent = res[1].str();
-        std::string processedColorContent = processTextEvents(colorContent, text.size());
-        m_textColors.emplace_back(text.size(), color);
-        text.append(processedColorContent);
-        _text = res.suffix().str();
-    }
+        while (!token.empty() && std::isspace(static_cast<unsigned char>(token.back()))) {
+            token.remove_suffix(1);
+        }
+        return std::string(token);
+    };
 
-    if (!_text.empty()) {
-        std::string processedRemaining = processTextEvents(_text, text.size());
-        m_textColors.emplace_back(text.size(), baseColor);
-        text.append(processedRemaining);
+    size_t pos = 0;
+    while (pos < _text.size()) {
+        if (_text[pos] != '{') {
+            const size_t nextOpen = _text.find('{', pos);
+            const std::string prefix = _text.substr(pos, nextOpen == std::string::npos ? std::string::npos : nextOpen - pos);
+            if (!prefix.empty()) {
+                const std::string processedPrefix = processTextEvents(prefix, text.size());
+                m_textColors.emplace_back(text.size(), baseColor);
+                text.append(processedPrefix);
+            }
+            pos = nextOpen == std::string::npos ? _text.size() : nextOpen;
+            continue;
+        }
+
+        const size_t close = _text.find('}', pos + 1);
+        if (close == std::string::npos) {
+            const std::string processedRemaining = processTextEvents(_text.substr(pos), text.size());
+            m_textColors.emplace_back(text.size(), baseColor);
+            text.append(processedRemaining);
+            break;
+        }
+
+        const size_t comma = _text.rfind(',', close);
+        if (comma == std::string::npos || comma <= pos) {
+            const std::string processedRemaining = processTextEvents(_text.substr(pos, close - pos + 1), text.size());
+            m_textColors.emplace_back(text.size(), baseColor);
+            text.append(processedRemaining);
+            pos = close + 1;
+            continue;
+        }
+
+        // Do not trim segment text: leading/trailing spaces are meaningful between colored runs.
+        const std::string colorContent = _text.substr(pos + 1, comma - pos - 1);
+        const std::string colorToken = trimToken(_text.substr(comma + 1, close - comma - 1));
+        const std::string processedColorContent = processTextEvents(colorContent, text.size());
+        m_textColors.emplace_back(text.size(), Color(colorToken));
+        text.append(processedColorContent);
+        pos = close + 1;
     }
 
     if (hasProp(PropTextOnlyUpperCase))

@@ -6,6 +6,7 @@ ItemsDatabase.rarityWidgets = ItemsDatabase.rarityWidgets or setmetatable({}, { 
 
 local OPCODE_ITEM_VALUES = 0xC6
 local OPCODE_ITEM_DETAILS = 0xC7
+local MAX_SERVER_ITEM_ID = 65535
 
 ItemsDatabase.rarityColors = {
     ["yellow"] = TextColors.lootYellow,
@@ -487,55 +488,122 @@ function ItemsDatabase.getColorForRarity(rarity)
     return ItemsDatabase.rarityColors[rarity] or TextColors.white
 end
 
-function ItemsDatabase.setColorLootMessage(text, defaultColor)
+function ItemsDatabase.stripLootMessageTimePrefix(text)
     if type(text) ~= 'string' then
-        return text
+        return ''
+    end
+    return text:gsub('^%d%d:%d%d%s+', '')
+end
+
+function ItemsDatabase.hasColorLootMarkup(text)
+    if type(text) ~= 'string' then
+        return false
+    end
+    return text:find('{%d+:%d*%|') ~= nil or text:find('{%d+%|') ~= nil
+end
+
+function ItemsDatabase.getLootColorForValue(value)
+    return ItemsDatabase.getColorForRarity(getColorForValue(tonumber(value) or 0))
+end
+
+function ItemsDatabase.getColoredLootSpeaktype(speaktype)
+    if speaktype and speaktype.colored then
+        return speaktype
+    end
+    return {
+        color = (speaktype and speaktype.color) or TextColors.green,
+        consoleTab = speaktype and speaktype.consoleTab,
+        consoleOption = speaktype and speaktype.consoleOption,
+        colored = true
+    }
+end
+
+function ItemsDatabase.isRewardChestMessageText(text)
+    if type(text) ~= 'string' then
+        return false
+    end
+    local lower = ItemsDatabase.stripLootMessageTimePrefix(text):lower()
+    if lower:find('following items') and lower:find('reward chest') then
+        return true
+    end
+    if lower:find('objetos') and (lower:find('cofre de recompensa') or lower:find('cofre de recompensas')) then
+        return true
+    end
+    return false
+end
+
+function ItemsDatabase.isLootMessageText(text)
+    if type(text) ~= 'string' then
+        return false
+    end
+    local lower = ItemsDatabase.stripLootMessageTimePrefix(text):lower()
+    if lower:find('^loot of') or lower:find('^loot de') then
+        return true
+    end
+    return ItemsDatabase.isRewardChestMessageText(text)
+end
+
+function ItemsDatabase.setColorLootMessage(text, defaultColor)
+    if type(text) ~= 'string' or text == '' then
+        return {}
     end
 
-    -- CIP loot messages use green as the base color; rarity only recolors item names.
-    if text:find('Loot of ') or text:find('Loot de ') then
-        defaultColor = TextColors.green
+    local strippedLower = ItemsDatabase.stripLootMessageTimePrefix(text):lower()
+    if strippedLower:find('^loot of') or strippedLower:find('^loot de') then
+        defaultColor = TextColors.lootGreen or TextColors.green
     else
         defaultColor = defaultColor or TextColors.white
     end
 
-    local function coloringLootName(match)
-        -- Server formats: {itemId:value|name} (TFS/Astra) or {itemId|name} (CrystalServer)
-        local itemId, inlineValue, itemName = match:match('^(%d+):(%d+)|(.+)$')
-        if not itemId then
-            itemId, itemName = match:match('^(%d+)|(.+)$')
-        end
-        if not itemId or not itemName then
-            return "{" .. match .. "}"
-        end
+    local result = {}
+    local lastEnd = 1
 
+    local function add(textPart, color)
+        if textPart and textPart ~= '' then
+            result[#result + 1] = textPart
+            result[#result + 1] = color or defaultColor
+        end
+    end
+
+    -- Server: {itemId:value|name} or {itemId|name}
+    for start, itemId, itemValue, itemText, finish in text:gmatch('(){(%d+):?(%d*)%|(.-)}()') do
         itemId = tonumber(itemId)
-        if not itemId then
-            return "{" .. (itemName or match) .. ", " .. defaultColor .. "}"
+        itemValue = tonumber(itemValue)
+
+        local color = defaultColor
+        if itemValue and itemValue > 0 then
+            color = ItemsDatabase.getLootColorForValue(itemValue)
+        elseif itemId and itemId > 0 and itemId <= MAX_SERVER_ITEM_ID then
+            color = ItemsDatabase.getLootColorForValue(ItemsDatabase.getItemPrice(itemId))
         end
 
-        local itemValue = tonumber(inlineValue) or 0
-        if itemValue <= 0 then
-            itemValue = ItemsDatabase.getItemPrice(itemId)
-        end
-
-        if itemValue > 0 then
-            local color = ItemsDatabase.getColorForRarity(getColorForValue(itemValue))
-            return "{" .. itemName .. ", " .. color .. "}"
-        end
-
-        return "{" .. itemName .. ", " .. defaultColor .. "}"
+        add(text:sub(lastEnd, start - 1), defaultColor)
+        add(itemText, color)
+        lastEnd = finish
     end
 
-    local colored = text:gsub("{(.-)}", coloringLootName)
-    local firstBrace = colored:find('{', 1, true)
-    if firstBrace and firstBrace > 1 then
-        local prefix = colored:sub(1, firstBrace - 1)
-        if prefix ~= '' and not prefix:find('{', 1, true) then
-            colored = string.format('{%s, %s}%s', prefix, defaultColor, colored:sub(firstBrace))
-        end
+    add(text:sub(lastEnd), defaultColor)
+    return result
+end
+
+function ItemsDatabase.prependColoredTextPrefix(coloredData, prefix, prefixColor)
+    if not prefix or prefix == '' then
+        return coloredData
     end
-    return colored
+    if type(coloredData) == 'string' then
+        return prefix .. coloredData
+    end
+    if type(coloredData) ~= 'table' or #coloredData == 0 then
+        return { prefix, prefixColor or TextColors.white }
+    end
+
+    local merged = {}
+    merged[1] = prefix .. tostring(coloredData[1] or '')
+    merged[2] = coloredData[2] or prefixColor or TextColors.white
+    for i = 3, #coloredData do
+        merged[#merged + 1] = coloredData[i]
+    end
+    return merged
 end
 
 function ItemsDatabase.getTierClip(tier)
