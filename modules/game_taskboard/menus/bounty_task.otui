@@ -1,0 +1,1233 @@
+&var-cip-font-new: Verdana Bold-11px-new
+&var-text-cip-color: #c0c0c0
+&var-text-color-disabled: #dfdfdf88
+
+BountyCreatureRow < UIWidget
+  height: 36
+  background-color: #484848
+  focusable: true
+
+  UICreature
+    id: creatureSprite
+    size: 32 32
+    anchors.left: parent.left
+    anchors.top: parent.top
+    margin-left: 2
+    margin-top: 2
+    phantom: true
+
+  Label
+    id: creatureName
+    anchors.left: creatureSprite.right
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 6
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+
+PreferredSlotRow < UIWidget
+  height: 74
+
+  UIWidget
+    id: preferredSlot
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 12
+    margin-left: 1
+    size: 64 64
+    padding: 1
+    border-width-top: 1
+    border-width-left: 1
+    border-width-right: 1
+    border-width-bottom: 1
+    border-color-bottom: #808080
+    border-color-right: #808080
+    border-color-left: #131313
+    border-color-top: #131313
+
+    UICreature
+      id: slotCreature
+      size: 32 32
+      anchors.centerIn: parent
+      phantom: true
+
+  QtButton
+    id: preferredButton
+    text: Assign
+    anchors.top: preferredSlot.top
+    anchors.left: preferredSlot.right
+    margin-top: 5
+    margin-left: 10
+    size: 45 21
+    color: white
+
+  Panel
+    id: preferredCostPanel
+    anchors.top: preferredButton.bottom
+    anchors.horizontalCenter: preferredButton.horizontalCenter
+    height: 20
+    width: 43
+    margin-top: 5
+    visible: false
+    image-source: /images/ui/item
+    image-border: 10
+
+    UIWidget
+      id: preferredCostIcon
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 3
+      margin-top: 1
+      size: 9 9
+      image-source: /modules/game_taskboard/images/icon-currency-bountypoints
+      tooltip: Bounty Points
+
+    Label
+      id: preferredCostValue
+      text: 10
+      anchors.right: preferredCostIcon.left
+      anchors.verticalCenter: parent.verticalCenter
+      margin-top: 2
+      margin-right: 2
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+ 
+
+  UIWidget
+    id: unwantedSlot
+    anchors.top: parent.top
+    anchors.left: preferredButton.right
+    margin-top: 12
+    margin-left: 19
+    size: 64 64
+    padding: 1
+    border-width-top: 1
+    border-width-left: 1
+    border-width-right: 1
+    border-width-bottom: 1
+    border-color-bottom: #808080
+    border-color-right: #808080
+    border-color-left: #131313
+    border-color-top: #131313
+
+    UICreature
+      id: slotCreature
+      size: 32 32
+      anchors.centerIn: parent
+      phantom: true
+
+  QtButton
+    id: unwantedButton
+    text: Assign
+    anchors.top: unwantedSlot.top
+    anchors.left: unwantedSlot.right
+    margin-top: 5
+    margin-left: 10
+    size: 45 21
+    color: white
+
+  Panel
+    id: unwantedCostPanel
+    anchors.top: unwantedButton.bottom
+    anchors.horizontalCenter: unwantedButton.horizontalCenter
+    height: 20
+    width: 43
+    margin-top: 5
+    visible: false
+    image-source: /images/ui/item
+    image-border: 10
+
+    UIWidget
+      id: unwantedCostIcon
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 3
+      margin-top: 1
+      size: 9 9
+      image-source: /modules/game_taskboard/images/icon-currency-bountypoints
+      tooltip: Bounty Points
+
+    Label
+      id: unwantedCostValue
+      text: 10
+      anchors.right: unwantedCostIcon.left
+      anchors.verticalCenter: parent.verticalCenter
+      margin-top: 2
+      margin-right: 2
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+ 
+
+PreferredLockedRow < QtPanel
+  id: preferredLockedRow
+  size: 257 64
+
+  Label
+    text: Additional Slots
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 5
+    margin-left: 65
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+
+  UIWidget
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: 7
+    margin-right: 56
+    image-source: /modules/game_taskboard/images/locked
+
+  QtButton
+    id: unlockButton
+    text: Unlock
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 28
+    margin-left: 33
+    size: 88 21
+    color: white
+
+  Panel
+    id: unlockCostPanel
+    anchors.top: parent.top
+    anchors.left: unlockButton.right
+    height: 20
+    width: 86
+    margin-top: 28
+    margin-left: 5
+    image-source: /images/ui/item
+    image-border: 10
+
+    UIWidget
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      image-source: /modules/game_taskboard/images/icon-currency-bountypoints
+      margin-top: 1
+      margin-right: 3
+
+    Label
+      id: unlockCostValue
+      text: 0
+      anchors.right: prev.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-top: 2
+      margin-right: 10
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+
+BountyTaskSlotPanel < QtPanel
+  size: 296 251
+  anchors.top: parent.top
+  anchors.left: parent.left
+  margin-top: 9
+  margin-left: 19
+  image-source: /images/ui/background
+  image-border: 10
+
+  UIWidget
+    id: stars
+    anchors.top: parent.top
+    anchors.horizontalCenter: parent.horizontalCenter
+    image-source: /modules/game_taskboard/images/backdrop_tasksystem_normal_task
+    margin-top: -12
+
+    UILabel
+      id: creatureName
+      text: Creature1
+      anchors.top: parent.top
+      anchors.horizontalCenter: parent.horizontalCenter
+      margin-top: 15
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+  
+  UIWidget
+    anchors.top: parent.top
+    anchors.horizontalCenter: parent.horizontalCenter
+    margin-top: 35
+    size: 66 66
+    padding: 1
+    image-source: /images/game/forge/slot-forge.png
+    font: verdana-11px-rounded
+    border-color: white
+    color: white
+
+    $disabled:
+      color: #646464
+
+    UICreature
+      id: slotCreature
+      anchors.centerIn: parent
+      size: 64 64
+      fixed-creature-size: true
+      phantom: true
+  
+  UILabel
+    id: killsCurrentValue
+    text: 0
+    anchors.top: prev.bottom
+    anchors.left: prev.left
+    width: 32
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+    margin-top: 4
+    margin-left: -2
+
+  UILabel
+    text: /
+    anchors.top: prev.top
+    anchors.left: prev.right
+    width: 32
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+    text-align: left
+    margin-left: 6
+
+  UILabel
+    id: killsTargetValue
+    text: 0
+    anchors.top: prev.top
+    anchors.left: prev.right
+    width: 32
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+    text-align: left
+    margin-left: 6
+
+  UILabel
+    id: killsText
+    text: kills
+    anchors.top: prev.top
+    anchors.left: prev.right
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+    margin-left: 6
+
+  UIWidget
+    anchors.top: prev.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 10
+    margin-left: 4
+    margin-right: 4
+    height: 2
+    phantom: true
+    focusable: false
+    image-source: /images/ui/separator_horizontal
+    image-border: 1
+
+  UILabel
+    text: Reward:
+    anchors.top: prev.bottom
+    anchors.left: prev.left
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+    margin-top: 13 
+  
+  // Experience
+  UIWidget
+    id: asExp
+    anchors.top: prev.bottom
+    anchors.left: prev.left
+    margin-top: 6
+    margin-left: 1
+    size: 5 5
+    image-source: /modules/game_taskboard/images/asteristico
+  
+  UILabel
+    id: experienceLabel
+    text: 0
+    anchors.top: asExp.top
+    anchors.left: asExp.right
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+    margin-top: -5
+    margin-left: 6
+  
+  UILabel
+    text: XP
+    anchors.top: asExp.top
+    anchors.left: experienceLabel.right
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+    margin-top: -5
+    margin-left: 6
+
+  // Bounty Points
+  UIWidget
+    id: asBounty
+    anchors.top: asExp.bottom
+    anchors.left: asExp.left
+    margin-top: 11
+    size: 5 5
+    image-source: /modules/game_taskboard/images/asteristico
+
+  UILabel
+    id: bountyPointsLabel
+    text: 123
+    anchors.top: asBounty.top
+    anchors.left: asBounty.right
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+    margin-top: -5
+    margin-left: 6
+
+  UIWidget
+    anchors.top: asBounty.top
+    anchors.left: bountyPointsLabel.right
+    image-source: /modules/game_taskboard/images/icon-currency-bountypoints
+    margin-top: -3
+    margin-left: 4
+
+  // Reroll
+  UIWidget
+    id: asReroll
+    anchors.top: asBounty.bottom
+    anchors.left: asBounty.left
+    margin-top: 11
+    size: 5 5
+    image-source: /modules/game_taskboard/images/asteristico
+
+  UILabel
+    id: rerollLabel
+    text: 1
+    anchors.top: asReroll.top
+    anchors.left: asReroll.right
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+    margin-top: -5
+    margin-left: 6
+  
+  UIWidget
+    anchors.top: asReroll.top
+    anchors.left: rerollLabel.right
+    image-source: /modules/game_taskboard/images/icon-currency-taskreroll
+    margin-top: -4
+    margin-left: 5
+
+  Button
+    id: selectTaskButton
+    text: Select Task
+    width: 278
+    height: 20
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    margin-bottom: 3
+    margin-left: 3
+
+    $disabled:
+      color: #dfdfdf88
+      opacity: 0.8
+      change-cursor-image: false
+
+BountyTaskPanel < Panel
+  padding: 5
+  padding-right: 4
+  
+  ///////////////////
+  // Reroll Panel  //
+  ///////////////////
+  UIWindow
+    id: rerollTasks
+    text: Set Up & Reroll Tasks
+    text-align: top
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    text-offset: 0 2    
+    image-border: 6
+    image-border-top: 27
+    draggable: false
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-left: -1
+    color: $var-text-color-disabled
+    font: verdana-11px-monochrome
+    height: 58
+    padding-top: 20
+
+    UIWidget
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 11
+      margin-left: 20
+      image-source: /images/icons/show_gui_help_grey
+      size: 12 12
+      !tooltip: tr('Select one of three Bounty tasks to complete and earn a reward.\n\nTasks are grouped by difficulty:\n\n  Beginner tasks include easy creatures.\n  Adept tasks include easy and medium creatures.\n  Expert tasks include medium and hard creatures.\n  Master tasks include hard and challenging creatures.\n\nYou can change the difficulty at any time, but it only takes effect\n when selecting your next task.\n\nUse the Preferred List to customise which tasks can appear when\n you roll.\n\nTasks can be re-rolled using Reroll Tokens. One token can be\n claimed for free each day. You can store up to 10 Reroll Tokens at\n a time.\n\nThere is a chance for Silver and Gold tasks to appear, which grant\n greater rewards.')
+ 
+    VerticalSeparator
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.left: prev.right
+      margin-top: 7
+      margin-left: 26
+      margin-bottom: 11
+
+    Label
+      anchors.top: parent.top
+      anchors.left: prev.right
+      margin-top: 11
+      margin-left: 26
+      text: Task Difficulty:
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+    
+    QtComboBox
+      id: showFilterDifficulty
+      !text: tr('Beginner')
+      anchors.top: parent.top
+      anchors.left: prev.right
+      width: 108
+      height: 20
+      margin-top: 7
+      margin-left: 23
+      color: #c0c0c0
+      @onOptionChange: modules.game_taskboard.TaskBoard.BountyTask:selectDifficulty(self:getCurrentOption().text)
+      @onSetup: |
+        self:addOption(tr('Beginner'))
+        self:addOption(tr('Adept'))
+        self:addOption(tr('Expert'))
+        self:addOption(tr('Master'))
+        self:setCurrentOption(tr('Beginner'))
+
+    UIButton
+      anchors.top: parent.top
+      anchors.left: prev.right
+      margin-top: 7
+      margin-left: 26
+      size: 108 20
+      image-source: /modules/game_taskboard/images/preferred-list-button
+      image-clip: 0 0 108 20
+      @onClick: modules.game_taskboard.TaskBoard.BountyTask:showPreferredList()
+
+      $pressed:
+        image-clip: 0 20 108 20
+      
+    VerticalSeparator
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.left: prev.right
+      margin-top: 7
+      margin-left: 26
+      margin-bottom: 11
+    
+    UIButton
+      id: rerollButton
+      anchors.top: parent.top
+      anchors.left: prev.right
+      margin-top: 7
+      margin-left: 26
+      size: 108 20
+      image-source: /modules/game_taskboard/images/reroll-task-button
+      image-clip: 0 0 108 20
+      @onClick: modules.game_taskboard.TaskBoard.BountyTask:rerollTasks()
+
+      $pressed:
+        image-clip: 0 20 108 20
+    
+    Panel
+      id: rerollPanel
+      size: 40 20
+      anchors.top: parent.top
+      anchors.left: prev.right
+      margin-top: 7
+      margin-left: 16
+      image-source: /images/ui/item
+      image-border: 10
+
+      UIWidget
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        image-source: /modules/game_taskboard/images/icon-currency-taskreroll
+        margin-right: 3
+        margin-top: 1
+        tooltip: Reroll Token
+
+      Label
+        id: value
+        text: 0
+        anchors.right: prev.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 13
+        margin-top: 2
+        text-auto-resize: true
+        font: verdana-11px-monochrome
+    
+    UIButton
+      id: claimButton
+      anchors.top: parent.top
+      anchors.left: prev.right
+      margin-top: 7
+      margin-left: 16
+      size: 108 20
+      image-source: /modules/game_taskboard/images/claim-daily-button
+      image-clip: 0 0 108 20
+      @onClick: modules.game_taskboard.TaskBoard.BountyTask:claimDaily()
+
+      $pressed:
+        image-clip: 0 20 108 20
+
+  /////////////////
+  // Tasks Panel //
+  /////////////////
+  Panel
+    id: dailyTasks
+    anchors.top: rerollTasks.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 16
+    margin-left: -1
+    height: 271
+    padding: 1
+    border-width-top: 1
+    border-width-left: 1
+    border-width-right: 1
+    border-width-bottom: 1
+    border-color-bottom: #808080
+    border-color-right: #808080
+    border-color-left: #131313
+    border-color-top: #131313
+    image-source: /images/ui/background_dark
+    image-border: 10
+  
+  UIWindow
+    id: bountyTalismans
+    text: Bounty Talisman
+    text-align: top
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    text-offset: 0 2    
+    image-border: 6
+    image-border-top: 27
+    draggable: false
+    anchors.top: dailyTasks.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    margin-top: 16
+    margin-left: -1
+    margin-bottom: 1
+    color: $var-text-color-disabled
+    font: verdana-11px-monochrome
+    padding-top: 20
+
+    UIWidget
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.left: parent.left
+      margin-top: -1
+      margin-left: 10
+      image-source: /images/icons/show_gui_help_grey
+      size: 12 12
+ 
+      !tooltip: tr('Upgrades to your Bounty Talisman are permanent and bound to\n your character.\n\nEquip your Bounty Talisman to activate its effects, but they only\n apply when battling creatures from your active Bounty Task.\n\nYou can buy a Bounty Talisman from any Jeweller for 5,000 gold.')
+  
+    ////////////////////
+    // Damage Against //
+    ////////////////////
+    VerticalSeparator
+      id: sepVer
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.left: prev.right
+      margin-top: 12
+      margin-left: 8
+      margin-bottom: 15
+
+    UIWidget
+      anchors.top: parent.top
+      anchors.left: prev.right
+      margin-top: 13
+      margin-left: 16
+      width: 22
+      height: 22
+      image-source: /modules/game_taskboard/images/icon-bountyring-damageagainstmonster
+      size: 32 32
+
+    Label
+      text: Damage Against
+      anchors.top: prev.top
+      anchors.left: prev.right
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-left: 6
+      
+    Label
+      text: Creatures
+      anchors.top: prev.bottom
+      anchors.left: prev.left
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-top: -2
+
+    Label
+      text: Current:
+      anchors.top: prev.bottom
+      anchors.left: prev.left
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-top: 3
+    
+    Label
+      id: damageAgainst
+      text: 2.5
+      anchors.top: prev.top
+      anchors.left: prev.right
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-left: 5
+
+    Label
+      text: %
+      anchors.top: prev.top
+      anchors.left: prev.right
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      margin-left: 5
+      
+    QtButton
+      id: damageButton
+      !text: tr('Upgrade to 3')
+      width: 110
+      height: 21
+      anchors.bottom: sepVer.bottom
+      anchors.left: sepVer.right
+      color: white
+      margin-left: 15
+      margin-bottom: -1
+      @onClick: modules.game_taskboard.TaskBoard.BountyTask:updateTalisman(0)
+
+    Panel
+      id: bountyPointsDamagePanel
+      size: 86 20
+      anchors.top: prev.top
+      anchors.left: prev.right
+      image-source: /images/ui/item
+      image-border: 10
+      margin-left: 5
+
+      UIWidget
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        image-source: /modules/game_taskboard/images/icon-currency-bountypoints
+        margin-right: 3
+        margin-top: 1
+        tooltip: Bounty Points
+        
+      Label
+        id: value
+        text: 0
+        anchors.right: prev.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 10
+        margin-top: 2
+        text-auto-resize: true
+        font: verdana-11px-monochrome
+    
+    ////////////////
+    // Life Leech //
+    ////////////////
+    VerticalSeparator
+      id: sepVer2
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.left: prev.right
+      margin-top: 12
+      margin-left: 16
+      margin-bottom: 15
+
+    UIWidget
+      anchors.top: parent.top
+      anchors.left: prev.right
+      margin-top: 13
+      margin-left: 16
+      width: 22
+      height: 22
+      image-source: /modules/game_taskboard/images/icon-bountyring-lifeleech
+      size: 32 32
+
+    Label
+      text: Life Leech
+      anchors.top: prev.top
+      anchors.left: prev.right
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-top: 1
+      margin-left: 6
+
+    Label
+      text: Current:
+      anchors.top: prev.bottom
+      anchors.left: prev.left
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-top: 3
+    
+    Label
+      id: LifeLeechAgainst
+      text: 2.5
+      anchors.top: prev.top
+      anchors.left: prev.right
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-left: 5
+
+    Label
+      text: %
+      anchors.top: prev.top
+      anchors.left: prev.right
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      margin-left: 5
+      
+    QtButton
+      id: lifeLeechButton
+      !text: tr('Upgrade to 3')
+      width: 110
+      height: 21
+      anchors.bottom: sepVer2.bottom
+      anchors.left: sepVer2.right
+      color: white
+      margin-left: 15
+      margin-bottom: -1
+      @onClick: modules.game_taskboard.TaskBoard.BountyTask:updateTalisman(1)
+
+    Panel
+      id: bountyPointsLifeLeechPanel
+      size: 86 20
+      anchors.top: prev.top
+      anchors.left: prev.right
+      image-source: /images/ui/item
+      image-border: 10
+      margin-left: 5
+
+      UIWidget
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        image-source: /modules/game_taskboard/images/icon-currency-bountypoints
+        margin-right: 3
+        margin-top: 1
+        tooltip: Bounty Points
+        
+      Label
+        id: value
+        text: 0
+        anchors.right: prev.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 10
+        margin-top: 2
+        text-auto-resize: true
+        font: verdana-11px-monochrome
+    ////////////////
+    // More Loot //
+    ////////////////
+    VerticalSeparator
+      id: sepVer3
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.left: prev.right
+      margin-top: 12
+      margin-left: 16
+      margin-bottom: 15
+
+    UIWidget
+      anchors.top: parent.top
+      anchors.left: prev.right
+      margin-top: 13
+      margin-left: 16
+      width: 22
+      height: 22
+      image-source: /modules/game_taskboard/images/icon-bountyring-moreloot
+      size: 32 32
+
+    Label
+      text: More Loot
+      anchors.top: prev.top
+      anchors.left: prev.right
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-left: 6
+      margin-top: 1
+
+    Label
+      text: Current:
+      anchors.top: prev.bottom
+      anchors.left: prev.left
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-top: 3
+    
+    Label
+      id: MoreLootAgainst
+      text: 2.5
+      anchors.top: prev.top
+      anchors.left: prev.right
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-left: 5
+
+    Label
+      text: %
+      anchors.top: prev.top
+      anchors.left: prev.right
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      margin-left: 5
+      
+    QtButton
+      id: moreLootButton
+      !text: tr('Upgrade to 3')
+      width: 110
+      height: 21
+      anchors.bottom: sepVer3.bottom
+      anchors.left: sepVer3.right
+      color: white
+      margin-left: 15
+      margin-bottom: -1
+      @onClick: modules.game_taskboard.TaskBoard.BountyTask:updateTalisman(2)
+
+    Panel
+      id: bountyPointsMoreLootPanel
+      size: 86 20
+      anchors.top: prev.top
+      anchors.left: prev.right
+      image-source: /images/ui/item
+      image-border: 10
+      margin-left: 5
+
+      UIWidget
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        image-source: /modules/game_taskboard/images/icon-currency-bountypoints
+        margin-right: 3
+        margin-top: 1
+        tooltip: Bounty Points
+        
+      Label
+        id: value
+        text: 0
+        anchors.right: prev.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 10
+        margin-top: 2
+        text-auto-resize: true
+        font: verdana-11px-monochrome
+  
+    /////////////////////////////////////////
+    // Chance for Double Bestiary Progress //
+    /////////////////////////////////////////
+    VerticalSeparator
+      id: sepVer4
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.left: prev.right
+      margin-top: 12
+      margin-left: 16
+      margin-bottom: 15
+
+    UIWidget
+      anchors.top: parent.top
+      anchors.left: prev.right
+      margin-top: 13
+      margin-left: 16
+      width: 22
+      height: 22
+      image-source: /modules/game_taskboard/images/icon-bountyring-doublebestiarychance
+      size: 32 32
+
+    Label
+      text: Chance for Double
+      anchors.top: prev.top
+      anchors.left: prev.right
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-left: 6
+      
+    Label
+      text: Bestiary Progress
+      anchors.top: prev.bottom
+      anchors.left: prev.left
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-top: -2
+
+    Label
+      text: Current:
+      anchors.top: prev.bottom
+      anchors.left: prev.left
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-top: 3
+    
+    Label
+      id: BestiaryAgainst
+      text: 5
+      anchors.top: prev.top
+      anchors.left: prev.right
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-left: 5
+
+    Label
+      text: %
+      anchors.top: prev.top
+      anchors.left: prev.right
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      margin-left: 5
+      
+    QtButton
+      id: bestiaryButton
+      !text: tr('Upgrade to 3')
+      width: 110
+      height: 21
+      anchors.bottom: sepVer4.bottom
+      anchors.left: sepVer4.right
+      color: white
+      margin-left: 15
+      margin-bottom: -1
+      @onClick: modules.game_taskboard.TaskBoard.BountyTask:updateTalisman(3)
+
+    Panel
+      id: bountyPointsBestiaryPanel
+      size: 86 20
+      anchors.top: prev.top
+      anchors.left: prev.right
+      image-source: /images/ui/item
+      image-border: 10
+      margin-left: 5
+
+      UIWidget
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        image-source: /modules/game_taskboard/images/icon-currency-bountypoints
+        margin-right: 3
+        margin-top: 1
+        tooltip: Bounty Points
+        
+      Label
+        id: value
+        text: 0
+        anchors.right: prev.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 10
+        margin-top: 2
+        text-auto-resize: true
+        font: verdana-11px-monochrome
+  
+ChainTransparent < UIWidget
+  id: chainTransparent
+  image-source: /images/game/forge/malha
+  visible: false
+  
+PreferredListPanel < QtPanel
+  @onEscape: modules.game_taskboard.TaskBoard.BountyTask:closePreferredList()
+  id: preferredList
+  image-source: /images/ui/background
+  image-border: 10
+
+  Label
+    text: Preferred List
+    anchors.top: parent.top
+    anchors.horizontalCenter: parent.horizontalCenter
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+    margin-top: 4
+    margin-left: 3
+  
+  QtPanel
+    id: leftPanel
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 27
+    margin-left: 9
+    width: 278
+    height: 425
+    image-source: /images/ui/background
+    image-border: 10
+
+    TextEdit
+      id: search
+      height: 22
+      width: 258
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 4
+      margin-left: 4
+      margin-bottom: 76
+      placeholder: "Type to search"
+      placeholder-color:#707068
+      @onTextChange: modules.game_taskboard.TaskBoard.BountyTask:filterPreferredList(self:getText())
+    
+    Button
+      id: clearSearch
+      width: 18
+      height: 18
+      anchors.right: search.right
+      anchors.verticalCenter: search.verticalCenter
+      margin-right: 2
+      icon: /modules/game_quickloot/images/button2-clear-20x20-up
+      $pressed:
+        icon: /modules/game_quickloot/images/button2-clear-20x20-down
+
+      tooltip: Clear all text from the search field.
+      z-index: 1
+      @onClick: modules.game_taskboard.TaskBoard.BountyTask:clearPreferredSearch()
+    
+    ScrollablePanel
+      id: list
+      focusable: false
+      anchors.top: search.bottom
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      border-width-top: 1
+      border-width-left: 1
+      border-width-right: 1
+      border-width-bottom: 1
+      border-color-bottom: #808080
+      border-color-right: #808080
+      border-color-left: #131313
+      border-color-top: #131313
+      background-color: #414141
+      padding-left: 1
+      padding-top: 1
+      padding-bottom: 1
+      margin-top: 11
+      margin-left: 4
+      margin-right: 4
+      margin-bottom: 5
+      vertical-scrollbar: scrollbar
+      layout:
+        type: grid
+        cell-size: 265 36
+        cell-spacing: 0
+        flow: true
+
+    VerticalQtScrollBar
+      id: scrollbar
+      anchors.top: list.top
+      anchors.bottom: list.bottom
+      anchors.right: list.right
+      margin-right: 1
+      margin-top: 1
+      margin-bottom: 1
+      step: 36
+    
+  QtPanel
+    id: rightPanel
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: 27
+    margin-right: 9
+    width: 277
+    height: 425
+    image-source: /images/ui/background
+    image-border: 10
+
+    Label
+      text: Preferred
+      anchors.top: parent.top
+      anchors.left: parent.left
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-top: -1
+      margin-left: 34
+    
+    UIWidget
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-left: 106
+      image-source: /images/icons/show_gui_help_grey
+      size: 12 12
+      !tooltip: tr('Will be rolled 5 times more often.')
+
+    Label
+      text: Unwanted
+      anchors.top: parent.top
+      anchors.right: parent.right
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+      margin-top: -1
+      margin-right: 51
+    
+    UIWidget
+      anchors.top: parent.top
+      anchors.right: parent.right
+      margin-right: 33
+      image-source: /images/icons/show_gui_help_grey
+      size: 12 12
+      !tooltip: tr('Will never be rolled.')
+    
+    HorizontalSeparator
+      id: horizontalSeparator
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      margin-top: 17
+      margin-left: -1
+      margin-right: -1
+
+    ScrollablePanel
+      id: slotsList
+      focusable: false
+      anchors.top: horizontalSeparator.bottom
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-top: 4
+      margin-left: 4
+      margin-right: 4
+      margin-bottom: -2
+      layout:
+        type: verticalBox
+        spacing: 5
+
+  HorizontalSeparator
+    id: horizontalSeparator
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: leftPanel.bottom
+    margin-top: 11
+    margin-left: 4
+    margin-right: 4
+  
+  QtButton
+    id: closeButton
+    text: Close
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    margin-bottom: 3
+    margin-right: 3
+    size: 45 21
+    color: white
+    @onClick: modules.game_taskboard.TaskBoard.BountyTask:closePreferredList()

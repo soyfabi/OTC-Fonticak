@@ -25,4 +25,6 @@ Module
     dofile 'items'
     dofile 'custom_forge_protocol'
     dofile 'custom_store_protocol'
+    dofile 'taskboard_compat'
+    dofile 'taskboard_protocol'
     dofiles 'ui'

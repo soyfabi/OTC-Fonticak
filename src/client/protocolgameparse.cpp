@@ -379,7 +379,13 @@ void ProtocolGame::parseMessage(const InputMessagePtr& msg)
                     parseFloorDescription(msg);
                     break;
                 case Proto::GameServerItemsPriceList:
-                    parseItemsPriceList(msg);
+                    // On 8.60 custom clients, 0x53 is Task Board (Lua); never parse as item price list.
+                    if (g_game.getFeature(Otc::GameColorizedLootValue)
+                        && g_game.getClientVersion() >= 860 && g_game.getClientVersion() < 1200) {
+                        msg->setReadPos(msg->getMessageSize());
+                    } else {
+                        parseItemsPriceList(msg);
+                    }
                     break;
                 case Proto::GameServerWeaponProficiencyCatalog:
                     parseWeaponProficiencyCatalog(msg);
@@ -4817,6 +4823,14 @@ void ProtocolGame::parseTaskHuntingBasicData(const InputMessagePtr& msg)
         msg->getU16(); // Second kill
         msg->getU16(); // Second reward
     }
+
+    // Forgotten Server / Fonticak task_hunting.lua (0xBA) appends price fields after the reward table.
+    if (g_game.getClientVersion() >= 860 && g_game.getClientVersion() < 1200) {
+        msg->getU32(); // reroll price (gold)
+        msg->getU32(); // reroll price duplicate (client UI legacy)
+        msg->getU8(); // wildcard select price
+        msg->getU8(); // wildcard reward reroll price
+    }
 }
 
 void ProtocolGame::parseTaskHuntingData(const InputMessagePtr& msg)
@@ -4865,8 +4879,10 @@ void ProtocolGame::parseTaskHuntingData(const InputMessagePtr& msg)
             msg->getU8(); // Upgraded
             msg->getU16(); // Required kills
             msg->getU16(); // Current kills
-            if (g_game.getClientVersion() >= 1285) {
-                msg->getU8(); // rarity
+            // FS task_hunting.lua always sends rarity; official 12.85+ also uses this byte.
+            if (g_game.getClientVersion() >= 1285 ||
+                (g_game.getClientVersion() >= 860 && g_game.getClientVersion() < 1200)) {
+                msg->getU8(); // rarity / stars
             }
             break;
         }

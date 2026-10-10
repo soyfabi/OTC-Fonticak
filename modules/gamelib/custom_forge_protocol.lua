@@ -11,9 +11,17 @@ local function onForgeOpcode(protocol, msg)
   return false
 end
 
+local RESOURCE_BOUNTY_POINTS = 0x56
+local RESOURCE_SOULSEALS_POINTS = 0x57
+
 local function onForgeResourceOpcode(protocol, msg)
   local resourceType = msg:getU8()
-  local value = msg:getU64()
+  local value
+  if resourceType == RESOURCE_BOUNTY_POINTS or resourceType == RESOURCE_SOULSEALS_POINTS then
+    value = msg:getU32()
+  else
+    value = msg:getU64()
+  end
   if ForgeSystem and ForgeSystem.setResourceBalances then
     ForgeSystem.setResourceBalances({[resourceType] = value})
   end
@@ -25,6 +33,9 @@ local function onForgeResourceOpcode(protocol, msg)
   end
   if Forge and Forge.updateButtonHighlight then
     Forge:updateButtonHighlight()
+  end
+  if g_game.onResourceBalance then
+    signalcall(g_game.onResourceBalance, resourceType, value)
   end
   return true
 end

@@ -1,0 +1,241 @@
+MainWindow
+  @onEscape: modules.game_taskboard.TaskBoard:toggleWindow()
+  size: 1000 632
+  !text: tr('Task Board')
+  image-source: /images/ui/popupwindow
+  text-offset: -1 1
+  padding-top: 30
+
+  Panel
+    id: menus
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: -1
+    height: 36
+    padding: 1
+    border-width-top: 1
+    border-width-left: 1
+    border-width-right: 1
+    border-width-bottom: 1
+    border-color-bottom: #808080
+    border-color-right: #808080
+    border-color-left: #131313
+    border-color-top: #131313
+
+    UIButton
+      id: BountyTaskMenu
+      anchors.top: parent.top
+      anchors.left: parent.left
+      size: 322 34
+      image-source: /modules/game_taskboard/images/menu-buttons
+      image-clip: 0 0 322 34
+      @onClick: modules.game_taskboard.TaskBoard:showBountyTab()
+
+      $pressed:
+        image-clip: 0 34 322 34
+
+      $checked:
+        image-clip: 0 34 322 34
+
+      $on:
+        image-clip: 0 34 322 34
+
+    UIButton
+      id: WeeklyTaskMenu
+      anchors.top: parent.top
+      anchors.left: prev.right
+      margin-left: 1
+      size: 322 34
+      image-source: /modules/game_taskboard/images/menu-buttons
+      image-clip: 0 68 322 34
+      @onClick: modules.game_taskboard.TaskBoard:showWeeklyTab()
+
+      $pressed:
+        image-clip: 0 102 322 34
+
+      $checked:
+        image-clip: 0 102 322 34
+
+      $on:
+        image-clip: 0 102 322 34
+
+    UIButton
+      id: TaskShopMenu
+      anchors.top: parent.top
+      anchors.left: prev.right
+      margin-left: 1
+      size: 322 34
+      image-source: /modules/game_taskboard/images/menu-buttons
+      image-clip: 0 136 322 34
+      @onClick: modules.game_taskboard.TaskBoard:showTaskShopTab()
+
+      $pressed:
+        image-clip: 0 170 322 34
+
+      $checked:
+        image-clip: 0 170 322 34
+
+      $on:
+        image-clip: 0 170 322 34
+
+  QtPanel
+    id: mainBody
+    anchors.top: menus.bottom
+    anchors.bottom: hSep.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 6
+    margin-bottom: 11
+
+    BountyTaskPanel
+      id: bountyTaskPanel
+      anchors.fill: parent
+      visible: false
+
+    WeeklyPanel
+      id: weeklyPanel
+      anchors.fill: parent
+      visible: false
+
+    TaskShopPanel
+      id: taskShopPanel
+      anchors.fill: parent
+      visible: false
+
+    PreferredListPanel
+      id: preferredListPanel
+      anchors.top: parent.top
+      anchors.horizontalCenter: parent.horizontalCenter
+      margin-top: -7
+      width: 600
+      height: 505
+      visible: false
+    
+    ChainTransparent
+      id: chainTransparent
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: -6
+      margin-left: -6
+      visible: false
+      size: 968 504
+      image-border: 10
+
+    ChainTransparentWeekly
+      id: chainTransparentWeekly
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 4
+      margin-left: 4
+      visible: false
+      size: 948 484
+
+    WeeklyProgressPanel
+      id: weeklyProgressPanel
+      anchors.top: parent.top
+      anchors.left: parent.left
+      size: 320 345
+      margin-top: 73
+      margin-left: 318
+      visible: false
+
+  HorizontalSeparator
+    id: hSep
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    margin-bottom: 30
+  
+  Panel
+    id: bountyPointsPanel
+    size: 130 20
+    anchors.top: hSep.bottom
+    anchors.left: parent.left
+    margin-top: 11
+    image-source: /images/ui/item
+    image-border: 10
+
+    UIWidget
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      image-source: /modules/game_taskboard/images/icon-currency-bountypoints
+      margin-right: 3
+      margin-top: 1
+      tooltip: Bounty Points
+      
+    Label
+      id: value
+      text: 0
+      anchors.right: prev.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 10
+      margin-top: 2
+      text-auto-resize: true
+      font: verdana-11px-monochrome
+ 
+  Panel
+    id: huntingPointsPanel
+    size: 130 20
+    anchors.top: hSep.bottom
+    anchors.left: bountyPointsPanel.right
+    margin-top: 11
+    margin-left: 6
+    image-source: /images/ui/item
+    image-border: 10
+
+    UIWidget
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      image-source: /modules/game_taskboard/images/preyhuntingtask-tokens
+      margin-right: 3
+      margin-top: 1
+      tooltip: Hunting Task Points
+
+    Label
+      id: value
+      text: 0
+      anchors.right: prev.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 12
+      margin-top: 2
+      text-auto-resize: true
+      font: verdana-11px-monochrome
+
+  Panel
+    id: soulSealsPanel
+    size: 130 20
+    anchors.top: hSep.bottom
+    anchors.left: huntingPointsPanel.right
+    margin-top: 11
+    margin-left: 6
+    image-source: /images/ui/item
+    image-border: 10
+
+    UIWidget
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      image-source: /modules/game_taskboard/images/icon-currency-soulseals
+      margin-right: 3
+      margin-top: 1
+      tooltip: Soulseals
+
+    Label
+      id: value
+      text: 0
+      anchors.right: prev.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 10
+      margin-top: 2
+      text-auto-resize: true
+      font: verdana-11px-monochrome
+
+  Button
+    id: closeButton
+    !text: tr('Close')
+    anchors.top: hSep.bottom
+    anchors.right: parent.right
+    margin-top: 11
+    height: 20
+    width: 43
+    @onClick: TaskBoard:toggleWindow()

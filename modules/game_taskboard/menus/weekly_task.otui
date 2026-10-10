@@ -1,0 +1,526 @@
+&var-cip-font-new: Verdana Bold-11px-new
+&var-text-cip-color: #c0c0c0
+&var-text-color-disabled: #dfdfdf88
+
+KillSlots < Panel
+  text: Any Creature
+  text-align: top
+  image-source: /images/ui/popupwindow-sem-borda-interna
+  text-offset: 1 2
+  image-border: 6
+  image-border-top: 27
+  color: $var-text-color-disabled
+  font: verdana-11px-monochrome
+  focusable: false
+
+  UICreature
+    id: outfitIcon
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 26
+    margin-left: 8
+    size: 66 66
+    fixed-creature-size: true
+    phantom: true
+    image-source: /images/ui/item
+    image-border: 10
+  
+  Label
+    id: killAnyMonstersLabel
+    text: 0
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: 38
+    margin-right: 32
+    font: verdana-11px-monochrome
+    color: #d33c3c
+    text-auto-resize: true
+  Label
+    text: of
+    anchors.top: prev.bottom
+    anchors.horizontalCenter: prev.horizontalCenter
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+  Label
+    id: totalKillAnyMonstersLabel
+    text: 4000
+    anchors.top: prev.bottom
+    anchors.horizontalCenter: prev.horizontalCenter
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+
+DeliverySlots < Panel
+  text-align: top
+  image-source: /images/ui/popupwindow-sem-borda-interna
+  text-offset: 1 2
+  image-border: 6
+  image-border-top: 27
+  color: $var-text-cip-color
+  font: verdana-11px-monochrome
+  focusable: false
+
+  Label
+    id: deliveryItemNameLabel
+    anchors.top: parent.top
+    anchors.horizontalCenter: parent.horizontalCenter
+    margin-top: 5
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+    text-align: center
+
+  UIItem
+    id: itemIcon
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 26
+    margin-left: 8
+    size: 66 66
+    virtual: true
+    phantom: true
+    image-source: /images/ui/item
+    image-border: 10
+
+  Label
+    id: currentDeliveryLabel
+    text: 0
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: 26
+    margin-right: 32
+    font: verdana-11px-monochrome
+    color: #d33c3c
+    text-auto-resize: true
+  Label
+    text: of
+    anchors.top: prev.bottom
+    anchors.horizontalCenter: prev.horizontalCenter
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+  Label
+    id: totalDeliveryLabel
+    text: 35
+    anchors.top: prev.bottom
+    anchors.horizontalCenter: prev.horizontalCenter
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+  
+  UIButton
+    id: deliverButton
+    size: 43 20
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: 72
+    margin-right: 13
+    image-source: /modules/game_taskboard/images/deliver-button
+    image-clip: 0 0 43 20
+    focusable: true
+
+    $pressed:
+      image-clip: 0 20 43 20
+
+    $disabled:
+      image-clip: 0 40 43 20
+  
+WeeklyPanel < Panel
+  visible: false
+  margin-top: 7
+  margin-bottom: 5
+
+  UIWindow
+    id: killTasks
+    text: Kill Tasks
+    text-align: top
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    text-offset: 1 2
+    image-border: 6
+    image-border-top: 27
+    draggable: false
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: -3
+    margin-left: 4
+    padding-top: 21
+    padding-left: 4
+    color: $var-text-color-disabled
+    font: verdana-11px-monochrome
+    width: 465
+    height: 347
+
+    ScrollablePanel
+      id: killSlotsList
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      focusable: false
+      margin-top: 6
+      margin-bottom: 6
+      margin-left: 6
+      margin-right: 2
+
+      layout:
+        type: grid
+        cell-size: 144 100
+        cell-spacing-width: 5
+        cell-spacing-height: 4
+        flow: true
+      
+    UIButton
+      id: unlockKillButton
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      margin-bottom: 12
+      margin-left: 6
+      image-source: /modules/game_taskboard/images/unlock-button.png
+      image-clip: 0 0 442 100
+      size: 442 100
+
+      $pressed:
+        image-clip: 0 100 442 100
+  
+  UIWindow
+    id: deliveryTasks
+    text: Delivery Tasks
+    text-align: top
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    text-offset: 1 2
+    image-border: 6
+    image-border-top: 27
+    draggable: false
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: -3
+    margin-right: 6
+    padding-top: 21
+    padding-left: 4
+    color: $var-text-color-disabled
+    font: verdana-11px-monochrome
+    width: 465
+    height: 347
+
+    ScrollablePanel
+      id: deliverySlotsList
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      anchors.right: parent.right
+      focusable: false
+      margin-top: 6
+      margin-bottom: 6
+      margin-left: 6
+      margin-right: 2
+
+      layout:
+        type: grid
+        cell-size: 144 100
+        cell-spacing-width: 5
+        cell-spacing-height: 4
+        flow: true
+      
+    UIButton
+      id: unlockDeliveryButton
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      margin-bottom: 12
+      margin-left: 6
+      image-source: /modules/game_taskboard/images/unlock-button.png
+      image-clip: 0 0 442 100
+      size: 442 100
+
+      $pressed:
+        image-clip: 0 100 442 100
+  
+  UIWindow
+    id: weeklyProgress
+    text: Weekly Progress
+    text-align: top
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    text-offset: 1 2
+    image-border: 6
+    image-border-top: 27
+    draggable: false
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    margin-bottom: 4
+    margin-left: 4
+    color: $var-text-color-disabled
+    font: verdana-11px-monochrome
+    width: 771
+    height: 109
+
+    UIWidget
+      id: weeklyProgressContent
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 32
+      margin-left: 11
+      image-source: /modules/game_taskboard/images/progress-labels
+    
+    VerticalSeparator
+      height: 50
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 32
+      margin-left: 287
+    VerticalSeparator
+      height: 50
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 32
+      margin-left: 415
+    VerticalSeparator
+      height: 50
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 32
+      margin-left: 544
+    VerticalSeparator
+      height: 50
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 32
+      margin-left: 673
+    
+    Panel
+      id: progressBar
+      size: 579 20
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 53
+      margin-left: 160
+      image-source: /images/ui/item
+      image-border: 10
+  
+  UIWindow
+    id: weeklyRewards
+    text: Weekly Rewards
+    text-align: top
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    text-offset: 1 2
+    image-border: 6
+    image-border-top: 27
+    draggable: false
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    margin-bottom: 4
+    margin-right: 6
+    color: $var-text-color-disabled
+    font: verdana-11px-monochrome
+    width: 162
+    height: 109
+
+    Panel
+      id: huntingPoints
+      size: 105 20
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 24
+      margin-left: 10
+      image-source: /images/ui/item
+      image-border: 10
+
+      UIWidget
+        id: huntingPointsIcon
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 3
+        margin-top: 1
+        size: 11 11
+        image-source: /modules/game_taskboard/images/preyhuntingtask-tokens
+        tooltip: Hunting Task Points
+
+      Label
+        id: huntingPointsLabel
+        text: 0
+        anchors.right: huntingPointsIcon.left
+        anchors.verticalCenter: parent.verticalCenter
+        margin-top: 2
+        margin-right: 2
+        font: verdana-11px-monochrome
+        color: $var-text-cip-color
+        text-auto-resize: true
+
+    UIWidget
+      anchors.top: parent.top
+      anchors.right: parent.right
+      margin-top: 28
+      margin-right: 20
+      image-source: /images/icons/show_gui_help_grey
+      size: 12 12
+      !tooltip: tr('Hunting Task Points:\n\n 0 * 110     (from Kill Tasks)\n+ 0 *  75     (from Delivery Tasks)\n----------------------------------\n*     1    (from completing Tasks)\n=     0    Hunting Task Points')
+ 
+    UIWidget
+      anchors.top: parent.top
+      anchors.right: parent.right
+      margin-top: 62
+      margin-right: 20
+      image-source: /images/icons/show_gui_help_grey
+      size: 12 12
+      !tooltip: tr('You receive 1 Soulseal for each completed task. Soulseals can be used in the Soulpit. Click the obelisk there, then your character to open a menu where you can select a creature you want to challenge on your own.')
+
+    Panel
+      id: soulSealsPoints
+      size: 105 20
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 58
+      margin-left: 10
+      image-source: /images/ui/item
+      image-border: 10
+
+      UIWidget
+        id: soulSealsIcon
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 3
+        margin-top: 1
+        size: 9 9
+        image-source: /modules/game_taskboard/images/icon-currency-soulseals
+        tooltip: Soulseals
+
+      Label
+        id: soulSealsPointsLabel
+        text: 0
+        anchors.right: soulSealsIcon.left
+        anchors.verticalCenter: parent.verticalCenter
+        margin-top: 2
+        margin-right: 2
+        font: verdana-11px-monochrome
+        color: $var-text-cip-color
+        text-auto-resize: true
+    
+    Label
+      id: daysRemaining
+      text: 0
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 86
+      margin-left: 10
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+
+    Label
+      text: day(s) remaining
+      anchors.top: daysRemaining.top
+      anchors.left: daysRemaining.right
+      margin-left: 6
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+
+ChainTransparentWeekly < UIWidget
+  id: chainTransparentWeekly
+  image-source: /images/game/forge/malha
+  image-border: 0
+  visible: false
+
+WeeklyProgressPanel < UIWindow
+  text: Weekly Progress
+  text-align: top
+  image-source: /images/ui/popupwindow-sem-borda-interna
+  text-offset: 0 2
+  color: #909090
+  image-border: 6
+  image-border-top: 27
+  font: $var-cip-font-new
+  draggable: false
+
+  UIWidget
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: 59
+    margin-left: 73
+    image-source: /modules/game_taskboard/images/backdrop_weeklyresults
+    focusable: false
+    visible: true
+  
+  Label
+    text: Select the difficulty for your next tasks.
+    anchors.top: prev.bottom
+    anchors.left: parent.left
+    margin-top: 92
+    margin-left: 30
+    font: verdana-11px-monochrome
+    color: $var-text-cip-color
+    text-auto-resize: true
+
+  UIButton
+    id: beginnerButton
+    !tooltip: tr('Beginner tasks include easy creatures.')
+    size: 108 20
+    anchors.top: prev.bottom
+    anchors.left: parent.left
+    margin-top: 3
+    margin-left: 106
+    image-source: /modules/game_taskboard/images/choices-button
+    image-clip: 0 0 108 20
+    focusable: true
+
+    $pressed:
+      image-clip: 0 20 108 20
+
+    $disabled:
+      image-clip: 0 40 108 20
+
+  UIButton
+    id: adeptButton
+    !tooltip: tr('Adept tasks include easy and medium creatures. (Requires level 30)')
+    size: 108 20
+    anchors.top: prev.bottom
+    anchors.left: parent.left
+    margin-top: 6
+    margin-left: 106
+    image-source: /modules/game_taskboard/images/choices-button
+    image-clip: 0 60 108 20
+    focusable: true
+
+    $pressed:
+      image-clip: 0 80 108 20
+
+    $disabled:
+      image-clip: 0 100 108 20
+      !tooltip: tr('Adept tasks include easy and medium creatures. (Requires level 30)')
+      
+  UIButton
+    id: expertButton
+    !tooltip: tr('Expert tasks include up to hard creatures. (Requires level 150)')
+    size: 108 20
+    anchors.top: prev.bottom
+    anchors.left: parent.left
+    margin-top: 6
+    margin-left: 106
+    image-source: /modules/game_taskboard/images/choices-button
+    image-clip: 0 120 108 20
+    focusable: true
+
+    $pressed:
+      image-clip: 0 140 108 20
+
+    $disabled:
+      image-clip: 0 160 108 20
+      !tooltip: tr('Expert tasks include up to hard creatures. (Requires level 150)')
+      
+  UIButton
+    id: masterButton
+    !tooltip: tr('Master tasks include the hardest creatures. (Requires level 400)')
+    size: 108 20
+    anchors.top: prev.bottom
+    anchors.left: parent.left
+    margin-top: 6
+    margin-left: 106
+    image-source: /modules/game_taskboard/images/choices-button
+    image-clip: 0 180 108 20
+    focusable: true
+
+    $pressed:
+      image-clip: 0 200 108 20
+
+    $disabled:
+      image-clip: 0 220 108 20
+      !tooltip: tr('Master tasks include the hardest creatures. (Requires level 400)')

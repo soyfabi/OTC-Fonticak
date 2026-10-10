@@ -1,0 +1,7 @@
+&var-cip-font-new: Verdana Bold-11px-new
+&var-text-cip-color: #c0c0c0
+&var-text-color-disabled: #dfdfdf88
+
+TaskBoardStyleVars < UIWidget
+  visible: false
+  phantom: true
