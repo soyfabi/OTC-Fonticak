@@ -511,19 +511,9 @@ local function getCyclopediaEquippedGoldResource(player)
 	return player:getResourceBalance(resourceType) or 0
 end
 
-local function getCyclopediaCarriedCoinGold(player)
+local function getCyclopediaLiveCarriedCoinGold(player)
 	if not player then
 		return 0
-	end
-
-	if player.getInventoryCount then
-		local total = 0
-
-		for itemId, mult in pairs(COIN_MULTIPLIERS) do
-			total = total + (player:getInventoryCount(itemId, 0) or 0) * mult
-		end
-
-		return total
 	end
 
 	local physicalCoins = 0
@@ -553,6 +543,20 @@ local function getCyclopediaCarriedCoinGold(player)
 	return physicalCoins
 end
 
+local function getCyclopediaCachedCarriedCoinGold(player)
+	if not player or not player.getInventoryCount then
+		return nil
+	end
+
+	local total = 0
+
+	for itemId, mult in pairs(COIN_MULTIPLIERS) do
+		total = total + (player:getInventoryCount(itemId, 0) or 0) * mult
+	end
+
+	return total
+end
+
 local function getCyclopediaBankGold()
 	local player = g_game.getLocalPlayer()
 
@@ -570,12 +574,17 @@ local function getCyclopediaInventoryGold()
 		return 0
 	end
 
-	local inventoryGold = getCyclopediaEquippedGoldResource(player)
-	local carriedGold = getCyclopediaCarriedCoinGold(player)
+	local resourceGold = getCyclopediaEquippedGoldResource(player)
+	local liveGold = getCyclopediaLiveCarriedCoinGold(player)
+	local cacheGold = getCyclopediaCachedCarriedCoinGold(player) or liveGold
 
-	-- Server equipped-gold includes closed backpacks; live coin scan / inventory count
-	-- catches open containers when the resource lags after pickup or drop.
-	return math.max(inventoryGold, carriedGold)
+	-- After a drop, equipped-gold from the server often lags while slots/containers already updated.
+	if liveGold < resourceGold then
+		return math.max(liveGold, cacheGold)
+	end
+
+	-- Pickups and closed backpacks: trust server snapshot and inventory count cache.
+	return math.max(resourceGold, cacheGold, liveGold)
 end
 
 local function getCyclopediaPlayerMoney()
