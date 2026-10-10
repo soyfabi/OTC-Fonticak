@@ -111,6 +111,17 @@ function Cyclopedia.toggleBosstiaryTrackerCheck(widget, checked)
 		return
 	end
 
+	if Cyclopedia._bosstiarySuppressReloadEvent then
+		removeEvent(Cyclopedia._bosstiarySuppressReloadEvent)
+		Cyclopedia._bosstiarySuppressReloadEvent = nil
+	end
+
+	Cyclopedia._suppressBosstiaryListReload = true
+	Cyclopedia._bosstiarySuppressReloadEvent = scheduleEvent(function()
+		Cyclopedia._bosstiarySuppressReloadEvent = nil
+		Cyclopedia._suppressBosstiaryListReload = false
+	end, 800)
+
 	if sendBosstiaryTrackerStatus then
 		sendBosstiaryTrackerStatus(raceId, checked)
 	else
@@ -470,10 +481,47 @@ function Cyclopedia.addToBosstiaryTracker(raceId, kills, category, name, outfit)
 	end
 end
 
-function Cyclopedia.ingestBosstiaryServerData(data)
+function Cyclopedia.applyBosstiaryTrackerStateToList(data)
+	if not data or not UI or UI:isDestroyed() or not UI.ListBase or not UI.ListBase.BossList then
+		return
+	end
+
+	ensureBosstiaryState()
+
+	for _, dataEntry in ipairs(data) do
+		local raceId = dataEntry.raceId
+		local trackerFlag = dataEntry.isTrackerActived
+
+		if Cyclopedia._bosstiaryTrackerOverrides[raceId] ~= nil then
+			trackerFlag = Cyclopedia._bosstiaryTrackerOverrides[raceId]
+		end
+
+		for _, page in pairs(Cyclopedia.Bosstiary.Creatures or {}) do
+			for _, creature in ipairs(page) do
+				if creature.raceId == raceId then
+					creature.isTrackerActived = trackerFlag
+					if dataEntry.kills ~= nil then
+						creature.kills = dataEntry.kills
+					end
+				end
+			end
+		end
+
+		local widget = UI.ListBase.BossList:getChildById(raceId)
+		if widget and widget.TrackCheck and not widget.TrackCheck:isDestroyed() then
+			widget.TrackCheck._suppressTrackerChange = true
+			widget.TrackCheck:setChecked(trackerFlag == 1)
+			widget.TrackCheck._suppressTrackerChange = false
+		end
+	end
+end
+
+function Cyclopedia.ingestBosstiaryServerData(data, options)
 	if not data then
 		return
 	end
+
+	options = options or {}
 
 	Cyclopedia.Bosstiary = Cyclopedia.Bosstiary or {}
 	Cyclopedia.Bosstiary.OutfitsByRaceId = Cyclopedia.Bosstiary.OutfitsByRaceId or {}
@@ -500,12 +548,28 @@ function Cyclopedia.ingestBosstiaryServerData(data)
 		end
 	end
 
-	if Cyclopedia.syncBosstiaryTrackerFromEntries then
+	if not options.skipTrackerSync and Cyclopedia.syncBosstiaryTrackerFromEntries then
 		Cyclopedia.syncBosstiaryTrackerFromEntries(data)
 	end
 end
 
 function Cyclopedia.LoadBosstiaryCreatures(data)
+	if not data then
+		return
+	end
+
+	if Cyclopedia._suppressBosstiaryListReload and UI and not UI:isDestroyed() then
+		Cyclopedia._suppressBosstiaryListReload = false
+		if Cyclopedia._bosstiarySuppressReloadEvent then
+			removeEvent(Cyclopedia._bosstiarySuppressReloadEvent)
+			Cyclopedia._bosstiarySuppressReloadEvent = nil
+		end
+		Cyclopedia.ingestBosstiaryServerData(data, { skipTrackerSync = true })
+		Cyclopedia.applyBosstiaryTrackerStateToList(data)
+		return
+	end
+
+	Cyclopedia._suppressBosstiaryListReload = false
 	Cyclopedia.ingestBosstiaryServerData(data)
 
 	if not UI then
