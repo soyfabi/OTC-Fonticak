@@ -85,6 +85,10 @@ local function parseBosstiaryWindow(_protocol, msg)
 		}
 	end
 
+	if Cyclopedia and Cyclopedia.bosstiaryTrackerDebug then
+		Cyclopedia.bosstiaryTrackerDebug("parseBosstiaryWindow (Lua 0x73) count=" .. tostring(count))
+	end
+
 	if Cyclopedia and Cyclopedia.LoadBosstiaryCreatures then
 		Cyclopedia.LoadBosstiaryCreatures(data)
 	end

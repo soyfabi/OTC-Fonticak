@@ -20,6 +20,14 @@ function Cyclopedia.requestBosstiaryData()
 	return requestBosstiaryWindow()
 end
 
+function Cyclopedia.requestBosstiaryDataForTracker()
+	Cyclopedia._bosstiaryTrackerRefreshOnly = true
+	if Cyclopedia.bosstiaryTrackerDebug then
+		Cyclopedia.bosstiaryTrackerDebug("requestBosstiaryDataForTracker -> send 0xAE")
+	end
+	return requestBosstiaryWindow()
+end
+
 Cyclopedia.Bosstiary = Cyclopedia.Bosstiary or {}
 Cyclopedia.Bosstiary.TrackerMetaByRaceId = Cyclopedia.Bosstiary.TrackerMetaByRaceId or {}
 Cyclopedia._bosstiaryTrackerOverrides = Cyclopedia._bosstiaryTrackerOverrides or {}
@@ -412,30 +420,162 @@ function Cyclopedia.CreateBosstiaryCreature(data)
 	end
 end
 
+local function isBosstiaryRaceTracked(raceId, dataEntry)
+	raceId = tonumber(raceId)
+	if not raceId then
+		return false
+	end
+
+	if Cyclopedia._bosstiaryTrackerOverrides and Cyclopedia._bosstiaryTrackerOverrides[raceId] ~= nil then
+		return Cyclopedia._bosstiaryTrackerOverrides[raceId] == 1
+	end
+
+	if dataEntry and dataEntry.isTrackerActived == 1 then
+		return true
+	end
+
+	if Cyclopedia.storedBosstiaryTrackerData then
+		for _, entry in ipairs(Cyclopedia.storedBosstiaryTrackerData) do
+			if tonumber(entry[1]) == raceId then
+				return true
+			end
+		end
+	end
+
+	return false
+end
+
+local function getBosstiaryCreatureFromCache(raceId)
+	raceId = tonumber(raceId)
+	if not raceId or not Cyclopedia.Bosstiary or not Cyclopedia.Bosstiary.Creatures then
+		return nil
+	end
+
+	for _, page in pairs(Cyclopedia.Bosstiary.Creatures) do
+		for _, creature in ipairs(page) do
+			if creature.raceId == raceId then
+				return creature
+			end
+		end
+	end
+
+	return nil
+end
+
+local function refreshBosstiaryCreatureWidgetKills(widget, creature)
+	if not widget or not creature or widget:isDestroyed() then
+		return
+	end
+
+	local category = normalizeBossCategory(creature.category)
+	local config = getBossCategoryConfig(category)
+	if not config then
+		return
+	end
+
+	local kills = creature.kills or 0
+	local fullText = kills >= config.MASTERY and "(fully unlocked)" or ""
+
+	if widget.ProgressBorder1 then
+		widget.ProgressBorder1:setTooltip(string.format(" %d / %d %s", kills, config.PROWESS, fullText))
+	end
+	if widget.ProgressBorder2 then
+		widget.ProgressBorder2:setTooltip(string.format(" %d / %d %s", kills, config.EXPERTISE, fullText))
+	end
+	if widget.ProgressBorder3 then
+		widget.ProgressBorder3:setTooltip(string.format(" %d / %d %s", kills, config.MASTERY, fullText))
+	end
+
+	Cyclopedia.setBosstiaryBossStars(widget, kills, config)
+
+	if widget.ProgressValue then
+		widget.ProgressValue:setText(kills)
+	end
+
+	if widget.ProgressBack then
+		Cyclopedia.SetBestiaryProgress(46, widget.ProgressBack, widget.ProgressBack33, widget.ProgressBack55, kills, config.PROWESS, config.EXPERTISE, config.MASTERY, 47, 12)
+	end
+end
+
 function Cyclopedia.syncBosstiaryTrackerFromEntries(entries)
 	if not entries then
 		return
 	end
 
-	local tracked = {}
+	local killsByRace = {}
+	local categoryByRace = {}
+	local metaByRace = {}
+
 	for _, dataEntry in ipairs(entries) do
-		if dataEntry.isTrackerActived == 1 then
-			local category = normalizeBossCategory(dataEntry.category)
-			local config = getBossCategoryConfig(category)
-			if config then
-				tracked[#tracked + 1] = {
-					dataEntry.raceId,
-					dataEntry.kills or 0,
-					config.PROWESS,
-					config.EXPERTISE,
-					config.MASTERY,
-					0
-				}
-				if Cyclopedia.rememberBosstiaryTrackerMeta then
-					Cyclopedia.rememberBosstiaryTrackerMeta(dataEntry.raceId, dataEntry.name, dataEntry.outfit)
-				end
+		local raceId = tonumber(dataEntry.raceId)
+		if raceId then
+			killsByRace[raceId] = dataEntry.kills or killsByRace[raceId] or 0
+			if dataEntry.category ~= nil then
+				categoryByRace[raceId] = dataEntry.category
+			end
+			metaByRace[raceId] = dataEntry
+		end
+	end
+
+	local trackedRaceIds = {}
+
+	local function markTracked(raceId, dataEntry)
+		if isBosstiaryRaceTracked(raceId, dataEntry) then
+			trackedRaceIds[tonumber(raceId)] = true
+		end
+	end
+
+	for _, dataEntry in ipairs(entries) do
+		markTracked(dataEntry.raceId, dataEntry)
+	end
+
+	if Cyclopedia.storedBosstiaryTrackerData then
+		for _, entry in ipairs(Cyclopedia.storedBosstiaryTrackerData) do
+			markTracked(entry[1], nil)
+		end
+	end
+
+	local tracked = {}
+	for raceId, _ in pairs(trackedRaceIds) do
+		local dataEntry = metaByRace[raceId]
+		local cached = getBosstiaryCreatureFromCache(raceId)
+		local category = categoryByRace[raceId]
+		if category == nil and cached then
+			category = cached.category
+		end
+
+		category = normalizeBossCategory(category)
+		local config = getBossCategoryConfig(category)
+		if config then
+			local kills = killsByRace[raceId]
+			if kills == nil and cached then
+				kills = cached.kills
+			end
+			kills = kills or 0
+
+			tracked[#tracked + 1] = {
+				raceId,
+				kills,
+				config.PROWESS,
+				config.EXPERTISE,
+				config.MASTERY,
+				0
+			}
+
+			if Cyclopedia.rememberBosstiaryTrackerMeta and dataEntry then
+				Cyclopedia.rememberBosstiaryTrackerMeta(raceId, dataEntry.name, dataEntry.outfit)
+			elseif Cyclopedia.rememberBosstiaryTrackerMeta and cached then
+				Cyclopedia.rememberBosstiaryTrackerMeta(raceId, cached.name, cached.outfit)
 			end
 		end
+	end
+
+	if Cyclopedia.bosstiaryTrackerDebug then
+		local parts = {}
+		for i = 1, math.min(#tracked, 5) do
+			parts[#parts + 1] = string.format("%s:%s", tostring(tracked[i][1]), tostring(tracked[i][2]))
+		end
+		Cyclopedia.bosstiaryTrackerDebug("syncBosstiaryTrackerFromEntries tracked=" .. #tracked .. " [" .. table.concat(parts, ", ") .. "]")
 	end
 
 	if Cyclopedia.onParseBosstiaryTracker then
@@ -496,6 +636,8 @@ function Cyclopedia.applyBosstiaryTrackerStateToList(data)
 			trackerFlag = Cyclopedia._bosstiaryTrackerOverrides[raceId]
 		end
 
+		local cachedCreature
+
 		for _, page in pairs(Cyclopedia.Bosstiary.Creatures or {}) do
 			for _, creature in ipairs(page) do
 				if creature.raceId == raceId then
@@ -503,6 +645,7 @@ function Cyclopedia.applyBosstiaryTrackerStateToList(data)
 					if dataEntry.kills ~= nil then
 						creature.kills = dataEntry.kills
 					end
+					cachedCreature = creature
 				end
 			end
 		end
@@ -512,6 +655,10 @@ function Cyclopedia.applyBosstiaryTrackerStateToList(data)
 			widget.TrackCheck._suppressTrackerChange = true
 			widget.TrackCheck:setChecked(trackerFlag == 1)
 			widget.TrackCheck._suppressTrackerChange = false
+		end
+
+		if cachedCreature and widget then
+			refreshBosstiaryCreatureWidgetKills(widget, cachedCreature)
 		end
 	end
 end
@@ -555,6 +702,31 @@ end
 
 function Cyclopedia.LoadBosstiaryCreatures(data)
 	if not data then
+		if Cyclopedia.bosstiaryTrackerDebug then
+			Cyclopedia.bosstiaryTrackerDebug("LoadBosstiaryCreatures: nil data")
+		end
+		return
+	end
+
+	if Cyclopedia.bosstiaryTrackerDebug then
+		Cyclopedia.bosstiaryTrackerDebug(string.format(
+			"LoadBosstiaryCreatures count=%d trackerOnly=%s suppress=%s hasUI=%s",
+			#data,
+			tostring(Cyclopedia._bosstiaryTrackerRefreshOnly),
+			tostring(Cyclopedia._suppressBosstiaryListReload),
+			tostring(UI and not UI:isDestroyed())
+		))
+	end
+
+	if Cyclopedia._bosstiaryTrackerRefreshOnly then
+		Cyclopedia._bosstiaryTrackerRefreshOnly = false
+		if Cyclopedia.bosstiaryTrackerDebug then
+			Cyclopedia.bosstiaryTrackerDebug("LoadBosstiaryCreatures: tracker-only path")
+		end
+		Cyclopedia.ingestBosstiaryServerData(data)
+		if UI and not UI:isDestroyed() then
+			Cyclopedia.applyBosstiaryTrackerStateToList(data)
+		end
 		return
 	end
 
@@ -566,6 +738,9 @@ function Cyclopedia.LoadBosstiaryCreatures(data)
 		end
 		Cyclopedia.ingestBosstiaryServerData(data, { skipTrackerSync = true })
 		Cyclopedia.applyBosstiaryTrackerStateToList(data)
+		if Cyclopedia.syncBosstiaryTrackerFromEntries then
+			Cyclopedia.syncBosstiaryTrackerFromEntries(data)
+		end
 		return
 	end
 
@@ -654,6 +829,10 @@ function Cyclopedia.LoadBosstiaryCreatures(data)
 	Cyclopedia.LoadBosstiaryCreature(Cyclopedia.Bosstiary.Page)
 	Cyclopedia.verifyBosstiaryButtons()
 	Cyclopedia.applyPendingBosstiaryShortcut()
+
+	if Cyclopedia.syncBosstiaryTrackerFromEntries then
+		Cyclopedia.syncBosstiaryTrackerFromEntries(data)
+	end
 end
 
 function Cyclopedia.applyPendingBosstiaryShortcut()

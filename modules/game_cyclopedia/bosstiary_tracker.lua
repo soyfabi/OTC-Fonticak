@@ -1,11 +1,32 @@
 Cyclopedia = Cyclopedia or {}
 
+local BT_DEBUG = false
+local TRACKER_POLL_MS = 900
+local TRACKER_REQUEST_MIN_MS = 350
+
+function Cyclopedia.bosstiaryTrackerDebug(msg)
+	if not BT_DEBUG then
+		return
+	end
+	print("[BosstiaryTracker] " .. tostring(msg))
+end
+
+local function btDebug(msg)
+	if Cyclopedia.bosstiaryTrackerDebug then
+		Cyclopedia.bosstiaryTrackerDebug(msg)
+	end
+end
+
 local TRACKER_TYPE_BOSSTIARY = 1
 local TRACKER_TITLE = "Bosstiary Tra..."
 
 local bosstiaryTrackerWindow = nil
 local bosstiaryTrackerTopButton = nil
 local bosstiaryTrackerEventsConnected = false
+local bosstiaryTrackerPollEvent = nil
+local trackerLastRequestAt = 0
+local trackerRequestDeferEvent = nil
+local lastTrackerRenderSignature = nil
 local bosstiaryTrackerSortType = g_settings.get("bosstiary-tracker-sort-type") or "remaining_kills"
 local bosstiaryTrackerSortOrder = g_settings.get("bosstiary-tracker-sort-order") or "asc"
 
@@ -67,9 +88,13 @@ function Cyclopedia.rememberBosstiaryTrackerMeta(raceId, name, outfit)
 	Cyclopedia.Bosstiary.TrackerMetaByRaceId[raceId] = meta
 end
 
-local function requestBosstiaryTrackerRefresh()
+local function sendBosstiaryTrackerServerRequest()
 	if not g_game.isOnline() then
 		return false
+	end
+
+	if Cyclopedia.requestBosstiaryDataForTracker then
+		return Cyclopedia.requestBosstiaryDataForTracker()
 	end
 
 	if Cyclopedia.requestBosstiaryData then
@@ -77,6 +102,65 @@ local function requestBosstiaryTrackerRefresh()
 	end
 
 	return false
+end
+
+local function requestBosstiaryTrackerRefreshImmediate(reason)
+	btDebug("request immediate reason=" .. tostring(reason))
+	trackerLastRequestAt = g_clock.millis()
+	return sendBosstiaryTrackerServerRequest()
+end
+
+local function flushThrottledTrackerRequest(reason)
+	trackerRequestDeferEvent = nil
+	if not g_game.isOnline() then
+		return
+	end
+
+	local now = g_clock.millis()
+	local waitMs = TRACKER_REQUEST_MIN_MS - (now - trackerLastRequestAt)
+	if waitMs > 0 then
+		trackerRequestDeferEvent = scheduleEvent(function()
+			flushThrottledTrackerRequest(reason)
+		end, waitMs)
+		return
+	end
+
+	btDebug("request throttled reason=" .. tostring(reason))
+	trackerLastRequestAt = now
+	sendBosstiaryTrackerServerRequest()
+end
+
+local function requestBosstiaryTrackerRefreshThrottled(reason)
+	if trackerRequestDeferEvent then
+		return
+	end
+	flushThrottledTrackerRequest(reason)
+end
+
+local function scheduleBosstiaryTrackerPoll()
+	if bosstiaryTrackerPollEvent then
+		return
+	end
+
+	bosstiaryTrackerPollEvent = scheduleEvent(function()
+		bosstiaryTrackerPollEvent = nil
+		local window = bosstiaryTrackerWindow
+		if window and not window:isDestroyed() and window:isVisible() and g_game.isOnline() then
+			local tracked = Cyclopedia.storedBosstiaryTrackerData
+			if tracked and #tracked > 0 then
+				requestBosstiaryTrackerRefreshThrottled("poll")
+			end
+			scheduleBosstiaryTrackerPoll()
+		end
+	end, TRACKER_POLL_MS)
+end
+
+local function stopBosstiaryTrackerPoll()
+	if bosstiaryTrackerPollEvent then
+		removeEvent(bosstiaryTrackerPollEvent)
+		bosstiaryTrackerPollEvent = nil
+		btDebug("poll stopped")
+	end
 end
 
 local function resolveTrackerBossOutfit(raceId)
@@ -141,6 +225,85 @@ local function resolveTrackerBossName(raceId)
 	end
 
 	return "?"
+end
+
+local function findTrackedRaceIdForMonsterName(monsterName)
+	if not monsterName or monsterName == "" then
+		return nil
+	end
+
+	local nameLower = monsterName:lower()
+	for _, entry in ipairs(Cyclopedia.storedBosstiaryTrackerData or {}) do
+		local raceId = tonumber(entry[1])
+		local bossName = resolveTrackerBossName(raceId)
+		if bossName and bossName ~= "?" and bossName:lower() == nameLower then
+			return raceId
+		end
+	end
+
+	return nil
+end
+
+local function updateTrackerRowProgress(raceId, kills, maxKills)
+	local window = bosstiaryTrackerWindow
+	if not window or window:isDestroyed() then
+		return
+	end
+
+	local contentsPanel = window:recursiveGetChildById("contentsPanel")
+	if not contentsPanel then
+		return
+	end
+
+	local row = contentsPanel:getChildById(tostring(raceId))
+	if not row or not row.progressBar then
+		return
+	end
+
+	local killCount = tonumber(kills) or 0
+	local masteryGoal = math.max(tonumber(maxKills) or 1, 1)
+	row.progressBar:setPercent(math.min(100, math.floor(killCount * 100 / masteryGoal)))
+	row.progressBar:setText(tostring(killCount))
+end
+
+local function bumpStoredTrackerKill(raceId, delta)
+	delta = delta or 1
+	raceId = tonumber(raceId)
+	if not raceId then
+		return
+	end
+
+	for _, entry in ipairs(Cyclopedia.storedBosstiaryTrackerData or {}) do
+		if tonumber(entry[1]) == raceId then
+			entry[2] = (tonumber(entry[2]) or 0) + delta
+			updateTrackerRowProgress(raceId, entry[2], entry[5])
+			lastTrackerRenderSignature = trackerRenderSignature(Cyclopedia.storedBosstiaryTrackerData)
+			return
+		end
+	end
+end
+
+local function trackerRenderSignature(data)
+	local parts = {}
+	for _, entry in ipairs(data) do
+		parts[#parts + 1] = string.format("%s:%s", tostring(entry[1]), tostring(entry[2]))
+	end
+	return table.concat(parts, "|")
+end
+
+local function canPatchTrackerContents(data, contentsPanel)
+	if not contentsPanel or contentsPanel:getChildCount() ~= #data then
+		return false
+	end
+
+	for i, entry in ipairs(data) do
+		local child = contentsPanel:getChildByIndex(i)
+		if not child or tostring(entry[1]) ~= child:getId() then
+			return false
+		end
+	end
+
+	return true
 end
 
 local function bindBosstiaryTrackerEntryClick(widget, raceId)
@@ -359,12 +522,14 @@ local function ensureBosstiaryTrackerWindow()
 	function bosstiaryTrackerWindow.onOpen()
 		setupBosstiaryTrackerChromeButtons(bosstiaryTrackerWindow)
 		Cyclopedia.syncBosstiaryTrackerButton()
-		requestBosstiaryTrackerRefresh()
+		requestBosstiaryTrackerRefreshImmediate("window-open")
+		scheduleBosstiaryTrackerPoll()
 		Cyclopedia.applyStoredBosstiaryTracker()
 	end
 
 	function bosstiaryTrackerWindow.onClose()
 		Cyclopedia.syncBosstiaryTrackerButton()
+		stopBosstiaryTrackerPoll()
 	end
 
 	bosstiaryTrackerWindow:setup()
@@ -391,6 +556,13 @@ end
 function Cyclopedia.onParseBosstiaryTracker(data)
 	data = normalizeTrackerData(data)
 	data = sortBosstiaryTrackerData(data)
+
+	local signature = trackerRenderSignature(data)
+	if signature == lastTrackerRenderSignature then
+		Cyclopedia.storedBosstiaryTrackerData = data
+		return
+	end
+
 	Cyclopedia.storedBosstiaryTrackerData = data
 
 	local window = ensureBosstiaryTrackerWindow()
@@ -403,6 +575,15 @@ function Cyclopedia.onParseBosstiaryTracker(data)
 		return
 	end
 
+	if canPatchTrackerContents(data, contentsPanel) then
+		for _, entry in ipairs(data) do
+			updateTrackerRowProgress(entry[1], entry[2], entry[5])
+		end
+		lastTrackerRenderSignature = signature
+		return
+	end
+
+	lastTrackerRenderSignature = signature
 	contentsPanel:destroyChildren()
 
 	for _, entry in ipairs(data) do
@@ -521,7 +702,7 @@ function Cyclopedia.restoreBosstiaryTracker()
 	if not bosstiaryTrackerWindow and not windowWasOpen then
 		if g_game.isOnline() then
 			scheduleEvent(function()
-				requestBosstiaryTrackerRefresh()
+				requestBosstiaryTrackerRefreshImmediate("restore-delayed")
 			end, 500)
 		end
 		return
@@ -539,15 +720,23 @@ function Cyclopedia.restoreBosstiaryTracker()
 	Cyclopedia.syncBosstiaryTrackerButton()
 
 	if g_game.isOnline() then
-		requestBosstiaryTrackerRefresh()
+		requestBosstiaryTrackerRefreshImmediate("restore")
 	end
 
 	if window:isVisible() then
+		scheduleBosstiaryTrackerPoll()
 		Cyclopedia.applyStoredBosstiaryTracker()
 	end
 end
 
 function Cyclopedia.onBosstiaryTrackerGameEnd()
+	stopBosstiaryTrackerPoll()
+	if trackerRequestDeferEvent then
+		removeEvent(trackerRequestDeferEvent)
+		trackerRequestDeferEvent = nil
+	end
+	lastTrackerRenderSignature = nil
+
 	if bosstiaryTrackerWindow and not bosstiaryTrackerWindow:isDestroyed() then
 		bosstiaryTrackerWindow:close(true)
 		local contentsPanel = bosstiaryTrackerWindow:recursiveGetChildById("contentsPanel")
@@ -566,7 +755,8 @@ function Cyclopedia.toggleBosstiaryTracker()
 	if window:isVisible() then
 		window:close()
 	else
-		requestBosstiaryTrackerRefresh()
+		requestBosstiaryTrackerRefreshImmediate("toggle-open")
+		scheduleBosstiaryTrackerPoll()
 		Cyclopedia.applyStoredBosstiaryTracker()
 		window:open()
 	end
@@ -574,20 +764,59 @@ function Cyclopedia.toggleBosstiaryTracker()
 	Cyclopedia.syncBosstiaryTrackerButton()
 end
 
+local function onKillTracker(monsterName)
+	local raceId = findTrackedRaceIdForMonsterName(monsterName)
+	if not raceId then
+		return
+	end
+
+	bumpStoredTrackerKill(raceId, 1)
+	requestBosstiaryTrackerRefreshThrottled("kill")
+end
+
 local function onParseCyclopediaTracker(trackerType, data)
+	btDebug(string.format("onParseCyclopediaTracker type=%s entries=%s", tostring(trackerType), tostring(data and #data or 0)))
+
 	if trackerType == TRACKER_TYPE_BOSSTIARY then
 		Cyclopedia.onParseBosstiaryTracker(data)
+		return
+	end
+
+	if trackerType == 0 and g_game.getFeature and g_game.getFeature(GameBosstiaryTracker) and data and #data > 0 then
+		local stored = Cyclopedia.storedBosstiaryTrackerData
+		if stored and #stored > 0 then
+			local tracked = {}
+			for _, entry in ipairs(stored) do
+				tracked[tonumber(entry[1])] = true
+			end
+			local matchesBosstiaryTracker = true
+			for _, entry in ipairs(data) do
+				if not tracked[tonumber(entry[1])] then
+					matchesBosstiaryTracker = false
+					break
+				end
+			end
+			if matchesBosstiaryTracker then
+				btDebug("onParseCyclopediaTracker: treating type=0 as bosstiary")
+				Cyclopedia.onParseBosstiaryTracker(data)
+			else
+				btDebug("onParseCyclopediaTracker: type=0 did not match stored tracker")
+			end
+		end
 	end
 end
 
 function initBosstiaryTracker()
 	Cyclopedia.storedBosstiaryTrackerData = Cyclopedia.storedBosstiaryTrackerData or {}
+	btDebug("initBosstiaryTracker")
 
 	if not bosstiaryTrackerEventsConnected then
 		connect(g_game, {
-			onParseCyclopediaTracker = onParseCyclopediaTracker
+			onParseCyclopediaTracker = onParseCyclopediaTracker,
+			onKillTracker = onKillTracker
 		})
 		bosstiaryTrackerEventsConnected = true
+		btDebug("game events connected (tracker + kill)")
 	end
 
 	if not bosstiaryTrackerTopButton and modules.client_topmenu and modules.client_topmenu.addRightGameToggleButton then
@@ -605,8 +834,14 @@ end
 
 function terminateBosstiaryTracker()
 	if bosstiaryTrackerEventsConnected then
+		stopBosstiaryTrackerPoll()
+		if trackerRequestDeferEvent then
+			removeEvent(trackerRequestDeferEvent)
+			trackerRequestDeferEvent = nil
+		end
 		disconnect(g_game, {
-			onParseCyclopediaTracker = onParseCyclopediaTracker
+			onParseCyclopediaTracker = onParseCyclopediaTracker,
+			onKillTracker = onKillTracker
 		})
 		bosstiaryTrackerEventsConnected = false
 	end

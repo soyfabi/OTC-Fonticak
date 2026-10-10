@@ -4781,7 +4781,7 @@ void ProtocolGame::parseShowDescription(const InputMessagePtr& msg)
 void ProtocolGame::parseBestiaryTracker(const InputMessagePtr& msg)
 {
     uint8_t trackerType = 0;
-    if (g_game.getClientVersion() >= 1320) {
+    if (g_game.getClientVersion() >= 1320 || g_game.getFeature(Otc::GameBosstiaryTracker)) {
         trackerType = msg->getU8(); // 0x00 for bestiary, 0x01 for boss
     }
     const uint8_t size = msg->getU8();

@@ -1037,16 +1037,29 @@ local function ensureBosstiaryShortcutButtons()
 	syncBosstiaryShortcutButtons()
 end
 
+local function onParseSendBosstiaryFromCpp(data)
+	if Cyclopedia.bosstiaryTrackerDebug then
+		Cyclopedia.bosstiaryTrackerDebug("onParseSendBosstiary (C++ 0x73) count=" .. tostring(data and #data or 0))
+	end
+	Cyclopedia.LoadBosstiaryCreatures(data)
+end
+
 local function connectBosstiaryGameEvents()
 	if bosstiaryGameEventsConnected or not g_game.requestBosstiaryInfo then
+		if Cyclopedia.bosstiaryTrackerDebug and not bosstiaryGameEventsConnected then
+			Cyclopedia.bosstiaryTrackerDebug("connectBosstiaryGameEvents skipped (no requestBosstiaryInfo)")
+		end
 		return
 	end
 
 	connect(g_game, {
-		onParseSendBosstiary = Cyclopedia.LoadBosstiaryCreatures,
+		onParseSendBosstiary = onParseSendBosstiaryFromCpp,
 		onParseBosstiarySlots = Cyclopedia.loadBossSlots
 	})
 	bosstiaryGameEventsConnected = true
+	if Cyclopedia.bosstiaryTrackerDebug then
+		Cyclopedia.bosstiaryTrackerDebug("connectBosstiaryGameEvents ok")
+	end
 end
 
 local function disconnectBosstiaryGameEvents()
@@ -1055,7 +1068,7 @@ local function disconnectBosstiaryGameEvents()
 	end
 
 	disconnect(g_game, {
-		onParseSendBosstiary = Cyclopedia.LoadBosstiaryCreatures,
+		onParseSendBosstiary = onParseSendBosstiaryFromCpp,
 		onParseBosstiarySlots = Cyclopedia.loadBossSlots
 	})
 	bosstiaryGameEventsConnected = false
