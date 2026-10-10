@@ -360,15 +360,21 @@ end
 
 local function untrackAllBosstiaryBosses()
 	local data = normalizeTrackerData(Cyclopedia.storedBosstiaryTrackerData or {})
+	if #data == 0 then
+		return
+	end
+
 	for _, entry in ipairs(data) do
 		if sendBosstiaryTrackerStatus then
 			sendBosstiaryTrackerStatus(entry[1], false)
-		elseif Cyclopedia.removeFromTracker then
-			Cyclopedia.removeFromTracker(TRACKER_TYPE_BOSSTIARY, entry[1])
 		end
 	end
 
-	if #data == 0 and Cyclopedia.onParseBosstiaryTracker then
+	if Cyclopedia.removeFromTracker then
+		for _, entry in ipairs(data) do
+			Cyclopedia.removeFromTracker(TRACKER_TYPE_BOSSTIARY, entry[1])
+		end
+	else
 		Cyclopedia.onParseBosstiaryTracker({})
 	end
 end
