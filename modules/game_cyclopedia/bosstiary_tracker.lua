@@ -364,19 +364,27 @@ local function untrackAllBosstiaryBosses()
 		return
 	end
 
+	Cyclopedia._bosstiaryTrackerOverrides = Cyclopedia._bosstiaryTrackerOverrides or {}
+
 	for _, entry in ipairs(data) do
-		if sendBosstiaryTrackerStatus then
-			sendBosstiaryTrackerStatus(entry[1], false)
+		local raceId = tonumber(entry[1])
+		if sendBosstiaryTrackerStatus and raceId then
+			sendBosstiaryTrackerStatus(raceId, false)
+		end
+		if raceId then
+			Cyclopedia._bosstiaryTrackerOverrides[raceId] = 0
 		end
 	end
 
-	if Cyclopedia.removeFromTracker then
-		for _, entry in ipairs(data) do
-			Cyclopedia.removeFromTracker(TRACKER_TYPE_BOSSTIARY, entry[1])
+	if Cyclopedia.Bosstiary and Cyclopedia.Bosstiary.Creatures then
+		for _, page in pairs(Cyclopedia.Bosstiary.Creatures) do
+			for _, creature in ipairs(page) do
+				creature.isTrackerActived = 0
+			end
 		end
-	else
-		Cyclopedia.onParseBosstiaryTracker({})
 	end
+
+	Cyclopedia.onParseBosstiaryTracker({})
 end
 
 local function redrawBosstiaryTracker()

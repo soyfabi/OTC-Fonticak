@@ -32,7 +32,13 @@ local function readCreatureInfo(msg)
 end
 
 local function skipCreatureInfo(msg)
-	readCreatureInfo(msg)
+	msg:getString()
+	msg:getU16()
+	msg:getU8()
+	msg:getU8()
+	msg:getU8()
+	msg:getU8()
+	msg:getU8()
 end
 
 local function readOptionalCreatureInfo(msg)
@@ -43,7 +49,10 @@ local function readOptionalCreatureInfo(msg)
 end
 
 local function skipOptionalCreatureInfo(msg)
-	readOptionalCreatureInfo(msg)
+	if msg:getU8() == 0 then
+		return
+	end
+	skipCreatureInfo(msg)
 end
 
 local function readSlotBytes(msg)
