@@ -893,13 +893,6 @@ local function setWindowBottomBarForTab(tabType)
 		end
 	end
 
-	if bestiaryTrackerButton and not bestiaryTrackerButton:isDestroyed() then
-		if tabType == "character" then
-			bestiaryTrackerButton:hide()
-		else
-			bestiaryTrackerButton:show()
-		end
-	end
 end
 
 local cyclopediaCharacterGameEvents

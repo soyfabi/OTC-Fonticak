@@ -726,9 +726,6 @@ function showCharacter()
 	end
 
 	reset()
-	if bestiaryTrackerButton and not bestiaryTrackerButton:isDestroyed() then
-		bestiaryTrackerButton:hide()
-	end
 
 	connectCharacterCombatStatListener()
 end
