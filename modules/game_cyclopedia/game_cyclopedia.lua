@@ -482,9 +482,8 @@ end
 local window, currentType, backButton, closeButton, horizontalSeparator, manageContainersButton, tabStack, goldBase
 local goldValueLabel, charmPointsLabel, echoesPointsLabel
 local cyclopediaCharmBalance, cyclopediaMaxCharmBalance, cyclopediaEchoeBalance, cyclopediaMaxEchoeBalance = 0, 0, 0, 0
-local moneyRefreshEvent, moneyRefreshPendingEvent
-local MONEY_REFRESH_INTERVAL = 200
-local MONEY_EVENT_REFRESH_DELAY = 25
+local moneyRefreshEvent
+local MONEY_REFRESH_INTERVAL = 50
 
 local COIN_MULTIPLIERS = {
 	[3031] = 1,
@@ -503,15 +502,30 @@ local function formatCyclopediaGold(value)
 	return comma_value(value or 0)
 end
 
-local function getCyclopediaPlayerMoney()
-	local player = g_game.getLocalPlayer()
-
+local function getCyclopediaEquippedGoldResource(player)
 	if not player then
 		return 0
 	end
 
-	local bankGold = player:getResourceBalance(ResourceBank or 0) or 0
-	local inventoryGold = player:getResourceBalance(ResourceInventary or 1) or 0
+	local resourceType = ResourceTypes and ResourceTypes.GOLD_EQUIPPED or ResourceInventary or 1
+	return player:getResourceBalance(resourceType) or 0
+end
+
+local function getCyclopediaCarriedCoinGold(player)
+	if not player then
+		return 0
+	end
+
+	if player.getInventoryCount then
+		local total = 0
+
+		for itemId, mult in pairs(COIN_MULTIPLIERS) do
+			total = total + (player:getInventoryCount(itemId, 0) or 0) * mult
+		end
+
+		return total
+	end
+
 	local physicalCoins = 0
 
 	for _, container in pairs(g_game.getContainers()) do
@@ -536,17 +550,46 @@ local function getCyclopediaPlayerMoney()
 		end
 	end
 
-	-- On 8.60 the equipped-gold resource often lags after pickup/drop. Prefer the live
-	-- coin count from inventory slots and open containers; fall back to resource only
-	-- when nothing visible is counted (e.g. gold inside a closed backpack).
-	local inventoryMoney = physicalCoins > 0 and physicalCoins or inventoryGold
+	return physicalCoins
+end
+
+local function getCyclopediaBankGold()
+	local player = g_game.getLocalPlayer()
+
+	if not player then
+		return 0
+	end
+
+	return player:getResourceBalance(ResourceBank or 0) or 0
+end
+
+local function getCyclopediaInventoryGold()
+	local player = g_game.getLocalPlayer()
+
+	if not player then
+		return 0
+	end
+
+	local inventoryGold = getCyclopediaEquippedGoldResource(player)
+	local carriedGold = getCyclopediaCarriedCoinGold(player)
+
+	-- Server equipped-gold includes closed backpacks; live coin scan / inventory count
+	-- catches open containers when the resource lags after pickup or drop.
+	return math.max(inventoryGold, carriedGold)
+end
+
+local function getCyclopediaPlayerMoney()
+	local bankGold = getCyclopediaBankGold()
+	local inventoryMoney = getCyclopediaInventoryGold()
 	local total = bankGold + inventoryMoney
 
 	if total > 0 then
 		return total
 	end
 
-	if player.getTotalMoney then
+	local player = g_game.getLocalPlayer()
+
+	if player and player.getTotalMoney then
 		return player:getTotalMoney() or 0
 	end
 
@@ -557,26 +600,32 @@ function Cyclopedia.getPlayerMoney()
 	return getCyclopediaPlayerMoney()
 end
 
--- Global GoldBase: Character, Map, Bosstiary, Boss Slots. Bestiary/Charms keep their own footer bars (see applyBestiaryFooterBalances).
-local GOLD_BALANCE_TABS = {
-	map = true,
-	character = true,
-	bosstiary = true,
-	bossSlot = true
-}
+local function shouldShowCyclopediaBalanceBar(tabType)
+	return tabType ~= nil and tabType ~= "items" and tabType ~= "magicalArchives"
+end
 
 function Cyclopedia.setBosstiaryTabChrome()
-	Cyclopedia.setGoldBaseVisible(true)
 	Cyclopedia.refreshMoneyDisplays(true)
 end
 
 function Cyclopedia.setBossSlotTabChrome()
-	Cyclopedia.setGoldBaseVisible(true)
 	Cyclopedia.refreshMoneyDisplays(true)
 end
 
-local function updateCyclopediaMoneyDisplay()
+local function isCyclopediaGoldBarActive()
+	if not window or window:isDestroyed() or not window:isVisible() then
+		return false
+	end
+
 	if not goldBase or goldBase:isDestroyed() or not goldBase:isVisible() then
+		return false
+	end
+
+	return true
+end
+
+local function updateCyclopediaMoneyDisplay()
+	if not isCyclopediaGoldBarActive() then
 		return
 	end
 
@@ -604,13 +653,6 @@ local function updateCyclopediaMoneyDisplay()
 		end
 	end
 
-	if currentType == "bestiary" and applyBestiaryFooterBalances then
-		applyBestiaryFooterBalances()
-	end
-
-	if currentType == "charms" and refreshCharmsFooterBalances then
-		refreshCharmsFooterBalances()
-	end
 end
 
 function Cyclopedia.setCharmResourceBalances(charmBalance, _, echoeBalance, maxCharmBalance, maxEchoeBalance)
@@ -623,8 +665,11 @@ end
 
 function Cyclopedia.refreshMoneyDisplays(requestServerBalance)
 	if requestServerBalance and g_game.requestResource then
-		g_game.requestResource(ResourceBank or 0)
-		g_game.requestResource(ResourceInventary or 1)
+		local bankType = ResourceTypes and ResourceTypes.BANK_BALANCE or ResourceBank or 0
+		local equippedType = ResourceTypes and ResourceTypes.GOLD_EQUIPPED or ResourceInventary or 1
+
+		g_game.requestResource(bankType)
+		g_game.requestResource(equippedType)
 	end
 
 	updateCyclopediaMoneyDisplay()
@@ -638,29 +683,20 @@ local function isCyclopediaCoinItem(item)
 	return COIN_MULTIPLIERS[item:getId()] ~= nil
 end
 
-local function scheduleCyclopediaMoneyRefresh()
+local function refreshCyclopediaMoneyNow()
 	updateCyclopediaMoneyDisplay()
-
-	if moneyRefreshPendingEvent then
-		removeEvent(moneyRefreshPendingEvent)
-	end
-
-	moneyRefreshPendingEvent = scheduleEvent(function()
-		moneyRefreshPendingEvent = nil
-		updateCyclopediaMoneyDisplay()
-	end, MONEY_EVENT_REFRESH_DELAY)
 end
 
 local function onCyclopediaTileThingChange(tile, thing)
 	if isCyclopediaCoinItem(thing) then
-		scheduleCyclopediaMoneyRefresh()
+		refreshCyclopediaMoneyNow()
 	end
 end
 
 local function cyclopediaMoneyRefreshTick()
 	moneyRefreshEvent = nil
 
-	if not window or window:isDestroyed() or not window:isVisible() then
+	if not isCyclopediaGoldBarActive() then
 		return
 	end
 
@@ -680,11 +716,6 @@ local function stopCyclopediaMoneyRefresh()
 	if moneyRefreshEvent then
 		removeEvent(moneyRefreshEvent)
 		moneyRefreshEvent = nil
-	end
-
-	if moneyRefreshPendingEvent then
-		removeEvent(moneyRefreshPendingEvent)
-		moneyRefreshPendingEvent = nil
 	end
 end
 
@@ -712,7 +743,7 @@ function Cyclopedia.setGoldBaseVisible(visible)
 end
 
 function Cyclopedia.setGoldBaseForTab(tabType)
-	Cyclopedia.setGoldBaseVisible(GOLD_BALANCE_TABS[tabType] == true)
+	Cyclopedia.setGoldBaseVisible(shouldShowCyclopediaBalanceBar(tabType))
 end
 
 local function onCyclopediaResourcesBalanceChange(value, oldBalance, resourceType)
@@ -720,11 +751,19 @@ local function onCyclopediaResourcesBalanceChange(value, oldBalance, resourceTyp
 		return
 	end
 
-	scheduleCyclopediaMoneyRefresh()
+	refreshCyclopediaMoneyNow()
 end
 
-local function onCyclopediaInventoryMoneyChange()
-	scheduleCyclopediaMoneyRefresh()
+local function onCyclopediaInventoryMoneyChange(player, slot, item, oldItem)
+	if isCyclopediaCoinItem(item) or isCyclopediaCoinItem(oldItem) then
+		refreshCyclopediaMoneyNow()
+	end
+end
+
+local function onCyclopediaContainerMoneyChange(container, slot, item, oldItem)
+	if isCyclopediaCoinItem(item) or isCyclopediaCoinItem(oldItem) then
+		refreshCyclopediaMoneyNow()
+	end
 end
 
 local function connectCyclopediaMoneyListeners()
@@ -738,12 +777,11 @@ local function connectCyclopediaMoneyListeners()
 
 	if Container then
 		connect(Container, {
-			onOpen = onCyclopediaInventoryMoneyChange,
-			onClose = onCyclopediaInventoryMoneyChange,
-			onSizeChange = onCyclopediaInventoryMoneyChange,
-			onAddItem = onCyclopediaInventoryMoneyChange,
-			onUpdateItem = onCyclopediaInventoryMoneyChange,
-			onRemoveItem = onCyclopediaInventoryMoneyChange
+			onOpen = refreshCyclopediaMoneyNow,
+			onClose = refreshCyclopediaMoneyNow,
+			onAddItem = onCyclopediaContainerMoneyChange,
+			onUpdateItem = onCyclopediaContainerMoneyChange,
+			onRemoveItem = onCyclopediaContainerMoneyChange
 		})
 	end
 
@@ -768,12 +806,11 @@ local function disconnectCyclopediaMoneyListeners()
 
 	if Container then
 		disconnect(Container, {
-			onOpen = onCyclopediaInventoryMoneyChange,
-			onClose = onCyclopediaInventoryMoneyChange,
-			onSizeChange = onCyclopediaInventoryMoneyChange,
-			onAddItem = onCyclopediaInventoryMoneyChange,
-			onUpdateItem = onCyclopediaInventoryMoneyChange,
-			onRemoveItem = onCyclopediaInventoryMoneyChange
+			onOpen = refreshCyclopediaMoneyNow,
+			onClose = refreshCyclopediaMoneyNow,
+			onAddItem = onCyclopediaContainerMoneyChange,
+			onUpdateItem = onCyclopediaContainerMoneyChange,
+			onRemoveItem = onCyclopediaContainerMoneyChange
 		})
 	end
 
@@ -1136,7 +1173,7 @@ function init()
 	end
 
 	if goldBase then
-		goldValueLabel = goldBase:recursiveGetChildById('Value')
+		goldValueLabel = goldBase:recursiveGetChildById('goldValue')
 		charmPointsLabel = goldBase:recursiveGetChildById('charmPoints')
 		echoesPointsLabel = goldBase:recursiveGetChildById('echoesPoints')
 	end

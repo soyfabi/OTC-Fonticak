@@ -726,9 +726,6 @@ function showCharacter()
 	end
 
 	reset()
-	if Cyclopedia.setGoldBaseVisible then
-		Cyclopedia.setGoldBaseVisible(true)
-	end
 	if bestiaryTrackerButton and not bestiaryTrackerButton:isDestroyed() then
 		bestiaryTrackerButton:hide()
 	end
