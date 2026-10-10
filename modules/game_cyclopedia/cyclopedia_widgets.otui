@@ -1675,6 +1675,9 @@ BosstiaryItem < UIWidget
     margin-bottom: 6
     size: 64 64
     fixed-creature-size: true
+    base-scale: true
+    creature-center: true
+    ignore-displacement-shift: true
     phantom: true
 BestiaryCreature < UIWidget
   image-source: /images/ui/t2pixel-up-frame-borderimage
@@ -2039,10 +2042,11 @@ BestiaryTracker < MiniWindow
     anchors.right: miniwindowHeader.right
     margin-top: 2
     margin-left: 20
-    margin-right: 50
+    margin-right: 42
     font: verdana-11px-monochrome
     height: 13
     color: #9d9d9dff
+    text-overflow: shrink
 
   MiniWindowContents
     id: contentsPanel

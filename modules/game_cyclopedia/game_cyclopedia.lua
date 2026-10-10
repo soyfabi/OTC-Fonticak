@@ -557,11 +557,23 @@ function Cyclopedia.getPlayerMoney()
 	return getCyclopediaPlayerMoney()
 end
 
--- Global GoldBase: Character + Map only. Bestiary/Charms keep their own footer bars (see applyBestiaryFooterBalances).
+-- Global GoldBase: Character, Map, Bosstiary, Boss Slots. Bestiary/Charms keep their own footer bars (see applyBestiaryFooterBalances).
 local GOLD_BALANCE_TABS = {
 	map = true,
-	character = true
+	character = true,
+	bosstiary = true,
+	bossSlot = true
 }
+
+function Cyclopedia.setBosstiaryTabChrome()
+	Cyclopedia.setGoldBaseVisible(true)
+	Cyclopedia.refreshMoneyDisplays(true)
+end
+
+function Cyclopedia.setBossSlotTabChrome()
+	Cyclopedia.setGoldBaseVisible(true)
+	Cyclopedia.refreshMoneyDisplays(true)
+end
 
 local function updateCyclopediaMoneyDisplay()
 	if not goldBase or goldBase:isDestroyed() or not goldBase:isVisible() then
@@ -570,6 +582,10 @@ local function updateCyclopediaMoneyDisplay()
 
 	if goldValueLabel and not goldValueLabel:isDestroyed() then
 		goldValueLabel:setText(formatCyclopediaGold(getCyclopediaPlayerMoney()))
+	end
+
+	if Cyclopedia.refreshBossSlotsRemoveAffordability then
+		Cyclopedia.refreshBossSlotsRemoveAffordability()
 	end
 
 	if charmPointsLabel and not charmPointsLabel:isDestroyed() then
@@ -902,6 +918,102 @@ local function setItemsTabLayout(active)
 end
 cyclopediaButton = nil
 bestiaryTrackerButton = nil
+bosstiaryShortcutButton = nil
+bossSlotShortcutButton = nil
+local bosstiaryTabButton = nil
+local bossSlotTabButton = nil
+local bosstiaryGameEventsConnected = false
+
+local function isBosstiaryFeatureEnabled()
+	return g_game.getFeature and g_game.getFeature(GameBosstiary)
+end
+
+function syncBosstiaryShortcutButtons()
+	local bosstiaryOn = window and not window:isDestroyed() and window:isVisible() and currentType == 'bosstiary'
+	local bossSlotOn = window and not window:isDestroyed() and window:isVisible() and currentType == 'bossSlot'
+
+	if bosstiaryShortcutButton and not bosstiaryShortcutButton:isDestroyed() then
+		bosstiaryShortcutButton:setOn(bosstiaryOn)
+	end
+	if bossSlotShortcutButton and not bossSlotShortcutButton:isDestroyed() then
+		bossSlotShortcutButton:setOn(bossSlotOn)
+	end
+end
+
+local function destroyBosstiaryShortcutButtons()
+	if bosstiaryShortcutButton and not bosstiaryShortcutButton:isDestroyed() then
+		bosstiaryShortcutButton:destroy()
+	end
+	bosstiaryShortcutButton = nil
+
+	if bossSlotShortcutButton and not bossSlotShortcutButton:isDestroyed() then
+		bossSlotShortcutButton:destroy()
+	end
+	bossSlotShortcutButton = nil
+end
+
+local function ensureBosstiaryShortcutButtons()
+	if not isBosstiaryFeatureEnabled() then
+		return
+	end
+	if not modules.game_mainpanel or not modules.game_mainpanel.addToggleButton then
+		return
+	end
+
+	if not bosstiaryShortcutButton or bosstiaryShortcutButton:isDestroyed() then
+		bosstiaryShortcutButton = modules.game_mainpanel.addToggleButton(
+			'bosstiary',
+			tr('Open Bosstiary'),
+			'/images/options/button_bosstiary',
+			function()
+				show('bosstiary')
+			end,
+			false,
+			18
+		)
+		modules.game_cyclopedia.bosstiaryShortcutButton = bosstiaryShortcutButton
+	end
+
+	if not bossSlotShortcutButton or bossSlotShortcutButton:isDestroyed() then
+		bossSlotShortcutButton = modules.game_mainpanel.addToggleButton(
+			'bossSlot',
+			tr('Open Boss Slots'),
+			'/images/options/button_boss_slot',
+			function()
+				show('bossSlot')
+			end,
+			false,
+			19
+		)
+		modules.game_cyclopedia.bossSlotShortcutButton = bossSlotShortcutButton
+	end
+
+	syncBosstiaryShortcutButtons()
+end
+
+local function connectBosstiaryGameEvents()
+	if bosstiaryGameEventsConnected or not g_game.requestBosstiaryInfo then
+		return
+	end
+
+	connect(g_game, {
+		onParseSendBosstiary = Cyclopedia.LoadBosstiaryCreatures,
+		onParseBosstiarySlots = Cyclopedia.loadBossSlots
+	})
+	bosstiaryGameEventsConnected = true
+end
+
+local function disconnectBosstiaryGameEvents()
+	if not bosstiaryGameEventsConnected then
+		return
+	end
+
+	disconnect(g_game, {
+		onParseSendBosstiary = Cyclopedia.LoadBosstiaryCreatures,
+		onParseBosstiarySlots = Cyclopedia.loadBossSlots
+	})
+	bosstiaryGameEventsConnected = false
+end
 local function requestMarketItemsPreload()
 	if not g_game.isOnline() then
 		return
@@ -918,7 +1030,14 @@ local function onCyclopediaEnterGame()
 end
 
 function init()
-	
+	if initBosstiaryProtocol then
+		initBosstiaryProtocol()
+	end
+	connectBosstiaryGameEvents()
+	if initBosstiaryTracker then
+		initBosstiaryTracker()
+	end
+
 	-- The rest
 	connect(g_game, {
 		onGameStart = onCyclopediaGameStart,
@@ -947,6 +1066,9 @@ function init()
 	window.onVisibilityChange = function(widget, visible)
 		if cyclopediaButton then
 			cyclopediaButton:setOn(visible)
+		end
+		if not visible then
+			syncBosstiaryShortcutButtons()
 		end
 
 		if visible then
@@ -1022,6 +1144,8 @@ function init()
 	buttonSelection = window:recursiveGetChildById('buttonSelection')
 		items = buttonSelection:recursiveGetChildById('items')
 		bestiary = buttonSelection:recursiveGetChildById('bestiary')
+		bosstiaryTabButton = buttonSelection:recursiveGetChildById('bosstiary')
+		bossSlotTabButton = buttonSelection:recursiveGetChildById('bossSlot')
 		charms = buttonSelection:recursiveGetChildById('charms')
 		map = buttonSelection:recursiveGetChildById('map')
 		houses = buttonSelection:recursiveGetChildById('houses')
@@ -1033,10 +1157,6 @@ function init()
 	end
 
 	modules.game_cyclopedia.Cyclopedia = Cyclopedia
-
-	function Cyclopedia.toggleBosstiaryTracker()
-		-- Bosstiary tracker window is not implemented in this client yet.
-	end
 
 	Keybind.new('Windows', 'Open Bosstiary Tracker', 'Alt+Shift+B', '')
 	Keybind.bind('Windows', 'Open Bosstiary Tracker', {
@@ -1064,15 +1184,56 @@ function init()
 			end
 		}
 	})
+	Keybind.new('Windows', 'Open Bosstiary', '', '')
+	Keybind.bind('Windows', 'Open Bosstiary', {
+		{
+			type = KEY_DOWN,
+			callback = function()
+				if not g_game.isOnline() or not isBosstiaryFeatureEnabled() then
+					return
+				end
+				show('bosstiary')
+			end
+		}
+	})
+	Keybind.new('Windows', 'Open Boss Slots', '', '')
+	Keybind.bind('Windows', 'Open Boss Slots', {
+		{
+			type = KEY_DOWN,
+			callback = function()
+				if not g_game.isOnline() or not isBosstiaryFeatureEnabled() then
+					return
+				end
+				show('bossSlot')
+			end
+		}
+	})
 
 	if g_game.isOnline() then
 		connectCyclopediaCharacterEvents()
 		connectCyclopediaMoneyListeners()
+		ensureBosstiaryShortcutButtons()
 	end
 end
 
 function terminate()
 	stopCyclopediaMoneyRefresh()
+	if terminateBosstiaryProtocol then
+		terminateBosstiaryProtocol()
+	end
+	disconnectBosstiaryGameEvents()
+	if terminateBosstiaryTracker then
+		terminateBosstiaryTracker()
+	end
+	if Cyclopedia.clearBosstiaryUI then
+		Cyclopedia.clearBosstiaryUI()
+	end
+	if Cyclopedia.clearBossSlotsUI then
+		Cyclopedia.clearBossSlotsUI()
+	end
+	if Cyclopedia.clearHousesUI then
+		Cyclopedia.clearHousesUI()
+	end
 	disconnectCyclopediaMoneyListeners()
 	disconnectCyclopediaCharacterEvents()
 
@@ -1106,6 +1267,8 @@ function terminate()
 	Keybind.delete('Windows', 'Open Bosstiary Tracker')
 	Keybind.delete('Windows', 'Open Bestiary Tracker')
 	Keybind.delete('Windows', 'Open Cyclopedia')
+	Keybind.delete('Windows', 'Open Bosstiary')
+	Keybind.delete('Windows', 'Open Boss Slots')
 
 	-- Hooked opcodes
 	ProtocolGame.unregisterOpcode(0x29)
@@ -1125,6 +1288,7 @@ function terminate()
 		bestiaryTrackerButton:destroy()
 		bestiaryTrackerButton = nil
 	end
+	destroyBosstiaryShortcutButtons()
 	
 	window:destroy()
 	
@@ -1161,6 +1325,10 @@ function onCyclopediaGameStart()
 	if restoreBestiaryTracker then
 		restoreBestiaryTracker()
 	end
+	if Cyclopedia.restoreBosstiaryTracker then
+		Cyclopedia.restoreBosstiaryTracker()
+	end
+	ensureBosstiaryShortcutButtons()
 	if Cyclopedia.Items and Cyclopedia.Items.loadJson then
 		Cyclopedia.Items.loadJson()
 	end
@@ -1202,6 +1370,9 @@ function onCyclopediaGameEnd()
 	if onBestiaryGameEnd then
 		onBestiaryGameEnd()
 	end
+	if Cyclopedia.onBosstiaryTrackerGameEnd then
+		Cyclopedia.onBosstiaryTrackerGameEnd()
+	end
 end
 
 local function releaseCyclopediaKeyboardCapture()
@@ -1234,6 +1405,7 @@ function hide()
 	setItemsTabLayout(false)
 	releaseCyclopediaKeyboardCapture()
 	window:hide()
+	syncBosstiaryShortcutButtons()
 end
 
 function toggle(type)
@@ -1301,6 +1473,8 @@ function show(type)
 	if type == "magicalArchives" and Cyclopedia.releaseMagicalArchivesInput then
 		Cyclopedia.releaseMagicalArchivesInput()
 	end
+
+	syncBosstiaryShortcutButtons()
 end
 
 function Cyclopedia.openBestiaryMonster(raceId)
@@ -1350,7 +1524,7 @@ function toggleTracker()
 end
 
 local function getCyclopediaTabButtons()
-	return { items, bestiary, charms, map, houses, character, magicalArchives }
+	return { items, bestiary, charms, map, bosstiaryTabButton, bossSlotTabButton, houses, character, magicalArchives }
 end
 
 local function resetCyclopediaTabButtons()
@@ -1417,6 +1591,12 @@ function ensureCyclopediaTabContent(type)
 		end
 	elseif type == "magicalArchives" and showMagicalArchives then
 		showMagicalArchives()
+	elseif type == "bosstiary" and showBosstiary then
+		showBosstiary()
+	elseif type == "bossSlot" and showBossSlot then
+		showBossSlot()
+	elseif type == "houses" and showHouses then
+		showHouses()
 	end
 
 	if Cyclopedia.setGoldBaseForTab then
@@ -1441,6 +1621,18 @@ function toggleWindow(type, isBackNavigation)
 
 	if currentType == "magicalArchives" and Cyclopedia.clearMagicalArchivesUI then
 		Cyclopedia.clearMagicalArchivesUI()
+	end
+
+	if currentType == "bosstiary" and Cyclopedia.clearBosstiaryUI then
+		Cyclopedia.clearBosstiaryUI()
+	end
+
+	if currentType == "bossSlot" and Cyclopedia.clearBossSlotsUI then
+		Cyclopedia.clearBossSlotsUI()
+	end
+
+	if currentType == "houses" and Cyclopedia.clearHousesUI then
+		Cyclopedia.clearHousesUI()
 	end
 
 	if not isBackNavigation and currentType then
@@ -1490,6 +1682,9 @@ function toggleWindow(type, isBackNavigation)
 		initMap(contentContainer)
 	elseif (type == "houses") then
 		activateTab(houses)
+		if showHouses then
+			showHouses()
+		end
 	elseif (type == "character") then
 		activateTab(character)
 		if showCharacter then
@@ -1500,11 +1695,22 @@ function toggleWindow(type, isBackNavigation)
 		if showMagicalArchives then
 			showMagicalArchives()
 		end
+	elseif (type == "bosstiary") then
+		activateTab(bosstiaryTabButton)
+		if showBosstiary then
+			showBosstiary()
+		end
+	elseif (type == "bossSlot") then
+		activateTab(bossSlotTabButton)
+		if showBossSlot then
+			showBossSlot()
+		end
 	end
 
 	Cyclopedia.setGoldBaseForTab(type)
 	setWindowBottomBarForTab(type)
 	updateBackButton()
+	syncBosstiaryShortcutButtons()
 end
 
 function isVisible()

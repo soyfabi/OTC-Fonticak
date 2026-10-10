@@ -1,0 +1,38 @@
+UIWidget
+  id: Cat3
+  anchors.fill: parent
+  visible: false
+
+  UIWidget
+    id: PlaceholderPanel
+    anchors.fill: parent
+    margin-top: 11
+    margin-left: 2
+    margin-right: 2
+    margin-bottom: 2
+    image-source: /images/ui/t2pixel-up-frame-borderimage
+    image-border: 10
+
+    Label
+      id: PlaceholderTitle
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.verticalCenter: parent.verticalCenter
+      margin-bottom: 24
+      !text: tr('Houses')
+      font: verdana-11px-rounded
+      color: #C0C0C0
+      text-align: center
+      text-auto-resize: true
+
+    Label
+      id: PlaceholderMessage
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: PlaceholderTitle.bottom
+      margin-top: 8
+      !text: tr('This section is not available yet.\nHouse auctions and listings will be added in a future update.')
+      font: verdana-11px-monochrome
+      color: #909090
+      text-align: center
+      text-auto-resize: true
+      text-wrap: true
+      width: 420

@@ -209,14 +209,72 @@ CyclopediaWindow
         image-source: /images/game/cyclopedia/map_off
 
     UIButton
+      id: bosstiary
+      anchors.top: prev.top
+      anchors.left: prev.right
+      margin-left: 1
+      @onClick: toggleWindow("bosstiary")
+
+      $on:
+        size: 150 34
+        image-clip: 0 0 150 34
+        image-source: /images/game/cyclopedia/bosstiary_on
+
+      $on $disabled:
+        size: 150 34
+        image-clip: 0 0 150 34
+        image-source: /images/game/cyclopedia/bosstiary_on
+
+      $!on:
+        size: 34 34
+        image-clip: 0 0 34 34
+        image-source: /images/game/cyclopedia/bosstiary_off
+
+      $pressed:
+        size: 34 34
+        image-clip: 0 34 34 34
+        image-source: /images/game/cyclopedia/bosstiary_off
+
+    UIButton
+      id: bossSlot
+      anchors.top: prev.top
+      anchors.left: prev.right
+      margin-left: 1
+      @onClick: toggleWindow("bossSlot")
+
+      $on:
+        size: 150 34
+        image-clip: 0 0 150 34
+        image-source: /images/game/cyclopedia/bossSlot_on
+
+      $on $disabled:
+        size: 150 34
+        image-clip: 0 0 150 34
+        image-source: /images/game/cyclopedia/bossSlot_on
+
+      $!on:
+        size: 34 34
+        image-clip: 0 0 34 34
+        image-source: /images/game/cyclopedia/bossSlot_off
+
+      $pressed:
+        size: 34 34
+        image-clip: 0 34 34 34
+        image-source: /images/game/cyclopedia/bossSlot_off
+
+    UIButton
       id: houses
-      visible: false
       anchors.top: prev.top
       anchors.left: prev.right
       margin-left: 1
       @onClick: toggleWindow("houses")
 
       $on:
+        size: 150 34
+        image-clip: 0 0 150 34
+        image-source: /images/game/cyclopedia/houses_on
+
+      $on $disabled:
         size: 150 34
         image-clip: 0 0 150 34
         image-source: /images/game/cyclopedia/houses_on

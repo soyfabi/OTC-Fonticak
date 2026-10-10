@@ -1,0 +1,152 @@
+UIWidget
+  id: Cat8
+  anchors.fill: parent
+  visible: false
+
+  UIWidget
+    id: TopBase
+    anchors.left: parent.left
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: 11
+    height: 48
+    image-source: /images/ui/t2pixel-up-frame-borderimage
+    image-border: 10
+    color: #909090
+    text-offset: 0 2
+    text-align: top
+    !text: tr('Progress')
+    font: verdana-11px-monochrome
+
+    Label
+      id: PointsLabel
+      anchors.left: parent.left
+      anchors.bottom: parent.bottom
+      margin-left: 10
+      margin-bottom: 6
+      margin-right: 60
+      !text: tr('Boss Points')
+      font: verdana-11px-monochrome
+      color: #C0C0C0
+      text-auto-resize: true
+  
+    ProgressBackground
+      id: PointsBar
+      width: 278
+      height: 20
+      anchors.left: PointsLabel.right
+      anchors.verticalCenter: PointsLabel.verticalCenter
+      margin-left: 11
+      margin-bottom: 2
+      image-border: 5
+
+      UIWidget
+        id: fill
+        anchors.left: parent.left
+        anchors.top: parent.top
+        image-border: 5
+        image-source: /images/bars/progressbar-orange-large
+
+      Label
+        id: Value
+        anchors.centerIn: parent
+        text-auto-resize: true
+        !text: tr('0 / 0')
+        font: verdana-11px-monochrome
+        margin-top: 1
+
+    UIWidget
+      id: InfoIcon
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
+      margin-right: 10
+      margin-bottom: 10
+      image-source:/images/icons/show_gui_help_grey
+      !tooltip: ('Whenever you defat a creature, it drops a set of loot with a\ncertain chance. The equipment loot bonus shows your chance to\nget a second set of loot, but limited to equipment.')
+
+    Label
+      id: InfoLabel
+      anchors.right: InfoIcon.left
+      anchors.bottom: parent.bottom
+      margin-right: 9
+      margin-bottom: 6
+      text-auto-resize: true
+      !text: tr('')
+      font: verdana-11px-monochrome
+      color: #c0c0c0
+
+  SlotBossSlots
+    id: LeftBase
+    !text: tr('Slot 1: Locked')
+    font: verdana-11px-monochrome
+    anchors.left: parent.left
+    anchors.top: TopBase.bottom
+    margin-top: 9
+    margin-bottom: 10
+
+  SlotBossSlots
+    id: RightBase
+    anchors.right: parent.right
+    anchors.top: TopBase.bottom
+    margin-top: 9
+    margin-bottom: 10
+    !text: tr('Slot 2: Locked')
+    font: verdana-11px-monochrome
+
+  Label
+    id: MidTitle
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.top: RightBase.top
+    !text: tr('Boosted Boss: The Source Of Co...')
+    font: verdana-11px-monochrome
+    margin-top: 3
+    color: #C0C0C0
+    text-align: center
+
+  UIWidget
+    id: PedestalBase
+    anchors.top: parent.top
+    anchors.horizontalCenter: parent.horizontalCenter
+    margin-top: 102
+    image-source: /game_cyclopedia/images/boss/boss_base
+
+  UICreature
+    id: Sprite
+    size: 64 64
+    anchors.centerIn: PedestalBase
+    margin-bottom: 15
+    margin-right: 15
+    fixed-creature-size: true
+    phantom: true
+
+  UIWidget
+    id: TypeIcon
+    anchors.top: PedestalBase.top
+    anchors.right: PedestalBase.left
+    margin-right: 28
+    image-source: /images/icons/icon-bosstiary-archfoe
+
+  BossSlotProgress
+    id: BoostedProgress
+    anchors.top: PedestalBase.bottom
+    anchors.horizontalCenter: PedestalBase.horizontalCenter
+    margin-top: 25
+
+  Label
+    anchors.horizontalCenter: BoostedProgress.horizontalCenter
+    anchors.bottom: BoostedProgress.top
+    margin-bottom: -1
+    text-auto-resize: true
+    !text: tr('Total Kills')
+    font: verdana-11px-monochrome
+    color: #c0c0c0
+
+  Label
+    id: MainLabel
+    anchors.centerIn: parent
+    margin-top: 33
+    text-auto-resize: true
+    text-align: center
+    !text: tr('')
+    font: verdana-11px-monochrome
+    color: #c0c0c0
