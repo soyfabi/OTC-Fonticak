@@ -3610,3 +3610,54 @@ Cyclopedia.clientCombat[combatStates.CLIENT_COMBAT_MANADRAIN] = {
 	path = "/game_cyclopedia/images/bestiary/icons/monster-icon-manadrain-resist",
 	id = "Manadrain"
 }
+
+function Cyclopedia.SetBestiaryProgress(fitCenter, firstBar, secondBar, thirdBar, killCount, firstGoal, secondGoal, thirdGoal, fitOuter, fillHeight)
+	fitOuter = fitOuter or fitCenter
+	fillHeight = fillHeight or 18
+
+	local function calculateWidth(value, max, fit)
+		if not max or max <= 0 then
+			return 0
+		end
+		return math.min(math.floor(value / max * fit), fit)
+	end
+
+	local allStagesComplete = thirdGoal > 0 and thirdGoal <= killCount
+	local fillImage = allStagesComplete and "/images/bars/progressbar-green-large" or "/images/bars/progressbar-orange-large"
+
+	local function setBarVisibility(bar, isVisible, width)
+		if not bar then
+			return
+		end
+
+		isVisible = isVisible and width > 0
+		bar:setVisible(isVisible)
+
+		if isVisible then
+			local rect = {
+				y = 0,
+				x = 0,
+				height = fillHeight,
+				width = width
+			}
+			bar:setImageRect(rect)
+			bar:setImageClip(rect)
+			bar:setImageSource(fillImage)
+		end
+	end
+
+	local firstWidth = calculateWidth(math.min(killCount, firstGoal), firstGoal, fitOuter)
+	setBarVisibility(firstBar, killCount > 0, firstWidth)
+
+	local secondWidth = 0
+	if firstGoal < killCount then
+		secondWidth = calculateWidth(math.min(killCount - firstGoal, secondGoal - firstGoal), secondGoal - firstGoal, fitCenter)
+	end
+	setBarVisibility(secondBar, firstGoal < killCount, secondWidth)
+
+	local thirdWidth = 0
+	if secondGoal < killCount then
+		thirdWidth = calculateWidth(math.min(killCount - secondGoal, thirdGoal - secondGoal), thirdGoal - secondGoal, fitOuter)
+	end
+	setBarVisibility(thirdBar, secondGoal < killCount, thirdWidth)
+end

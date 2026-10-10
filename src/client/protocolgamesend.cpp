@@ -1274,7 +1274,11 @@ void ProtocolGame::sendStatusTrackerBestiary(const uint16_t raceId, const bool s
 {
     const auto& msg = std::make_shared<OutputMessage>();
     msg->addU8(Proto::ClientBestiaryTrackerStatus);
-    msg->addU16(raceId);
+    if (g_game.getFeature(Otc::GameBosstiary)) {
+        msg->addU32(raceId);
+    } else {
+        msg->addU16(raceId);
+    }
     msg->addU8(status);
     send(msg);
 }

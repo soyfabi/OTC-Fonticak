@@ -1853,10 +1853,40 @@ void ProtocolGame::parseContainerRemoveItem(const InputMessagePtr& msg)
     g_game.processContainerRemoveItem(containerId, slot, lastItem);
 }
 
+namespace {
+constexpr uint32_t kBosstiarySlotTwoUnlockPoints = 1500;
+
+void skipForgottenserverBosstiaryCreatureInfo(const InputMessagePtr& msg)
+{
+    msg->getString();
+    msg->getU16();
+    msg->getU8();
+    msg->getU8();
+    msg->getU8();
+    msg->getU8();
+    msg->getU8();
+}
+
+void skipOptionalForgottenserverBosstiaryCreatureInfo(const InputMessagePtr& msg)
+{
+    if (msg->getU8() == 0) {
+        return;
+    }
+    skipForgottenserverBosstiaryCreatureInfo(msg);
+}
+
+bool shouldReadForgottenserverAssignedSlotBytes(const bool isUnlocked, const uint32_t bossId)
+{
+    return isUnlocked && bossId > 0 && bossId != kBosstiarySlotTwoUnlockPoints;
+}
+} // namespace
+
 void ProtocolGame::parseBosstiaryInfo(const InputMessagePtr& msg)
 {
     const uint16_t bosstiaryRaceLast = msg->getU16();
     std::vector<BosstiaryData> bossData;
+
+    const bool forgottenserverFormat = g_game.getFeature(Otc::GameBosstiary);
 
     for (auto i = 0; i < bosstiaryRaceLast; ++i) {
         BosstiaryData boss;
@@ -1864,8 +1894,11 @@ void ProtocolGame::parseBosstiaryInfo(const InputMessagePtr& msg)
         boss.category = msg->getU8();
         boss.kills = msg->getU32();
         msg->getU8();
-        if (g_game.getClientVersion() >= 1320) {
+        if (forgottenserverFormat || g_game.getClientVersion() >= 1320) {
             boss.isTrackerActived = msg->getU8();
+        }
+        if (forgottenserverFormat) {
+            skipForgottenserverBosstiaryCreatureInfo(msg);
         }
         bossData.emplace_back(boss);
     }
@@ -4748,7 +4781,7 @@ void ProtocolGame::parseShowDescription(const InputMessagePtr& msg)
 void ProtocolGame::parseBestiaryTracker(const InputMessagePtr& msg)
 {
     uint8_t trackerType = 0;
-    if (g_game.getClientVersion() >= 1320) {
+    if (g_game.getClientVersion() >= 1320 || g_game.getFeature(Otc::GameBosstiaryTracker)) {
         trackerType = msg->getU8(); // 0x00 for bestiary, 0x01 for boss
     }
     const uint8_t size = msg->getU8();
@@ -6721,25 +6754,34 @@ void ProtocolGame::parseBosstiarySlots(const InputMessagePtr& msg)
     data.currentBonus = msg->getU16();
     data.nextBonus = msg->getU16();
 
-    data.isSlotOneUnlocked = msg->getU8();
+    data.isSlotOneUnlocked = msg->getU8() != 0;
     data.bossIdSlotOne = msg->getU32();
-    if (data.isSlotOneUnlocked && data.bossIdSlotOne != 0) {
+    if (shouldReadForgottenserverAssignedSlotBytes(data.isSlotOneUnlocked, data.bossIdSlotOne)) {
         data.slotOneData = getBosstiarySlot();
     }
-
-    data.isSlotTwoUnlocked = msg->getU8();
-    data.bossIdSlotTwo = msg->getU32();
-    if (data.isSlotTwoUnlocked && data.bossIdSlotTwo != 0) {
-        data.slotTwoData = getBosstiarySlot();
+    if (g_game.getFeature(Otc::GameBosstiary)) {
+        skipOptionalForgottenserverBosstiaryCreatureInfo(msg);
     }
 
-    data.isTodaySlotUnlocked = msg->getU8();
+    data.isSlotTwoUnlocked = msg->getU8() != 0;
+    data.bossIdSlotTwo = msg->getU32();
+    if (shouldReadForgottenserverAssignedSlotBytes(data.isSlotTwoUnlocked, data.bossIdSlotTwo)) {
+        data.slotTwoData = getBosstiarySlot();
+    }
+    if (g_game.getFeature(Otc::GameBosstiary)) {
+        skipOptionalForgottenserverBosstiaryCreatureInfo(msg);
+    }
+
+    data.isTodaySlotUnlocked = msg->getU8() != 0;
     data.boostedBossId = msg->getU32();
     if (data.isTodaySlotUnlocked && data.boostedBossId != 0) {
         data.todaySlotData = getBosstiarySlot();
     }
+    if (g_game.getFeature(Otc::GameBosstiary)) {
+        skipOptionalForgottenserverBosstiaryCreatureInfo(msg);
+    }
 
-    data.bossesUnlocked = msg->getU8();
+    data.bossesUnlocked = msg->getU8() != 0;
     if (data.bossesUnlocked) {
         const uint16_t bossesUnlockedSize = msg->getU16();
         for (auto i = 0; i < bossesUnlockedSize; ++i) {

@@ -329,9 +329,10 @@ namespace Proto
         ClientInviteToOwnChannel = 171,
         ClientExcludeFromOwnChannel = 172,
         ClientCyclopediaHouseAuction = 173,
-        ClientBosstiaryRequestInfo = 174,
-        ClientBosstiaryRequestSlotInfo = 175,
-        ClientBosstiaryRequestSlotAction = 176,
+        // Forgotten Server / Fonticak 8.60 custom cyclopedia opcodes (174 is unused on server)
+        ClientBosstiaryRequestInfo = 0xAE,
+        ClientBosstiaryRequestSlotInfo = 0xAF,
+        ClientBosstiaryRequestSlotAction = 0xB0,
         ClientRequestHighscore = 177,
         ClientImbuementAction = 178,
         ClientWeaponProficiency = 179,

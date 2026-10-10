@@ -493,6 +493,7 @@ UIWidget
 
   UIWidget
     id: blackBG01
+    visible: false
     image-source: /images/modern_ui/image1015925
     image-border: 1
     size: 110 20
@@ -518,6 +519,7 @@ UIWidget
 
   UIWidget
     id: blackBG02
+    visible: false
     image-source: /images/modern_ui/image1015925
     image-border: 1
     size: 110 20
@@ -548,6 +550,7 @@ UIWidget
 
   UIWidget
     id: blackBG03
+    visible: false
     image-source: /images/modern_ui/image1015925
     image-border: 1
     size: 110 20

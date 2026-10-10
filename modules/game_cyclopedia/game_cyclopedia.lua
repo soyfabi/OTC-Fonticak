@@ -482,9 +482,8 @@ end
 local window, currentType, backButton, closeButton, horizontalSeparator, manageContainersButton, tabStack, goldBase
 local goldValueLabel, charmPointsLabel, echoesPointsLabel
 local cyclopediaCharmBalance, cyclopediaMaxCharmBalance, cyclopediaEchoeBalance, cyclopediaMaxEchoeBalance = 0, 0, 0, 0
-local moneyRefreshEvent, moneyRefreshPendingEvent
-local MONEY_REFRESH_INTERVAL = 200
-local MONEY_EVENT_REFRESH_DELAY = 25
+local moneyRefreshEvent
+local MONEY_REFRESH_INTERVAL = 50
 
 local COIN_MULTIPLIERS = {
 	[3031] = 1,
@@ -503,15 +502,20 @@ local function formatCyclopediaGold(value)
 	return comma_value(value or 0)
 end
 
-local function getCyclopediaPlayerMoney()
-	local player = g_game.getLocalPlayer()
-
+local function getCyclopediaEquippedGoldResource(player)
 	if not player then
 		return 0
 	end
 
-	local bankGold = player:getResourceBalance(ResourceBank or 0) or 0
-	local inventoryGold = player:getResourceBalance(ResourceInventary or 1) or 0
+	local resourceType = ResourceTypes and ResourceTypes.GOLD_EQUIPPED or ResourceInventary or 1
+	return player:getResourceBalance(resourceType) or 0
+end
+
+local function getCyclopediaLiveCarriedCoinGold(player)
+	if not player then
+		return 0
+	end
+
 	local physicalCoins = 0
 
 	for _, container in pairs(g_game.getContainers()) do
@@ -536,17 +540,72 @@ local function getCyclopediaPlayerMoney()
 		end
 	end
 
-	-- On 8.60 the equipped-gold resource often lags after pickup/drop. Prefer the live
-	-- coin count from inventory slots and open containers; fall back to resource only
-	-- when nothing visible is counted (e.g. gold inside a closed backpack).
-	local inventoryMoney = physicalCoins > 0 and physicalCoins or inventoryGold
+	return physicalCoins
+end
+
+local function getCyclopediaCachedCarriedCoinGold(player)
+	if not player or not player.getInventoryCount then
+		return nil
+	end
+
+	local total = 0
+
+	for itemId, mult in pairs(COIN_MULTIPLIERS) do
+		total = total + (player:getInventoryCount(itemId, 0) or 0) * mult
+	end
+
+	return total
+end
+
+local function getCyclopediaBankGold()
+	local player = g_game.getLocalPlayer()
+
+	if not player then
+		return 0
+	end
+
+	return player:getResourceBalance(ResourceBank or 0) or 0
+end
+
+local function getCyclopediaInventoryGold(options)
+	options = options or {}
+	local player = g_game.getLocalPlayer()
+
+	if not player then
+		return 0
+	end
+
+	local resourceGold = getCyclopediaEquippedGoldResource(player)
+	local cacheGold = getCyclopediaCachedCarriedCoinGold(player)
+
+	if options.fullScan == false then
+		return math.max(resourceGold, cacheGold or 0)
+	end
+
+	local liveGold = getCyclopediaLiveCarriedCoinGold(player)
+	cacheGold = cacheGold or liveGold
+
+	-- After a drop, equipped-gold from the server often lags while slots/containers already updated.
+	if liveGold < resourceGold then
+		return math.max(liveGold, cacheGold)
+	end
+
+	-- Pickups and closed backpacks: trust server snapshot and inventory count cache.
+	return math.max(resourceGold, cacheGold, liveGold)
+end
+
+local function getCyclopediaPlayerMoney(options)
+	local bankGold = getCyclopediaBankGold()
+	local inventoryMoney = getCyclopediaInventoryGold(options)
 	local total = bankGold + inventoryMoney
 
 	if total > 0 then
 		return total
 	end
 
-	if player.getTotalMoney then
+	local player = g_game.getLocalPlayer()
+
+	if player and player.getTotalMoney then
 		return player:getTotalMoney() or 0
 	end
 
@@ -557,19 +616,41 @@ function Cyclopedia.getPlayerMoney()
 	return getCyclopediaPlayerMoney()
 end
 
--- Global GoldBase: Character + Map only. Bestiary/Charms keep their own footer bars (see applyBestiaryFooterBalances).
-local GOLD_BALANCE_TABS = {
-	map = true,
-	character = true
-}
+local function shouldShowCyclopediaBalanceBar(tabType)
+	return tabType ~= nil and tabType ~= "items" and tabType ~= "magicalArchives"
+end
 
-local function updateCyclopediaMoneyDisplay()
+function Cyclopedia.setBosstiaryTabChrome()
+	Cyclopedia.refreshMoneyDisplays(true)
+end
+
+function Cyclopedia.setBossSlotTabChrome()
+	Cyclopedia.refreshMoneyDisplays(true)
+end
+
+local function isCyclopediaGoldBarActive()
+	if not window or window:isDestroyed() or not window:isVisible() then
+		return false
+	end
+
 	if not goldBase or goldBase:isDestroyed() or not goldBase:isVisible() then
+		return false
+	end
+
+	return true
+end
+
+local function updateCyclopediaMoneyDisplay(options)
+	if not isCyclopediaGoldBarActive() then
 		return
 	end
 
 	if goldValueLabel and not goldValueLabel:isDestroyed() then
-		goldValueLabel:setText(formatCyclopediaGold(getCyclopediaPlayerMoney()))
+		goldValueLabel:setText(formatCyclopediaGold(getCyclopediaPlayerMoney(options)))
+	end
+
+	if Cyclopedia.refreshBossSlotsRemoveAffordability and getCurrentType() == "bossSlot" then
+		Cyclopedia.refreshBossSlotsRemoveAffordability()
 	end
 
 	if charmPointsLabel and not charmPointsLabel:isDestroyed() then
@@ -588,13 +669,6 @@ local function updateCyclopediaMoneyDisplay()
 		end
 	end
 
-	if currentType == "bestiary" and applyBestiaryFooterBalances then
-		applyBestiaryFooterBalances()
-	end
-
-	if currentType == "charms" and refreshCharmsFooterBalances then
-		refreshCharmsFooterBalances()
-	end
 end
 
 function Cyclopedia.setCharmResourceBalances(charmBalance, _, echoeBalance, maxCharmBalance, maxEchoeBalance)
@@ -607,8 +681,11 @@ end
 
 function Cyclopedia.refreshMoneyDisplays(requestServerBalance)
 	if requestServerBalance and g_game.requestResource then
-		g_game.requestResource(ResourceBank or 0)
-		g_game.requestResource(ResourceInventary or 1)
+		local bankType = ResourceTypes and ResourceTypes.BANK_BALANCE or ResourceBank or 0
+		local equippedType = ResourceTypes and ResourceTypes.GOLD_EQUIPPED or ResourceInventary or 1
+
+		g_game.requestResource(bankType)
+		g_game.requestResource(equippedType)
 	end
 
 	updateCyclopediaMoneyDisplay()
@@ -622,33 +699,24 @@ local function isCyclopediaCoinItem(item)
 	return COIN_MULTIPLIERS[item:getId()] ~= nil
 end
 
-local function scheduleCyclopediaMoneyRefresh()
-	updateCyclopediaMoneyDisplay()
-
-	if moneyRefreshPendingEvent then
-		removeEvent(moneyRefreshPendingEvent)
-	end
-
-	moneyRefreshPendingEvent = scheduleEvent(function()
-		moneyRefreshPendingEvent = nil
-		updateCyclopediaMoneyDisplay()
-	end, MONEY_EVENT_REFRESH_DELAY)
+local function refreshCyclopediaMoneyNow()
+	updateCyclopediaMoneyDisplay({ fullScan = true })
 end
 
 local function onCyclopediaTileThingChange(tile, thing)
 	if isCyclopediaCoinItem(thing) then
-		scheduleCyclopediaMoneyRefresh()
+		refreshCyclopediaMoneyNow()
 	end
 end
 
 local function cyclopediaMoneyRefreshTick()
 	moneyRefreshEvent = nil
 
-	if not window or window:isDestroyed() or not window:isVisible() then
+	if not isCyclopediaGoldBarActive() then
 		return
 	end
 
-	updateCyclopediaMoneyDisplay()
+	updateCyclopediaMoneyDisplay({ fullScan = false })
 	moneyRefreshEvent = scheduleEvent(cyclopediaMoneyRefreshTick, MONEY_REFRESH_INTERVAL)
 end
 
@@ -664,11 +732,6 @@ local function stopCyclopediaMoneyRefresh()
 	if moneyRefreshEvent then
 		removeEvent(moneyRefreshEvent)
 		moneyRefreshEvent = nil
-	end
-
-	if moneyRefreshPendingEvent then
-		removeEvent(moneyRefreshPendingEvent)
-		moneyRefreshPendingEvent = nil
 	end
 end
 
@@ -696,7 +759,7 @@ function Cyclopedia.setGoldBaseVisible(visible)
 end
 
 function Cyclopedia.setGoldBaseForTab(tabType)
-	Cyclopedia.setGoldBaseVisible(GOLD_BALANCE_TABS[tabType] == true)
+	Cyclopedia.setGoldBaseVisible(shouldShowCyclopediaBalanceBar(tabType))
 end
 
 local function onCyclopediaResourcesBalanceChange(value, oldBalance, resourceType)
@@ -704,11 +767,19 @@ local function onCyclopediaResourcesBalanceChange(value, oldBalance, resourceTyp
 		return
 	end
 
-	scheduleCyclopediaMoneyRefresh()
+	refreshCyclopediaMoneyNow()
 end
 
-local function onCyclopediaInventoryMoneyChange()
-	scheduleCyclopediaMoneyRefresh()
+local function onCyclopediaInventoryMoneyChange(player, slot, item, oldItem)
+	if isCyclopediaCoinItem(item) or isCyclopediaCoinItem(oldItem) then
+		refreshCyclopediaMoneyNow()
+	end
+end
+
+local function onCyclopediaContainerMoneyChange(container, slot, item, oldItem)
+	if isCyclopediaCoinItem(item) or isCyclopediaCoinItem(oldItem) then
+		refreshCyclopediaMoneyNow()
+	end
 end
 
 local function connectCyclopediaMoneyListeners()
@@ -722,12 +793,11 @@ local function connectCyclopediaMoneyListeners()
 
 	if Container then
 		connect(Container, {
-			onOpen = onCyclopediaInventoryMoneyChange,
-			onClose = onCyclopediaInventoryMoneyChange,
-			onSizeChange = onCyclopediaInventoryMoneyChange,
-			onAddItem = onCyclopediaInventoryMoneyChange,
-			onUpdateItem = onCyclopediaInventoryMoneyChange,
-			onRemoveItem = onCyclopediaInventoryMoneyChange
+			onOpen = refreshCyclopediaMoneyNow,
+			onClose = refreshCyclopediaMoneyNow,
+			onAddItem = onCyclopediaContainerMoneyChange,
+			onUpdateItem = onCyclopediaContainerMoneyChange,
+			onRemoveItem = onCyclopediaContainerMoneyChange
 		})
 	end
 
@@ -752,12 +822,11 @@ local function disconnectCyclopediaMoneyListeners()
 
 	if Container then
 		disconnect(Container, {
-			onOpen = onCyclopediaInventoryMoneyChange,
-			onClose = onCyclopediaInventoryMoneyChange,
-			onSizeChange = onCyclopediaInventoryMoneyChange,
-			onAddItem = onCyclopediaInventoryMoneyChange,
-			onUpdateItem = onCyclopediaInventoryMoneyChange,
-			onRemoveItem = onCyclopediaInventoryMoneyChange
+			onOpen = refreshCyclopediaMoneyNow,
+			onClose = refreshCyclopediaMoneyNow,
+			onAddItem = onCyclopediaContainerMoneyChange,
+			onUpdateItem = onCyclopediaContainerMoneyChange,
+			onRemoveItem = onCyclopediaContainerMoneyChange
 		})
 	end
 
@@ -831,13 +900,6 @@ local function setWindowBottomBarForTab(tabType)
 		end
 	end
 
-	if bestiaryTrackerButton and not bestiaryTrackerButton:isDestroyed() then
-		if tabType == "character" then
-			bestiaryTrackerButton:hide()
-		else
-			bestiaryTrackerButton:show()
-		end
-	end
 end
 
 local cyclopediaCharacterGameEvents
@@ -902,6 +964,115 @@ local function setItemsTabLayout(active)
 end
 cyclopediaButton = nil
 bestiaryTrackerButton = nil
+bosstiaryShortcutButton = nil
+bossSlotShortcutButton = nil
+local bosstiaryTabButton = nil
+local bossSlotTabButton = nil
+local bosstiaryGameEventsConnected = false
+
+local function isBosstiaryFeatureEnabled()
+	return g_game.getFeature and g_game.getFeature(GameBosstiary)
+end
+
+function syncBosstiaryShortcutButtons()
+	local bosstiaryOn = window and not window:isDestroyed() and window:isVisible() and currentType == 'bosstiary'
+	local bossSlotOn = window and not window:isDestroyed() and window:isVisible() and currentType == 'bossSlot'
+
+	if bosstiaryShortcutButton and not bosstiaryShortcutButton:isDestroyed() then
+		bosstiaryShortcutButton:setOn(bosstiaryOn)
+	end
+	if bossSlotShortcutButton and not bossSlotShortcutButton:isDestroyed() then
+		bossSlotShortcutButton:setOn(bossSlotOn)
+	end
+end
+
+local function destroyBosstiaryShortcutButtons()
+	if bosstiaryShortcutButton and not bosstiaryShortcutButton:isDestroyed() then
+		bosstiaryShortcutButton:destroy()
+	end
+	bosstiaryShortcutButton = nil
+
+	if bossSlotShortcutButton and not bossSlotShortcutButton:isDestroyed() then
+		bossSlotShortcutButton:destroy()
+	end
+	bossSlotShortcutButton = nil
+end
+
+local function ensureBosstiaryShortcutButtons()
+	if not isBosstiaryFeatureEnabled() then
+		return
+	end
+	if not modules.game_mainpanel or not modules.game_mainpanel.addToggleButton then
+		return
+	end
+
+	if not bosstiaryShortcutButton or bosstiaryShortcutButton:isDestroyed() then
+		bosstiaryShortcutButton = modules.game_mainpanel.addToggleButton(
+			'bosstiary',
+			tr('Open Bosstiary'),
+			'/images/options/button_bosstiary',
+			function()
+				show('bosstiary')
+			end,
+			false,
+			18
+		)
+		modules.game_cyclopedia.bosstiaryShortcutButton = bosstiaryShortcutButton
+	end
+
+	if not bossSlotShortcutButton or bossSlotShortcutButton:isDestroyed() then
+		bossSlotShortcutButton = modules.game_mainpanel.addToggleButton(
+			'bossSlot',
+			tr('Open Boss Slots'),
+			'/images/options/button_boss_slot',
+			function()
+				show('bossSlot')
+			end,
+			false,
+			19
+		)
+		modules.game_cyclopedia.bossSlotShortcutButton = bossSlotShortcutButton
+	end
+
+	syncBosstiaryShortcutButtons()
+end
+
+local function onParseSendBosstiaryFromCpp(data)
+	if Cyclopedia.bosstiaryTrackerDebug then
+		Cyclopedia.bosstiaryTrackerDebug("onParseSendBosstiary (C++ 0x73) count=" .. tostring(data and #data or 0))
+	end
+	Cyclopedia.LoadBosstiaryCreatures(data)
+end
+
+local function connectBosstiaryGameEvents()
+	if bosstiaryGameEventsConnected or not g_game.requestBosstiaryInfo then
+		if Cyclopedia.bosstiaryTrackerDebug and not bosstiaryGameEventsConnected then
+			Cyclopedia.bosstiaryTrackerDebug("connectBosstiaryGameEvents skipped (no requestBosstiaryInfo)")
+		end
+		return
+	end
+
+	connect(g_game, {
+		onParseSendBosstiary = onParseSendBosstiaryFromCpp,
+		onParseBosstiarySlots = Cyclopedia.loadBossSlots
+	})
+	bosstiaryGameEventsConnected = true
+	if Cyclopedia.bosstiaryTrackerDebug then
+		Cyclopedia.bosstiaryTrackerDebug("connectBosstiaryGameEvents ok")
+	end
+end
+
+local function disconnectBosstiaryGameEvents()
+	if not bosstiaryGameEventsConnected then
+		return
+	end
+
+	disconnect(g_game, {
+		onParseSendBosstiary = onParseSendBosstiaryFromCpp,
+		onParseBosstiarySlots = Cyclopedia.loadBossSlots
+	})
+	bosstiaryGameEventsConnected = false
+end
 local function requestMarketItemsPreload()
 	if not g_game.isOnline() then
 		return
@@ -918,7 +1089,14 @@ local function onCyclopediaEnterGame()
 end
 
 function init()
-	
+	if initBosstiaryProtocol then
+		initBosstiaryProtocol()
+	end
+	connectBosstiaryGameEvents()
+	if initBosstiaryTracker then
+		initBosstiaryTracker()
+	end
+
 	-- The rest
 	connect(g_game, {
 		onGameStart = onCyclopediaGameStart,
@@ -947,6 +1125,9 @@ function init()
 	window.onVisibilityChange = function(widget, visible)
 		if cyclopediaButton then
 			cyclopediaButton:setOn(visible)
+		end
+		if not visible then
+			syncBosstiaryShortcutButtons()
 		end
 
 		if visible then
@@ -1014,7 +1195,7 @@ function init()
 	end
 
 	if goldBase then
-		goldValueLabel = goldBase:recursiveGetChildById('Value')
+		goldValueLabel = goldBase:recursiveGetChildById('goldValue')
 		charmPointsLabel = goldBase:recursiveGetChildById('charmPoints')
 		echoesPointsLabel = goldBase:recursiveGetChildById('echoesPoints')
 	end
@@ -1022,6 +1203,8 @@ function init()
 	buttonSelection = window:recursiveGetChildById('buttonSelection')
 		items = buttonSelection:recursiveGetChildById('items')
 		bestiary = buttonSelection:recursiveGetChildById('bestiary')
+		bosstiaryTabButton = buttonSelection:recursiveGetChildById('bosstiary')
+		bossSlotTabButton = buttonSelection:recursiveGetChildById('bossSlot')
 		charms = buttonSelection:recursiveGetChildById('charms')
 		map = buttonSelection:recursiveGetChildById('map')
 		houses = buttonSelection:recursiveGetChildById('houses')
@@ -1033,10 +1216,6 @@ function init()
 	end
 
 	modules.game_cyclopedia.Cyclopedia = Cyclopedia
-
-	function Cyclopedia.toggleBosstiaryTracker()
-		-- Bosstiary tracker window is not implemented in this client yet.
-	end
 
 	Keybind.new('Windows', 'Open Bosstiary Tracker', 'Alt+Shift+B', '')
 	Keybind.bind('Windows', 'Open Bosstiary Tracker', {
@@ -1064,15 +1243,56 @@ function init()
 			end
 		}
 	})
+	Keybind.new('Windows', 'Open Bosstiary', '', '')
+	Keybind.bind('Windows', 'Open Bosstiary', {
+		{
+			type = KEY_DOWN,
+			callback = function()
+				if not g_game.isOnline() or not isBosstiaryFeatureEnabled() then
+					return
+				end
+				show('bosstiary')
+			end
+		}
+	})
+	Keybind.new('Windows', 'Open Boss Slots', '', '')
+	Keybind.bind('Windows', 'Open Boss Slots', {
+		{
+			type = KEY_DOWN,
+			callback = function()
+				if not g_game.isOnline() or not isBosstiaryFeatureEnabled() then
+					return
+				end
+				show('bossSlot')
+			end
+		}
+	})
 
 	if g_game.isOnline() then
 		connectCyclopediaCharacterEvents()
 		connectCyclopediaMoneyListeners()
+		ensureBosstiaryShortcutButtons()
 	end
 end
 
 function terminate()
 	stopCyclopediaMoneyRefresh()
+	if terminateBosstiaryProtocol then
+		terminateBosstiaryProtocol()
+	end
+	disconnectBosstiaryGameEvents()
+	if terminateBosstiaryTracker then
+		terminateBosstiaryTracker()
+	end
+	if Cyclopedia.clearBosstiaryUI then
+		Cyclopedia.clearBosstiaryUI()
+	end
+	if Cyclopedia.clearBossSlotsUI then
+		Cyclopedia.clearBossSlotsUI()
+	end
+	if Cyclopedia.clearHousesUI then
+		Cyclopedia.clearHousesUI()
+	end
 	disconnectCyclopediaMoneyListeners()
 	disconnectCyclopediaCharacterEvents()
 
@@ -1106,6 +1326,8 @@ function terminate()
 	Keybind.delete('Windows', 'Open Bosstiary Tracker')
 	Keybind.delete('Windows', 'Open Bestiary Tracker')
 	Keybind.delete('Windows', 'Open Cyclopedia')
+	Keybind.delete('Windows', 'Open Bosstiary')
+	Keybind.delete('Windows', 'Open Boss Slots')
 
 	-- Hooked opcodes
 	ProtocolGame.unregisterOpcode(0x29)
@@ -1125,6 +1347,7 @@ function terminate()
 		bestiaryTrackerButton:destroy()
 		bestiaryTrackerButton = nil
 	end
+	destroyBosstiaryShortcutButtons()
 	
 	window:destroy()
 	
@@ -1161,6 +1384,10 @@ function onCyclopediaGameStart()
 	if restoreBestiaryTracker then
 		restoreBestiaryTracker()
 	end
+	if Cyclopedia.restoreBosstiaryTracker then
+		Cyclopedia.restoreBosstiaryTracker()
+	end
+	ensureBosstiaryShortcutButtons()
 	if Cyclopedia.Items and Cyclopedia.Items.loadJson then
 		Cyclopedia.Items.loadJson()
 	end
@@ -1202,6 +1429,16 @@ function onCyclopediaGameEnd()
 	if onBestiaryGameEnd then
 		onBestiaryGameEnd()
 	end
+	if Cyclopedia.onBosstiaryTrackerGameEnd then
+		Cyclopedia.onBosstiaryTrackerGameEnd()
+	end
+
+	if Cyclopedia.clearBosstiaryUI then
+		Cyclopedia.clearBosstiaryUI()
+	end
+	if Cyclopedia.clearBossSlotsUI then
+		Cyclopedia.clearBossSlotsUI()
+	end
 end
 
 local function releaseCyclopediaKeyboardCapture()
@@ -1234,6 +1471,7 @@ function hide()
 	setItemsTabLayout(false)
 	releaseCyclopediaKeyboardCapture()
 	window:hide()
+	syncBosstiaryShortcutButtons()
 end
 
 function toggle(type)
@@ -1301,6 +1539,8 @@ function show(type)
 	if type == "magicalArchives" and Cyclopedia.releaseMagicalArchivesInput then
 		Cyclopedia.releaseMagicalArchivesInput()
 	end
+
+	syncBosstiaryShortcutButtons()
 end
 
 function Cyclopedia.openBestiaryMonster(raceId)
@@ -1350,7 +1590,7 @@ function toggleTracker()
 end
 
 local function getCyclopediaTabButtons()
-	return { items, bestiary, charms, map, houses, character, magicalArchives }
+	return { items, bestiary, charms, map, bosstiaryTabButton, bossSlotTabButton, houses, character, magicalArchives }
 end
 
 local function resetCyclopediaTabButtons()
@@ -1417,6 +1657,12 @@ function ensureCyclopediaTabContent(type)
 		end
 	elseif type == "magicalArchives" and showMagicalArchives then
 		showMagicalArchives()
+	elseif type == "bosstiary" and showBosstiary then
+		showBosstiary()
+	elseif type == "bossSlot" and showBossSlot then
+		showBossSlot()
+	elseif type == "houses" and showHouses then
+		showHouses()
 	end
 
 	if Cyclopedia.setGoldBaseForTab then
@@ -1490,6 +1736,9 @@ function toggleWindow(type, isBackNavigation)
 		initMap(contentContainer)
 	elseif (type == "houses") then
 		activateTab(houses)
+		if showHouses then
+			showHouses()
+		end
 	elseif (type == "character") then
 		activateTab(character)
 		if showCharacter then
@@ -1500,11 +1749,22 @@ function toggleWindow(type, isBackNavigation)
 		if showMagicalArchives then
 			showMagicalArchives()
 		end
+	elseif (type == "bosstiary") then
+		activateTab(bosstiaryTabButton)
+		if showBosstiary then
+			showBosstiary()
+		end
+	elseif (type == "bossSlot") then
+		activateTab(bossSlotTabButton)
+		if showBossSlot then
+			showBossSlot()
+		end
 	end
 
 	Cyclopedia.setGoldBaseForTab(type)
 	setWindowBottomBarForTab(type)
 	updateBackButton()
+	syncBosstiaryShortcutButtons()
 end
 
 function isVisible()

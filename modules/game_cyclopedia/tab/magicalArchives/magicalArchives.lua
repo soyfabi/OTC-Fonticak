@@ -2011,10 +2011,6 @@ function showMagicalArchives()
 
 	UI:show()
 
-	if Cyclopedia.setGoldBaseVisible then
-		Cyclopedia.setGoldBaseVisible(false)
-	end
-
 	if firstOpen then
 		resetFiltersToDefault()
 

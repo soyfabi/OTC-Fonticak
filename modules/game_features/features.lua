@@ -92,6 +92,9 @@ controller:registerEvents(g_game, {
             g_game.enableFeature(GameMapDrawGroundFirst)
             -- Match Fonticak server spell list / 0xA4 cooldown (U16 spell ids).
             g_game.enableFeature(GameUshortSpell)
+            -- Forgotten Server bosstiary (0xAE/0xAF/0xB0, tracker raceId u32).
+            g_game.enableFeature(GameBosstiary)
+            g_game.enableFeature(GameBosstiaryTracker)
         end
 
         if version >= 862 then

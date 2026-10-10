@@ -83,10 +83,11 @@ UIWidget
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: parent.top
-      margin-left: 70
-      margin-right: 18
-      margin-top: 45
-      height: 40
+      margin-left: 76
+      margin-right: 12
+      margin-top: 42
+      height: 46
+      font: verdana-11px-antialised
       color: #c0c0c0
       text-align: center
       text-wrap: true

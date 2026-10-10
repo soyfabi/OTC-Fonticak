@@ -846,6 +846,7 @@ UIWidget
 
   UIWidget
     id: blackBG01
+    visible: false
     image-source: /images/modern_ui/image1015925
     image-border: 1
     size: 110 20
@@ -871,6 +872,7 @@ UIWidget
 
   UIWidget
     id: blackBG02
+    visible: false
     image-source: /images/modern_ui/image1015925
     image-border: 1
     size: 110 20
@@ -901,6 +903,7 @@ UIWidget
 
   UIWidget
     id: blackBG03
+    visible: false
     image-source: /images/modern_ui/image1015925
     image-border: 1
     size: 110 20
@@ -935,8 +938,7 @@ UIWidget
     text: Bestiary Tracker
     font: cipsoftFont
     anchors.bottom: parent.bottom
-    anchors.left: blackBG03.right
-    margin-left: 6
+    anchors.left: parent.left
     margin-bottom: 1
 
   Button

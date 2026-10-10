@@ -160,6 +160,89 @@ local function getBestiaryProgressFromMessage(message)
     return nil, nil
 end
 
+local function getBosstiaryProgressFromMessage(message)
+    if not message or not message:find("osstiary", 1, true) then
+        return nil, nil
+    end
+
+    local creatureName = message:match("[Yy]ou unlocked the [Bb]osstiary entry for ([^%.]+)")
+    if creatureName then
+        creatureName = cleanCreatureName(creatureName)
+        return message, creatureName
+    end
+
+    creatureName = message:match("[Yy]ou have unlocked the [Bb]osstiary entry for ([^%.]+)")
+    if creatureName then
+        creatureName = cleanCreatureName(creatureName)
+        return message, creatureName
+    end
+
+    creatureName = message:match("[Yy]ou unlocked your [Bb]osstiary entry for ([^%.]+)")
+    if creatureName then
+        creatureName = cleanCreatureName(creatureName)
+        return message, creatureName
+    end
+
+    creatureName = message:match("[Yy]ou advanced your [Bb]osstiary entry for ([^%.]+)")
+    if creatureName then
+        creatureName = cleanCreatureName(creatureName)
+        creatureName = creatureName:gsub("%s+and earned.*$", ""):gsub("%s+$", "")
+        return message, creatureName
+    end
+
+    creatureName = message:match("[Yy]ou have advanced your [Bb]osstiary entry for ([^%.]+)")
+    if creatureName then
+        creatureName = cleanCreatureName(creatureName)
+        creatureName = creatureName:gsub("%s+and earned.*$", ""):gsub("%s+$", "")
+        return message, creatureName
+    end
+
+    creatureName = message:match("[Yy]ou [^%s]+ the [Bb]osstiary entry for ([^%.]+)")
+    if creatureName then
+        creatureName = cleanCreatureName(creatureName)
+        creatureName = creatureName:gsub("%s+and earned.*$", ""):gsub("%s+$", "")
+        return message, creatureName
+    end
+
+    return nil, nil
+end
+
+local function findBosstiaryOutfitByName(name)
+    if not name or name == "" then
+        return nil, nil
+    end
+
+    local raceId, raceOutfit = findBestiaryOutfitByName(name)
+    if raceId and raceOutfit then
+        return raceId, raceOutfit
+    end
+
+    local cleanName = name:lower():gsub("^['\"%s]+", ""):gsub("['\"%s%.]+$", "")
+    local cyclopedia = modules.game_cyclopedia
+    local bosstiary = cyclopedia and cyclopedia.Cyclopedia and cyclopedia.Cyclopedia.Bosstiary
+    if bosstiary and bosstiary.NamesByRaceId then
+        for rid, bossName in pairs(bosstiary.NamesByRaceId) do
+            if bossName and bossName:lower():gsub("^['\"%s]+", ""):gsub("['\"%s%.]+$", "") == cleanName then
+                local outfit = bosstiary.OutfitsByRaceId and bosstiary.OutfitsByRaceId[rid]
+                if outfit and (outfit.type or 0) > 0 then
+                    return rid, outfit
+                end
+                return rid, nil
+            end
+        end
+    end
+
+    if bosstiary and bosstiary.TrackerMetaByRaceId then
+        for rid, meta in pairs(bosstiary.TrackerMetaByRaceId) do
+            if meta.name and meta.name:lower():gsub("^['\"%s]+", ""):gsub("['\"%s%.]+$", "") == cleanName then
+                return rid, meta.outfit
+            end
+        end
+    end
+
+    return raceId, raceOutfit
+end
+
 local function onNotificationTextMessage(mode, message)
     local lowerMessage = message and message:lower() or ""
     if lowerMessage:find("soul", 1, true) and
@@ -183,8 +266,16 @@ local function onNotificationTextMessage(mode, message)
         showAchievementBanner(achievementName)
     end
 
+    local bosstiaryProgress, bosstiaryCreature = getBosstiaryProgressFromMessage(message)
+    if bosstiaryProgress then
+        local raceId, raceOutfit = findBosstiaryOutfitByName(bosstiaryCreature)
+        if showBosstiaryBanner then
+            showBosstiaryBanner(raceId or 0, bosstiaryProgress, raceOutfit)
+        end
+    end
+
     local bestiaryProgress, creatureName = getBestiaryProgressFromMessage(message)
-    if bestiaryProgress then
+    if bestiaryProgress and not bosstiaryProgress then
         local raceId, raceOutfit = findBestiaryOutfitByName(creatureName)
         showBestiaryBanner(raceId or 0, bestiaryProgress, raceOutfit)
     end

@@ -76,6 +76,12 @@ Keybind = {
     ["Windows_Show/hide Bestiary Tracker"] = { "Windows", "Open Bestiary Tracker" },
     ["Windows_show/hide bosstiary tracker"] = { "Windows", "Open Bosstiary Tracker" },
     ["Windows_Show/hide Bosstiary Tracker"] = { "Windows", "Open Bosstiary Tracker" },
+    ["Windows_show/hide bosstiary"] = { "Windows", "Open Bosstiary" },
+    ["Windows_Show/hide Bosstiary"] = { "Windows", "Open Bosstiary" },
+    ["Windows_show/hide boss slots"] = { "Windows", "Open Boss Slots" },
+    ["Windows_Show/hide Boss Slots"] = { "Windows", "Open Boss Slots" },
+    ["Windows_show/hide boss slots dialog"] = { "Windows", "Open Boss Slots" },
+    ["Windows_Show/hide Boss Slots Dialog"] = { "Windows", "Open Boss Slots" },
   },
 
   legacyPresetKeysMigrated = false
@@ -1221,6 +1227,9 @@ end
 Keybind.controlButtonHotkeys = {
   cyclopediaButton = { 'Windows', 'Open Cyclopedia' },
   bestiaryTrackerButton = { 'Windows', 'Open Bestiary Tracker' },
+  bosstiary = { 'Windows', 'Open Bosstiary' },
+  bossSlot = { 'Windows', 'Open Boss Slots' },
+  bosstiaryTrackerButton = { 'Windows', 'Open Bosstiary Tracker' },
   preyButton = { 'Dialogs', 'Open Prey Dialog' },
   preyTrackerButton = { 'Windows', 'Open Prey Tracker' },
   wheelButton = { 'Windows', 'Open Wheel of Destiny' },

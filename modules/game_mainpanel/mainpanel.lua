@@ -51,6 +51,9 @@ ControlButtonNames = {
     preyButton = 'Prey Dialog',
     cyclopediaButton = 'Cyclopedia',
     bestiaryTrackerButton = 'Bestiary Tracker',
+    bosstiary = 'Bosstiary',
+    bossSlot = 'Boss Slots',
+    bosstiaryTrackerButton = 'Bosstiary Tracker',
     botButton = 'Bot Hub',
     lensHelpButton = 'Client Help',
 }
