@@ -32,6 +32,20 @@ Cyclopedia.Bosstiary = Cyclopedia.Bosstiary or {}
 Cyclopedia.Bosstiary.TrackerMetaByRaceId = Cyclopedia.Bosstiary.TrackerMetaByRaceId or {}
 Cyclopedia._bosstiaryTrackerOverrides = Cyclopedia._bosstiaryTrackerOverrides or {}
 
+local function bosstiaryHasCachedList()
+	if not Cyclopedia.Bosstiary or not Cyclopedia.Bosstiary.Creatures then
+		return false
+	end
+
+	for _, page in pairs(Cyclopedia.Bosstiary.Creatures) do
+		if page and #page > 0 then
+			return true
+		end
+	end
+
+	return false
+end
+
 local function ensureBosstiaryState()
 	Cyclopedia.Bosstiary = Cyclopedia.Bosstiary or {}
 	if Cyclopedia.Bosstiary.Page == nil then
@@ -59,6 +73,17 @@ function Cyclopedia.clearBosstiaryUI()
 	end
 
 	UI = nil
+
+	if Cyclopedia.Bosstiary then
+		Cyclopedia.Bosstiary.Creatures = {}
+		Cyclopedia.Bosstiary.NotVisibleCreatures = {}
+		Cyclopedia.Bosstiary.PendingServerData = nil
+		Cyclopedia.Bosstiary.Page = 1
+		Cyclopedia.Bosstiary.TotalPages = 1
+	end
+
+	Cyclopedia._bosstiarySoftRefresh = false
+	Cyclopedia._suppressBosstiaryListReload = false
 end
 
 function showBosstiary()
@@ -66,6 +91,7 @@ function showBosstiary()
 	if UI and not UI:isDestroyed() then
 		UI:show()
 		ensureBosstiaryState()
+		Cyclopedia._bosstiarySoftRefresh = bosstiaryHasCachedList()
 		requestBosstiaryWindow()
 		if Cyclopedia.setBosstiaryTabChrome then
 			Cyclopedia.setBosstiaryTabChrome()
@@ -748,7 +774,22 @@ function Cyclopedia.LoadBosstiaryCreatures(data)
 		return
 	end
 
+	if Cyclopedia._bosstiarySoftRefresh and UI and not UI:isDestroyed() and bosstiaryHasCachedList() then
+		Cyclopedia._bosstiarySoftRefresh = false
+		Cyclopedia.ingestBosstiaryServerData(data)
+		Cyclopedia.applyBosstiaryTrackerStateToList(data)
+		if Cyclopedia.syncBosstiaryTrackerFromEntries then
+			Cyclopedia.syncBosstiaryTrackerFromEntries(data)
+		end
+		if Cyclopedia._bossSlotsAwaitingBosstiaryData and Cyclopedia.refreshBossSlotsFromCachedBosstiary then
+			Cyclopedia._bossSlotsAwaitingBosstiaryData = false
+			Cyclopedia.refreshBossSlotsFromCachedBosstiary()
+		end
+		return
+	end
+
 	Cyclopedia._suppressBosstiaryListReload = false
+	Cyclopedia._bosstiarySoftRefresh = false
 	Cyclopedia.ingestBosstiaryServerData(data)
 
 	if not UI then

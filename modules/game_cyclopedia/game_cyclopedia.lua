@@ -567,7 +567,8 @@ local function getCyclopediaBankGold()
 	return player:getResourceBalance(ResourceBank or 0) or 0
 end
 
-local function getCyclopediaInventoryGold()
+local function getCyclopediaInventoryGold(options)
+	options = options or {}
 	local player = g_game.getLocalPlayer()
 
 	if not player then
@@ -575,8 +576,14 @@ local function getCyclopediaInventoryGold()
 	end
 
 	local resourceGold = getCyclopediaEquippedGoldResource(player)
+	local cacheGold = getCyclopediaCachedCarriedCoinGold(player)
+
+	if options.fullScan == false then
+		return math.max(resourceGold, cacheGold or 0)
+	end
+
 	local liveGold = getCyclopediaLiveCarriedCoinGold(player)
-	local cacheGold = getCyclopediaCachedCarriedCoinGold(player) or liveGold
+	cacheGold = cacheGold or liveGold
 
 	-- After a drop, equipped-gold from the server often lags while slots/containers already updated.
 	if liveGold < resourceGold then
@@ -587,9 +594,9 @@ local function getCyclopediaInventoryGold()
 	return math.max(resourceGold, cacheGold, liveGold)
 end
 
-local function getCyclopediaPlayerMoney()
+local function getCyclopediaPlayerMoney(options)
 	local bankGold = getCyclopediaBankGold()
-	local inventoryMoney = getCyclopediaInventoryGold()
+	local inventoryMoney = getCyclopediaInventoryGold(options)
 	local total = bankGold + inventoryMoney
 
 	if total > 0 then
@@ -633,16 +640,16 @@ local function isCyclopediaGoldBarActive()
 	return true
 end
 
-local function updateCyclopediaMoneyDisplay()
+local function updateCyclopediaMoneyDisplay(options)
 	if not isCyclopediaGoldBarActive() then
 		return
 	end
 
 	if goldValueLabel and not goldValueLabel:isDestroyed() then
-		goldValueLabel:setText(formatCyclopediaGold(getCyclopediaPlayerMoney()))
+		goldValueLabel:setText(formatCyclopediaGold(getCyclopediaPlayerMoney(options)))
 	end
 
-	if Cyclopedia.refreshBossSlotsRemoveAffordability then
+	if Cyclopedia.refreshBossSlotsRemoveAffordability and getCurrentType() == "bossSlot" then
 		Cyclopedia.refreshBossSlotsRemoveAffordability()
 	end
 
@@ -693,7 +700,7 @@ local function isCyclopediaCoinItem(item)
 end
 
 local function refreshCyclopediaMoneyNow()
-	updateCyclopediaMoneyDisplay()
+	updateCyclopediaMoneyDisplay({ fullScan = true })
 end
 
 local function onCyclopediaTileThingChange(tile, thing)
@@ -709,7 +716,7 @@ local function cyclopediaMoneyRefreshTick()
 		return
 	end
 
-	updateCyclopediaMoneyDisplay()
+	updateCyclopediaMoneyDisplay({ fullScan = false })
 	moneyRefreshEvent = scheduleEvent(cyclopediaMoneyRefreshTick, MONEY_REFRESH_INTERVAL)
 end
 
@@ -1425,6 +1432,13 @@ function onCyclopediaGameEnd()
 	if Cyclopedia.onBosstiaryTrackerGameEnd then
 		Cyclopedia.onBosstiaryTrackerGameEnd()
 	end
+
+	if Cyclopedia.clearBosstiaryUI then
+		Cyclopedia.clearBosstiaryUI()
+	end
+	if Cyclopedia.clearBossSlotsUI then
+		Cyclopedia.clearBossSlotsUI()
+	end
 end
 
 local function releaseCyclopediaKeyboardCapture()
@@ -1673,18 +1687,6 @@ function toggleWindow(type, isBackNavigation)
 
 	if currentType == "magicalArchives" and Cyclopedia.clearMagicalArchivesUI then
 		Cyclopedia.clearMagicalArchivesUI()
-	end
-
-	if currentType == "bosstiary" and Cyclopedia.clearBosstiaryUI then
-		Cyclopedia.clearBosstiaryUI()
-	end
-
-	if currentType == "bossSlot" and Cyclopedia.clearBossSlotsUI then
-		Cyclopedia.clearBossSlotsUI()
-	end
-
-	if currentType == "houses" and Cyclopedia.clearHousesUI then
-		Cyclopedia.clearHousesUI()
 	end
 
 	if not isBackNavigation and currentType then
