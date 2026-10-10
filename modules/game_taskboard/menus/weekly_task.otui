@@ -61,16 +61,6 @@ DeliverySlots < Panel
   font: verdana-11px-monochrome
   focusable: false
 
-  Label
-    id: deliveryItemNameLabel
-    anchors.top: parent.top
-    anchors.horizontalCenter: parent.horizontalCenter
-    margin-top: 5
-    font: verdana-11px-monochrome
-    color: $var-text-cip-color
-    text-auto-resize: true
-    text-align: center
-
   UIItem
     id: itemIcon
     anchors.top: parent.top
@@ -125,6 +115,16 @@ DeliverySlots < Panel
 
     $disabled:
       image-clip: 0 40 43 20
+
+  UIWidget
+    id: deliveryCompletedIcon
+    size: 12 9
+    anchors.top: currentDeliveryLabel.top
+    anchors.left: currentDeliveryLabel.right
+    margin-top: 1
+    margin-left: 3
+    image-source: /game_cyclopedia/images/checkmark-icon
+    visible: false
   
 WeeklyPanel < Panel
   visible: false
@@ -151,25 +151,6 @@ WeeklyPanel < Panel
     width: 465
     height: 347
 
-    ScrollablePanel
-      id: killSlotsList
-      anchors.top: parent.top
-      anchors.bottom: parent.bottom
-      anchors.left: parent.left
-      anchors.right: parent.right
-      focusable: false
-      margin-top: 6
-      margin-bottom: 6
-      margin-left: 6
-      margin-right: 2
-
-      layout:
-        type: grid
-        cell-size: 144 100
-        cell-spacing-width: 5
-        cell-spacing-height: 4
-        flow: true
-      
     UIButton
       id: unlockKillButton
       anchors.bottom: parent.bottom
@@ -182,6 +163,25 @@ WeeklyPanel < Panel
 
       $pressed:
         image-clip: 0 100 442 100
+
+    ScrollablePanel
+      id: killSlotsList
+      anchors.top: parent.top
+      anchors.bottom: unlockKillButton.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      focusable: false
+      margin-top: 6
+      margin-bottom: 4
+      margin-left: 6
+      margin-right: 2
+
+      layout:
+        type: grid
+        cell-size: 144 100
+        cell-spacing-width: 5
+        cell-spacing-height: 4
+        flow: true
   
   UIWindow
     id: deliveryTasks
@@ -203,25 +203,6 @@ WeeklyPanel < Panel
     width: 465
     height: 347
 
-    ScrollablePanel
-      id: deliverySlotsList
-      anchors.top: parent.top
-      anchors.bottom: parent.bottom
-      anchors.left: parent.left
-      anchors.right: parent.right
-      focusable: false
-      margin-top: 6
-      margin-bottom: 6
-      margin-left: 6
-      margin-right: 2
-
-      layout:
-        type: grid
-        cell-size: 144 100
-        cell-spacing-width: 5
-        cell-spacing-height: 4
-        flow: true
-      
     UIButton
       id: unlockDeliveryButton
       anchors.bottom: parent.bottom
@@ -234,6 +215,25 @@ WeeklyPanel < Panel
 
       $pressed:
         image-clip: 0 100 442 100
+
+    ScrollablePanel
+      id: deliverySlotsList
+      anchors.top: parent.top
+      anchors.bottom: unlockDeliveryButton.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      focusable: false
+      margin-top: 6
+      margin-bottom: 4
+      margin-left: 6
+      margin-right: 2
+
+      layout:
+        type: grid
+        cell-size: 144 100
+        cell-spacing-width: 5
+        cell-spacing-height: 4
+        flow: true
   
   UIWindow
     id: weeklyProgress

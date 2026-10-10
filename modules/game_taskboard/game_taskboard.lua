@@ -8,7 +8,11 @@ local TAB_SHOP = "shop"
 local CLIENT_EVENT_TYPE_BOUNTY_TASK = 11
 local BOUNTY_SHORTCUT_HIGHLIGHT_ID = "taskBoardShortcutHighlight"
 local bountyShortcutHighlightActive = false
-local TASK_BOARD_BUTTON_IMAGE = "/modules/game_taskboard/images/icon-bountytasks"
+-- Main panel uses /images/options sprites (40x20); same as Astra game_task_hunt/tasks.lua.
+local TASK_BOARD_BUTTON_IMAGE = "/images/options/button_taskboard"
+local TASK_BOARD_KEYBIND_CATEGORY = "Windows"
+local TASK_BOARD_KEYBIND_ACTION = "Open Task Board"
+local TASK_BOARD_HOTKEY = "Ctrl+Shift+U"
 local taskBoardPanelButton = nil
 
 local function toggleTaskBoardWindow()
@@ -33,6 +37,8 @@ local function ensureTaskBoardPanelButton()
 	end
 
 	if taskBoardPanelButton and not taskBoardPanelButton:isDestroyed() then
+		taskBoardPanelButton:setImageSource(TASK_BOARD_BUTTON_IMAGE)
+		taskBoardPanelButton:setImageClip("0 0 20 20")
 		TaskBoard.mainButton = taskBoardPanelButton
 		return
 	end
@@ -68,6 +74,8 @@ local function getTaskBoardMainButton()
 		return nil
 	end
 
+	button:setImageSource(TASK_BOARD_BUTTON_IMAGE)
+	button:setImageClip("0 0 20 20")
 	TaskBoard.mainButton = button
 
 	return button
@@ -301,6 +309,22 @@ function init()
 	scheduleEvent(syncBountyShortcutHighlight, 0)
 	ensureTaskBoardPanelButton()
 
+	Keybind.new(TASK_BOARD_KEYBIND_CATEGORY, TASK_BOARD_KEYBIND_ACTION, TASK_BOARD_HOTKEY, "")
+	Keybind.bind(TASK_BOARD_KEYBIND_CATEGORY, TASK_BOARD_KEYBIND_ACTION, {
+		{
+			type = KEY_DOWN,
+			callback = function()
+				if not g_game.isOnline() then
+					return
+				end
+				toggleTaskBoardWindow()
+			end
+		}
+	})
+	if Keybind.refreshControlButtonTooltips then
+		Keybind.refreshControlButtonTooltips()
+	end
+
 	modules.game_taskboard.TaskBoard = TaskBoard
 end
 
@@ -316,6 +340,7 @@ function terminate()
 	TaskBoard.BountyTask:terminate()
 	TaskBoard.TaskShop:terminate()
 	TaskBoard.WeeklyTask:terminate()
+	Keybind.delete(TASK_BOARD_KEYBIND_CATEGORY, TASK_BOARD_KEYBIND_ACTION)
 end
 
 function TaskBoard:toggleWindow(mode)

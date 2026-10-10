@@ -8,6 +8,18 @@ WeeklyTask.mainWindow = nil
 WeeklyTask.isWeeklyTaskActive = false
 
 local lastWeeklyTasksState
+local WEEKLY_UNLOCK_BUTTON_HEIGHT = 100
+
+local function syncWeeklyUnlockButton(unlockButton, showUnlock)
+	if not unlockButton then
+		return
+	end
+
+	unlockButton:setVisible(showUnlock)
+	if unlockButton.setHeight then
+		unlockButton:setHeight(showUnlock and WEEKLY_UNLOCK_BUTTON_HEIGHT or 0)
+	end
+end
 
 local function copyWeeklyTasksState(state)
 	if type(state) ~= "table" then
@@ -201,159 +213,50 @@ local function fillKillSlot(panel, name, current, target, raceData)
 	end
 end
 
-local function weeklyDeliveryCandidateIds(entry)
-	local ids = {}
-	local seen = {}
-
-	local function push(id)
-		id = tonumber(id) or 0
-		if id > 0 and not seen[id] then
-			seen[id] = true
-			ids[#ids + 1] = id
-		end
-	end
-
-	push(entry.taskClientId)
-	push(entry.clientId)
-	push(entry.taskItemId)
-
-	return ids
-end
-
-local function weeklyDeliveryDisplayItemId(entry)
-	local ids = weeklyDeliveryCandidateIds(entry)
-	return ids[1] or 0
-end
-
-local function isUsableItemName(name)
-	return name and name ~= "" and name:lower() ~= "unnamed"
-end
-
-local function weeklyDeliveryNameFromItem(item)
-	if not item then
-		return ""
-	end
-
-	if item.getMarketData then
-		local marketData = item:getMarketData()
-		if marketData and isUsableItemName(marketData.name) then
-			return marketData.name
-		end
-	end
-
-	if item.getName then
-		local name = item:getName()
-		if isUsableItemName(name) then
-			return name
-		end
-	end
-
-	return ""
-end
-
-local function weeklyDeliveryNameFromClientId(clientId)
-	clientId = tonumber(clientId) or 0
-	if clientId <= 0 then
-		return ""
-	end
-
-	if g_things.findItemTypeByClientId then
-		local itemType = g_things.findItemTypeByClientId(clientId)
-		if itemType and itemType.getName then
-			local name = itemType:getName()
-			if isUsableItemName(name) then
-				return name
-			end
-		end
-	end
-
-	if g_things.getCyclopediaItemName then
-		local name = g_things.getCyclopediaItemName(clientId)
-		if isUsableItemName(name) then
-			return name
-		end
-	end
-
-	local thingType = g_things.getThingType(clientId, ThingCategoryItem)
-	if thingType then
-		if thingType.getMarketData then
-			local marketData = thingType:getMarketData()
-			if marketData and isUsableItemName(marketData.name) then
-				return marketData.name
-			end
-		end
-		if thingType.getName then
-			local name = thingType:getName()
-			if isUsableItemName(name) then
-				return name
-			end
-		end
-	end
-
-	return ""
-end
-
-local function weeklyDeliveryNameFromServerId(serverId)
-	serverId = tonumber(serverId) or 0
-	if serverId <= 0 then
-		return ""
-	end
-
-	if g_things.getItemType then
-		local itemType = g_things.getItemType(serverId)
-		if itemType then
-			if itemType.getName then
-				local name = itemType:getName()
-				if isUsableItemName(name) then
-					return name
-				end
-			end
-			if itemType.getClientId then
-				local name = weeklyDeliveryNameFromClientId(itemType:getClientId())
-				if name ~= "" then
-					return name
-				end
-			end
-		end
-	end
-
-	return weeklyDeliveryNameFromClientId(serverId)
-end
-
-local function weeklyDeliveryItemName(entry, itemWidget)
-	if itemWidget and itemWidget.getItem then
-		local name = weeklyDeliveryNameFromItem(itemWidget:getItem())
-		if name ~= "" then
-			return name
-		end
-	end
-
+local function weeklyDeliveryPreviewItemId(entry)
 	local clientId = tonumber(entry.taskClientId or entry.clientId) or 0
 	local serverId = tonumber(entry.taskItemId) or 0
-
-	local name = weeklyDeliveryNameFromClientId(clientId)
-	if name ~= "" then
-		return name
+	if clientId > 0 then
+		return clientId, serverId
 	end
+	return serverId, serverId
+end
 
-	name = weeklyDeliveryNameFromServerId(serverId)
-	if name ~= "" then
-		return name
+local function weeklyDeliveryItemName(entry)
+	local previewItemId, serverItemId = weeklyDeliveryPreviewItemId(entry)
+	local name = getItemServerName(serverItemId)
+	if name == "" then
+		name = getItemServerName(previewItemId)
 	end
+	return name
+end
 
-	for _, itemId in ipairs(weeklyDeliveryCandidateIds(entry)) do
-		if Item and Item.create then
-			local ok, item = pcall(Item.create, itemId)
-			if ok then
-				name = weeklyDeliveryNameFromItem(item)
-				if name ~= "" then
-					return name
-				end
-			end
+local deliveryNameCatalogRefreshScheduled = false
+
+local function scheduleDeliverySlotsRefreshAfterCatalog()
+	if deliveryNameCatalogRefreshScheduled then
+		return
+	end
+	deliveryNameCatalogRefreshScheduled = true
+	scheduleEvent(function()
+		deliveryNameCatalogRefreshScheduled = false
+		if lastWeeklyTasksState then
+			buildDeliverySlots(lastWeeklyTasksState)
 		end
-	end
+	end, 700)
+end
 
-	return ""
+local function ensureDeliveryItemNameCatalog()
+	if not modules.game_market or not modules.game_market.requestMarketItemsForCyclopedia then
+		return
+	end
+	if modules.game_market.getCachedCustomMarketItems and modules.game_market.getCachedCustomMarketItems() then
+		return
+	end
+	local ready = modules.game_market.requestMarketItemsForCyclopedia(true)
+	if not ready then
+		scheduleDeliverySlotsRefreshAfterCatalog()
+	end
 end
 
 local function fillDeliverySlot(panel, entry)
@@ -361,32 +264,29 @@ local function fillDeliverySlot(panel, entry)
 		return
 	end
 
+	local previewItemId = weeklyDeliveryPreviewItemId(entry)
 	local itemIcon = panel:getChildById("itemIcon")
-	local displayItemId = weeklyDeliveryDisplayItemId(entry)
 
-	if itemIcon and displayItemId > 0 then
-		itemIcon:setItemId(displayItemId)
+	if itemIcon and previewItemId > 0 then
+		itemIcon:setItemId(previewItemId)
 	end
 
-	local itemName = capitalizeWords(weeklyDeliveryItemName(entry, itemIcon))
-
-	if #itemName > 22 then
-		itemName = itemName:sub(1, 22) .. "..."
-	end
-
+	local itemName = short_text(weeklyDeliveryItemName(entry), 20)
 	panel:setText(itemName)
 
-	local nameLabel = panel:getChildById("deliveryItemNameLabel")
-	if nameLabel then
-		nameLabel:setText(itemName)
+	if itemIcon and itemName ~= "" then
+		itemIcon:setTooltip(itemName)
 	end
 
 	local currentLabel = panel:getChildById("currentDeliveryLabel")
 
-	if currentLabel then
-		currentLabel:setText(TaskBoard:formatNumberWithCommas(entry.count or 0))
+	local totalItems = tonumber(entry.totalItems) or 0
+	local deliveredCount = tonumber(entry.count) or 0
 
-		if entry.count >= entry.totalItems then
+	if currentLabel then
+		currentLabel:setText(TaskBoard:formatNumberWithCommas(deliveredCount))
+
+		if totalItems > 0 and deliveredCount >= totalItems then
 			currentLabel:setColor("#44ad25")
 		else
 			currentLabel:setColor("#d33c3c")
@@ -394,19 +294,27 @@ local function fillDeliverySlot(panel, entry)
 	end
 
 	local totalLabel = panel:getChildById("totalDeliveryLabel")
+	local isDelivered = (entry.completed or 0) ~= 0
+	local isReadyToDeliver = totalItems > 0 and deliveredCount >= totalItems
 
 	if totalLabel then
-		totalLabel:setText(TaskBoard:formatNumberWithCommas(entry.totalItems or 0))
+		totalLabel:setText(TaskBoard:formatNumberWithCommas(totalItems))
+	end
+
+	local completedIcon = panel:getChildById("deliveryCompletedIcon")
+
+	if completedIcon then
+		completedIcon:setImageSource(DELIVERY_COMPLETED_ICON)
+		completedIcon:setVisible(isReadyToDeliver or isDelivered)
 	end
 
 	local deliverButton = panel:getChildById("deliverButton")
 
 	if deliverButton then
 		local taskId = entry.taskId or 0
-		local isCompleted = (entry.completed or 0) ~= 0
-		local hasItems = (entry.count or 0) > 0
+		local hasItems = deliveredCount > 0
 
-		deliverButton:setEnabled(hasItems and not isCompleted)
+		deliverButton:setEnabled(hasItems and not isDelivered)
 
 		function deliverButton.onClick()
 			g_game.sendDeliveryTask(taskId)
@@ -415,6 +323,7 @@ local function fillDeliverySlot(panel, entry)
 end
 
 local WEEKLY_KILL_TRACKER_MAX_SLOTS = 9
+local DELIVERY_COMPLETED_ICON = "/game_cyclopedia/images/checkmark-icon"
 local WEEKLY_ANY_CREATURE_ICON = "/modules/game_taskboard/images/icon-arbitrarymonster"
 local WEEKLY_CREATURETRACK_NO_CREATURE_IMG = "/images/game/prey/prey-noprey-small"
 local WEEKLY_TRACKER_TOOLTIP_FOOTER = "Click in this window to open the Task Board dialog."
@@ -605,13 +514,7 @@ local function buildKillSlots(weeklyTasks)
 
 	local unlockKillButton = killSlotsList:getParent():getChildById("unlockKillButton")
 
-	if unlockKillButton then
-		if #killEntries > 5 then
-			unlockKillButton:setVisible(false)
-		else
-			unlockKillButton:setVisible(true)
-		end
-	end
+	syncWeeklyUnlockButton(unlockKillButton, #killEntries <= 5)
 
 	local maxSpeciesSlots = WEEKLY_KILL_TRACKER_MAX_SLOTS - 1
 
@@ -653,17 +556,14 @@ local function buildDeliverySlots(weeklyTasks)
 		return
 	end
 
+	ensureDeliveryItemNameCatalog()
+
 	deliverySlotsList:destroyChildren()
 
 	local unlockDeliveryButton = deliverySlotsList:getParent():getChildById("unlockDeliveryButton")
+	local deliveryCount = weeklyTasks.deliveryEntries and #weeklyTasks.deliveryEntries or 0
 
-	if unlockDeliveryButton then
-		if #weeklyTasks.deliveryEntries > 6 then
-			unlockDeliveryButton:setVisible(false)
-		else
-			unlockDeliveryButton:setVisible(true)
-		end
-	end
+	syncWeeklyUnlockButton(unlockDeliveryButton, deliveryCount <= 6)
 
 	if weeklyTasks.deliveryEntries then
 		for _, entry in ipairs(weeklyTasks.deliveryEntries) do

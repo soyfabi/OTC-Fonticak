@@ -27,6 +27,7 @@ BountyCreatureRow < UIWidget
 
 PreferredSlotRow < UIWidget
   height: 74
+  width: 265
 
   UIWidget
     id: preferredSlot
@@ -94,12 +95,22 @@ PreferredSlotRow < UIWidget
       text-auto-resize: true
  
 
+  QtButton
+    id: unwantedButton
+    text: Assign
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin-top: 17
+    margin-right: 2
+    size: 45 21
+    color: white
+
   UIWidget
     id: unwantedSlot
     anchors.top: parent.top
-    anchors.left: preferredButton.right
+    anchors.right: unwantedButton.left
     margin-top: 12
-    margin-left: 19
+    margin-right: 8
     size: 64 64
     padding: 1
     border-width-top: 1
@@ -116,16 +127,6 @@ PreferredSlotRow < UIWidget
       size: 32 32
       anchors.centerIn: parent
       phantom: true
-
-  QtButton
-    id: unwantedButton
-    text: Assign
-    anchors.top: unwantedSlot.top
-    anchors.left: unwantedSlot.right
-    margin-top: 5
-    margin-left: 10
-    size: 45 21
-    color: white
 
   Panel
     id: unwantedCostPanel

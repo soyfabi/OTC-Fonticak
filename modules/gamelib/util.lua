@@ -172,3 +172,129 @@ end
 
 _G.short_text = short_text
 
+local function isUsableItemDisplayName(name)
+	return name and name ~= "" and name:lower() ~= "unnamed"
+end
+
+local function lookupServerMarketItemName(itemId)
+	if modules.game_market and modules.game_market.getCachedCustomMarketItems then
+		local serverItems = modules.game_market.getCachedCustomMarketItems()
+		if serverItems then
+			for i = 1, #serverItems do
+				local entry = serverItems[i]
+				if entry and entry.id == itemId and isUsableItemDisplayName(entry.name) then
+					return entry.name
+				end
+			end
+		end
+	end
+	return ""
+end
+
+local function lookupThingTypeItemName(itemId)
+	if itemId <= 0 then
+		return ""
+	end
+
+	if g_things.findItemTypeByClientId then
+		local itemType = g_things.findItemTypeByClientId(itemId)
+		if itemType and itemType.getName then
+			local name = itemType:getName()
+			if isUsableItemDisplayName(name) then
+				return name
+			end
+		end
+	end
+
+	if g_things.getItemType then
+		local itemType = g_things.getItemType(itemId)
+		if itemType then
+			if itemType.getName then
+				local name = itemType:getName()
+				if isUsableItemDisplayName(name) then
+					return name
+				end
+			end
+			if itemType.getClientId and g_things.findItemTypeByClientId then
+				local clientType = g_things.findItemTypeByClientId(itemType:getClientId())
+				if clientType and clientType.getName then
+					local name = clientType:getName()
+					if isUsableItemDisplayName(name) then
+						return name
+					end
+				end
+			end
+		end
+	end
+
+	if g_things.getCyclopediaItemName then
+		local name = g_things.getCyclopediaItemName(itemId)
+		if isUsableItemDisplayName(name) then
+			return name
+		end
+	end
+
+	local thingType = g_things.getThingType(itemId, ThingCategoryItem)
+	if thingType then
+		if Cyclopedia and Cyclopedia.getItemDisplayName then
+			local name = Cyclopedia.getItemDisplayName(thingType)
+			if isUsableItemDisplayName(name) then
+				return name
+			end
+		end
+		if thingType.getMarketData then
+			local marketData = thingType:getMarketData()
+			if marketData and isUsableItemDisplayName(marketData.name) then
+				return marketData.name
+			end
+		end
+		if thingType.getName then
+			local name = thingType:getName()
+			if isUsableItemDisplayName(name) then
+				return name
+			end
+		end
+	end
+
+	return ""
+end
+
+function getItemServerName(itemId)
+	itemId = tonumber(itemId) or 0
+	if itemId <= 0 then
+		return ""
+	end
+
+	local name = lookupServerMarketItemName(itemId)
+	if name ~= "" then
+		return string.capitalize(name)
+	end
+
+	name = lookupThingTypeItemName(itemId)
+	if name ~= "" then
+		return string.capitalize(name)
+	end
+
+	if Item and Item.create then
+		local ok, item = pcall(Item.create, itemId)
+		if ok and item then
+			if item.getMarketData then
+				local marketData = item:getMarketData()
+				if marketData and isUsableItemDisplayName(marketData.name) then
+					return string.capitalize(marketData.name)
+				end
+			end
+			if item.getName then
+				local itemName = item:getName()
+				if isUsableItemDisplayName(itemName) then
+					return string.capitalize(itemName)
+				end
+			end
+		end
+	end
+
+	return ""
+end
+
+_G.getItemServerName = getItemServerName
+

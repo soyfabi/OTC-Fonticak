@@ -754,12 +754,43 @@ function BountyTask:closePreferredList()
 end
 
 local PREFERRED_CLEAR_COST = 10
+local lastPreferredListData = nil
 local PREFERRED_UNLOCK_COSTS = {
 	300,
 	600,
 	900,
 	1200
 }
+
+local function setPreferredCostPanelValue(costPanel, cost)
+	if not costPanel then
+		return
+	end
+
+	local valueLabel = costPanel:getChildById("preferredCostValue") or costPanel:getChildById("unwantedCostValue")
+
+	if valueLabel then
+		valueLabel:setText(TaskBoard:formatNumberWithCommas(cost or PREFERRED_CLEAR_COST))
+	end
+end
+
+local function patchPreferredListSlot(slotIndex, isUnwanted)
+	if not lastPreferredListData then
+		return
+	end
+
+	local entry = lastPreferredListData[slotIndex + 1]
+
+	if not entry then
+		return
+	end
+
+	if isUnwanted then
+		entry.unwanted = 0
+	else
+		entry.preferred = 0
+	end
+end
 
 local function clearSlotWidget(slotWidget)
 	if not slotWidget then
@@ -781,11 +812,28 @@ local function clearSlotWidget(slotWidget)
 	slotWidget.assignedRaceId = nil
 end
 
-local function wireSlotClearButton(row, slotWidget, btn, costPanel, slotIndex, isUnwanted)
-	btn:setText(tr("Clear"))
+local function wireSlotAssignButton(row, btn, costPanel, slotIndex, isUnwanted)
+	btn:setText(tr("Assign"))
 
 	if costPanel then
-		costPanel:show()
+		costPanel:setVisible(false)
+	end
+
+	function btn.onClick()
+		if isUnwanted then
+			BountyTask:assignToRow(row, slotIndex, true)
+		else
+			BountyTask:assignToRow(row, slotIndex, false)
+		end
+	end
+end
+
+local function wireSlotClearButton(row, slotWidget, btn, costPanel, slotIndex, isUnwanted)
+	btn:setText(tr("Clear"))
+	setPreferredCostPanelValue(costPanel, PREFERRED_CLEAR_COST)
+
+	if costPanel then
+		costPanel:setVisible(true)
 	end
 
 	function btn.onClick()
@@ -795,32 +843,16 @@ local function wireSlotClearButton(row, slotWidget, btn, costPanel, slotIndex, i
 			g_game.sendPreferredListClearPreferred(slotIndex)
 		end
 
+		patchPreferredListSlot(slotIndex, isUnwanted)
 		clearSlotWidget(slotWidget)
 		btn:setText(tr("Assign"))
 
 		if costPanel then
-			costPanel:hide()
+			costPanel:setVisible(false)
 		end
 
-		function btn.onClick()
-			if isUnwanted then
-				BountyTask:assignToRow(row, slotIndex, true)
-			else
-				BountyTask:assignToRow(row, slotIndex, false)
-			end
-		end
-
+		wireSlotAssignButton(row, btn, costPanel, slotIndex, isUnwanted)
 		populateBountyCreatureList("", getExcludedRaceIds())
-	end
-end
-
-local function wireSlotAssignButton(row, btn, slotIndex, isUnwanted)
-	function btn.onClick()
-		if isUnwanted then
-			BountyTask:assignToRow(row, slotIndex, true)
-		else
-			BountyTask:assignToRow(row, slotIndex, false)
-		end
 	end
 end
 
@@ -886,7 +918,7 @@ local function buildPreferredSlotRow(container, slotIndex, data)
 			wireSlotClearButton(row, prefSlot, prefBtn, prefCost, slotIndex, false)
 		end
 	else
-		wireSlotAssignButton(row, prefBtn, slotIndex, false)
+		wireSlotAssignButton(row, prefBtn, prefCost, slotIndex, false)
 	end
 
 	if data.unwanted and data.unwanted ~= 0 then
@@ -897,7 +929,7 @@ local function buildPreferredSlotRow(container, slotIndex, data)
 			wireSlotClearButton(row, unwSlot, unwBtn, unwCost, slotIndex, true)
 		end
 	else
-		wireSlotAssignButton(row, unwBtn, slotIndex, true)
+		wireSlotAssignButton(row, unwBtn, unwCost, slotIndex, true)
 	end
 end
 
@@ -951,9 +983,23 @@ local function updatePreferredList(preferredListData)
 		return
 	end
 
-	local lockedIndex = 1
+	local snapshot = {}
 
 	for i, data in ipairs(preferredListData) do
+		snapshot[i] = {
+			slot = data.slot,
+			unlocked = data.unlocked,
+			preferred = data.preferred,
+			unwanted = data.unwanted,
+			price = data.price
+		}
+	end
+
+	lastPreferredListData = snapshot
+
+	local lockedIndex = 1
+
+	for i, data in ipairs(snapshot) do
 		local isUnlocked = data.unlocked or i == 1
 
 		if isUnlocked then
@@ -1200,7 +1246,7 @@ function onBountyTasksDaily(slots, rerollTokens, claimUnlocked, difficultyBounty
 		applyBountyTalismanRow(3, talismanData[4], bestiaryTalisman, bestiaryButton, bountyBestiaryPanel)
 	end
 
-	if type(preferredListData) == "table" then
+	if preferredListData ~= nil and type(preferredListData) == "table" then
 		updatePreferredList(preferredListData)
 	end
 end
@@ -1281,7 +1327,7 @@ function onEngineBountyTaskData(header, monsters, talismans)
 		pendingBountyData.claimUnlocked,
 		pendingBountyData.difficulty,
 		pendingBountyData.talismanData,
-		{}
+		nil
 	)
 end
 
