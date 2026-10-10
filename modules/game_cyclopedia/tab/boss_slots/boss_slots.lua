@@ -105,6 +105,103 @@ local CONFIG = {
 
 Cyclopedia.BossSlots = {}
 
+local function resolveBossSlotLook(bossId)
+	bossId = tonumber(bossId)
+	if not bossId or bossId <= 0 then
+		return nil, "?"
+	end
+
+	local outfit
+	local name
+	local bosstiary = Cyclopedia.Bosstiary
+
+	if bosstiary then
+		outfit = bosstiary.OutfitsByRaceId and bosstiary.OutfitsByRaceId[bossId]
+		name = bosstiary.NamesByRaceId and bosstiary.NamesByRaceId[bossId]
+
+		local meta = bosstiary.TrackerMetaByRaceId and bosstiary.TrackerMetaByRaceId[bossId]
+		if meta then
+			if meta.name and meta.name ~= "" and meta.name ~= "?" then
+				name = meta.name
+			end
+			if meta.outfit and (meta.outfit.type or 0) > 0 then
+				outfit = meta.outfit
+			end
+		end
+
+		if bosstiary.PendingServerData then
+			for _, entry in ipairs(bosstiary.PendingServerData) do
+				if tonumber(entry.raceId) == bossId then
+					if (not outfit or (outfit.type or 0) == 0) and entry.outfit and (entry.outfit.type or 0) > 0 then
+						outfit = entry.outfit
+					end
+					if (not name or name == "" or name == "?") and entry.name and entry.name ~= "" and entry.name ~= "?" then
+						name = entry.name
+					end
+					break
+				end
+			end
+		end
+	end
+
+	if protoData and protoData[bossId] and (protoData[bossId].type or 0) > 0 then
+		if not outfit or (outfit.type or 0) == 0 then
+			outfit = protoData[bossId]
+		end
+	end
+
+	local raceData = g_things.getRaceData(bossId)
+	if raceData and raceData.raceId ~= 0 then
+		if (not outfit or (outfit.type or 0) == 0) and raceData.outfit and (raceData.outfit.type or 0) > 0 then
+			outfit = raceData.outfit
+		end
+		if (not name or name == "" or name == "?") and raceData.name and raceData.name ~= "" then
+			name = raceData.name
+		end
+	end
+
+	if not name or name == "" then
+		name = "?"
+	end
+
+	return outfit, name
+end
+
+local function applyBossSlotCreatureSprite(spriteWidget, outfit)
+	if not spriteWidget or not outfit or (outfit.type or 0) <= 0 then
+		return
+	end
+
+	spriteWidget:setOutfit(outfit)
+	if spriteWidget.getCreature then
+		local creature = spriteWidget:getCreature()
+		if creature and creature.setStaticWalking then
+			creature:setStaticWalking(1000)
+		end
+	end
+end
+
+local function bossSlotListNeedsBosstiaryData()
+	if not Cyclopedia.BossSlots.UnlockBosses then
+		return false
+	end
+
+	for _, entry in ipairs(Cyclopedia.BossSlots.UnlockBosses) do
+		local outfit, name = resolveBossSlotLook(entry.bossId)
+		if (not outfit or (outfit.type or 0) == 0) or not name or name == "?" then
+			return true
+		end
+	end
+
+	return false
+end
+
+function Cyclopedia.refreshBossSlotsFromCachedBosstiary()
+	if Cyclopedia.BossSlots and Cyclopedia.BossSlots.lastSlotsData then
+		Cyclopedia.loadBossSlots(Cyclopedia.BossSlots.lastSlotsData)
+	end
+end
+
 local function getPlayerTotalGold(player)
 	if not player then
 		return 0
@@ -206,6 +303,7 @@ function Cyclopedia.loadBossSlots(data)
 		return
 	end
 
+	Cyclopedia.BossSlots.lastSlotsData = data
 	Cyclopedia.BossSlots.UnlockBosses = {}
 
 	local unlockedBossIds = {}
@@ -332,12 +430,13 @@ function Cyclopedia.loadBossSlots(data)
 		if not unlockedBossIds[unlockData.bossId] then
 			unlockedBossIds[unlockData.bossId] = true
 
-			local uRaceData = g_things.getRaceData(unlockData.bossId)
+			local outfit, bossName = resolveBossSlotLook(unlockData.bossId)
 			local data_t = {
 				visible = true,
 				bossId = unlockData.bossId,
 				category = unlockData.bossRace,
-				name = uRaceData.name
+				name = bossName,
+				outfit = outfit
 			}
 
 			table.insert(Cyclopedia.BossSlots.UnlockBosses, data_t)
@@ -352,6 +451,14 @@ function Cyclopedia.loadBossSlots(data)
 		if data.isSlotOneUnlocked or data.isSlotTwoUnlocked then
 			Cyclopedia.BossSlotChangeSlot(data, unlockedBosses)
 		end
+	end
+
+	if bossSlotListNeedsBosstiaryData() and Cyclopedia.requestBosstiaryDataForTracker then
+		Cyclopedia._bossSlotsAwaitingBosstiaryData = true
+		Cyclopedia.requestBosstiaryDataForTracker()
+	elseif bossSlotListNeedsBosstiaryData() and Cyclopedia.requestBosstiaryData then
+		Cyclopedia._bossSlotsAwaitingBosstiaryData = true
+		Cyclopedia.requestBosstiaryData()
 	end
 end
 
@@ -413,13 +520,19 @@ function Cyclopedia.setLockedSlot(widget, slot, unlockedBosses)
 	end
 
 	for _, internalData in ipairs(Cyclopedia.BossSlots.UnlockBosses) do
-		local raceData = g_things.getRaceData(internalData.bossId)
+		local outfit = internalData.outfit
+		local bossName = internalData.name
+		if not outfit or (outfit.type or 0) == 0 or not bossName or bossName == "?" then
+			outfit, bossName = resolveBossSlotLook(internalData.bossId)
+			internalData.outfit = outfit
+			internalData.name = bossName
+		end
+
 		local internalWidget = g_ui.createWidget("SelectBossBossSlots", widget.SelectBoss.ListBase.List)
 
-		internalWidget:setId(internalData.bossId)
-		internalWidget.Sprite:setOutfit(raceData.outfit)
-		internalWidget:setText(format(raceData.name))
-		internalWidget.Sprite:getCreature():setStaticWalking(1000)
+		internalWidget:setId(tostring(internalData.bossId))
+		applyBossSlotCreatureSprite(internalWidget.Sprite, outfit)
+		internalWidget:setText(format(bossName))
 		internalWidget.TypeIcon:setImageSource(ICONS[internalData.category])
 
 		local tooltip = internalData.category == CATEGORY.ARCHFOE and "Archfoe\n\nFor unlocking a level, you will receive the following boss points:\nProwess: 10\nExpertise: 30\nMastery: 60" or "Nemesis\n\nFor unlocking a level, you will receive the following boss points:\nProwess: 10\nExpertise: 30\nMastery: 60"
@@ -441,13 +554,13 @@ function Cyclopedia.setLockedSlot(widget, slot, unlockedBosses)
 end
 
 function Cyclopedia.setActiveSlot(widget, slot, slotData, data, bossId)
-	local raceData = g_things.getRaceData(bossId)
+	local outfit, bossName = resolveBossSlotLook(bossId)
 	local currentKills = slotData.killCount or slotData.killBonus or 0
 
 	widget.LockLabel:setVisible(false)
 	widget.SelectBoss:setVisible(false)
 	widget.ActivedBoss:setVisible(true)
-	widget:setText(string.format("Slot %d: %s", slot, raceData.name))
+	widget:setText(string.format("Slot %d: %s", slot, bossName))
 	widget.ActivedBoss.TypeIcon:setImageSource(ICONS[slotData.bossRace])
 	Cyclopedia.setBosstiarySlotsBossProgress(widget.ActivedBoss.Progress, currentKills, CONFIG[slotData.bossRace].PROWESS, CONFIG[slotData.bossRace].EXPERTISE, CONFIG[slotData.bossRace].MASTERY)
 
@@ -467,8 +580,7 @@ function Cyclopedia.setActiveSlot(widget, slot, slotData, data, bossId)
 	progress.ProgressBorder2:setTooltip(string.format(" %d / %d %s", currentKills, CONFIG[slotData.bossRace].EXPERTISE, fullText))
 	progress.ProgressBorder3:setTooltip(string.format(" %d / %d %s", currentKills, CONFIG[slotData.bossRace].MASTERY, fullText))
 	Cyclopedia.setBosstiaryBossStars(progress, currentKills, CONFIG[slotData.bossRace])
-	widget.ActivedBoss.Sprite:setOutfit(raceData.outfit)
-	widget.ActivedBoss.Sprite:getCreature():setStaticWalking(1000)
+	applyBossSlotCreatureSprite(widget.ActivedBoss.Sprite, outfit)
 	widget.ActivedBoss.EquipmentLabel:setText(string.format("Equipment loot bonus: %d%%", slotData.lootBonus))
 
 	Cyclopedia.BossSlots.removePrices = Cyclopedia.BossSlots.removePrices or {}
@@ -631,12 +743,19 @@ function Cyclopedia.readjustSelectBoss()
 
 	for _, internalData in ipairs(Cyclopedia.BossSlots.UnlockBosses) do
 		if internalData.visible then
-			local raceData = g_things.getRaceData(internalData.bossId)
+			local outfit = internalData.outfit
+			local bossName = internalData.name
+			if not outfit or (outfit.type or 0) == 0 or not bossName or bossName == "?" then
+				outfit, bossName = resolveBossSlotLook(internalData.bossId)
+				internalData.outfit = outfit
+				internalData.name = bossName
+			end
+
 			local internalWidget = g_ui.createWidget("SelectBossBossSlots", widget.SelectBoss.ListBase.List)
 
-			internalWidget.Sprite:setOutfit(raceData.outfit)
-			internalWidget:setText(format(raceData.name))
-			internalWidget.Sprite:getCreature():setStaticWalking(1000)
+			internalWidget:setId(tostring(internalData.bossId))
+			applyBossSlotCreatureSprite(internalWidget.Sprite, outfit)
+			internalWidget:setText(format(bossName))
 			internalWidget.TypeIcon:setImageSource(icons[internalData.category])
 
 			local tooltip = "Bane\n\nFor unlocking a level, you will receive the following boss points:\nProwess: 5\nExpertise: 15\nMastery: 30"

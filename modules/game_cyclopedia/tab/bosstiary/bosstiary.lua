@@ -727,6 +727,10 @@ function Cyclopedia.LoadBosstiaryCreatures(data)
 		if UI and not UI:isDestroyed() then
 			Cyclopedia.applyBosstiaryTrackerStateToList(data)
 		end
+		if Cyclopedia._bossSlotsAwaitingBosstiaryData and Cyclopedia.refreshBossSlotsFromCachedBosstiary then
+			Cyclopedia._bossSlotsAwaitingBosstiaryData = false
+			Cyclopedia.refreshBossSlotsFromCachedBosstiary()
+		end
 		return
 	end
 
@@ -832,6 +836,11 @@ function Cyclopedia.LoadBosstiaryCreatures(data)
 
 	if Cyclopedia.syncBosstiaryTrackerFromEntries then
 		Cyclopedia.syncBosstiaryTrackerFromEntries(data)
+	end
+
+	if Cyclopedia._bossSlotsAwaitingBosstiaryData and Cyclopedia.refreshBossSlotsFromCachedBosstiary then
+		Cyclopedia._bossSlotsAwaitingBosstiaryData = false
+		Cyclopedia.refreshBossSlotsFromCachedBosstiary()
 	end
 end
 

@@ -107,7 +107,7 @@ local infoPopUp = {
     [eventCategory.CLIENT_EVENT_TYPE_BOSSTIARY] = {
         --type(int), raceId(int), progressLevel(int)
         {
-            title = "Bosstiary Progress",
+            title = "Bosstiary Unlocked",
             description = "You have progressed '%s'",--progressLevel
             hasRaceId = true,
             img = "/images/infobanner/icons/unlock"
@@ -248,16 +248,65 @@ local function refreshAdvanceText(item)
     end
 end
 
+local function trimBannerText(text)
+    if not text then
+        return nil
+    end
+    text = text:gsub("^['\"%s]+", ""):gsub("['\"%s%.]+$", "")
+    return text ~= "" and text or nil
+end
+
 local function parseBestiaryCreatureNameFromDescription(desc)
     if not desc or desc == "" then
         return nil
     end
 
     local creatureName = desc:match(" for (.+)'%s*$") or desc:match(" for (.+)$")
-    if creatureName then
-        creatureName = creatureName:gsub("^['\"%s]+", ""):gsub("['\"%s%.]+$", "")
+    return trimBannerText(creatureName)
+end
+
+local function parseBosstiaryBossNameFromProgress(progressLevel)
+    if not progressLevel or progressLevel == "" then
+        return nil
     end
-    return creatureName ~= "" and creatureName or nil
+
+    local bossName = progressLevel:match("[Bb]osstiary entry for ([^%.]+)")
+    if bossName then
+        bossName = bossName:gsub("%s+and earned.*$", "")
+    end
+
+    return trimBannerText(bossName)
+end
+
+local function parseBossPointsFromProgress(progressLevel)
+    if not progressLevel or progressLevel == "" then
+        return nil
+    end
+
+    return tonumber(progressLevel:match("earned (%d+) boss points"))
+end
+
+local function openBosstiaryFromBanner(extraData)
+    if not extraData then
+        return false
+    end
+
+    local cyclopedia = modules.game_cyclopedia
+    if not cyclopedia then
+        return false
+    end
+
+    local raceId = tonumber(extraData.raceId)
+    if cyclopedia.Cyclopedia and cyclopedia.Cyclopedia.openBosstiaryFromTracker and raceId and raceId > 0 then
+        return cyclopedia.Cyclopedia.openBosstiaryFromTracker(raceId)
+    end
+
+    if cyclopedia.show then
+        cyclopedia.show("bosstiary")
+        return true
+    end
+
+    return false
 end
 
 local function openBestiaryFromBanner(extraData)
@@ -332,6 +381,23 @@ function showBestiaryBanner(raceId, progressText, raceOutfit)
         protoData[raceId] = raceOutfit
     end
     notificationsController:onClientEvent(eventCategory.CLIENT_EVENT_TYPE_BESTIARY, raceId or 0, progressText, raceOutfit)
+end
+
+function showBosstiaryBanner(raceId, progressText, raceOutfit)
+    progressText = progressText or "Bosstiary progress"
+    local key = string.format("bosstiary:%s:%s", tostring(raceId or 0), tostring(progressText))
+    if shouldSkipRecentClientEvent(key) then
+        return
+    end
+    if raceOutfit and raceId and raceId > 0 then
+        protoData = protoData or {}
+        protoData[raceId] = raceOutfit
+    end
+    notificationsController:onClientEvent(eventCategory.CLIENT_EVENT_TYPE_BOSSTIARY, raceId or 0, progressText, raceOutfit)
+end
+
+if modules and modules.game_notifications then
+    modules.game_notifications.showBosstiaryBanner = showBosstiaryBanner
 end
 
 function showSpellUnlockedBanner(spellWordsOrName)
@@ -488,11 +554,55 @@ function notificationsController:onClientEvent(eventCat, ...)
             description = string.format("You have progressed '%s'", progressLevel)
         end
 
+        local bosstiaryBossName = nil
+        local bosstiaryBossPoints = nil
+
+        if eventCat == eventCategory.CLIENT_EVENT_TYPE_BOSSTIARY then
+            bosstiaryBossName = parseBosstiaryBossNameFromProgress(progressLevel)
+            bosstiaryBossPoints = parseBossPointsFromProgress(progressLevel)
+
+            local lowerProgress = progressLevel:lower()
+            local lowerDesc = (description or ""):lower()
+            local isAdvance = lowerProgress:find("advanced", 1, true)
+                or lowerProgress:find("boss points", 1, true)
+                or lowerDesc:find("advanced", 1, true)
+                or lowerDesc:find("boss points", 1, true)
+            local isUnlock = lowerProgress:find("unlock", 1, true)
+                or lowerDesc:find("unlock", 1, true)
+
+            if isAdvance and not isUnlock then
+                title = "Bosstiary Progress"
+                img = "/images/infobanner/icons/bosstiary"
+                if bosstiaryBossName and bosstiaryBossPoints then
+                    description = string.format("+%d boss points\n%s", bosstiaryBossPoints, bosstiaryBossName)
+                elseif bosstiaryBossName then
+                    description = string.format("Advanced entry for\n%s", bosstiaryBossName)
+                end
+            elseif isUnlock then
+                title = "Bosstiary Unlocked"
+                img = "/images/infobanner/icons/unlock"
+                if bosstiaryBossName then
+                    description = string.format("Unlocked entry for\n%s", bosstiaryBossName)
+                end
+            else
+                title = popupTemplate.title or "Bosstiary Progress"
+                img = popupTemplate.img or "/images/infobanner/icons/unlock"
+                if bosstiaryBossName and bosstiaryBossPoints then
+                    description = string.format("+%d boss points\n%s", bosstiaryBossPoints, bosstiaryBossName)
+                elseif bosstiaryBossName then
+                    description = bosstiaryBossName
+                end
+            end
+        end
+
         if popupTemplate.hasRaceId then
             extraData.raceId = raceId
             extraData.outfit = raceOutfit or (protoData and raceId and protoData[raceId])
             extraData.isBestiaryBanner = eventCat == eventCategory.CLIENT_EVENT_TYPE_BESTIARY
-            extraData.creatureName = (raceOutfit and raceOutfit.name)
+            extraData.isBosstiaryBanner = eventCat == eventCategory.CLIENT_EVENT_TYPE_BOSSTIARY
+            extraData.creatureName = bosstiaryBossName
+                or (raceOutfit and raceOutfit.name)
+                or parseBosstiaryBossNameFromProgress(progressLevel)
                 or parseBestiaryCreatureNameFromDescription(description)
         end
 
@@ -554,7 +664,7 @@ function notificationsController:bindBannerClick(data)
     self:clearBannerClick()
 
     local extraData = data and data.extraData
-    if not extraData or not extraData.isBestiaryBanner then
+    if not extraData or (not extraData.isBestiaryBanner and not extraData.isBosstiaryBanner) then
         return
     end
 
@@ -567,7 +677,7 @@ function notificationsController:bindBannerClick(data)
     extraData.creatureName = creatureName
 
     local clickLayer = g_ui.createWidget('UIWidget', self.ui)
-    clickLayer:setId('bestiaryClickLayer')
+    clickLayer:setId(extraData.isBosstiaryBanner and 'bosstiaryClickLayer' or 'bestiaryClickLayer')
     clickLayer:addAnchor(AnchorLeft, 'parent', AnchorLeft)
     clickLayer:addAnchor(AnchorRight, 'parent', AnchorRight)
     clickLayer:addAnchor(AnchorTop, 'parent', AnchorTop)
@@ -584,7 +694,11 @@ function notificationsController:bindBannerClick(data)
             return false
         end
 
-        openBestiaryFromBanner(extraData)
+        if extraData.isBosstiaryBanner then
+            openBosstiaryFromBanner(extraData)
+        else
+            openBestiaryFromBanner(extraData)
+        end
         self:close()
         return true
     end
