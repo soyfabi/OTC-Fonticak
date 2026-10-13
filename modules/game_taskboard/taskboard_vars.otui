@@ -2,6 +2,35 @@
 &var-text-cip-color: #c0c0c0
 &var-text-color-disabled: #dfdfdf88
 
+TaskBoardStoreBoostButton < UIButton
+  height: 20
+  image-source: /images/ui/hlarge-blue-button
+  image-border: 4
+  margin-left: 2
+  margin-right: 3
+  focusable: true
+
+  $pressed:
+    opacity: 0.85
+
+  UIWidget
+    id: storeIcon
+    size: 19 16
+    anchors.verticalCenter: parent.verticalCenter
+    anchors.right: next.left
+    margin-right: 4
+    image-source: /images/store/icon-tibiastore
+    image-smooth: true
+    phantom: true
+
+  Label
+    id: btnLabel
+    anchors.centerIn: parent
+    font: verdana-11px-monochrome
+    color: white
+    text-align: center
+    phantom: true
+
 TaskBoardStyleVars < UIWidget
   visible: false
   phantom: true

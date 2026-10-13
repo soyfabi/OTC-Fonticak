@@ -5,6 +5,8 @@ TaskBoard.BountyTask = {}
 local BountyTask = TaskBoard.BountyTask
 
 CLAIMED_DAILY_TASK_STATE = false
+local STORE_BOUNTY_KILL_BOOST = "Bounty Double Kill Boost (1H)"
+local MAX_REROLL_TOKENS = 10
 
 local BACKDROP_BY_STARS = {
 	[0] = "/modules/game_taskboard/images/backdrop_tasksystem_normal_task",
@@ -1186,9 +1188,15 @@ function onBountyTasksDaily(slots, rerollTokens, claimUnlocked, difficultyBounty
 	local rerollTokensLabel = rerollBox:getChildById("rerollPanel")
 	local rerollTokensValue = rerollTokensLabel and rerollTokensLabel:getChildById("value")
 	local claimButton = rerollBox:getChildById("claimButton")
+	local claimWarning = rerollBox:getChildById("claimDailyWarning")
+	local tokenCount = tonumber(rerollTokens) or 0
 
 	filterDifficulty:setCurrentOption(bountyDifficultyOptionText(difficultyBountyTask), true)
 	rerollTokensValue:setText(rerollTokens and tostring(rerollTokens) or "0")
+
+	if claimWarning then
+		claimWarning:setVisible(tokenCount >= MAX_REROLL_TOKENS)
+	end
 
 	if not rerollTokens or tonumber(rerollTokens) == 0 then
 		rerollButton:setEnabled(false)
@@ -1200,10 +1208,15 @@ function onBountyTasksDaily(slots, rerollTokens, claimUnlocked, difficultyBounty
 	end
 
 	if tonumber(claimUnlocked) == 0 then
-		claimButton:setEnabled(true)
-		claimButton:setImageClip("0 0 108 20")
+		claimButton:setEnabled(tokenCount < MAX_REROLL_TOKENS)
+		claimButton:setImageClip(tokenCount < MAX_REROLL_TOKENS and "0 0 108 20" or "0 40 108 20")
+		if tokenCount >= MAX_REROLL_TOKENS then
+			claimButton:setTooltip(tr("You have reached the maximum of 10 Reroll Tokens."))
+		else
+			claimButton:setTooltip("")
+		end
 
-		CLAIMED_DAILY_TASK_STATE = true
+		CLAIMED_DAILY_TASK_STATE = tokenCount < MAX_REROLL_TOKENS
 	elseif tonumber(claimUnlocked) == 1 then
 		claimButton:setEnabled(false)
 		claimButton:setImageClip("0 40 108 20")
@@ -1329,6 +1342,10 @@ function onEngineBountyTaskData(header, monsters, talismans)
 		pendingBountyData.talismanData,
 		nil
 	)
+
+	if TaskBoard and TaskBoard.setBountyKillBoostRemaining and header then
+		TaskBoard.setBountyKillBoostRemaining(header.bountyKillBoostRemaining)
+	end
 end
 
 local function normalizeEngineRaceCatalog(raceList)
@@ -1397,6 +1414,24 @@ function onEngineBountyPreferredData(preferredSlots, _, allRaceIds)
 	end
 end
 
+local function wireBountyBoostKillsButton()
+	local rerollBox = TaskBoard.bountyTaskPanel and TaskBoard.bountyTaskPanel:recursiveGetChildById("rerollTasks")
+	local boostButton = rerollBox and rerollBox:getChildById("boostKills")
+
+	if not boostButton or boostButton._taskBoardStoreBound then
+		return
+	end
+
+	boostButton._taskBoardStoreBound = true
+	boostButton:setTooltip(tr("Open Store: %s", STORE_BOUNTY_KILL_BOOST))
+
+	function boostButton.onClick()
+		if TaskBoard and TaskBoard.openTaskHuntStoreSearch then
+			TaskBoard.openTaskHuntStoreSearch(STORE_BOUNTY_KILL_BOOST)
+		end
+	end
+end
+
 function BountyTask:init()
 	connect(g_game, {
 		onBountyKillUpdate = onBountyKillUpdate,
@@ -1406,6 +1441,7 @@ function BountyTask:init()
 		onGameStart = onGameStartBounty,
 		onGameEnd = onGameEndBounty
 	})
+	wireBountyBoostKillsButton()
 	scheduleEvent(refreshBountyKillTrackerFromCache, 0)
 end
 

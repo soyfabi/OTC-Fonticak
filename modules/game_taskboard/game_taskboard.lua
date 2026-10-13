@@ -14,9 +14,123 @@ local TASK_BOARD_KEYBIND_CATEGORY = "Windows"
 local TASK_BOARD_KEYBIND_ACTION = "Open Task Board"
 local TASK_BOARD_HOTKEY = "Ctrl+Shift+U"
 local taskBoardPanelButton = nil
+local taskBoostRefreshEvent = nil
+local TASK_BOOST_BAR_HEIGHT = 20
+
+TaskBoard.taskBoostRemaining = {
+	bountyKill = 0,
+	weeklyKill = 0,
+	weeklyReduced = 0,
+}
+
+function TaskBoard.isTaskBoostActive(kind)
+	return (TaskBoard.taskBoostRemaining[kind] or 0) > 0
+end
+
+function TaskBoard.setStoreBoostButtonVisible(button, visible)
+	if not button or (button.isDestroyed and button:isDestroyed()) then
+		return
+	end
+
+	button:setVisible(visible)
+	if button.setHeight then
+		button:setHeight(visible and TASK_BOOST_BAR_HEIGHT or 0)
+	end
+end
+
+function TaskBoard.refreshTaskBoostButtons()
+	if TaskBoard.weeklyPanel then
+		TaskBoard.setStoreBoostButtonVisible(
+			TaskBoard.weeklyPanel:recursiveGetChildById("boostKillsWeekly"),
+			not TaskBoard.isTaskBoostActive("weeklyKill")
+		)
+		TaskBoard.setStoreBoostButtonVisible(
+			TaskBoard.weeklyPanel:recursiveGetChildById("reduceItemsWeekly"),
+			not TaskBoard.isTaskBoostActive("weeklyReduced")
+		)
+	end
+
+	if TaskBoard.bountyTaskPanel then
+		local rerollBox = TaskBoard.bountyTaskPanel:recursiveGetChildById("rerollTasks")
+		TaskBoard.setStoreBoostButtonVisible(
+			rerollBox and rerollBox:getChildById("boostKills"),
+			not TaskBoard.isTaskBoostActive("bountyKill")
+		)
+	end
+end
+
+local function scheduleTaskBoostRefresh()
+	removeEvent(taskBoostRefreshEvent)
+	taskBoostRefreshEvent = nil
+
+	local hasActive = false
+	for _, remaining in pairs(TaskBoard.taskBoostRemaining) do
+		if remaining > 0 then
+			hasActive = true
+			break
+		end
+	end
+
+	if not hasActive then
+		return
+	end
+
+	taskBoostRefreshEvent = scheduleEvent(function()
+		taskBoostRefreshEvent = nil
+		for key, remaining in pairs(TaskBoard.taskBoostRemaining) do
+			if remaining > 0 then
+				TaskBoard.taskBoostRemaining[key] = remaining - 1
+			end
+		end
+		TaskBoard.refreshTaskBoostButtons()
+		scheduleTaskBoostRefresh()
+	end, 1000)
+end
+
+function TaskBoard.setBountyKillBoostRemaining(seconds)
+	TaskBoard.taskBoostRemaining.bountyKill = math.max(0, tonumber(seconds) or 0)
+	TaskBoard.refreshTaskBoostButtons()
+	scheduleTaskBoostRefresh()
+end
+
+function TaskBoard.setWeeklyBoostRemaining(killSeconds, reducedSeconds)
+	TaskBoard.taskBoostRemaining.weeklyKill = math.max(0, tonumber(killSeconds) or 0)
+	TaskBoard.taskBoostRemaining.weeklyReduced = math.max(0, tonumber(reducedSeconds) or 0)
+	TaskBoard.refreshTaskBoostButtons()
+	scheduleTaskBoostRefresh()
+end
+
+local function refreshTaskBoardAfterStorePurchase()
+	if not TaskBoard.mainWindow or not TaskBoard.mainWindow:isVisible() or not g_game.sendOpenMenuTaskBoardAction then
+		return
+	end
+
+	if TaskBoard.weeklyPanel and TaskBoard.weeklyPanel:isVisible() then
+		g_game.sendOpenMenuTaskBoardAction(1)
+	elseif TaskBoard.bountyTaskPanel and TaskBoard.bountyTaskPanel:isVisible() then
+		g_game.sendOpenMenuTaskBoardAction(0)
+	end
+end
 
 local function toggleTaskBoardWindow()
 	TaskBoard:toggleWindow()
+end
+
+function TaskBoard.openTaskHuntStoreSearch(searchText)
+	local store = modules.game_store
+	if not store then
+		return
+	end
+
+	if TaskBoard.mainWindow and TaskBoard.mainWindow:isVisible() then
+		TaskBoard:toggleWindow()
+	end
+
+	if store.openTaskHuntStoreSearch then
+		store.openTaskHuntStoreSearch(searchText)
+	elseif store.openTaskHuntStore then
+		store.openTaskHuntStore()
+	end
 end
 
 local function showTaskBoardModal(widget)
@@ -267,7 +381,8 @@ function init()
 		onGameStart = onTaskBoardGameStart,
 		onGameEnd = onTaskBoardGameEnd,
 		onResourceBalance = onTaskBoardResourceBalance,
-		onClientEvent = onTaskBoardClientEvent
+		onClientEvent = onTaskBoardClientEvent,
+		onStorePurchase = refreshTaskBoardAfterStorePurchase
 	})
 	g_ui.importStyle("taskboard_vars")
 	g_ui.importStyle("menus/bounty_task")
@@ -306,6 +421,9 @@ function init()
 	TaskBoard.BountyTask:init()
 	TaskBoard.TaskShop:init()
 	TaskBoard.WeeklyTask:init()
+	scheduleEvent(function()
+		TaskBoard.refreshTaskBoostButtons()
+	end, 0)
 	scheduleEvent(syncBountyShortcutHighlight, 0)
 	ensureTaskBoardPanelButton()
 
@@ -333,8 +451,11 @@ function terminate()
 		onGameStart = onTaskBoardGameStart,
 		onGameEnd = onTaskBoardGameEnd,
 		onResourceBalance = onTaskBoardResourceBalance,
-		onClientEvent = onTaskBoardClientEvent
+		onClientEvent = onTaskBoardClientEvent,
+		onStorePurchase = refreshTaskBoardAfterStorePurchase
 	})
+	removeEvent(taskBoostRefreshEvent)
+	taskBoostRefreshEvent = nil
 	TaskBoard:clearBountyShortcutHighlight()
 	destroyTaskBoardPanelButton()
 	TaskBoard.BountyTask:terminate()

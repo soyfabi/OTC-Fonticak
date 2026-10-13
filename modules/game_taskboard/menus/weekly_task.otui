@@ -98,7 +98,17 @@ DeliverySlots < Panel
     font: verdana-11px-monochrome
     color: $var-text-cip-color
     text-auto-resize: true
-  
+
+  UIWidget
+    id: deliveryCompletedIcon
+    size: 12 9
+    anchors.top: currentDeliveryLabel.top
+    anchors.left: currentDeliveryLabel.right
+    margin-top: 1
+    margin-left: 3
+    image-source: /modules/game_taskboard/images/checkmark-icon
+    visible: false
+
   UIButton
     id: deliverButton
     size: 43 20
@@ -116,16 +126,6 @@ DeliverySlots < Panel
     $disabled:
       image-clip: 0 40 43 20
 
-  UIWidget
-    id: deliveryCompletedIcon
-    size: 12 9
-    anchors.top: currentDeliveryLabel.top
-    anchors.left: currentDeliveryLabel.right
-    margin-top: 1
-    margin-left: 3
-    image-source: /game_cyclopedia/images/checkmark-icon
-    visible: false
-  
 WeeklyPanel < Panel
   visible: false
   margin-top: 7
@@ -149,25 +149,22 @@ WeeklyPanel < Panel
     color: $var-text-color-disabled
     font: verdana-11px-monochrome
     width: 465
-    height: 347
+    height: 375
 
-    UIButton
-      id: unlockKillButton
-      anchors.bottom: parent.bottom
+    TaskBoardStoreBoostButton
+      id: boostKillsWeekly
+      anchors.top: parent.top
       anchors.left: parent.left
-      margin-bottom: 12
-      margin-left: 6
-      image-source: /modules/game_taskboard/images/unlock-button.png
-      image-clip: 0 0 442 100
-      size: 442 100
-
-      $pressed:
-        image-clip: 0 100 442 100
+      anchors.right: parent.right
+      margin-top: 4
+      !text: tr('Boost Kills')
+      @onSetup: |
+        self:getChildById('btnLabel'):setText(tr('Boost Kills'))
 
     ScrollablePanel
       id: killSlotsList
-      anchors.top: parent.top
-      anchors.bottom: unlockKillButton.top
+      anchors.top: boostKillsWeekly.bottom
+      anchors.bottom: parent.bottom
       anchors.left: parent.left
       anchors.right: parent.right
       focusable: false
@@ -182,6 +179,19 @@ WeeklyPanel < Panel
         cell-spacing-width: 5
         cell-spacing-height: 4
         flow: true
+
+    UIButton
+      id: unlockKillButton
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      margin-bottom: 10
+      margin-left: 6
+      image-source: /modules/game_taskboard/images/unlock-button.png
+      image-clip: 0 0 442 100
+      size: 442 100
+
+      $pressed:
+        image-clip: 0 100 442 100
   
   UIWindow
     id: deliveryTasks
@@ -201,25 +211,22 @@ WeeklyPanel < Panel
     color: $var-text-color-disabled
     font: verdana-11px-monochrome
     width: 465
-    height: 347
+    height: 375
 
-    UIButton
-      id: unlockDeliveryButton
-      anchors.bottom: parent.bottom
+    TaskBoardStoreBoostButton
+      id: reduceItemsWeekly
+      anchors.top: parent.top
       anchors.left: parent.left
-      margin-bottom: 12
-      margin-left: 6
-      image-source: /modules/game_taskboard/images/unlock-button.png
-      image-clip: 0 0 442 100
-      size: 442 100
-
-      $pressed:
-        image-clip: 0 100 442 100
+      anchors.right: parent.right
+      margin-top: 4
+      !text: tr('Reduce Item Amount')
+      @onSetup: |
+        self:getChildById('btnLabel'):setText(tr('Reduce Item Amount'))
 
     ScrollablePanel
       id: deliverySlotsList
-      anchors.top: parent.top
-      anchors.bottom: unlockDeliveryButton.top
+      anchors.top: reduceItemsWeekly.bottom
+      anchors.bottom: parent.bottom
       anchors.left: parent.left
       anchors.right: parent.right
       focusable: false
@@ -234,6 +241,19 @@ WeeklyPanel < Panel
         cell-spacing-width: 5
         cell-spacing-height: 4
         flow: true
+
+    UIButton
+      id: unlockDeliveryButton
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      margin-bottom: 10
+      margin-left: 6
+      image-source: /modules/game_taskboard/images/unlock-button.png
+      image-clip: 0 0 442 100
+      size: 442 100
+
+      $pressed:
+        image-clip: 0 100 442 100
   
   UIWindow
     id: weeklyProgress

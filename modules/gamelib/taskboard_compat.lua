@@ -43,7 +43,6 @@ local function sendTaskBoardAction(option, value, extraValue)
         msg:addU8(value)
     elseif option == ACTION_BUY_SHOP_OFFER then
         msg:addU8(value)
-        msg:addU8(extraValue)
     elseif option == ACTION_UNLOCK_PREFERRED or option == ACTION_CLEAR_PREFERRED or option == ACTION_CLEAR_UNWANTED then
         msg:addU16(value)
     elseif option == ACTION_ASSIGN_PREFERRED or option == ACTION_ASSIGN_UNWANTED then
@@ -97,8 +96,8 @@ local function installTaskBoardSendCompat()
         return sendTaskBoardAction(ACTION_WEEKLY_SELECT_DIFFICULTY, difficulty)
     end
 
-    g_game.sendOnBuyHuntingTaskShop = function(offerId, amount)
-        return sendTaskBoardAction(ACTION_BUY_SHOP_OFFER, offerId, amount or 1)
+    g_game.sendOnBuyHuntingTaskShop = function(offerIndex)
+        return sendTaskBoardAction(ACTION_BUY_SHOP_OFFER, offerIndex)
     end
 
     g_game.sendPreferredListUnlockSlots = function(slot)

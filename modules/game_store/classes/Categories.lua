@@ -46,6 +46,8 @@ local function resolveCategoryIconClip(icon, name)
 	local label = tostring(name or ''):lower()
 	if label:find('premium', 1, true) or label:find('battle pass', 1, true) then
 		return categoryIconClips.store_premium
+	elseif label:find('task hunt', 1, true) then
+		return nil
 	elseif label:find('boost', 1, true) then
 		return categoryIconClips.xp_boost
 	elseif label:find('consumable', 1, true) then
@@ -112,6 +114,10 @@ local function applyCategoryIcon(iconWidget, icon, name)
 	end
 
 	local label = tostring(name or ''):lower()
+	if label:find('task hunt', 1, true) then
+		iconWidget:setImageSource('/images/store/task_hunt')
+		return
+	end
 	if label:find('boost', 1, true) then
 		iconWidget:setImageSource('/images/icons/xp_boost')
 		return

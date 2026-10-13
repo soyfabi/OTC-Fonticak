@@ -3,6 +3,9 @@
 TaskBoard.TaskShop = {}
 
 local TaskShop = TaskBoard.TaskShop
+local shopConfirmBox = nil
+local lastShopOffers = nil
+local lastShopBalance = 0
 local TYPE_ITEM = 0
 local TYPE_MOUNT = 1
 local TYPE_OUTFIT = 2
@@ -27,6 +30,25 @@ local STATUS_TOOLTIP = {
 	[STATUS_PURCHASED] = tr("Already purchased.")
 }
 
+local function resolveShopOfferStatus(offer, balance)
+	if (tonumber(offer.bought) or 0) ~= 0 then
+		return STATUS_OWNED
+	end
+
+	if balance < (tonumber(offer.price) or 0) then
+		return STATUS_NO_POINTS
+	end
+
+	return STATUS_BUYABLE
+end
+
+local function closeShopConfirmBox()
+	if shopConfirmBox then
+		shopConfirmBox:destroy()
+		shopConfirmBox = nil
+	end
+end
+
 function TaskShop:getListPanel()
 	if not TaskBoard.taskShopPanel then
 		return nil
@@ -48,10 +70,17 @@ end
 -- (e.g. `(data.clientId or 0) > 0`), which throws a Lua error on a string, hence tonumber everywhere.
 local SHOP_TYPE_ITEM, SHOP_TYPE_MOUNT, SHOP_TYPE_ITEMS = 0, 1, 3
 
-function onEngineTaskHuntingShopData(shopData)
+function onEngineTaskHuntingShopData(shopData, taskHuntingPoints)
+	local balance = tonumber(taskHuntingPoints)
+	if balance == nil and TaskBoard and TaskBoard.getResourceBalance then
+		balance = TaskBoard:getResourceBalance("taskHunting")
+	end
+	balance = balance or 0
+	lastShopBalance = balance
+
 	local offers = {}
 
-	for _, o in ipairs(shopData or {}) do
+	for shopIndex, o in ipairs(shopData or {}) do
 		local offerType = tonumber(o.offerType) or 0
 		local itemId = tonumber(o.itemId) or 0
 		local lookType = tonumber(o.lookType) or 0
@@ -63,13 +92,18 @@ function onEngineTaskHuntingShopData(shopData)
 			clientId = lookType
 		end
 
+		local price = tonumber(o.price) or 0
+		local bought = tonumber(o.bought) or 0
+
 		offers[#offers + 1] = {
-			offerId = tonumber(o.id) or 0,
+			shopIndex = shopIndex,
+			offerId = tonumber(o.id) or shopIndex,
 			offerType = offerType,
 			name = o.title or "",
 			description = o.description or "",
-			price = tonumber(o.price) or 0,
-			bought = tonumber(o.bought) or 0,
+			price = price,
+			bought = bought,
+			status = resolveShopOfferStatus({ bought = bought, price = price }, balance),
 			clientId = clientId,
 			lookType = lookType,
 			addons = tonumber(o.lookAddons) or 0,
@@ -79,6 +113,8 @@ function onEngineTaskHuntingShopData(shopData)
 			nextCost = tonumber(o.nextCost) or 0
 		}
 	end
+
+	lastShopOffers = offers
 
 	local ok, err = pcall(onShopTasks, offers)
 	if not ok then
@@ -98,18 +134,41 @@ function onShopTasks(offers)
 	end
 end
 
+local function onTaskShopResourceBalance()
+	if not lastShopOffers or #lastShopOffers == 0 then
+		return
+	end
+
+	local balance = TaskBoard and TaskBoard.getResourceBalance and TaskBoard:getResourceBalance("taskHunting") or 0
+	if balance == lastShopBalance then
+		return
+	end
+
+	lastShopBalance = balance
+	for _, offer in ipairs(lastShopOffers) do
+		offer.status = resolveShopOfferStatus(offer, balance)
+	end
+
+	onShopTasks(lastShopOffers)
+end
+
 function TaskShop:init()
 	connect(g_game, {
 		onShopTasks = onShopTasks,
-		onTaskHuntingShopData = onEngineTaskHuntingShopData
+		onTaskHuntingShopData = onEngineTaskHuntingShopData,
+		onResourceBalance = onTaskShopResourceBalance
 	})
 end
 
 function TaskShop:terminate()
 	disconnect(g_game, {
 		onShopTasks = onShopTasks,
-		onTaskHuntingShopData = onEngineTaskHuntingShopData
+		onTaskHuntingShopData = onEngineTaskHuntingShopData,
+		onResourceBalance = onTaskShopResourceBalance
 	})
+	closeShopConfirmBox()
+	lastShopOffers = nil
+	lastShopBalance = 0
 	self:clearShop()
 end
 
@@ -288,7 +347,7 @@ function TaskShop:applyStatus(card, data)
 		buyButton:setTooltip("")
 
 		function buyButton.onClick()
-			TaskShop:onBuyItem(data)
+			TaskShop:confirmBuyItem(data)
 		end
 	else
 		buyButton:setEnabled(false)
@@ -301,10 +360,42 @@ function TaskShop:applyStatus(card, data)
 	end
 end
 
-function TaskShop:onBuyItem(data)
+function TaskShop:confirmBuyItem(data)
 	if not data then
 		return
 	end
 
-	g_game.sendOnBuyHuntingTaskShop(data.offerId)
+	local offerIndex = tonumber(data.shopIndex) or tonumber(data.offerId) or 0
+	if offerIndex <= 0 then
+		return
+	end
+
+	local title = data.name or tr("this offer")
+	local price = TaskBoard:formatNumberWithCommas(data.price or 0)
+	local message = tr("Do you really want to buy '%s' for %s Hunting Task Points?", title, price)
+
+	closeShopConfirmBox()
+
+	local parent = TaskBoard.mainWindow
+	local function yesCallback()
+		closeShopConfirmBox()
+		TaskShop:purchaseOffer(offerIndex)
+	end
+
+	local function cancelCallback()
+		closeShopConfirmBox()
+	end
+
+	shopConfirmBox = displayGeneralBox(tr("Confirm Purchase"), message, {
+		{ text = tr("Yes"), callback = yesCallback },
+		{ text = tr("Cancel"), callback = cancelCallback }
+	}, yesCallback, cancelCallback, parent)
+end
+
+function TaskShop:purchaseOffer(offerIndex)
+	if not g_game.sendOnBuyHuntingTaskShop then
+		return
+	end
+
+	g_game.sendOnBuyHuntingTaskShop(offerIndex)
 end

@@ -396,10 +396,16 @@ local function parseBounty(msg)
         tryConsumeBountyFooter(msg)
     end
 
+    local bountyKillBoostRemaining = 0
+    if msg:getUnreadSize() >= 4 then
+        bountyKillBoostRemaining = msg:getU32()
+    end
+
     local header = {
         difficulty = difficulty + 1,
         rerollPoints = rerollTokens,
         claimDaily = rerollMode == REROLL_DAILY_CLAIMABLE and 1 or 0,
+        bountyKillBoostRemaining = bountyKillBoostRemaining,
     }
 
     safeTaskBoardSignal(g_game.onBountyTaskData, header, monsters, talismans)
@@ -486,6 +492,13 @@ local function parseWeekly(msg)
     msg:getU8() -- needsReward
     msg:getU8() -- hasExpansion
 
+    local weeklyKillBoostRemaining = 0
+    local weeklyReducedItemsRemaining = 0
+    if msg:getUnreadSize() >= 8 then
+        weeklyKillBoostRemaining = msg:getU32()
+        weeklyReducedItemsRemaining = msg:getU32()
+    end
+
     local header = {
         completedKillTasks = completedKills,
         completedDeliveryTasks = completedDeliveries,
@@ -494,6 +507,8 @@ local function parseWeekly(msg)
         resetTimestamp = 0,
         weeklyProgressFinished = weeklyProgress,
         unlockedDifficulty = difficulty + 1,
+        weeklyKillBoostRemaining = weeklyKillBoostRemaining,
+        weeklyReducedItemsRemaining = weeklyReducedItemsRemaining,
     }
 
     safeTaskBoardSignal(g_game.onWeeklyTaskData, header, monsters, items)
@@ -501,7 +516,7 @@ local function parseWeekly(msg)
 end
 
 local function parseHuntShop(msg)
-    msg:getU32() -- taskHuntingPoints
+    local taskHuntingPoints = msg:getU32()
     local offerCount = msg:getU8()
     local offers = {}
     for _ = 1, offerCount do
@@ -542,7 +557,7 @@ local function parseHuntShop(msg)
         }
     end
 
-    safeTaskBoardSignal(g_game.onTaskHuntingShopData, offers)
+    safeTaskBoardSignal(g_game.onTaskHuntingShopData, offers, taskHuntingPoints)
     return true
 end
 

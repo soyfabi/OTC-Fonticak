@@ -568,12 +568,23 @@ BountyTaskPanel < Panel
         text-auto-resize: true
         font: verdana-11px-monochrome
     
+    UIWidget
+      id: claimDailyWarning
+      size: 10 10
+      anchors.top: parent.top
+      anchors.left: prev.right
+      margin-top: 12
+      margin-left: 6
+      image-source: /images/icons/icon-inline-warning
+      !tooltip: tr('You have reached the maximum of 10 Reroll Tokens.\nComplete tasks or reroll to make room for more.\nDon\'t worry, unclaimed daily tokens are never lost!')
+      visible: false
+
     UIButton
       id: claimButton
       anchors.top: parent.top
-      anchors.left: prev.right
+      anchors.left: claimDailyWarning.right
       margin-top: 7
-      margin-left: 16
+      margin-left: 8
       size: 108 20
       image-source: /modules/game_taskboard/images/claim-daily-button
       image-clip: 0 0 108 20
@@ -581,6 +592,16 @@ BountyTaskPanel < Panel
 
       $pressed:
         image-clip: 0 20 108 20
+
+    TaskBoardStoreBoostButton
+      id: boostKills
+      anchors.top: parent.top
+      anchors.right: parent.right
+      margin-top: 7
+      margin-right: 12
+      width: 108
+      @onSetup: |
+        self:getChildById('btnLabel'):setText(tr('Boost Kills'))
 
   /////////////////
   // Tasks Panel //

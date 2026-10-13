@@ -97,6 +97,11 @@ local localImageAliases = {
 	["64/prey_wildcard"] = "/images/game/prey/prey_wildcard",
 	prey_wildcard = "/images/game/prey/prey_wildcard",
 	store_premium = "/images/store/30_days",
+	task_hunt = "/images/store/task_hunt",
+	double_bounty_kill = "/images/store/double_bounty_kill",
+	double_weekly_kill = "/images/store/double_weekly_kill",
+	reduced_items = "/images/store/reduced_items",
+	Permanent_Hunting_Task_Slot = "/images/store/Permanent_Hunting_Task_Slot",
 }
 
 local function resourceImageExists(path)

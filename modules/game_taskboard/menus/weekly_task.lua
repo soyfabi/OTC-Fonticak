@@ -9,8 +9,10 @@ WeeklyTask.isWeeklyTaskActive = false
 
 local lastWeeklyTasksState
 local WEEKLY_UNLOCK_BUTTON_HEIGHT = 100
+local WEEKLY_UNLOCK_BOTTOM_MARGIN = 2
+local WEEKLY_SLOTS_MARGIN_UNLOCK = WEEKLY_UNLOCK_BUTTON_HEIGHT + WEEKLY_UNLOCK_BOTTOM_MARGIN + 4
 
-local function syncWeeklyUnlockButton(unlockButton, showUnlock)
+local function syncWeeklyUnlockButton(unlockButton, showUnlock, slotsList)
 	if not unlockButton then
 		return
 	end
@@ -18,6 +20,17 @@ local function syncWeeklyUnlockButton(unlockButton, showUnlock)
 	unlockButton:setVisible(showUnlock)
 	if unlockButton.setHeight then
 		unlockButton:setHeight(showUnlock and WEEKLY_UNLOCK_BUTTON_HEIGHT or 0)
+	end
+
+	if slotsList and slotsList.setMarginBottom then
+		slotsList:setMarginBottom(showUnlock and WEEKLY_SLOTS_MARGIN_UNLOCK or 4)
+	end
+
+	if slotsList and slotsList.getParent then
+		local parent = slotsList:getParent()
+		if parent and parent.updateLayout then
+			parent:updateLayout()
+		end
 	end
 end
 
@@ -282,11 +295,13 @@ local function fillDeliverySlot(panel, entry)
 
 	local totalItems = tonumber(entry.totalItems) or 0
 	local deliveredCount = tonumber(entry.count) or 0
+	local isCompleted = (entry.completed or 0) ~= 0
+	local hasRequiredAmount = totalItems > 0 and deliveredCount >= totalItems
 
 	if currentLabel then
 		currentLabel:setText(TaskBoard:formatNumberWithCommas(deliveredCount))
 
-		if totalItems > 0 and deliveredCount >= totalItems then
+		if hasRequiredAmount then
 			currentLabel:setColor("#44ad25")
 		else
 			currentLabel:setColor("#d33c3c")
@@ -294,18 +309,21 @@ local function fillDeliverySlot(panel, entry)
 	end
 
 	local totalLabel = panel:getChildById("totalDeliveryLabel")
-	local isDelivered = (entry.completed or 0) ~= 0
-	local isReadyToDeliver = totalItems > 0 and deliveredCount >= totalItems
 
 	if totalLabel then
 		totalLabel:setText(TaskBoard:formatNumberWithCommas(totalItems))
+		if hasRequiredAmount then
+			totalLabel:setColor("#44ad25")
+		else
+			totalLabel:setColor("#c0c0c0")
+		end
 	end
 
 	local completedIcon = panel:getChildById("deliveryCompletedIcon")
 
 	if completedIcon then
 		completedIcon:setImageSource(DELIVERY_COMPLETED_ICON)
-		completedIcon:setVisible(isReadyToDeliver or isDelivered)
+		completedIcon:setVisible(hasRequiredAmount)
 	end
 
 	local deliverButton = panel:getChildById("deliverButton")
@@ -314,7 +332,7 @@ local function fillDeliverySlot(panel, entry)
 		local taskId = entry.taskId or 0
 		local hasItems = deliveredCount > 0
 
-		deliverButton:setEnabled(hasItems and not isDelivered)
+		deliverButton:setEnabled(hasItems and not isCompleted)
 
 		function deliverButton.onClick()
 			g_game.sendDeliveryTask(taskId)
@@ -323,7 +341,7 @@ local function fillDeliverySlot(panel, entry)
 end
 
 local WEEKLY_KILL_TRACKER_MAX_SLOTS = 9
-local DELIVERY_COMPLETED_ICON = "/game_cyclopedia/images/checkmark-icon"
+local DELIVERY_COMPLETED_ICON = "/modules/game_taskboard/images/checkmark-icon"
 local WEEKLY_ANY_CREATURE_ICON = "/modules/game_taskboard/images/icon-arbitrarymonster"
 local WEEKLY_CREATURETRACK_NO_CREATURE_IMG = "/images/game/prey/prey-noprey-small"
 local WEEKLY_TRACKER_TOOLTIP_FOOTER = "Click in this window to open the Task Board dialog."
@@ -514,7 +532,7 @@ local function buildKillSlots(weeklyTasks)
 
 	local unlockKillButton = killSlotsList:getParent():getChildById("unlockKillButton")
 
-	syncWeeklyUnlockButton(unlockKillButton, #killEntries <= 5)
+	syncWeeklyUnlockButton(unlockKillButton, #killEntries <= 5, killSlotsList)
 
 	local maxSpeciesSlots = WEEKLY_KILL_TRACKER_MAX_SLOTS - 1
 
@@ -563,7 +581,7 @@ local function buildDeliverySlots(weeklyTasks)
 	local unlockDeliveryButton = deliverySlotsList:getParent():getChildById("unlockDeliveryButton")
 	local deliveryCount = weeklyTasks.deliveryEntries and #weeklyTasks.deliveryEntries or 0
 
-	syncWeeklyUnlockButton(unlockDeliveryButton, deliveryCount <= 6)
+	syncWeeklyUnlockButton(unlockDeliveryButton, deliveryCount <= 6, deliverySlotsList)
 
 	if weeklyTasks.deliveryEntries then
 		for _, entry in ipairs(weeklyTasks.deliveryEntries) do
@@ -586,19 +604,28 @@ local PROGRESS_BAR_INNER_WIDTH = 577
 local PROGRESS_BAR_TOTAL_TASKS = 18
 local PROGRESS_BAR_FILL_IMAGE = "/images/bars/progressbar-green-large"
 local STORE_WEEKLY_OFFER_NAME = "Permanent Weekly Task Expansion"
+local STORE_WEEKLY_KILL_BOOST = "Weekly Double Kill Boost (1H)"
+local STORE_WEEKLY_REDUCE_ITEMS = "Reduced Weekly Bounty Items"
 
 local function openWeeklyTaskStoreOffer()
-	local store = modules and modules.game_store
+	if TaskBoard and TaskBoard.openTaskHuntStoreSearch then
+		TaskBoard.openTaskHuntStoreSearch(STORE_WEEKLY_OFFER_NAME)
+	end
+end
 
-	if not store or not store.openWeeklyTaskExpansion then
+local function wireTaskBoardStoreButton(button, offerName)
+	if not button or button._taskBoardStoreBound then
 		return
 	end
 
-	if TaskBoard and TaskBoard.mainWindow and TaskBoard.mainWindow:isVisible() then
-		TaskBoard:toggleWindow()
-	end
+	button._taskBoardStoreBound = true
+	button:setTooltip(tr("Open Store: %s", offerName))
 
-	store.openWeeklyTaskExpansion()
+	function button.onClick()
+		if TaskBoard and TaskBoard.openTaskHuntStoreSearch then
+			TaskBoard.openTaskHuntStoreSearch(offerName)
+		end
+	end
 end
 
 local function wireUnlockButton(button)
@@ -867,6 +894,10 @@ function onEngineWeeklyTaskData(header, monsters, items)
 	if not ok then
 		g_logger.error("[WeeklyTask] onWeeklyTasks failed: " .. tostring(err))
 	end
+
+	if TaskBoard and TaskBoard.setWeeklyBoostRemaining then
+		TaskBoard.setWeeklyBoostRemaining(header.weeklyKillBoostRemaining, header.weeklyReducedItemsRemaining)
+	end
 end
 
 function WeeklyTask:init()
@@ -879,6 +910,8 @@ function WeeklyTask:init()
 	if TaskBoard.weeklyPanel then
 		wireUnlockButton(TaskBoard.weeklyPanel:recursiveGetChildById("unlockKillButton"))
 		wireUnlockButton(TaskBoard.weeklyPanel:recursiveGetChildById("unlockDeliveryButton"))
+		wireTaskBoardStoreButton(TaskBoard.weeklyPanel:recursiveGetChildById("boostKillsWeekly"), STORE_WEEKLY_KILL_BOOST)
+		wireTaskBoardStoreButton(TaskBoard.weeklyPanel:recursiveGetChildById("reduceItemsWeekly"), STORE_WEEKLY_REDUCE_ITEMS)
 	end
 
 	if TaskBoard.weeklyProgressPanel then
