@@ -1,8 +1,9 @@
 Module
   name: game_stash
-  description: Game stash
-  author: Reddington#9222
+  description: Global supply stash system
+  author: Aluisio Penna (ported from CrystalOTC)
   sandboxed: false
+  dependencies: [ game_containers ]
   scripts: [ game_stash ]
   autoload: true
   autoload-priority: 1001
