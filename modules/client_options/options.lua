@@ -1492,7 +1492,7 @@ function resetMisc()
     setOption('stowContainer', true, true)
     setOption('stayLoggedInforSession', false, true)
     setOption('optimiseConnectionStability', true, true)
-    setOption('quickLogin', true, true)
+    setOption('quickLogin', false, true)
 end
 
 function resetWalkAndKeyboardDelays()

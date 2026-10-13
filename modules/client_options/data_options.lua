@@ -260,7 +260,7 @@ return {
         end
     },
     quickLogin                        = {
-        value = true,
+        value = false,
         action = function()
             if type(applyAsyncTextureLoading) == 'function' then
                 applyAsyncTextureLoading()

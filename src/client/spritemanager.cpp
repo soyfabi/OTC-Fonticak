@@ -228,10 +228,23 @@ void SpriteManager::unload()
     m_spritesFiles.clear();
 }
 
+void SpriteManager::resetLoadingState()
+{
+    for (auto& sf : m_spritesFiles) {
+        if (sf) {
+            sf->m_loadingState.store(SpriteLoadState::LOADED, std::memory_order_release);
+        }
+    }
+}
+
 ImagePtr SpriteManager::getSpriteImage(const int id, bool& isLoading)
 {
     if (g_game.getProtocolVersion() >= 1281 && !g_game.getFeature(Otc::GameLoadSprInsteadProtobuf)) {
         return g_spriteAppearances.getSpriteImage(id, isLoading);
+    }
+
+    if (m_spritesFiles.empty()) {
+        return nullptr;
     }
 
     const auto threadId = g_app.isLoadingAsyncTexture() ? stdext::getThreadId() : 0;
@@ -241,14 +254,18 @@ ImagePtr SpriteManager::getSpriteImage(const int id, bool& isLoading)
             return nullptr;
         }
 
-        auto image = m_spritesHd ? getSpriteImageHd(id, sf->file) : getSpriteImage(id, sf->file);
-        if (!m_spritesHd && m_scaleFactor > MinScaleFactor) {
-            image = upscaleSprite(image, m_scaleFactor);
+        try {
+            auto image = m_spritesHd ? getSpriteImageHd(id, sf->file) : getSpriteImage(id, sf->file);
+            if (!m_spritesHd && m_scaleFactor > MinScaleFactor) {
+                image = upscaleSprite(image, m_scaleFactor);
+            }
+
+            sf->m_loadingState.store(SpriteLoadState::LOADED, std::memory_order_release);
+            return image;
+        } catch (...) {
+            sf->m_loadingState.store(SpriteLoadState::LOADED, std::memory_order_release);
+            throw;
         }
-
-        sf->m_loadingState.store(SpriteLoadState::LOADED, std::memory_order_release);
-
-        return image;
     }
 
     return nullptr;
