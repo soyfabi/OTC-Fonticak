@@ -336,92 +336,131 @@ BountyTaskSlotPanel < QtPanel
     font: verdana-11px-monochrome
     color: $var-text-cip-color
     text-auto-resize: true
-    margin-top: 13 
-  
-  // Experience
-  UIWidget
-    id: asExp
+    margin-top: 13
+
+  Panel
+    id: bountyRewardXp
+    size: 88 20
     anchors.top: prev.bottom
-    anchors.left: prev.left
-    margin-top: 6
-    margin-left: 1
-    size: 5 5
-    image-source: /modules/game_taskboard/images/asteristico
-  
-  UILabel
-    id: experienceLabel
-    text: 0
-    anchors.top: asExp.top
-    anchors.left: asExp.right
-    font: verdana-11px-monochrome
-    color: $var-text-cip-color
-    text-auto-resize: true
-    margin-top: -5
-    margin-left: 6
-  
-  UILabel
-    text: XP
-    anchors.top: asExp.top
-    anchors.left: experienceLabel.right
-    font: verdana-11px-monochrome
-    color: $var-text-cip-color
-    text-auto-resize: true
-    margin-top: -5
-    margin-left: 6
-
-  // Bounty Points
-  UIWidget
-    id: asBounty
-    anchors.top: asExp.bottom
-    anchors.left: asExp.left
-    margin-top: 11
-    size: 5 5
-    image-source: /modules/game_taskboard/images/asteristico
-
-  UILabel
-    id: bountyPointsLabel
-    text: 123
-    anchors.top: asBounty.top
-    anchors.left: asBounty.right
-    font: verdana-11px-monochrome
-    color: $var-text-cip-color
-    text-auto-resize: true
-    margin-top: -5
-    margin-left: 6
-
-  UIWidget
-    anchors.top: asBounty.top
-    anchors.left: bountyPointsLabel.right
-    image-source: /modules/game_taskboard/images/icon-currency-bountypoints
-    margin-top: -3
+    anchors.left: parent.left
+    margin-top: 8
     margin-left: 4
+    image-source: /images/ui/item
+    image-border: 10
+    focusable: false
 
-  // Reroll
-  UIWidget
-    id: asReroll
-    anchors.top: asBounty.bottom
-    anchors.left: asBounty.left
-    margin-top: 11
-    size: 5 5
-    image-source: /modules/game_taskboard/images/asteristico
+    Label
+      text: XP
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.left: parent.left
+      margin-left: 5
+      margin-top: 1
+      font: verdana-11px-monochrome
+      color: #909090
+      text-auto-resize: true
 
-  UILabel
-    id: rerollLabel
-    text: 1
-    anchors.top: asReroll.top
-    anchors.left: asReroll.right
-    font: verdana-11px-monochrome
-    color: $var-text-cip-color
-    text-auto-resize: true
-    margin-top: -5
-    margin-left: 6
-  
-  UIWidget
-    anchors.top: asReroll.top
-    anchors.left: rerollLabel.right
-    image-source: /modules/game_taskboard/images/icon-currency-taskreroll
-    margin-top: -4
-    margin-left: 5
+    UIWidget
+      id: bountyRewardXpIcon
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 3
+      margin-top: 1
+      size: 11 11
+      image-source: /images/icons/icon_experience
+      tooltip: Experience
+
+    Label
+      id: experienceLabel
+      text: 0
+      anchors.right: bountyRewardXpIcon.left
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 2
+      margin-top: 2
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+
+  Panel
+    id: bountyRewardPoints
+    size: 88 20
+    anchors.top: bountyRewardXp.top
+    anchors.left: bountyRewardXp.right
+    margin-left: 4
+    image-source: /images/ui/item
+    image-border: 10
+    focusable: false
+
+    Label
+      text: Points
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.left: parent.left
+      margin-left: 5
+      margin-top: 1
+      font: verdana-11px-monochrome
+      color: #909090
+      text-auto-resize: true
+
+    UIWidget
+      id: bountyRewardPointsIcon
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 3
+      margin-top: 1
+      size: 11 11
+      image-source: /modules/game_taskboard/images/icon-currency-bountypoints
+      tooltip: Bounty Points
+
+    Label
+      id: bountyPointsLabel
+      text: 0
+      anchors.right: bountyRewardPointsIcon.left
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 2
+      margin-top: 2
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
+
+  Panel
+    id: bountyRewardReroll
+    size: 88 20
+    anchors.top: bountyRewardXp.top
+    anchors.left: bountyRewardPoints.right
+    margin-left: 4
+    image-source: /images/ui/item
+    image-border: 10
+    focusable: false
+
+    Label
+      text: Reroll
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.left: parent.left
+      margin-left: 5
+      margin-top: 1
+      font: verdana-11px-monochrome
+      color: #909090
+      text-auto-resize: true
+
+    UIWidget
+      id: bountyRewardRerollIcon
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 3
+      margin-top: 1
+      size: 11 11
+      image-source: /modules/game_taskboard/images/icon-currency-taskreroll
+      tooltip: Reroll Tokens
+
+    Label
+      id: rerollLabel
+      text: 1
+      anchors.right: bountyRewardRerollIcon.left
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 2
+      margin-top: 2
+      font: verdana-11px-monochrome
+      color: $var-text-cip-color
+      text-auto-resize: true
 
   Button
     id: selectTaskButton

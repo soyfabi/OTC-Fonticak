@@ -463,14 +463,39 @@ function BountyTask:fillSlotPanel(panel, data, selected)
 	local nameLabel = starsBox and starsBox:getChildById("creatureName")
 	local cur = panel:getChildById("killsCurrentValue")
 	local tgt = panel:getChildById("killsTargetValue")
-	local expL = panel:getChildById("experienceLabel")
-	local bpL = panel:getChildById("bountyPointsLabel")
+	local expL = panel:recursiveGetChildById("experienceLabel")
+	local bpL = panel:recursiveGetChildById("bountyPointsLabel")
+	local rerollL = panel:recursiveGetChildById("rerollLabel")
 
-	nameLabel:setText(capitalizeWords(creatureName))
-	cur:setText(TaskBoard:formatNumberWithCommas(data.monstersKilled or 0))
-	tgt:setText(TaskBoard:formatNumberWithCommas(data.totalKills or 0))
-	expL:setText(TaskBoard:formatNumberWithCommas(data.experiencePoints or 0))
-	bpL:setText(TaskBoard:formatNumberWithCommas(data.bountyPoints or 0))
+	if nameLabel then
+		nameLabel:setText(capitalizeWords(creatureName))
+	end
+
+	if cur then
+		cur:setText(TaskBoard:formatNumberWithCommas(data.monstersKilled or 0))
+	end
+
+	if tgt then
+		tgt:setText(TaskBoard:formatNumberWithCommas(data.totalKills or 0))
+	end
+
+	if expL then
+		expL:setText(TaskBoard:formatNumberWithCommas(data.experiencePoints or 0))
+	end
+
+	if bpL then
+		bpL:setText(TaskBoard:formatNumberWithCommas(data.bountyPoints or 0))
+	end
+
+	if rerollL then
+		local rerollReward = tonumber(data.rerollPoints)
+
+		if rerollReward == nil then
+			rerollReward = 1
+		end
+
+		rerollL:setText(TaskBoard:formatNumberWithCommas(rerollReward))
+	end
 
 	local btn = panel:getChildById("selectTaskButton")
 

@@ -350,7 +350,8 @@ local function parseBounty(msg)
                 totalKills = required,
                 rewardXp = rewardXp,
                 rewardPoints = rewardPoints,
-                rewardReroll = 0,
+                -- Server does not send per-task reroll reward; retail UI shows +1 token on claim.
+                rewardReroll = 1,
                 rarity = grade,
                 isActive = isActive and 1 or 0,
                 isCompleted = isCompleted and 1 or 0,
