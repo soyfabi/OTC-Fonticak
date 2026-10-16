@@ -15,6 +15,8 @@ local TASK_BOARD_KEYBIND_ACTION = "Open Task Board"
 local TASK_BOARD_HOTKEY = "Ctrl+Shift+U"
 local taskBoardPanelButton = nil
 local taskBoostRefreshEvent = nil
+local taskBoostInitRefreshEvent = nil
+local bountyShortcutSyncEvent = nil
 local TASK_BOOST_BAR_HEIGHT = 20
 
 TaskBoard.taskBoostRemaining = {
@@ -243,9 +245,26 @@ local function onTaskBoardClientEvent(eventType)
 	end
 end
 
+local function cancelTaskBoardPendingEvents()
+	if taskBoostInitRefreshEvent then
+		removeEvent(taskBoostInitRefreshEvent)
+		taskBoostInitRefreshEvent = nil
+	end
+	if bountyShortcutSyncEvent then
+		removeEvent(bountyShortcutSyncEvent)
+		bountyShortcutSyncEvent = nil
+	end
+end
+
 local function onTaskBoardGameStart()
 	ensureTaskBoardPanelButton()
-	scheduleEvent(syncBountyShortcutHighlight, 0)
+	if bountyShortcutSyncEvent then
+		removeEvent(bountyShortcutSyncEvent)
+	end
+	bountyShortcutSyncEvent = scheduleEvent(function()
+		bountyShortcutSyncEvent = nil
+		syncBountyShortcutHighlight()
+	end, 0)
 end
 
 TaskBoard.resourceTypes = {
@@ -309,6 +328,13 @@ function TaskBoard:updateMenuSelection(tab)
 end
 
 local function onTaskBoardGameEnd()
+	cancelTaskBoardPendingEvents()
+	removeEvent(taskBoostRefreshEvent)
+	taskBoostRefreshEvent = nil
+	TaskBoard.taskBoostRemaining.bountyKill = 0
+	TaskBoard.taskBoostRemaining.weeklyKill = 0
+	TaskBoard.taskBoostRemaining.weeklyReduced = 0
+	TaskBoard.refreshTaskBoostButtons()
 	TaskBoard:clearBountyShortcutHighlight()
 	hideTaskBoardModal(TaskBoard.mainWindow)
 
@@ -412,10 +438,15 @@ function init()
 	TaskBoard.BountyTask:init()
 	TaskBoard.TaskShop:init()
 	TaskBoard.WeeklyTask:init()
-	scheduleEvent(function()
+	cancelTaskBoardPendingEvents()
+	taskBoostInitRefreshEvent = scheduleEvent(function()
+		taskBoostInitRefreshEvent = nil
 		TaskBoard.refreshTaskBoostButtons()
 	end, 0)
-	scheduleEvent(syncBountyShortcutHighlight, 0)
+	bountyShortcutSyncEvent = scheduleEvent(function()
+		bountyShortcutSyncEvent = nil
+		syncBountyShortcutHighlight()
+	end, 0)
 	ensureTaskBoardPanelButton()
 
 	Keybind.new(TASK_BOARD_KEYBIND_CATEGORY, TASK_BOARD_KEYBIND_ACTION, TASK_BOARD_HOTKEY, "")
@@ -445,6 +476,7 @@ function terminate()
 		onClientEvent = onTaskBoardClientEvent,
 		onStorePurchase = refreshTaskBoardAfterStorePurchase
 	})
+	cancelTaskBoardPendingEvents()
 	removeEvent(taskBoostRefreshEvent)
 	taskBoostRefreshEvent = nil
 	hideTaskBoardModal(TaskBoard.mainWindow)

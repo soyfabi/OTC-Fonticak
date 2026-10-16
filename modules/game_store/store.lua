@@ -391,10 +391,6 @@ function openTaskHuntStoreSearch(searchText)
   end
 end
 
-function openWeeklyTaskExpansion()
-  openTaskHuntStoreSearch("Permanent Weekly Task Expansion")
-end
-
 -- OTUI handlers run outside the module sandbox; keep purchase close on modules.game_store.
 function completePurchase(widget, immediate)
   if Offers and Offers.completePurchase then

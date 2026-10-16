@@ -4,9 +4,11 @@ TaskBoard.BountyTask = {}
 
 local BountyTask = TaskBoard.BountyTask
 
-CLAIMED_DAILY_TASK_STATE = false
+local CLAIMED_DAILY_TASK_STATE = false
 local STORE_BOUNTY_KILL_BOOST = "Bounty Double Kill Boost (1H)"
 local MAX_REROLL_TOKENS = 10
+local bountyTrackerTooltipEvent = nil
+local bountyInitTrackerEvent = nil
 
 local BACKDROP_BY_STARS = {
 	[0] = "/modules/game_taskboard/images/backdrop_tasksystem_normal_task",
@@ -352,7 +354,11 @@ local function setBountyTrackerSelected(data)
 	local tooltip = buildBountyTrackerActiveTooltip(creatureName, killed, total)
 
 	setBountyTrackerTooltip(slot, tooltip)
-	scheduleEvent(function()
+	if bountyTrackerTooltipEvent then
+		removeEvent(bountyTrackerTooltipEvent)
+	end
+	bountyTrackerTooltipEvent = scheduleEvent(function()
+		bountyTrackerTooltipEvent = nil
 		local trackerSlot = getBountyTrackerSlot()
 
 		if trackerSlot then
@@ -1767,6 +1773,13 @@ end
 local bountyGameStartEvent1 = nil
 local bountyGameStartEvent2 = nil
 
+-- ADAPTER for our engine.
+-- The engine splits bounty data into TWO events always arriving in pairs and always in this order:
+-- onBountyTaskData (header + monsters + talismans), followed immediately by onBountyPreferredData
+-- (preference list slots). The module expects everything at once in onBountyTasksDaily, so
+-- we stash the first packet in a cache and only call the handler on the second one.
+local pendingBountyData = nil
+
 local function cancelBountyGameStartEvents()
 	if bountyGameStartEvent1 then
 		removeEvent(bountyGameStartEvent1)
@@ -1776,12 +1789,23 @@ local function cancelBountyGameStartEvents()
 		removeEvent(bountyGameStartEvent2)
 		bountyGameStartEvent2 = nil
 	end
+	if bountyTrackerTooltipEvent then
+		removeEvent(bountyTrackerTooltipEvent)
+		bountyTrackerTooltipEvent = nil
+	end
+	if bountyInitTrackerEvent then
+		removeEvent(bountyInitTrackerEvent)
+		bountyInitTrackerEvent = nil
+	end
 end
 
 local function onGameStartBounty()
 	bountyCreatureCache = nil
 	cancelBountyGameStartEvents()
-	bountyGameStartEvent1 = scheduleEvent(buildBountyCreatureCache, 500)
+	bountyGameStartEvent1 = scheduleEvent(function()
+		bountyGameStartEvent1 = nil
+		buildBountyCreatureCache()
+	end, 500)
 	bountyGameStartEvent2 = scheduleEvent(function()
 		bountyGameStartEvent2 = nil
 		BountyTask.requestTrackerData()
@@ -1801,13 +1825,6 @@ local function onGameEndBounty()
 
 	setBountyTrackerInactive()
 end
-
--- ADAPTER for our engine.
--- The engine splits bounty data into TWO events always arriving in pairs and always in this order:
--- onBountyTaskData (header + monsters + talismans), followed immediately by onBountyPreferredData
--- (preference list slots). The module expects everything at once in onBountyTasksDaily, so
--- we stash the first packet in a cache and only call the handler on the second one.
-local pendingBountyData = nil
 
 local BOUNTY_ENGINE_STARS = { [0] = 0, [1] = 1, [2] = 2 }
 
@@ -1866,32 +1883,6 @@ function onEngineBountyTaskData(header, monsters, talismans)
 	end
 end
 
-local function normalizeEngineRaceCatalog(raceList)
-	local catalog = {}
-	local raceIds = {}
-
-	if type(raceList) ~= "table" then
-		return catalog, raceIds
-	end
-
-	for _, entry in ipairs(raceList) do
-		if type(entry) == "table" then
-			local raceId = tonumber(entry.raceId) or 0
-			if raceId > 0 then
-				catalog[#catalog + 1] = entry
-				raceIds[#raceIds + 1] = raceId
-			end
-		else
-			local raceId = tonumber(entry) or 0
-			if raceId > 0 then
-				raceIds[#raceIds + 1] = raceId
-			end
-		end
-	end
-
-	return catalog, raceIds
-end
-
 function onEngineBountyPreferredData(preferredSlots, _, allRaceIds)
 	local data = pendingBountyData or {
 		slots = {},
@@ -1929,13 +1920,6 @@ function onEngineBountyPreferredData(preferredSlots, _, allRaceIds)
 
 	onBountyTasksDaily(data.slots, data.rerollTokens, data.claimUnlocked, data.difficulty,
 		data.talismanData, preferredListData)
-
-	local preferredListPanel = TaskBoard.preferredListPanel
-	if preferredListPanel and preferredListPanel:isVisible() then
-		local search = preferredListPanel:recursiveGetChildById("search")
-		local filterText = search and search:getText() or ""
-		populateBountyCreatureList(filterText, getExcludedRaceIds())
-	end
 end
 
 local function wireBountyBoostKillsButton()
@@ -1965,7 +1949,13 @@ function BountyTask:init()
 		onGameEnd = onGameEndBounty
 	})
 	wireBountyBoostKillsButton()
-	scheduleEvent(refreshBountyKillTrackerFromCache, 0)
+	if bountyInitTrackerEvent then
+		removeEvent(bountyInitTrackerEvent)
+	end
+	bountyInitTrackerEvent = scheduleEvent(function()
+		bountyInitTrackerEvent = nil
+		refreshBountyKillTrackerFromCache()
+	end, 0)
 end
 
 function BountyTask:terminate()

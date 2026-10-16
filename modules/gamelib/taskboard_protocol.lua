@@ -618,17 +618,6 @@ local function parseTaskBoardSubPacket(msg, subType)
     end
 end
 
-local function skipTaskBoardPayloadRemainder(msg, reason)
-    local unread = msg:getUnreadSize()
-    if unread <= 0 then
-        return
-    end
-    g_logger.warning(string.format('[TaskBoard] skipping %d bytes (%s)', unread, reason or 'unknown'))
-    if msg.setReadPos and msg.getMessageSize then
-        msg:setReadPos(msg:getMessageSize())
-    end
-end
-
 local function parseOneTaskBoardFrame(msg)
     if msg:getUnreadSize() < 1 then
         return false, 'empty frame'
@@ -712,9 +701,13 @@ local function unregisterTaskBoardOpcode()
 end
 
 if g_game then
-    connect(g_game, {
+    if _G._taskBoardProtocolCallbacks then
+        disconnect(g_game, _G._taskBoardProtocolCallbacks)
+    end
+    _G._taskBoardProtocolCallbacks = {
         onGameStart = registerTaskBoardOpcode,
         onGameEnd = unregisterTaskBoardOpcode,
-    })
+    }
+    connect(g_game, _G._taskBoardProtocolCallbacks)
 end
 registerTaskBoardOpcode()

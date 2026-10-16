@@ -4825,7 +4825,8 @@ void ProtocolGame::parseTaskHuntingBasicData(const InputMessagePtr& msg)
     }
 
     // Forgotten Server / Fonticak task_hunting.lua (0xBA) appends price fields after the reward table.
-    if (g_game.getClientVersion() >= 860 && g_game.getClientVersion() < 1200) {
+    if (g_game.getClientVersion() >= 860 && g_game.getClientVersion() < 1200 &&
+        g_game.getFeature(Otc::GameColorizedLootValue) && msg->getUnreadSize() >= 10) {
         msg->getU32(); // reroll price (gold)
         msg->getU32(); // reroll price duplicate (client UI legacy)
         msg->getU8(); // wildcard select price

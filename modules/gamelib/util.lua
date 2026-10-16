@@ -176,19 +176,29 @@ local function isUsableItemDisplayName(name)
 	return name and name ~= "" and name:lower() ~= "unnamed"
 end
 
+local cachedMarketItemsRef = nil
+local cachedMarketItemNamesById = nil
+local resolvedItemServerNames = {}
+local resolvedWithMarketCatalog = {}
+
 local function lookupServerMarketItemName(itemId)
 	if modules.game_market and modules.game_market.getCachedCustomMarketItems then
 		local serverItems = modules.game_market.getCachedCustomMarketItems()
 		if serverItems then
-			for i = 1, #serverItems do
-				local entry = serverItems[i]
-				if entry and entry.id == itemId and isUsableItemDisplayName(entry.name) then
-					return entry.name
+			if serverItems ~= cachedMarketItemsRef then
+				cachedMarketItemsRef = serverItems
+				cachedMarketItemNamesById = {}
+				for i = 1, #serverItems do
+					local entry = serverItems[i]
+					if entry and entry.id and isUsableItemDisplayName(entry.name) then
+						cachedMarketItemNamesById[entry.id] = entry.name
+					end
 				end
 			end
+			return cachedMarketItemNamesById[itemId] or "", true
 		end
 	end
-	return ""
+	return "", false
 end
 
 local function lookupThingTypeItemName(itemId)
@@ -265,14 +275,30 @@ function getItemServerName(itemId)
 		return ""
 	end
 
-	local name = lookupServerMarketItemName(itemId)
+	if resolvedWithMarketCatalog[itemId] then
+		return resolvedItemServerNames[itemId] or ""
+	end
+
+	local name, marketCatalogReady = lookupServerMarketItemName(itemId)
 	if name ~= "" then
-		return string.capitalize(name)
+		local formatted = string.capitalize(name)
+		resolvedItemServerNames[itemId] = formatted
+		resolvedWithMarketCatalog[itemId] = true
+		return formatted
+	end
+
+	if not marketCatalogReady and resolvedItemServerNames[itemId] then
+		return resolvedItemServerNames[itemId]
 	end
 
 	name = lookupThingTypeItemName(itemId)
 	if name ~= "" then
-		return string.capitalize(name)
+		local formatted = string.capitalize(name)
+		resolvedItemServerNames[itemId] = formatted
+		if marketCatalogReady then
+			resolvedWithMarketCatalog[itemId] = true
+		end
+		return formatted
 	end
 
 	if Item and Item.create then
@@ -281,16 +307,31 @@ function getItemServerName(itemId)
 			if item.getMarketData then
 				local marketData = item:getMarketData()
 				if marketData and isUsableItemDisplayName(marketData.name) then
-					return string.capitalize(marketData.name)
+					local formatted = string.capitalize(marketData.name)
+					resolvedItemServerNames[itemId] = formatted
+					if marketCatalogReady then
+						resolvedWithMarketCatalog[itemId] = true
+					end
+					return formatted
 				end
 			end
 			if item.getName then
 				local itemName = item:getName()
 				if isUsableItemDisplayName(itemName) then
-					return string.capitalize(itemName)
+					local formatted = string.capitalize(itemName)
+					resolvedItemServerNames[itemId] = formatted
+					if marketCatalogReady then
+						resolvedWithMarketCatalog[itemId] = true
+					end
+					return formatted
 				end
 			end
 		end
+	end
+
+	if marketCatalogReady then
+		resolvedItemServerNames[itemId] = ""
+		resolvedWithMarketCatalog[itemId] = true
 	end
 
 	return ""

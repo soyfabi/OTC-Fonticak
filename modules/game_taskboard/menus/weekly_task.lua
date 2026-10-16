@@ -4,7 +4,6 @@ TaskBoard.WeeklyTask = {}
 
 local WeeklyTask = TaskBoard.WeeklyTask
 
-WeeklyTask.mainWindow = nil
 WeeklyTask.isWeeklyTaskActive = false
 
 local lastWeeklyTasksState
@@ -348,35 +347,44 @@ local function isDeliveryEntryCompleted(entry)
 	return (tonumber(entry.state) or 0) ~= 0
 end
 
+local function buildOpenContainerItemCounts()
+	local counts = {}
+	for _, container in pairs(g_game.getContainers()) do
+		for _, item in pairs(container:getItems()) do
+			if item then
+				local id = item:getId()
+				if id and id > 0 then
+					counts[id] = (counts[id] or 0) + (item:getCount() or 1)
+				end
+			end
+		end
+	end
+	return counts
+end
+
+local function countDeliveryItemFromSnapshot(itemCounts, itemId, alternateItemId)
+	itemId = tonumber(itemId) or 0
+	alternateItemId = tonumber(alternateItemId) or 0
+
+	local count = 0
+	if itemId > 0 then
+		count = count + (itemCounts[itemId] or 0)
+	end
+	if alternateItemId > 0 and alternateItemId ~= itemId then
+		count = count + (itemCounts[alternateItemId] or 0)
+	end
+	return count
+end
+
 local function countDeliveryItemInOpenContainers(itemId, alternateItemId)
 	if not itemId or itemId <= 0 then
 		return 0
 	end
 
-	alternateItemId = tonumber(alternateItemId) or 0
-
-	local function matchesItem(item)
-		if not item then
-			return false
-		end
-
-		local id = item:getId()
-		return id == itemId or (alternateItemId > 0 and id == alternateItemId)
-	end
-
-	local count = 0
-	for _, container in pairs(g_game.getContainers()) do
-		for _, item in pairs(container:getItems()) do
-			if matchesItem(item) then
-				count = count + (item:getCount() or 1)
-			end
-		end
-	end
-
-	return count
+	return countDeliveryItemFromSnapshot(buildOpenContainerItemCounts(), itemId, alternateItemId)
 end
 
-local function deliveryEntryDisplayCount(entry)
+local function deliveryEntryDisplayCount(entry, itemCounts)
 	if not entry or isDeliveryEntryCompleted(entry) then
 		return tonumber(entry.count) or 0
 	end
@@ -391,7 +399,9 @@ local function deliveryEntryDisplayCount(entry)
 		return tonumber(entry.count) or 0
 	end
 
-	local clientCount = countDeliveryItemInOpenContainers(clientItemId, serverItemId)
+	local clientCount = itemCounts
+		and countDeliveryItemFromSnapshot(itemCounts, clientItemId, serverItemId)
+		or countDeliveryItemInOpenContainers(clientItemId, serverItemId)
 	local serverAvailable = tonumber(entry.available)
 	local available = clientCount
 
@@ -402,11 +412,12 @@ local function deliveryEntryDisplayCount(entry)
 	return math.min(available, totalItems)
 end
 
-local function syncDeliveryCountsFromInventory()
+local function syncDeliveryCountsFromInventory(itemCounts)
 	if not lastWeeklyTasksState or not lastWeeklyTasksState.deliveryEntries then
 		return false
 	end
 
+	itemCounts = itemCounts or buildOpenContainerItemCounts()
 	local changed = false
 	for _, entry in ipairs(lastWeeklyTasksState.deliveryEntries) do
 		if isDeliveryEntryCompleted(entry) then
@@ -414,7 +425,7 @@ local function syncDeliveryCountsFromInventory()
 		end
 
 		local clientItemId, serverItemId = weeklyDeliveryPreviewItemId(entry)
-		local clientCount = countDeliveryItemInOpenContainers(clientItemId, serverItemId)
+		local clientCount = countDeliveryItemFromSnapshot(itemCounts, clientItemId, serverItemId)
 		local serverAvailable = tonumber(entry.available) or 0
 
 		if clientCount > serverAvailable then
@@ -435,16 +446,17 @@ local function syncDeliveryCountsFromInventory()
 	return changed
 end
 
-local function refreshDeliverySlotsFromState()
+local function refreshDeliverySlotsFromState(itemCounts)
 	local deliverySlotsList = getDeliverySlotsList()
 	if not deliverySlotsList or not lastWeeklyTasksState then
 		return
 	end
 
+	itemCounts = itemCounts or buildOpenContainerItemCounts()
 	local children = deliverySlotsList:getChildren()
 	local entries = lastWeeklyTasksState.deliveryEntries or {}
 	for index, panel in ipairs(children) do
-		fillDeliverySlot(panel, entries[index])
+		fillDeliverySlot(panel, entries[index], itemCounts)
 	end
 end
 
@@ -455,8 +467,9 @@ local function scheduleDeliveryInventoryRefresh()
 
 	deliveryInventoryRefreshEvent = scheduleEvent(function()
 		deliveryInventoryRefreshEvent = nil
-		syncDeliveryCountsFromInventory()
-		refreshDeliverySlotsFromState()
+		local itemCounts = buildOpenContainerItemCounts()
+		syncDeliveryCountsFromInventory(itemCounts)
+		refreshDeliverySlotsFromState(itemCounts)
 	end, 0)
 end
 
@@ -563,7 +576,7 @@ local function ensureDeliveryItemNameCatalog()
 	end
 end
 
-fillDeliverySlot = function(panel, entry)
+fillDeliverySlot = function(panel, entry, itemCounts)
 	if not panel or not entry then
 		return
 	end
@@ -588,7 +601,7 @@ fillDeliverySlot = function(panel, entry)
 
 	local totalItems = tonumber(entry.totalItems) or 0
 	local isCompleted = isDeliveryEntryCompleted(entry)
-	local deliveredCount = isCompleted and (tonumber(entry.count) or 0) or deliveryEntryDisplayCount(entry)
+	local deliveredCount = isCompleted and (tonumber(entry.count) or 0) or deliveryEntryDisplayCount(entry, itemCounts)
 
 	if isCompleted and totalItems > 0 then
 		deliveredCount = totalItems
@@ -829,8 +842,10 @@ local function setWeeklyTrackerSelected(slotIndex, raceId, monstersKilled, total
 	if nameLabel then
 		if isAnyCreature then
 			nameLabel:setText(capitalizeWords(creatureName))
-		else
+		elseif modules.game_prey and modules.game_prey.formatKillTrackerCreatureName then
 			nameLabel:setText(modules.game_prey.formatKillTrackerCreatureName(creatureName))
+		else
+			nameLabel:setText(capitalizeWords(creatureName))
 		end
 	end
 
@@ -1053,6 +1068,7 @@ local function buildDeliverySlots(weeklyTasks)
 	syncWeeklyUnlockButton(unlockDeliveryButton, deliveryCount <= 6, deliverySlotsList)
 
 	if weeklyTasks.deliveryEntries then
+		local itemCounts = buildOpenContainerItemCounts()
 		for _, entry in ipairs(weeklyTasks.deliveryEntries) do
 			local ok, panel = pcall(g_ui.createWidget, "DeliverySlots", deliverySlotsList)
 
@@ -1062,7 +1078,7 @@ local function buildDeliverySlots(weeklyTasks)
 				break
 			end
 
-			fillDeliverySlot(panel, entry)
+			fillDeliverySlot(panel, entry, itemCounts)
 		end
 	end
 
