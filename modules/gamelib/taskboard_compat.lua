@@ -21,6 +21,11 @@ local ACTION_ASSIGN_PREFERRED = 15
 local ACTION_ASSIGN_UNWANTED = 16
 local ACTION_OPEN_PREFERRED = 18
 
+-- UI uses 0-based slot rows; server bounty preferred actions use slots 1..5.
+local function preferredListSlotIndex(uiSlot)
+    return (tonumber(uiSlot) or 0) + 1
+end
+
 local function sendTaskBoardAction(option, value, extraValue)
     if not g_game.isOnline() then
         return false
@@ -64,6 +69,10 @@ local function installTaskBoardSendCompat()
         return sendTaskBoardAction(map[tab] or ACTION_OPEN_BOUNTY)
     end
 
+    g_game.requestWeeklyTaskData = function()
+        return sendTaskBoardAction(ACTION_OPEN_WEEKLY)
+    end
+
     g_game.sendRerollTasks = function()
         return sendTaskBoardAction(ACTION_REROLL_TASKS)
     end
@@ -101,23 +110,23 @@ local function installTaskBoardSendCompat()
     end
 
     g_game.sendPreferredListUnlockSlots = function(slot)
-        return sendTaskBoardAction(ACTION_UNLOCK_PREFERRED, slot)
+        return sendTaskBoardAction(ACTION_UNLOCK_PREFERRED, preferredListSlotIndex(slot))
     end
 
     g_game.sendPreferredListClearPreferred = function(slot)
-        return sendTaskBoardAction(ACTION_CLEAR_PREFERRED, slot)
+        return sendTaskBoardAction(ACTION_CLEAR_PREFERRED, preferredListSlotIndex(slot))
     end
 
     g_game.sendPreferredListClearUnwanted = function(slot)
-        return sendTaskBoardAction(ACTION_CLEAR_UNWANTED, slot)
+        return sendTaskBoardAction(ACTION_CLEAR_UNWANTED, preferredListSlotIndex(slot))
     end
 
     g_game.sendPreferredListPreferred = function(slot, raceId)
-        return sendTaskBoardAction(ACTION_ASSIGN_PREFERRED, slot, raceId)
+        return sendTaskBoardAction(ACTION_ASSIGN_PREFERRED, preferredListSlotIndex(slot), raceId)
     end
 
     g_game.sendPreferredListUnwanted = function(slot, raceId)
-        return sendTaskBoardAction(ACTION_ASSIGN_UNWANTED, slot, raceId)
+        return sendTaskBoardAction(ACTION_ASSIGN_UNWANTED, preferredListSlotIndex(slot), raceId)
     end
 
     g_game.sendOpenPreferredList = function()

@@ -467,7 +467,7 @@ local function parseWeekly(msg)
         local clientId = msg:getU16()
         local amount = msg:getU8()
         local required = msg:getU8()
-        msg:getU32() -- available
+        local available = msg:getU32()
         local delivered = msg:getU8()
         items[#items + 1] = {
             slotIndex = slotIndex,
@@ -475,14 +475,15 @@ local function parseWeekly(msg)
             clientId = clientId,
             current = amount,
             total = required,
+            available = available,
             claimed = delivered,
             state = delivered,
         }
     end
 
     local difficulty = msg:getU8()
-    msg:getU32() -- killExp
-    msg:getU32() -- deliveryExp
+    local killExp = msg:getU32()
+    local deliveryExp = msg:getU32()
     local completedKills = msg:getU8()
     local completedDeliveries = msg:getU8()
     local weeklyProgress = msg:getU8()
@@ -504,6 +505,8 @@ local function parseWeekly(msg)
         completedDeliveryTasks = completedDeliveries,
         pointsEarned = huntingPts,
         soulsealsEarned = soulseals,
+        killTaskRewardExp = killExp,
+        deliveryTaskRewardExp = deliveryExp,
         resetTimestamp = 0,
         weeklyProgressFinished = weeklyProgress,
         unlockedDifficulty = difficulty + 1,

@@ -59,6 +59,7 @@ local function copyWeeklyTasksState(state)
 			taskClientId = entry.taskClientId,
 			count = entry.count,
 			totalItems = entry.totalItems,
+			available = entry.available,
 			completed = entry.completed,
 			state = entry.state,
 		}
@@ -76,7 +77,25 @@ local function copyWeeklyTasksState(state)
 		mondayTime = state.mondayTime,
 		weeklyTaskActive = state.weeklyTaskActive,
 		unlockedDifficulties = state.unlockedDifficulties,
+		killTaskRewardExp = state.killTaskRewardExp,
+		deliveryTaskRewardExp = state.deliveryTaskRewardExp,
 	}
+end
+
+local function buildWeeklyTaskRewardInfo(weeklyTasks)
+	if not TaskBoard.weeklyPanel then
+		return
+	end
+
+	local label = TaskBoard.weeklyPanel:recursiveGetChildById("weeklyTaskRewardInfo")
+	if not label then
+		return
+	end
+
+	local killExp = tonumber(weeklyTasks.killTaskRewardExp) or 0
+	local deliveryExp = tonumber(weeklyTasks.deliveryTaskRewardExp) or 0
+
+	label:setText(tr("Each kill task rewards you with %s XP and each delivery task will reward you with %s XP.", TaskBoard:formatNumberWithCommas(killExp), TaskBoard:formatNumberWithCommas(deliveryExp)))
 end
 
 function WeeklyTask:updateOverlayVisibility()
@@ -161,6 +180,33 @@ local function weeklyRaceDisplayFromEntry(entry)
 	return raceData
 end
 
+local function weeklyRaceHasOutfit(raceData)
+	return raceData and raceData.outfit and (tonumber(raceData.outfit.type) or 0) > 0
+end
+
+local function resolveWeeklyKillDisplay(killEntry, raceId)
+	local raceData = killEntry and weeklyRaceDisplayFromEntry(killEntry)
+	local rid = tonumber(raceId) or (killEntry and tonumber(killEntry.raceId)) or 0
+
+	if (not raceData or not weeklyRaceHasOutfit(raceData)) and rid > 0 and g_things and g_things.getRaceData then
+		local fromThings = g_things.getRaceData(rid)
+		if fromThings and fromThings.raceId ~= 0 then
+			raceData = fromThings
+		end
+	end
+
+	local creatureName = "?"
+	if raceData and raceData.name and raceData.name ~= "" then
+		creatureName = raceData.name
+	elseif killEntry and killEntry.creatureName and killEntry.creatureName ~= "" then
+		creatureName = killEntry.creatureName
+	end
+
+	return raceData, creatureName
+end
+
+local WEEKLY_TASK_COMPLETED_ICON = "/modules/game_taskboard/images/checkmark-icon"
+
 local function setKillSlotCreature(panel, raceData)
 	local outfitIcon = panel:getChildById("outfitIcon")
 
@@ -168,7 +214,7 @@ local function setKillSlotCreature(panel, raceData)
 		return
 	end
 
-	if raceData and raceData.outfit and raceData.raceId ~= 0 then
+	if weeklyRaceHasOutfit(raceData) then
 		outfitIcon:setOutfit(raceData.outfit)
 		if outfitIcon.setFixedCreatureSize then
 			outfitIcon:setFixedCreatureSize(true)
@@ -190,7 +236,18 @@ local function setKillSlotCreature(panel, raceData)
 	end
 end
 
-local function fillKillSlot(panel, name, current, target, raceData)
+local function isWeeklyKillTaskCompleted(current, target, taskState)
+	if (tonumber(taskState) or 0) ~= 0 then
+		return true
+	end
+
+	local curN = tonumber(current) or 0
+	local tgtN = tonumber(target) or 0
+
+	return tgtN > 0 and curN >= tgtN
+end
+
+local function fillKillSlot(panel, name, current, target, raceData, taskState)
 	if not panel then
 		return
 	end
@@ -204,25 +261,45 @@ local function fillKillSlot(panel, name, current, target, raceData)
 	panel:setText(displayName)
 	setKillSlotCreature(panel, raceData)
 
+	local curN = tonumber(current) or 0
+	local tgtN = tonumber(target) or 0
+	local isCompleted = isWeeklyKillTaskCompleted(current, target, taskState)
+
 	local currentLabel = panel:getChildById("killAnyMonstersLabel")
+	local ofLabel = panel:getChildById("ofKillLabel")
+	local totalLabel = panel:getChildById("totalKillAnyMonstersLabel")
+	local completedIcon = panel:getChildById("killCompletedIcon")
 
 	if currentLabel then
+		currentLabel:setVisible(not isCompleted)
 		currentLabel:setText(TaskBoard:formatNumberWithCommas(current or 0))
 
-		local curN = tonumber(current) or 0
-		local tgtN = tonumber(target) or 0
-
-		if tgtN > 0 and curN >= tgtN then
+		if isCompleted or (tgtN > 0 and curN >= tgtN) then
 			currentLabel:setColor("#44cc44")
 		else
 			currentLabel:setColor("#d33c3c")
 		end
 	end
 
-	local totalLabel = panel:getChildById("totalKillAnyMonstersLabel")
+	if ofLabel then
+		ofLabel:setVisible(not isCompleted)
+	end
 
 	if totalLabel then
+		totalLabel:setVisible(not isCompleted)
 		totalLabel:setText(TaskBoard:formatNumberWithCommas(target or 0))
+
+		if isCompleted or (tgtN > 0 and curN >= tgtN) then
+			totalLabel:setColor("#44cc44")
+		end
+	end
+
+	if completedIcon then
+		completedIcon:setImageSource(WEEKLY_TASK_COMPLETED_ICON)
+		completedIcon:setVisible(isCompleted)
+		if isCompleted and completedIcon.raise then
+			completedIcon:raise()
+		end
 	end
 end
 
@@ -244,15 +321,228 @@ local function weeklyDeliveryItemName(entry)
 	return name
 end
 
-local deliveryNameCatalogRefreshScheduled = false
+local deliveryNameCatalogRefreshEvent = nil
+local deliveryInventoryRefreshEvent = nil
+local deliveryServerSyncEvent = nil
+local fillDeliverySlot
 
-local function scheduleDeliverySlotsRefreshAfterCatalog()
-	if deliveryNameCatalogRefreshScheduled then
+local function deliveryEntryTracksItemId(entry, itemId)
+	if not itemId then
+		return false
+	end
+
+	local clientId, serverId = weeklyDeliveryPreviewItemId(entry)
+	return itemId == clientId or (serverId > 0 and itemId == serverId)
+end
+
+local function isDeliveryEntryCompleted(entry)
+	if not entry then
+		return false
+	end
+
+	if (tonumber(entry.completed) or 0) ~= 0 then
+		return true
+	end
+
+	return (tonumber(entry.state) or 0) ~= 0
+end
+
+local function countDeliveryItemInOpenContainers(itemId, alternateItemId)
+	if not itemId or itemId <= 0 then
+		return 0
+	end
+
+	alternateItemId = tonumber(alternateItemId) or 0
+
+	local function matchesItem(item)
+		if not item then
+			return false
+		end
+
+		local id = item:getId()
+		return id == itemId or (alternateItemId > 0 and id == alternateItemId)
+	end
+
+	local count = 0
+	for _, container in pairs(g_game.getContainers()) do
+		for _, item in pairs(container:getItems()) do
+			if matchesItem(item) then
+				count = count + (item:getCount() or 1)
+			end
+		end
+	end
+
+	return count
+end
+
+local function deliveryEntryDisplayCount(entry)
+	if not entry or isDeliveryEntryCompleted(entry) then
+		return tonumber(entry.count) or 0
+	end
+
+	local totalItems = tonumber(entry.totalItems) or 0
+	if totalItems <= 0 then
+		return tonumber(entry.count) or 0
+	end
+
+	local clientItemId, serverItemId = weeklyDeliveryPreviewItemId(entry)
+	if clientItemId <= 0 and serverItemId <= 0 then
+		return tonumber(entry.count) or 0
+	end
+
+	local clientCount = countDeliveryItemInOpenContainers(clientItemId, serverItemId)
+	local serverAvailable = tonumber(entry.available)
+	local available = clientCount
+
+	if serverAvailable ~= nil then
+		available = math.max(clientCount, serverAvailable)
+	end
+
+	return math.min(available, totalItems)
+end
+
+local function syncDeliveryCountsFromInventory()
+	if not lastWeeklyTasksState or not lastWeeklyTasksState.deliveryEntries then
+		return false
+	end
+
+	local changed = false
+	for _, entry in ipairs(lastWeeklyTasksState.deliveryEntries) do
+		if isDeliveryEntryCompleted(entry) then
+			goto continue_delivery_sync
+		end
+
+		local clientItemId, serverItemId = weeklyDeliveryPreviewItemId(entry)
+		local clientCount = countDeliveryItemInOpenContainers(clientItemId, serverItemId)
+		local serverAvailable = tonumber(entry.available) or 0
+
+		if clientCount > serverAvailable then
+			entry.available = clientCount
+			serverAvailable = clientCount
+		end
+
+		local newCount = math.min(math.max(clientCount, serverAvailable), tonumber(entry.totalItems) or 0)
+		local oldCount = tonumber(entry.count) or 0
+		if newCount ~= oldCount then
+			entry.count = newCount
+			changed = true
+		end
+
+		::continue_delivery_sync::
+	end
+
+	return changed
+end
+
+local function refreshDeliverySlotsFromState()
+	local deliverySlotsList = getDeliverySlotsList()
+	if not deliverySlotsList or not lastWeeklyTasksState then
 		return
 	end
-	deliveryNameCatalogRefreshScheduled = true
-	scheduleEvent(function()
-		deliveryNameCatalogRefreshScheduled = false
+
+	local children = deliverySlotsList:getChildren()
+	local entries = lastWeeklyTasksState.deliveryEntries or {}
+	for index, panel in ipairs(children) do
+		fillDeliverySlot(panel, entries[index])
+	end
+end
+
+local function scheduleDeliveryInventoryRefresh()
+	if deliveryInventoryRefreshEvent then
+		return
+	end
+
+	deliveryInventoryRefreshEvent = scheduleEvent(function()
+		deliveryInventoryRefreshEvent = nil
+		syncDeliveryCountsFromInventory()
+		refreshDeliverySlotsFromState()
+	end, 0)
+end
+
+local function cancelDeliveryInventoryRefresh()
+	if deliveryInventoryRefreshEvent then
+		removeEvent(deliveryInventoryRefreshEvent)
+		deliveryInventoryRefreshEvent = nil
+	end
+end
+
+local function cancelDeliveryServerSync()
+	if deliveryServerSyncEvent then
+		removeEvent(deliveryServerSyncEvent)
+		deliveryServerSyncEvent = nil
+	end
+end
+
+local function scheduleWeeklyDeliveryServerSync()
+	if deliveryServerSyncEvent or not g_game.requestWeeklyTaskData then
+		return
+	end
+
+	deliveryServerSyncEvent = scheduleEvent(function()
+		deliveryServerSyncEvent = nil
+		if g_game.isOnline() and lastWeeklyTasksState then
+			g_game.requestWeeklyTaskData()
+		end
+	end, 350)
+end
+
+local function tryScheduleDeliveryRefreshForItems(item, oldItem)
+	if not lastWeeklyTasksState then
+		return
+	end
+
+	local trackedIds = {}
+	if item and item.getId then
+		trackedIds[#trackedIds + 1] = item:getId()
+	end
+	if oldItem and oldItem.getId then
+		trackedIds[#trackedIds + 1] = oldItem:getId()
+	end
+
+	if #trackedIds == 0 then
+		return
+	end
+
+	for _, entry in ipairs(lastWeeklyTasksState.deliveryEntries or {}) do
+		if not isDeliveryEntryCompleted(entry) then
+			for _, trackedId in ipairs(trackedIds) do
+				if deliveryEntryTracksItemId(entry, trackedId) then
+					scheduleDeliveryInventoryRefresh()
+					scheduleWeeklyDeliveryServerSync()
+					return
+				end
+			end
+		end
+	end
+end
+
+local function onWeeklyDeliveryInventoryChange(player, slot, item, oldItem)
+	tryScheduleDeliveryRefreshForItems(item, oldItem)
+end
+
+local function onWeeklyDeliveryContainerItemChange(container, slot, item, oldItem)
+	tryScheduleDeliveryRefreshForItems(item, oldItem)
+end
+
+local function onWeeklyDeliveryContainerOpen()
+	if lastWeeklyTasksState then
+		scheduleDeliveryInventoryRefresh()
+	end
+end
+
+local function cancelDeliveryNameCatalogRefresh()
+	if deliveryNameCatalogRefreshEvent then
+		removeEvent(deliveryNameCatalogRefreshEvent)
+		deliveryNameCatalogRefreshEvent = nil
+	end
+end
+
+local function scheduleDeliverySlotsRefreshAfterCatalog()
+	if deliveryNameCatalogRefreshEvent then
+		return
+	end
+	deliveryNameCatalogRefreshEvent = scheduleEvent(function()
+		deliveryNameCatalogRefreshEvent = nil
 		if lastWeeklyTasksState then
 			buildDeliverySlots(lastWeeklyTasksState)
 		end
@@ -272,7 +562,7 @@ local function ensureDeliveryItemNameCatalog()
 	end
 end
 
-local function fillDeliverySlot(panel, entry)
+fillDeliverySlot = function(panel, entry)
 	if not panel or not entry then
 		return
 	end
@@ -292,27 +582,38 @@ local function fillDeliverySlot(panel, entry)
 	end
 
 	local currentLabel = panel:getChildById("currentDeliveryLabel")
+	local ofLabel = panel:getChildById("ofDeliveryLabel")
+	local totalLabel = panel:getChildById("totalDeliveryLabel")
 
 	local totalItems = tonumber(entry.totalItems) or 0
-	local deliveredCount = tonumber(entry.count) or 0
-	local isCompleted = (entry.completed or 0) ~= 0
+	local isCompleted = isDeliveryEntryCompleted(entry)
+	local deliveredCount = isCompleted and (tonumber(entry.count) or 0) or deliveryEntryDisplayCount(entry)
+
+	if isCompleted and totalItems > 0 then
+		deliveredCount = totalItems
+	end
+
 	local hasRequiredAmount = totalItems > 0 and deliveredCount >= totalItems
 
 	if currentLabel then
+		currentLabel:setVisible(not isCompleted)
 		currentLabel:setText(TaskBoard:formatNumberWithCommas(deliveredCount))
 
-		if hasRequiredAmount then
+		if isCompleted or hasRequiredAmount then
 			currentLabel:setColor("#44ad25")
 		else
 			currentLabel:setColor("#d33c3c")
 		end
 	end
 
-	local totalLabel = panel:getChildById("totalDeliveryLabel")
+	if ofLabel then
+		ofLabel:setVisible(not isCompleted)
+	end
 
 	if totalLabel then
+		totalLabel:setVisible(not isCompleted)
 		totalLabel:setText(TaskBoard:formatNumberWithCommas(totalItems))
-		if hasRequiredAmount then
+		if isCompleted or hasRequiredAmount then
 			totalLabel:setColor("#44ad25")
 		else
 			totalLabel:setColor("#c0c0c0")
@@ -322,29 +623,82 @@ local function fillDeliverySlot(panel, entry)
 	local completedIcon = panel:getChildById("deliveryCompletedIcon")
 
 	if completedIcon then
-		completedIcon:setImageSource(DELIVERY_COMPLETED_ICON)
-		completedIcon:setVisible(hasRequiredAmount)
+		completedIcon:setImageSource(WEEKLY_TASK_COMPLETED_ICON)
+		completedIcon:setVisible(isCompleted)
+		if isCompleted and completedIcon.raise then
+			completedIcon:raise()
+		end
 	end
 
 	local deliverButton = panel:getChildById("deliverButton")
 
 	if deliverButton then
-		local taskId = entry.taskId or 0
-		local hasItems = deliveredCount > 0
+		local taskIndex = tonumber(entry.taskId) or 0
+		local canDeliver = not isCompleted and totalItems > 0 and deliveredCount >= totalItems
 
-		deliverButton:setEnabled(hasItems and not isCompleted)
+		deliverButton:setVisible(not isCompleted)
+		deliverButton:setEnabled(canDeliver)
 
 		function deliverButton.onClick()
-			g_game.sendDeliveryTask(taskId)
+			if isDeliveryEntryCompleted(entry) then
+				return
+			end
+
+			local liveCount = deliveryEntryDisplayCount(entry)
+			if totalItems <= 0 or liveCount < totalItems then
+				return
+			end
+
+			g_game.sendDeliveryTask(taskIndex)
+
+			entry.completed = 1
+			entry.state = 1
+			entry.count = totalItems
+
+			if lastWeeklyTasksState then
+				lastWeeklyTasksState.delivery = (tonumber(lastWeeklyTasksState.delivery) or 0) + 1
+				buildBarProgress(lastWeeklyTasksState)
+			end
+
+			refreshDeliverySlotsFromState()
 		end
 	end
 end
 
 local WEEKLY_KILL_TRACKER_MAX_SLOTS = 9
-local DELIVERY_COMPLETED_ICON = "/modules/game_taskboard/images/checkmark-icon"
 local WEEKLY_ANY_CREATURE_ICON = "/modules/game_taskboard/images/icon-arbitrarymonster"
 local WEEKLY_CREATURETRACK_NO_CREATURE_IMG = "/images/game/prey/prey-noprey-small"
 local WEEKLY_TRACKER_TOOLTIP_FOOTER = "Click in this window to open the Task Board dialog."
+
+local function formatWeeklyTrackerProgressText(killed, total)
+	killed = tonumber(killed) or 0
+	total = tonumber(total) or 0
+
+	if total <= 0 then
+		return ""
+	end
+
+	return string.format("%s/%s", TaskBoard:formatNumberWithCommas(killed), TaskBoard:formatNumberWithCommas(total))
+end
+
+local function applyWeeklyTrackerCreatureStyle(creatureWidget)
+	if not creatureWidget then
+		return
+	end
+
+	if creatureWidget.setCenter then
+		creatureWidget:setCenter(true)
+	end
+	if creatureWidget.setFixedCreatureSize then
+		creatureWidget:setFixedCreatureSize(true)
+	end
+	if creatureWidget.setBaseScale then
+		creatureWidget:setBaseScale(true)
+	end
+	if creatureWidget.setIgnoreDisplacementShift then
+		creatureWidget:setIgnoreDisplacementShift(true)
+	end
+end
 
 local function buildWeeklyTrackerActiveTooltip(creatureName, killed, total)
 	local header = string.format("Creature: %s\nAmount: %s / %s", creatureName, TaskBoard:formatNumberWithCommas(killed), TaskBoard:formatNumberWithCommas(total))
@@ -389,6 +743,7 @@ local function setWeeklyKillTrackerUnused(slotIndex)
 	local noCreature = slot:getChildById("noCreature")
 	local nameLabel = slot:getChildById("creatureName")
 	local timeBar = slot:getChildById("time")
+	local progressLabel = slot:getChildById("weeklyKillProgress")
 
 	if creature then
 		creature:setVisible(false)
@@ -403,6 +758,10 @@ local function setWeeklyKillTrackerUnused(slotIndex)
 		nameLabel:setText(tr("Inactive"))
 	end
 
+	if progressLabel then
+		progressLabel:setText("")
+	end
+
 	if timeBar then
 		timeBar:setPercent(0)
 	end
@@ -410,7 +769,7 @@ local function setWeeklyKillTrackerUnused(slotIndex)
 	slot:setTooltip("")
 end
 
-local function setWeeklyTrackerSelected(slotIndex, raceId, monstersKilled, totalKills, isAnyCreature)
+local function setWeeklyTrackerSelected(slotIndex, raceId, monstersKilled, totalKills, isAnyCreature, killEntry)
 	local slot = getWeeklyTrackerSlot(slotIndex)
 
 	if not slot then
@@ -423,6 +782,7 @@ local function setWeeklyTrackerSelected(slotIndex, raceId, monstersKilled, total
 	local noCreature = slot:getChildById("noCreature")
 	local nameLabel = slot:getChildById("creatureName")
 	local timeBar = slot:getChildById("time")
+	local progressLabel = slot:getChildById("weeklyKillProgress")
 	local creatureName = "?"
 
 	if isAnyCreature then
@@ -435,22 +795,24 @@ local function setWeeklyTrackerSelected(slotIndex, raceId, monstersKilled, total
 		if noCreature then
 			noCreature:setImageSource(WEEKLY_ANY_CREATURE_ICON)
 			noCreature:setImageSize({
-				width = 18,
-				height = 14
+				width = 32,
+				height = 26
 			})
 			noCreature:setCenter(true)
 			noCreature:setVisible(true)
 		end
 	else
-		local rid = tonumber(raceId) or 0
-		local raceData = g_things.getRaceData(rid)
-
-		creatureName = raceData and raceData.raceId ~= 0 and raceData.name or "?"
+		local raceData
+		raceData, creatureName = resolveWeeklyKillDisplay(killEntry, raceId)
 
 		if creature then
-			if raceData and raceData.outfit then
+			if weeklyRaceHasOutfit(raceData) then
 				creature:setOutfit(raceData.outfit)
-				creature:getCreature():setStaticWalking(1000)
+				applyWeeklyTrackerCreatureStyle(creature)
+				local c = creature:getCreature()
+				if c then
+					c:setStaticWalking(1000)
+				end
 				creature:setVisible(true)
 			else
 				creature:setVisible(false)
@@ -459,7 +821,7 @@ local function setWeeklyTrackerSelected(slotIndex, raceId, monstersKilled, total
 
 		if noCreature then
 			noCreature:setImageSource(WEEKLY_CREATURETRACK_NO_CREATURE_IMG)
-			noCreature:setVisible(false)
+			noCreature:setVisible(not weeklyRaceHasOutfit(raceData))
 		end
 	end
 
@@ -473,6 +835,10 @@ local function setWeeklyTrackerSelected(slotIndex, raceId, monstersKilled, total
 
 	local killed = tonumber(monstersKilled) or 0
 	local total = tonumber(totalKills) or 0
+
+	if progressLabel then
+		progressLabel:setText(formatWeeklyTrackerProgressText(killed, total))
+	end
 
 	if timeBar then
 		local percent = 0
@@ -504,25 +870,12 @@ local function buildKillSlots(weeklyTasks)
 
 	local killEntries = weeklyTasks.killEntries or {}
 
-	if #killEntries == 0 then
-		killSlotsList:updateLayout()
-		layoutWeeklyKillTrackerSlots(0)
-
-		if modules.game_prey and modules.game_prey.updateTrackerHeight then
-			modules.game_prey.updateTrackerHeight()
-		end
-
-		refreshBountyKillTrackerIfAvailable()
-
-		return
-	end
-
 	killSlotsList:destroyChildren()
 
 	local ok, anyPanel = pcall(g_ui.createWidget, "KillSlots", killSlotsList)
 
 	if not ok then
-		print("[WeeklyTask] error creating KillSlots (Any Creature):", tostring(anyPanel))
+		g_logger.error("[WeeklyTask] error creating KillSlots (Any Creature): " .. tostring(anyPanel))
 
 		return
 	end
@@ -540,7 +893,7 @@ local function buildKillSlots(weeklyTasks)
 		local ok2, panel = pcall(g_ui.createWidget, "KillSlots", killSlotsList)
 
 		if not ok2 then
-			print("[WeeklyTask] error creating KillSlots:", tostring(panel))
+			g_logger.error("[WeeklyTask] error creating KillSlots: " .. tostring(panel))
 
 			break
 		end
@@ -548,10 +901,10 @@ local function buildKillSlots(weeklyTasks)
 		local raceData = weeklyRaceDisplayFromEntry(entry)
 		local raceName = raceData and raceData.name or entry.creatureName or "?"
 
-		fillKillSlot(panel, raceName, entry.totalMonsterKilleds, entry.totalKills, raceData)
+		fillKillSlot(panel, raceName, entry.totalMonsterKilleds, entry.totalKills, raceData, entry.state)
 
 		if slotIndex <= maxSpeciesSlots then
-			setWeeklyTrackerSelected(slotIndex + 1, entry.raceId, entry.totalMonsterKilleds, entry.totalKills, false)
+			setWeeklyTrackerSelected(slotIndex + 1, entry.raceId, entry.totalMonsterKilleds, entry.totalKills, false, entry)
 		end
 	end
 
@@ -588,7 +941,7 @@ local function buildDeliverySlots(weeklyTasks)
 			local ok, panel = pcall(g_ui.createWidget, "DeliverySlots", deliverySlotsList)
 
 			if not ok then
-				print("[WeeklyTask] error creating DeliverySlots:", tostring(panel))
+				g_logger.error("[WeeklyTask] error creating DeliverySlots: " .. tostring(panel))
 
 				break
 			end
@@ -812,7 +1165,14 @@ function onWeeklyKillUpdate(entry)
 	for slotIndex = 2, WEEKLY_KILL_TRACKER_MAX_SLOTS do
 		local slot = getWeeklyTrackerSlot(slotIndex)
 		if slot and slot:isVisible() then
-			setWeeklyTrackerSelected(slotIndex, rid, entry.totalMonsterKilleds, entry.totalKills, false)
+			local killEntry
+			for _, e in ipairs(lastWeeklyTasksState and lastWeeklyTasksState.killEntries or {}) do
+				if e.raceId == rid then
+					killEntry = e
+					break
+				end
+			end
+			setWeeklyTrackerSelected(slotIndex, rid, entry.totalMonsterKilleds, entry.totalKills, false, killEntry)
 			break
 		end
 	end
@@ -824,11 +1184,13 @@ function onWeeklyTasks(weeklyTasks)
 	end
 
 	lastWeeklyTasksState = copyWeeklyTasksState(weeklyTasks)
+	syncDeliveryCountsFromInventory()
 
-	buildKillSlots(weeklyTasks)
-	buildDeliverySlots(weeklyTasks)
-	buildBarProgress(weeklyTasks)
-	buildRewards(weeklyTasks)
+	buildKillSlots(lastWeeklyTasksState)
+	buildDeliverySlots(lastWeeklyTasksState)
+	buildBarProgress(lastWeeklyTasksState)
+	buildRewards(lastWeeklyTasksState)
+	buildWeeklyTaskRewardInfo(lastWeeklyTasksState)
 
 	WeeklyTask.isWeeklyTaskActive = weeklyTasks.weeklyTaskActive == 1
 
@@ -866,14 +1228,19 @@ function onEngineWeeklyTaskData(header, monsters, items)
 	local deliveryEntries = {}
 
 	for _, it in ipairs(items or {}) do
+		local claimed = tonumber(it.claimed) or 0
+		local state = tonumber(it.state) or 0
+		local completed = (claimed ~= 0 or state ~= 0) and 1 or 0
+
 		deliveryEntries[#deliveryEntries + 1] = {
 			taskId = it.slotIndex,
 			taskItemId = it.itemId,
 			taskClientId = it.clientId,
 			count = it.current,
 			totalItems = it.total,
-			completed = it.claimed,
-			state = it.state
+			available = it.available,
+			completed = completed,
+			state = state ~= 0 and state or completed
 		}
 	end
 
@@ -886,6 +1253,8 @@ function onEngineWeeklyTaskData(header, monsters, items)
 		delivery = header.completedDeliveryTasks,
 		totalPoints = header.pointsEarned,
 		totalTasksCompleted = header.soulsealsEarned,
+		killTaskRewardExp = header.killTaskRewardExp,
+		deliveryTaskRewardExp = header.deliveryTaskRewardExp,
 		mondayTime = header.resetTimestamp,
 		weeklyTaskActive = header.weeklyProgressFinished,
 		-- the engine reports 1-4, the module counts 0-3
@@ -903,8 +1272,18 @@ end
 function WeeklyTask:init()
 	connect(g_game, {
 		onWeeklyKillUpdate = onWeeklyKillUpdate,
-		onWeeklyTasks = onWeeklyTasks,
 		onWeeklyTaskData = onEngineWeeklyTaskData
+	})
+
+	connect(LocalPlayer, {
+		onInventoryChange = onWeeklyDeliveryInventoryChange
+	})
+
+	connect(Container, {
+		onOpen = onWeeklyDeliveryContainerOpen,
+		onAddItem = onWeeklyDeliveryContainerItemChange,
+		onRemoveItem = onWeeklyDeliveryContainerItemChange,
+		onUpdateItem = onWeeklyDeliveryContainerItemChange
 	})
 
 	if TaskBoard.weeklyPanel then
@@ -925,7 +1304,22 @@ end
 function WeeklyTask:terminate()
 	disconnect(g_game, {
 		onWeeklyKillUpdate = onWeeklyKillUpdate,
-		onWeeklyTasks = onWeeklyTasks,
 		onWeeklyTaskData = onEngineWeeklyTaskData
 	})
+
+	disconnect(LocalPlayer, {
+		onInventoryChange = onWeeklyDeliveryInventoryChange
+	})
+
+	disconnect(Container, {
+		onOpen = onWeeklyDeliveryContainerOpen,
+		onAddItem = onWeeklyDeliveryContainerItemChange,
+		onRemoveItem = onWeeklyDeliveryContainerItemChange,
+		onUpdateItem = onWeeklyDeliveryContainerItemChange
+	})
+
+	cancelDeliveryInventoryRefresh()
+	cancelDeliveryServerSync()
+	cancelDeliveryNameCatalogRefresh()
+	lastWeeklyTasksState = nil
 end

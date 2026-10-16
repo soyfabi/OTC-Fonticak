@@ -248,10 +248,6 @@ local function onTaskBoardGameStart()
 	scheduleEvent(syncBountyShortcutHighlight, 0)
 end
 
-local function onTaskBoardGameEnd()
-	destroyTaskBoardPanelButton()
-end
-
 TaskBoard.resourceTypes = {
 	soulSeals = 87,
 	bountyPoints = 86,
@@ -314,6 +310,7 @@ end
 
 local function onTaskBoardGameEnd()
 	TaskBoard:clearBountyShortcutHighlight()
+	hideTaskBoardModal(TaskBoard.mainWindow)
 
 	if TaskBoard.mainWindow then
 		TaskBoard.mainWindow:setVisible(false)
@@ -322,6 +319,8 @@ local function onTaskBoardGameEnd()
 	if TaskBoard.mainButton then
 		TaskBoard.mainButton:setOn(false)
 	end
+
+	destroyTaskBoardPanelButton()
 end
 
 local function onTaskBoardResourceBalance()
@@ -405,14 +404,6 @@ function init()
 	TaskBoard.chainTransparentWeekly = TaskBoard.mainWindow:recursiveGetChildById("chainTransparentWeekly")
 	TaskBoard.weeklyProgressPanel = TaskBoard.mainWindow:recursiveGetChildById("weeklyProgressPanel")
 
-	if not TaskBoard.weeklyProgressPanel then
-		print("[Warning] weeklyProgressPanel is nil! Check that the ID 'weeklyProgressPanel' is correct in weekly_task.otui and that the file is imported before displayUI.")
-	end
-
-	if not TaskBoard.chainTransparentWeekly then
-		print("[Warning] chainTransparentWeekly is nil! Check that the ID 'chainTransparentWeekly' is correct in weekly_task.otui and that the file is imported before displayUI.")
-	end
-
 	TaskBoard.BountyTaskPoints = TaskBoard.mainWindow:recursiveGetChildById("bountyPointsPanel")
 	TaskBoard.TaskHuntingPoints = TaskBoard.mainWindow:recursiveGetChildById("huntingPointsPanel")
 	TaskBoard.SoulSealsPoints = TaskBoard.mainWindow:recursiveGetChildById("soulSealsPanel")
@@ -456,7 +447,15 @@ function terminate()
 	})
 	removeEvent(taskBoostRefreshEvent)
 	taskBoostRefreshEvent = nil
+	hideTaskBoardModal(TaskBoard.mainWindow)
 	TaskBoard:clearBountyShortcutHighlight()
+
+	if TaskBoard.mainWindow and not TaskBoard.mainWindow:isDestroyed() then
+		TaskBoard.mainWindow:setVisible(false)
+		TaskBoard.mainWindow:destroy()
+	end
+
+	TaskBoard.mainWindow = nil
 	destroyTaskBoardPanelButton()
 	TaskBoard.BountyTask:terminate()
 	TaskBoard.TaskShop:terminate()
@@ -478,9 +477,6 @@ function TaskBoard:toggleWindow(mode)
 			self:showBountyTab()
 		end
 
-		g_game.sendOpenMenuTaskBoardAction(0)
-		g_game.sendOpenMenuTaskBoardAction(1)
-		g_game.sendOpenMenuTaskBoardAction(2)
 		showTaskBoardModal(self.mainWindow)
 
 		local button = getTaskBoardMainButton()

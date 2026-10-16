@@ -154,7 +154,6 @@ end
 
 function TaskShop:init()
 	connect(g_game, {
-		onShopTasks = onShopTasks,
 		onTaskHuntingShopData = onEngineTaskHuntingShopData,
 		onResourceBalance = onTaskShopResourceBalance
 	})
@@ -162,7 +161,6 @@ end
 
 function TaskShop:terminate()
 	disconnect(g_game, {
-		onShopTasks = onShopTasks,
 		onTaskHuntingShopData = onEngineTaskHuntingShopData,
 		onResourceBalance = onTaskShopResourceBalance
 	})

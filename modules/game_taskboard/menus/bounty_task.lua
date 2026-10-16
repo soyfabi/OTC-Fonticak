@@ -44,6 +44,25 @@ local function buildBountyTrackerActiveTooltip(creatureName, killed, total)
 	return header .. "\n\n" .. tr(BOUNTY_TRACKER_TOOLTIP_FOOTER)
 end
 
+local function formatBountyTrackerCreatureName(creatureName)
+	if modules.game_prey and modules.game_prey.formatKillTrackerCreatureName then
+		return modules.game_prey.formatKillTrackerCreatureName(creatureName)
+	end
+
+	return capitalizeWords(creatureName or "")
+end
+
+local function formatBountyTrackerProgressText(killed, total)
+	killed = tonumber(killed) or 0
+	total = tonumber(total) or 0
+
+	if total <= 0 then
+		return ""
+	end
+
+	return string.format("%s/%s", TaskBoard:formatNumberWithCommas(killed), TaskBoard:formatNumberWithCommas(total))
+end
+
 local function getBountyTrackerSlot()
 	local prey = modules.game_prey
 
@@ -79,6 +98,7 @@ local function setBountyTrackerInactive()
 	local noCreature = slot:getChildById("noCreature")
 	local nameLabel = slot:getChildById("creatureName")
 	local timeBar = slot:getChildById("time")
+	local progressLabel = slot:getChildById("bountyKillProgress")
 
 	if creature then
 		creature:setVisible(false)
@@ -90,6 +110,10 @@ local function setBountyTrackerInactive()
 
 	if nameLabel then
 		nameLabel:setText(tr("Inactive"))
+	end
+
+	if progressLabel then
+		progressLabel:setText("")
 	end
 
 	if timeBar then
@@ -120,13 +144,26 @@ end
 
 local function resolveBountyCreatureDisplay(data)
 	local raceId = tonumber(data and data.raceId) or 0
-	local raceData = raceId > 0 and g_things and g_things.getRaceData and g_things.getRaceData(raceId)
 	local name = data and data.creatureName
 	local outfit = data and data.outfit
 
-	if raceData and raceData.raceId ~= 0 then
-		name = raceData.name or name
-		outfit = raceData.outfit or outfit
+	if raceId > 0 and type(BountyTask.engineRaceCatalog) == "table" then
+		for _, entry in ipairs(BountyTask.engineRaceCatalog) do
+			if tonumber(entry.raceId) == raceId then
+				name = name or entry.creatureName or entry.name
+				outfit = outfit or entry.outfit
+				break
+			end
+		end
+	end
+
+	if raceId > 0 and g_things and g_things.getRaceData then
+		local raceData = g_things.getRaceData(raceId)
+
+		if raceData and raceData.raceId ~= 0 then
+			name = raceData.name or name
+			outfit = raceData.outfit or outfit
+		end
 	end
 
 	if not name or name == "" then
@@ -134,6 +171,126 @@ local function resolveBountyCreatureDisplay(data)
 	end
 
 	return name, outfit
+end
+
+local function mergeBountyTrackerPayload(incoming)
+	if type(incoming) ~= "table" then
+		return nil
+	end
+
+	local merged = {
+		raceId = tonumber(incoming.raceId) or 0,
+		creatureName = incoming.creatureName,
+		outfit = incoming.outfit,
+		monstersKilled = tonumber(incoming.monstersKilled) or 0,
+		totalKills = tonumber(incoming.totalKills) or 0,
+		isCompleted = incoming.isCompleted,
+		isActive = incoming.isActive,
+	}
+
+	if lastBountyTrackerData then
+		local sameRace = merged.raceId == 0 or merged.raceId == tonumber(lastBountyTrackerData.raceId)
+
+		if sameRace then
+			if merged.raceId == 0 then
+				merged.raceId = tonumber(lastBountyTrackerData.raceId) or 0
+			end
+
+			merged.creatureName = merged.creatureName or lastBountyTrackerData.creatureName
+			merged.outfit = merged.outfit or lastBountyTrackerData.outfit
+		end
+	end
+
+	local resolvedName, resolvedOutfit = resolveBountyCreatureDisplay(merged)
+
+	if resolvedName and resolvedName ~= "?" then
+		merged.creatureName = resolvedName
+	end
+
+	if resolvedOutfit then
+		merged.outfit = resolvedOutfit
+	end
+
+	return merged
+end
+
+local function getBountyTrackerSlotData(slots)
+	if type(slots) ~= "table" then
+		return nil
+	end
+
+	if #slots == 1 then
+		return mergeBountyTrackerPayload(slots[1])
+	end
+
+	for _, slot in ipairs(slots) do
+		if slot.isActive then
+			return mergeBountyTrackerPayload(slot)
+		end
+	end
+
+	for _, slot in ipairs(slots) do
+		local total = tonumber(slot.totalKills) or 0
+
+		if total > 0 then
+			return mergeBountyTrackerPayload(slot)
+		end
+	end
+
+	return nil
+end
+
+local function refreshBountyTaskPanelKills(trackerData)
+	if not trackerData or not TaskBoard.bountyTaskPanel then
+		return
+	end
+
+	local container = TaskBoard.bountyTaskPanel:recursiveGetChildById("dailyTasks")
+
+	if not container then
+		return
+	end
+
+	local raceId = tonumber(trackerData.raceId) or 0
+	local killed = tonumber(trackerData.monstersKilled) or 0
+	local total = tonumber(trackerData.totalKills) or 0
+
+	for _, panel in ipairs(container:getChildren()) do
+		local slotData = panel.bountySlotData
+
+		if not slotData then
+			goto continue
+		end
+
+		local panelRaceId = tonumber(slotData.raceId) or 0
+
+		if raceId > 0 and panelRaceId ~= raceId then
+			goto continue
+		end
+
+		slotData.monstersKilled = killed
+		slotData.totalKills = total
+
+		local cur = panel:getChildById("killsCurrentValue")
+		local tgt = panel:getChildById("killsTargetValue")
+
+		if cur then
+			cur:setText(TaskBoard:formatNumberWithCommas(killed))
+		end
+
+		if tgt then
+			tgt:setText(TaskBoard:formatNumberWithCommas(total))
+		end
+
+		local btn = panel:getChildById("selectTaskButton")
+
+		if btn and (slotData.isCompleted or (total > 0 and killed >= total)) then
+			btn:setText(tr("Claim Reward"))
+			btn:setEnabled(killed >= total)
+		end
+
+		::continue::
+	end
 end
 
 local function setBountyTrackerSelected(data)
@@ -147,12 +304,20 @@ local function setBountyTrackerSelected(data)
 	local noCreature = slot:getChildById("noCreature")
 	local nameLabel = slot:getChildById("creatureName")
 	local timeBar = slot:getChildById("time")
+	local progressLabel = slot:getChildById("bountyKillProgress")
 	local creatureName, outfit = resolveBountyCreatureDisplay(data)
 
 	if creature then
 		if outfit and outfit.type and outfit.type > 0 then
 			creature:setOutfit(outfit)
-			creature:getCreature():setStaticWalking(1000)
+			applyBountyCreatureWidgetStyle(creature)
+
+			local c = creature:getCreature()
+
+			if c then
+				c:setStaticWalking(1000)
+			end
+
 			creature:setVisible(true)
 		else
 			creature:setVisible(false)
@@ -163,12 +328,16 @@ local function setBountyTrackerSelected(data)
 		noCreature:setVisible(false)
 	end
 
-	if nameLabel then
-		nameLabel:setText(modules.game_prey.formatKillTrackerCreatureName(creatureName))
-	end
-
 	local killed = tonumber(data.monstersKilled) or 0
 	local total = tonumber(data.totalKills) or 0
+
+	if nameLabel then
+		nameLabel:setText(formatBountyTrackerCreatureName(creatureName))
+	end
+
+	if progressLabel then
+		progressLabel:setText(formatBountyTrackerProgressText(killed, total))
+	end
 
 	if timeBar then
 		local percent = 0
@@ -193,13 +362,14 @@ local function setBountyTrackerSelected(data)
 end
 
 local function updateBountyKillTracker(slots)
-	if type(slots) == "table" and #slots == 1 then
-		lastBountyTrackerData = slots[1]
+	local trackerData = getBountyTrackerSlotData(slots)
 
-		setBountyTrackerSelected(slots[1])
+	if trackerData then
+		lastBountyTrackerData = trackerData
+		setBountyTrackerSelected(trackerData)
+		refreshBountyTaskPanelKills(trackerData)
 	else
 		lastBountyTrackerData = nil
-
 		setBountyTrackerInactive()
 	end
 
@@ -213,12 +383,25 @@ function onBountyKillUpdate(data)
 		return
 	end
 
-	updateBountyKillTracker({ {
+	local trackerData = mergeBountyTrackerPayload({
 		raceId = data.raceId,
 		monstersKilled = data.monstersKilled,
 		totalKills = data.totalKills,
 		isCompleted = data.isCompleted,
-	} })
+		isActive = true,
+	})
+
+	if not trackerData then
+		return
+	end
+
+	lastBountyTrackerData = trackerData
+	setBountyTrackerSelected(trackerData)
+	refreshBountyTaskPanelKills(trackerData)
+
+	if modules.game_prey and modules.game_prey.updateTrackerHeight then
+		modules.game_prey.updateTrackerHeight()
+	end
 end
 
 function BountyTask.requestTrackerData()
@@ -338,6 +521,24 @@ function BountyTask:onSelectSlot(panel)
 		return
 	end
 
+	local trackerData = mergeBountyTrackerPayload({
+		raceId = data.raceId,
+		creatureName = data.creatureName,
+		outfit = data.outfit,
+		monstersKilled = data.monstersKilled or 0,
+		totalKills = data.totalKills or 0,
+		isActive = true,
+	})
+
+	if trackerData then
+		if BountyTask.upsertEngineRaceEntry then
+			BountyTask.upsertEngineRaceEntry(trackerData)
+		end
+
+		lastBountyTrackerData = trackerData
+		setBountyTrackerSelected(trackerData)
+	end
+
 	g_game.sendSelectTask(data.taskId)
 end
 
@@ -352,7 +553,27 @@ function BountyTask:selectDifficulty(difficulty)
 	g_game.sendSelectTaskDifficulty(difficulties[difficulty])
 end
 
-local bountyCreatureCache, selectedBountyRow, selectedBountyRace, listBuildEvent
+local bountyCreatureCache, selectedBountyRow, selectedBountyRace, pendingSelectedRaceId, listBuildEvent
+
+local function getActiveBountyRaceSelection()
+	if selectedBountyRace and selectedBountyRace.raceId then
+		return selectedBountyRace
+	end
+
+	local raceId = pendingSelectedRaceId
+	if not raceId then
+		return nil
+	end
+
+	for _, race in ipairs(getBountyCreaturesSorted()) do
+		if race.raceId == raceId then
+			selectedBountyRace = race
+			return race
+		end
+	end
+
+	return nil
+end
 local BOUNTY_COLOR_EVEN = "#484848"
 local BOUNTY_COLOR_ODD = "#414141"
 local BOUNTY_COLOR_SELECTED = "#585858"
@@ -416,6 +637,159 @@ local function appendRaceEntry(filtered, raceId)
 		outfit = raceData.outfit,
 		boss = raceData.boss,
 	}
+end
+
+local function normalizeRaceDisplayEntry(entry)
+	if type(entry) ~= "table" then
+		return nil
+	end
+
+	local raceId = tonumber(entry.raceId) or 0
+	if raceId <= 0 then
+		return nil
+	end
+
+	local name = entry.creatureName or entry.name
+	local outfit = entry.outfit
+
+	if not name or name == "" then
+		if g_things and g_things.getRaceData then
+			local raceData = g_things.getRaceData(raceId)
+			if raceData and raceData.raceId ~= 0 then
+				name = raceData.name
+				outfit = outfit or raceData.outfit
+			end
+		end
+	end
+
+	if not name or name == "" then
+		name = string.format("Race %d", raceId)
+	end
+
+	return {
+		raceId = raceId,
+		name = name,
+		outfit = outfit,
+		boss = false,
+	}
+end
+
+function BountyTask.upsertEngineRaceEntry(race)
+	local normalized = normalizeRaceDisplayEntry(race)
+	if not normalized then
+		return
+	end
+
+	if type(BountyTask.engineRaceCatalog) ~= "table" then
+		BountyTask.engineRaceCatalog = {}
+	end
+
+	for i, entry in ipairs(BountyTask.engineRaceCatalog) do
+		if tonumber(entry.raceId) == normalized.raceId then
+			BountyTask.engineRaceCatalog[i] = {
+				raceId = normalized.raceId,
+				creatureName = normalized.name,
+				name = normalized.name,
+				outfit = normalized.outfit or entry.outfit,
+			}
+			bountyCreatureCache = nil
+			return
+		end
+	end
+
+	BountyTask.engineRaceCatalog[#BountyTask.engineRaceCatalog + 1] = {
+		raceId = normalized.raceId,
+		creatureName = normalized.name,
+		name = normalized.name,
+		outfit = normalized.outfit,
+	}
+	bountyCreatureCache = nil
+end
+
+local function resolveBountyRaceDisplay(raceId)
+	raceId = tonumber(raceId) or 0
+	if raceId <= 0 then
+		return nil
+	end
+
+	if bountyCreatureCache then
+		for _, race in ipairs(bountyCreatureCache) do
+			if race.raceId == raceId then
+				return race
+			end
+		end
+	end
+
+	if type(BountyTask.engineRaceCatalog) == "table" then
+		for _, entry in ipairs(BountyTask.engineRaceCatalog) do
+			if tonumber(entry.raceId) == raceId then
+				return normalizeRaceDisplayEntry(entry)
+			end
+		end
+	end
+
+	if g_things and g_things.getRaceData then
+		local raceData = g_things.getRaceData(raceId)
+		if raceData and raceData.raceId ~= 0 and raceData.name and raceData.name ~= "" then
+			return {
+				raceId = raceData.raceId,
+				name = raceData.name,
+				outfit = raceData.outfit,
+				boss = raceData.boss,
+			}
+		end
+	end
+
+	return nil
+end
+
+local function mergeEngineRaceCatalog(allRaceIds)
+	if type(allRaceIds) ~= "table" or #allRaceIds == 0 then
+		return false
+	end
+
+	local byId = {}
+
+	for _, entry in ipairs(BountyTask.engineRaceCatalog or {}) do
+		local id = tonumber(entry.raceId) or 0
+		if id > 0 then
+			byId[id] = entry
+		end
+	end
+
+	for _, entry in ipairs(allRaceIds) do
+		if type(entry) == "table" then
+			local id = tonumber(entry.raceId) or 0
+			if id > 0 then
+				byId[id] = entry
+			end
+		else
+			local id = tonumber(entry) or 0
+			if id > 0 and not byId[id] then
+				byId[id] = { raceId = id }
+			end
+		end
+	end
+
+	local merged = {}
+	local raceIds = {}
+
+	for id, entry in pairs(byId) do
+		merged[#merged + 1] = entry
+		raceIds[#raceIds + 1] = id
+	end
+
+	table.sort(merged, function(a, b)
+		local nameA = (a.creatureName or a.name or ""):lower()
+		local nameB = (b.creatureName or b.name or ""):lower()
+		return nameA < nameB
+	end)
+
+	BountyTask.engineRaceCatalog = merged
+	BountyTask.engineRaceIds = raceIds
+	bountyCreatureCache = nil
+
+	return true
 end
 
 local function buildBountyCreatureCache()
@@ -491,6 +865,7 @@ local function selectBountyRow(row, race)
 
 	selectedBountyRow = row
 	selectedBountyRace = race
+	pendingSelectedRaceId = race and race.raceId
 
 	if row then
 		row:setBackgroundColor(BOUNTY_COLOR_SELECTED)
@@ -565,6 +940,13 @@ local function createBountyRow(list, race, rowIndex)
 	function row.onClick()
 		selectBountyRow(row, race)
 	end
+
+	function row.onMousePress(_, mousePos, mouseButton)
+		if mouseButton == MouseLeftButton then
+			selectBountyRow(row, race)
+			return true
+		end
+	end
 end
 
 local function populateBountyCreatureList(filterText, excludeRaceIds)
@@ -588,8 +970,10 @@ local function populateBountyCreatureList(filterText, excludeRaceIds)
 		return
 	end
 
+	local preserveRaceId = pendingSelectedRaceId
+		or (selectedBountyRace and selectedBountyRace.raceId)
+
 	selectedBountyRow = nil
-	selectedBountyRace = nil
 
 	list:destroyChildren()
 
@@ -640,6 +1024,17 @@ local function populateBountyCreatureList(filterText, excludeRaceIds)
 
 		if idx <= total then
 			listBuildEvent = addEvent(createNextBatch)
+		else
+			if preserveRaceId then
+				for _, child in ipairs(list:getChildren()) do
+					local rowRace = child.bountyRace
+
+					if rowRace and rowRace.raceId == preserveRaceId then
+						selectBountyRow(child, rowRace)
+						break
+					end
+				end
+			end
 		end
 	end
 
@@ -719,6 +1114,7 @@ function BountyTask:showPreferredList()
 	bountyCreatureCache = nil
 	selectedBountyRow = nil
 	selectedBountyRace = nil
+	pendingSelectedRaceId = nil
 
 	if g_game.sendOpenPreferredList then
 		g_game.sendOpenPreferredList()
@@ -726,15 +1122,17 @@ function BountyTask:showPreferredList()
 
 	populateBountyCreatureList("", getExcludedRaceIds())
 
+	preferredListPanel:show()
+	preferredListPanel:raise()
+	preferredListPanel:focus()
+
 	local chainTransparent = TaskBoard.chainTransparent
 
 	if chainTransparent then
 		chainTransparent:show()
+		chainTransparent:lower()
+		preferredListPanel:raise()
 	end
-
-	preferredListPanel:show()
-	preferredListPanel:raise()
-	preferredListPanel:focus()
 end
 
 function BountyTask:closePreferredList()
@@ -815,19 +1213,36 @@ local function clearSlotWidget(slotWidget)
 end
 
 local function wireSlotAssignButton(row, btn, costPanel, slotIndex, isUnwanted)
+	if not btn then
+		return
+	end
+
 	btn:setText(tr("Assign"))
+	btn:setEnabled(true)
 
 	if costPanel then
 		costPanel:setVisible(false)
 	end
+end
 
-	function btn.onClick()
-		if isUnwanted then
-			BountyTask:assignToRow(row, slotIndex, true)
-		else
-			BountyTask:assignToRow(row, slotIndex, false)
-		end
+function BountyTask:onPreferredAssignClick(button)
+	local row = button and button:getParent()
+
+	if not row then
+		return
 	end
+
+	self:assignToRow(row, row.bountyPreferredUiSlot or 0, false)
+end
+
+function BountyTask:onUnwantedAssignClick(button)
+	local row = button and button:getParent()
+
+	if not row then
+		return
+	end
+
+	self:assignToRow(row, row.bountyPreferredUiSlot or 0, true)
 end
 
 local function wireSlotClearButton(row, slotWidget, btn, costPanel, slotIndex, isUnwanted)
@@ -838,28 +1253,23 @@ local function wireSlotClearButton(row, slotWidget, btn, costPanel, slotIndex, i
 		costPanel:setVisible(true)
 	end
 
-	function btn.onClick()
+	btn.onClick = function()
 		if isUnwanted then
-			g_game.sendPreferredListClearUnwanted(slotIndex)
+			BountyTask:onUnwantedClearClick(btn)
 		else
-			g_game.sendPreferredListClearPreferred(slotIndex)
+			BountyTask:onPreferredClearClick(btn)
 		end
-
-		patchPreferredListSlot(slotIndex, isUnwanted)
-		clearSlotWidget(slotWidget)
-		btn:setText(tr("Assign"))
-
-		if costPanel then
-			costPanel:setVisible(false)
-		end
-
-		wireSlotAssignButton(row, btn, costPanel, slotIndex, isUnwanted)
-		populateBountyCreatureList("", getExcludedRaceIds())
 	end
 end
 
 function BountyTask:assignToRow(row, slotIndex, isUnwanted)
-	if not selectedBountyRace then
+	local race = getActiveBountyRaceSelection()
+
+	if not race then
+		if modules.game_textmessage and modules.game_textmessage.displayFailureMessage then
+			modules.game_textmessage.displayFailureMessage(tr("Select a creature from the list first."))
+		end
+
 		return
 	end
 
@@ -870,12 +1280,13 @@ function BountyTask:assignToRow(row, slotIndex, isUnwanted)
 	local btn = row:getChildById(btnId)
 	local costPanel = row:getChildById(costId)
 
-	setSlotCreature(slotWidget, selectedBountyRace)
+	BountyTask.upsertEngineRaceEntry(race)
+	setSlotCreature(slotWidget, race)
 
 	if isUnwanted then
-		g_game.sendPreferredListUnwanted(slotIndex, selectedBountyRace.raceId)
+		g_game.sendPreferredListUnwanted(slotIndex, race.raceId)
 	else
-		g_game.sendPreferredListPreferred(slotIndex, selectedBountyRace.raceId)
+		g_game.sendPreferredListPreferred(slotIndex, race.raceId)
 	end
 
 	if selectedBountyRow then
@@ -885,17 +1296,58 @@ function BountyTask:assignToRow(row, slotIndex, isUnwanted)
 	end
 
 	selectedBountyRace = nil
+	pendingSelectedRaceId = nil
 
 	reindexListColors(getBountyList())
 	wireSlotClearButton(row, slotWidget, btn, costPanel, slotIndex, isUnwanted)
 end
 
-function BountyTask:AssignCreatureSlot()
-	return
+function BountyTask:onPreferredClearClick(button)
+	local row = button and button:getParent()
+	local slotIndex = row and row.bountyPreferredUiSlot or 0
+	local slotWidget = row and row:getChildById("preferredSlot")
+	local costPanel = row and row:getChildById("preferredCostPanel")
+
+	if not row or not button then
+		return
+	end
+
+	g_game.sendPreferredListClearPreferred(slotIndex)
+	patchPreferredListSlot(slotIndex, false)
+	clearSlotWidget(slotWidget)
+	wireSlotAssignButton(row, button, costPanel, slotIndex, false)
+	button.onClick = function()
+		BountyTask:onPreferredAssignClick(button)
+	end
+
+	if costPanel then
+		costPanel:setVisible(false)
+	end
+	populateBountyCreatureList("", getExcludedRaceIds())
 end
 
-function BountyTask:UnwantedCreatureSlot()
-	return
+function BountyTask:onUnwantedClearClick(button)
+	local row = button and button:getParent()
+	local slotIndex = row and row.bountyPreferredUiSlot or 0
+	local slotWidget = row and row:getChildById("unwantedSlot")
+	local costPanel = row and row:getChildById("unwantedCostPanel")
+
+	if not row or not button then
+		return
+	end
+
+	g_game.sendPreferredListClearUnwanted(slotIndex)
+	patchPreferredListSlot(slotIndex, true)
+	clearSlotWidget(slotWidget)
+	wireSlotAssignButton(row, button, costPanel, slotIndex, true)
+	button.onClick = function()
+		BountyTask:onUnwantedAssignClick(button)
+	end
+
+	if costPanel then
+		costPanel:setVisible(false)
+	end
+	populateBountyCreatureList("", getExcludedRaceIds())
 end
 
 local function buildPreferredSlotRow(container, slotIndex, data)
@@ -905,6 +1357,8 @@ local function buildPreferredSlotRow(container, slotIndex, data)
 		return
 	end
 
+	row.bountyPreferredUiSlot = slotIndex
+
 	local prefSlot = row:getChildById("preferredSlot")
 	local prefBtn = row:getChildById("preferredButton")
 	local prefCost = row:getChildById("preferredCostPanel")
@@ -913,23 +1367,29 @@ local function buildPreferredSlotRow(container, slotIndex, data)
 	local unwCost = row:getChildById("unwantedCostPanel")
 
 	if data.preferred and data.preferred ~= 0 then
-		local raceData = g_things.getRaceData(data.preferred)
+		local raceData = resolveBountyRaceDisplay(data.preferred)
 
-		if raceData and raceData.raceId ~= 0 then
+		if raceData then
 			setSlotCreature(prefSlot, raceData)
-			wireSlotClearButton(row, prefSlot, prefBtn, prefCost, slotIndex, false)
+		else
+			prefSlot.assignedRaceId = data.preferred
 		end
+
+		wireSlotClearButton(row, prefSlot, prefBtn, prefCost, slotIndex, false)
 	else
 		wireSlotAssignButton(row, prefBtn, prefCost, slotIndex, false)
 	end
 
 	if data.unwanted and data.unwanted ~= 0 then
-		local raceData = g_things.getRaceData(data.unwanted)
+		local raceData = resolveBountyRaceDisplay(data.unwanted)
 
-		if raceData and raceData.raceId ~= 0 then
+		if raceData then
 			setSlotCreature(unwSlot, raceData)
-			wireSlotClearButton(row, unwSlot, unwBtn, unwCost, slotIndex, true)
+		else
+			unwSlot.assignedRaceId = data.unwanted
 		end
+
+		wireSlotClearButton(row, unwSlot, unwBtn, unwCost, slotIndex, true)
 	else
 		wireSlotAssignButton(row, unwBtn, unwCost, slotIndex, true)
 	end
@@ -1013,7 +1473,11 @@ local function updatePreferredList(preferredListData)
 		end
 	end
 
-	populateBountyCreatureList("", getExcludedRaceIds())
+	if preferredListPanel:isVisible() then
+		local search = preferredListPanel:recursiveGetChildById("search")
+		local filterText = search and search:getText() or ""
+		populateBountyCreatureList(filterText, getExcludedRaceIds())
+	end
 end
 
 function BountyTask:rerollTasks()
@@ -1153,6 +1617,9 @@ function onBountyTasksDaily(slots, rerollTokens, claimUnlocked, difficultyBounty
 	local container = TaskBoard.bountyTaskPanel and TaskBoard.bountyTaskPanel:recursiveGetChildById("dailyTasks")
 
 	if not container then
+		if preferredListData ~= nil and type(preferredListData) == "table" then
+			updatePreferredList(preferredListData)
+		end
 		return
 	end
 
@@ -1183,6 +1650,14 @@ function onBountyTasksDaily(slots, rerollTokens, claimUnlocked, difficultyBounty
 	end
 
 	local rerollBox = TaskBoard.bountyTaskPanel:recursiveGetChildById("rerollTasks")
+
+	if not rerollBox then
+		if preferredListData ~= nil and type(preferredListData) == "table" then
+			updatePreferredList(preferredListData)
+		end
+		return
+	end
+
 	local filterDifficulty = rerollBox:getChildById("showFilterDifficulty")
 	local rerollButton = rerollBox:getChildById("rerollButton")
 	local rerollTokensLabel = rerollBox:getChildById("rerollPanel")
@@ -1264,21 +1739,39 @@ function onBountyTasksDaily(slots, rerollTokens, claimUnlocked, difficultyBounty
 	end
 end
 
+local bountyGameStartEvent1 = nil
+local bountyGameStartEvent2 = nil
+
+local function cancelBountyGameStartEvents()
+	if bountyGameStartEvent1 then
+		removeEvent(bountyGameStartEvent1)
+		bountyGameStartEvent1 = nil
+	end
+	if bountyGameStartEvent2 then
+		removeEvent(bountyGameStartEvent2)
+		bountyGameStartEvent2 = nil
+	end
+end
+
 local function onGameStartBounty()
 	bountyCreatureCache = nil
-
-	scheduleEvent(buildBountyCreatureCache, 500)
-	scheduleEvent(function()
+	cancelBountyGameStartEvents()
+	bountyGameStartEvent1 = scheduleEvent(buildBountyCreatureCache, 500)
+	bountyGameStartEvent2 = scheduleEvent(function()
+		bountyGameStartEvent2 = nil
 		BountyTask.requestTrackerData()
 	end, 500)
 end
 
 local function onGameEndBounty()
 	cancelListBuild()
+	cancelBountyGameStartEvents()
+	pendingBountyData = nil
 
 	bountyCreatureCache = nil
 	selectedBountyRow = nil
 	selectedBountyRace = nil
+	pendingSelectedRaceId = nil
 	lastBountyTrackerData = nil
 
 	setBountyTrackerInactive()
@@ -1297,6 +1790,15 @@ function onEngineBountyTaskData(header, monsters, talismans)
 	local slots = {}
 
 	for _, m in ipairs(monsters or {}) do
+		if BountyTask.upsertEngineRaceEntry then
+			BountyTask.upsertEngineRaceEntry({
+				raceId = m.raceId,
+				creatureName = m.creatureName,
+				name = m.creatureName,
+				outfit = m.outfit,
+			})
+		end
+
 		slots[#slots + 1] = {
 			taskId = m.taskIndex,
 			raceId = m.raceId,
@@ -1333,15 +1835,6 @@ function onEngineBountyTaskData(header, monsters, talismans)
 		-- engine: claimDaily == 1 means "can be claimed"; module: 0 means "unlocked"
 		claimUnlocked = (header and header.claimDaily == 1) and 0 or 1
 	}
-
-	onBountyTasksDaily(
-		pendingBountyData.slots,
-		pendingBountyData.rerollTokens,
-		pendingBountyData.claimUnlocked,
-		pendingBountyData.difficulty,
-		pendingBountyData.talismanData,
-		nil
-	)
 
 	if TaskBoard and TaskBoard.setBountyKillBoostRemaining and header then
 		TaskBoard.setBountyKillBoostRemaining(header.bountyKillBoostRemaining)
@@ -1398,10 +1891,16 @@ function onEngineBountyPreferredData(preferredSlots, _, allRaceIds)
 		}
 	end
 
-	local catalog, raceIds = normalizeEngineRaceCatalog(allRaceIds)
-	BountyTask.engineRaceCatalog = catalog
-	BountyTask.engineRaceIds = raceIds
-	bountyCreatureCache = nil
+	if not mergeEngineRaceCatalog(allRaceIds) then
+		for _, slot in ipairs(preferredListData) do
+			if slot.preferred and slot.preferred ~= 0 then
+				BountyTask.upsertEngineRaceEntry({ raceId = slot.preferred })
+			end
+			if slot.unwanted and slot.unwanted ~= 0 then
+				BountyTask.upsertEngineRaceEntry({ raceId = slot.unwanted })
+			end
+		end
+	end
 
 	onBountyTasksDaily(data.slots, data.rerollTokens, data.claimUnlocked, data.difficulty,
 		data.talismanData, preferredListData)
@@ -1435,7 +1934,6 @@ end
 function BountyTask:init()
 	connect(g_game, {
 		onBountyKillUpdate = onBountyKillUpdate,
-		onBountyTasksDaily = onBountyTasksDaily,
 		onBountyTaskData = onEngineBountyTaskData,
 		onBountyPreferredData = onEngineBountyPreferredData,
 		onGameStart = onGameStartBounty,
@@ -1448,10 +1946,10 @@ end
 function BountyTask:terminate()
 	disconnect(g_game, {
 		onBountyKillUpdate = onBountyKillUpdate,
-		onBountyTasksDaily = onBountyTasksDaily,
 		onBountyTaskData = onEngineBountyTaskData,
 		onBountyPreferredData = onEngineBountyPreferredData,
 		onGameStart = onGameStartBounty,
 		onGameEnd = onGameEndBounty
 	})
+	onGameEndBounty()
 end

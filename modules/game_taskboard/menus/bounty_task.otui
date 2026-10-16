@@ -24,6 +24,7 @@ BountyCreatureRow < UIWidget
     font: verdana-11px-monochrome
     color: $var-text-cip-color
     text-auto-resize: true
+    phantom: true
 
 PreferredSlotRow < UIWidget
   height: 74
@@ -61,6 +62,7 @@ PreferredSlotRow < UIWidget
     margin-left: 10
     size: 45 21
     color: white
+    @onClick: modules.game_taskboard.TaskBoard.BountyTask:onPreferredAssignClick(self)
 
   Panel
     id: preferredCostPanel
@@ -104,6 +106,7 @@ PreferredSlotRow < UIWidget
     margin-right: 2
     size: 45 21
     color: white
+    @onClick: modules.game_taskboard.TaskBoard.BountyTask:onUnwantedAssignClick(self)
 
   UIWidget
     id: unwantedSlot

@@ -36,6 +36,7 @@ KillSlots < Panel
     color: #d33c3c
     text-auto-resize: true
   Label
+    id: ofKillLabel
     text: of
     anchors.top: prev.bottom
     anchors.horizontalCenter: prev.horizontalCenter
@@ -50,6 +51,16 @@ KillSlots < Panel
     font: verdana-11px-monochrome
     color: $var-text-cip-color
     text-auto-resize: true
+
+  UIWidget
+    id: killCompletedIcon
+    size: 12 9
+    anchors.verticalCenter: outfitIcon.verticalCenter
+    anchors.right: parent.right
+    margin-right: 30
+    image-source: /modules/game_taskboard/images/checkmark-icon
+    visible: false
+    phantom: true
 
 DeliverySlots < Panel
   text-align: top
@@ -84,6 +95,7 @@ DeliverySlots < Panel
     color: #d33c3c
     text-auto-resize: true
   Label
+    id: ofDeliveryLabel
     text: of
     anchors.top: prev.bottom
     anchors.horizontalCenter: prev.horizontalCenter
@@ -98,16 +110,6 @@ DeliverySlots < Panel
     font: verdana-11px-monochrome
     color: $var-text-cip-color
     text-auto-resize: true
-
-  UIWidget
-    id: deliveryCompletedIcon
-    size: 12 9
-    anchors.top: currentDeliveryLabel.top
-    anchors.left: currentDeliveryLabel.right
-    margin-top: 1
-    margin-left: 3
-    image-source: /modules/game_taskboard/images/checkmark-icon
-    visible: false
 
   UIButton
     id: deliverButton
@@ -126,10 +128,227 @@ DeliverySlots < Panel
     $disabled:
       image-clip: 0 40 43 20
 
+  UIWidget
+    id: deliveryCompletedIcon
+    size: 12 9
+    anchors.verticalCenter: itemIcon.verticalCenter
+    anchors.right: parent.right
+    margin-right: 30
+    image-source: /modules/game_taskboard/images/checkmark-icon
+    visible: false
+    phantom: true
+
 WeeklyPanel < Panel
   visible: false
   margin-top: 7
-  margin-bottom: 5
+  margin-bottom: 2
+  focusable: false
+
+  Panel
+    id: weeklyBottomArea
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-bottom: 4
+    margin-left: 4
+    margin-right: 6
+    height: 120
+    focusable: false
+    phantom: true
+
+    UIWindow
+      id: weeklyProgress
+      text: Weekly Progress
+      text-align: top
+      image-source: /images/ui/popupwindow-sem-borda-interna
+      text-offset: 1 2
+      image-border: 6
+      image-border-top: 27
+      draggable: false
+      focusable: false
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      margin-left: 0
+      color: $var-text-color-disabled
+      font: verdana-11px-monochrome
+      width: 771
+      height: 109
+
+      UIWidget
+        id: weeklyProgressContent
+        anchors.top: parent.top
+        anchors.left: parent.left
+        margin-top: 32
+        margin-left: 11
+        image-source: /modules/game_taskboard/images/progress-labels
+      
+      VerticalSeparator
+        height: 50
+        anchors.top: parent.top
+        anchors.left: parent.left
+        margin-top: 32
+        margin-left: 287
+      VerticalSeparator
+        height: 50
+        anchors.top: parent.top
+        anchors.left: parent.left
+        margin-top: 32
+        margin-left: 415
+      VerticalSeparator
+        height: 50
+        anchors.top: parent.top
+        anchors.left: parent.left
+        margin-top: 32
+        margin-left: 544
+      VerticalSeparator
+        height: 50
+        anchors.top: parent.top
+        anchors.left: parent.left
+        margin-top: 32
+        margin-left: 673
+      
+      Panel
+        id: progressBar
+        size: 579 20
+        anchors.top: parent.top
+        anchors.left: parent.left
+        margin-top: 53
+        margin-left: 160
+        image-source: /images/ui/item
+        image-border: 10
+
+    Label
+      id: weeklyTaskRewardInfo
+      anchors.bottom: weeklyProgress.top
+      anchors.left: parent.left
+      anchors.right: parent.right
+      margin-bottom: 2
+      margin-left: 6
+      margin-right: 170
+      height: 22
+      font: verdana-11px-rounded
+      color: $var-text-cip-color
+      text-align: center
+      text-wrap: false
+      text-auto-resize: true
+
+    UIWindow
+      id: weeklyRewards
+      text: Weekly Rewards
+      text-align: top
+      image-source: /images/ui/popupwindow-sem-borda-interna
+      text-offset: 1 2
+      image-border: 6
+      image-border-top: 27
+      draggable: false
+      focusable: false
+      anchors.top: weeklyProgress.top
+      anchors.bottom: parent.bottom
+      anchors.right: parent.right
+      margin-right: 0
+      color: $var-text-color-disabled
+      font: verdana-11px-monochrome
+      width: 162
+
+      Panel
+        id: huntingPoints
+        size: 105 20
+        anchors.top: parent.top
+        anchors.left: parent.left
+        margin-top: 24
+        margin-left: 10
+        image-source: /images/ui/item
+        image-border: 10
+
+        UIWidget
+          id: huntingPointsIcon
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-right: 3
+          margin-top: 1
+          size: 11 11
+          image-source: /modules/game_taskboard/images/preyhuntingtask-tokens
+          tooltip: Hunting Task Points
+
+        Label
+          id: huntingPointsLabel
+          text: 0
+          anchors.right: huntingPointsIcon.left
+          anchors.verticalCenter: parent.verticalCenter
+          margin-top: 2
+          margin-right: 2
+          font: verdana-11px-monochrome
+          color: $var-text-cip-color
+          text-auto-resize: true
+
+      UIWidget
+        anchors.top: parent.top
+        anchors.right: parent.right
+        margin-top: 28
+        margin-right: 20
+        image-source: /images/icons/show_gui_help_grey
+        size: 12 12
+        !tooltip: tr('Hunting Task Points:\n\n 0 * 110     (from Kill Tasks)\n+ 0 *  75     (from Delivery Tasks)\n----------------------------------\n*     1    (from completing Tasks)\n=     0    Hunting Task Points')
+   
+      UIWidget
+        anchors.top: parent.top
+        anchors.right: parent.right
+        margin-top: 62
+        margin-right: 20
+        image-source: /images/icons/show_gui_help_grey
+        size: 12 12
+        !tooltip: tr('You receive 1 Soulseal for each completed task. Soulseals can be used in the Soulpit. Click the obelisk there, then your character to open a menu where you can select a creature you want to challenge on your own.')
+
+      Panel
+        id: soulSealsPoints
+        size: 105 20
+        anchors.top: parent.top
+        anchors.left: parent.left
+        margin-top: 58
+        margin-left: 10
+        image-source: /images/ui/item
+        image-border: 10
+
+        UIWidget
+          id: soulSealsIcon
+          anchors.right: parent.right
+          anchors.verticalCenter: parent.verticalCenter
+          margin-right: 3
+          margin-top: 1
+          size: 9 9
+          image-source: /modules/game_taskboard/images/icon-currency-soulseals
+          tooltip: Soulseals
+
+        Label
+          id: soulSealsPointsLabel
+          text: 0
+          anchors.right: soulSealsIcon.left
+          anchors.verticalCenter: parent.verticalCenter
+          margin-top: 2
+          margin-right: 2
+          font: verdana-11px-monochrome
+          color: $var-text-cip-color
+          text-auto-resize: true
+      
+      Label
+        id: daysRemaining
+        text: 0
+        anchors.top: parent.top
+        anchors.left: parent.left
+        margin-top: 86
+        margin-left: 10
+        font: verdana-11px-monochrome
+        color: $var-text-cip-color
+        text-auto-resize: true
+
+      Label
+        text: day(s) remaining
+        anchors.top: daysRemaining.top
+        anchors.left: daysRemaining.right
+        margin-left: 6
+        font: verdana-11px-monochrome
+        color: $var-text-cip-color
+        text-auto-resize: true
 
   UIWindow
     id: killTasks
@@ -140,16 +359,18 @@ WeeklyPanel < Panel
     image-border: 6
     image-border-top: 27
     draggable: false
+    focusable: false
     anchors.top: parent.top
     anchors.left: parent.left
+    anchors.bottom: parent.bottom
     margin-top: -3
     margin-left: 4
+    margin-bottom: 124
     padding-top: 21
     padding-left: 4
     color: $var-text-color-disabled
     font: verdana-11px-monochrome
     width: 465
-    height: 375
 
     TaskBoardStoreBoostButton
       id: boostKillsWeekly
@@ -169,7 +390,7 @@ WeeklyPanel < Panel
       anchors.right: parent.right
       focusable: false
       margin-top: 6
-      margin-bottom: 4
+      margin-bottom: 8
       margin-left: 6
       margin-right: 2
 
@@ -202,16 +423,18 @@ WeeklyPanel < Panel
     image-border: 6
     image-border-top: 27
     draggable: false
+    focusable: false
     anchors.top: parent.top
     anchors.right: parent.right
+    anchors.bottom: parent.bottom
     margin-top: -3
     margin-right: 6
+    margin-bottom: 124
     padding-top: 21
     padding-left: 4
     color: $var-text-color-disabled
     font: verdana-11px-monochrome
     width: 465
-    height: 375
 
     TaskBoardStoreBoostButton
       id: reduceItemsWeekly
@@ -231,7 +454,7 @@ WeeklyPanel < Panel
       anchors.right: parent.right
       focusable: false
       margin-top: 6
-      margin-bottom: 4
+      margin-bottom: 8
       margin-left: 6
       margin-right: 2
 
@@ -254,185 +477,6 @@ WeeklyPanel < Panel
 
       $pressed:
         image-clip: 0 100 442 100
-  
-  UIWindow
-    id: weeklyProgress
-    text: Weekly Progress
-    text-align: top
-    image-source: /images/ui/popupwindow-sem-borda-interna
-    text-offset: 1 2
-    image-border: 6
-    image-border-top: 27
-    draggable: false
-    anchors.bottom: parent.bottom
-    anchors.left: parent.left
-    margin-bottom: 4
-    margin-left: 4
-    color: $var-text-color-disabled
-    font: verdana-11px-monochrome
-    width: 771
-    height: 109
-
-    UIWidget
-      id: weeklyProgressContent
-      anchors.top: parent.top
-      anchors.left: parent.left
-      margin-top: 32
-      margin-left: 11
-      image-source: /modules/game_taskboard/images/progress-labels
-    
-    VerticalSeparator
-      height: 50
-      anchors.top: parent.top
-      anchors.left: parent.left
-      margin-top: 32
-      margin-left: 287
-    VerticalSeparator
-      height: 50
-      anchors.top: parent.top
-      anchors.left: parent.left
-      margin-top: 32
-      margin-left: 415
-    VerticalSeparator
-      height: 50
-      anchors.top: parent.top
-      anchors.left: parent.left
-      margin-top: 32
-      margin-left: 544
-    VerticalSeparator
-      height: 50
-      anchors.top: parent.top
-      anchors.left: parent.left
-      margin-top: 32
-      margin-left: 673
-    
-    Panel
-      id: progressBar
-      size: 579 20
-      anchors.top: parent.top
-      anchors.left: parent.left
-      margin-top: 53
-      margin-left: 160
-      image-source: /images/ui/item
-      image-border: 10
-  
-  UIWindow
-    id: weeklyRewards
-    text: Weekly Rewards
-    text-align: top
-    image-source: /images/ui/popupwindow-sem-borda-interna
-    text-offset: 1 2
-    image-border: 6
-    image-border-top: 27
-    draggable: false
-    anchors.bottom: parent.bottom
-    anchors.right: parent.right
-    margin-bottom: 4
-    margin-right: 6
-    color: $var-text-color-disabled
-    font: verdana-11px-monochrome
-    width: 162
-    height: 109
-
-    Panel
-      id: huntingPoints
-      size: 105 20
-      anchors.top: parent.top
-      anchors.left: parent.left
-      margin-top: 24
-      margin-left: 10
-      image-source: /images/ui/item
-      image-border: 10
-
-      UIWidget
-        id: huntingPointsIcon
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        margin-right: 3
-        margin-top: 1
-        size: 11 11
-        image-source: /modules/game_taskboard/images/preyhuntingtask-tokens
-        tooltip: Hunting Task Points
-
-      Label
-        id: huntingPointsLabel
-        text: 0
-        anchors.right: huntingPointsIcon.left
-        anchors.verticalCenter: parent.verticalCenter
-        margin-top: 2
-        margin-right: 2
-        font: verdana-11px-monochrome
-        color: $var-text-cip-color
-        text-auto-resize: true
-
-    UIWidget
-      anchors.top: parent.top
-      anchors.right: parent.right
-      margin-top: 28
-      margin-right: 20
-      image-source: /images/icons/show_gui_help_grey
-      size: 12 12
-      !tooltip: tr('Hunting Task Points:\n\n 0 * 110     (from Kill Tasks)\n+ 0 *  75     (from Delivery Tasks)\n----------------------------------\n*     1    (from completing Tasks)\n=     0    Hunting Task Points')
- 
-    UIWidget
-      anchors.top: parent.top
-      anchors.right: parent.right
-      margin-top: 62
-      margin-right: 20
-      image-source: /images/icons/show_gui_help_grey
-      size: 12 12
-      !tooltip: tr('You receive 1 Soulseal for each completed task. Soulseals can be used in the Soulpit. Click the obelisk there, then your character to open a menu where you can select a creature you want to challenge on your own.')
-
-    Panel
-      id: soulSealsPoints
-      size: 105 20
-      anchors.top: parent.top
-      anchors.left: parent.left
-      margin-top: 58
-      margin-left: 10
-      image-source: /images/ui/item
-      image-border: 10
-
-      UIWidget
-        id: soulSealsIcon
-        anchors.right: parent.right
-        anchors.verticalCenter: parent.verticalCenter
-        margin-right: 3
-        margin-top: 1
-        size: 9 9
-        image-source: /modules/game_taskboard/images/icon-currency-soulseals
-        tooltip: Soulseals
-
-      Label
-        id: soulSealsPointsLabel
-        text: 0
-        anchors.right: soulSealsIcon.left
-        anchors.verticalCenter: parent.verticalCenter
-        margin-top: 2
-        margin-right: 2
-        font: verdana-11px-monochrome
-        color: $var-text-cip-color
-        text-auto-resize: true
-    
-    Label
-      id: daysRemaining
-      text: 0
-      anchors.top: parent.top
-      anchors.left: parent.left
-      margin-top: 86
-      margin-left: 10
-      font: verdana-11px-monochrome
-      color: $var-text-cip-color
-      text-auto-resize: true
-
-    Label
-      text: day(s) remaining
-      anchors.top: daysRemaining.top
-      anchors.left: daysRemaining.right
-      margin-left: 6
-      font: verdana-11px-monochrome
-      color: $var-text-cip-color
-      text-auto-resize: true
 
 ChainTransparentWeekly < UIWidget
   id: chainTransparentWeekly

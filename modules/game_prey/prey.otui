@@ -1881,59 +1881,90 @@ PreyCreatureTrack < Panel
     text-offset: -1 -4
 
 BountyTaskWidget < Panel
-  size: 140 20
+  size: 210 52
   phantom: false
   tooltip-font: verdana-11px-rounded
   padding: 1
 
   UICreature
     id: creature
-    size: 18 18
+    size: 40 40
     anchors.left: parent.left
-    anchors.top: parent.top
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 2
+    margin-right: 6
     phantom: true
 
   UICreature
     id: noCreature
-    size: 18 18
-    margin-top: -1
+    size: 40 40
     anchors.left: parent.left
-    anchors.top: parent.top
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 2
     image-source: /images/game/prey/prey-noprey-small
     phantom: true
 
   UIWidget
     id: preyType
-    size: 15 15
+    size: 18 18
     anchors.verticalCenter: parent.verticalCenter
     anchors.left: prev.right
-    margin-left: 6
+    margin-left: 10
+    margin-bottom: 6
     phantom: true
 
     UIWidget
-      size: 9 9
+      size: 11 11
       anchors.centerIn: parent
       image-source: /modules/game_taskboard/images/icon-currency-bountypoints
-      image-size: 9 9
+      image-size: 11 11
       image-fixed-ratio: true
       phantom: true
       margin-left: 1
 
-  ProgressBar
-    id: time
-    size: 95 5
+  UIWidget
+    id: preyAutoExtend
+    size: 6 5
     anchors.bottom: parent.bottom
     anchors.right: parent.right
-    margin-right: 12
+    margin-right: 1
+    phantom: true
+    visible: false
+
+  UIWidget
+    id: bountyKillProgress
+    height: 11
+    anchors.bottom: parent.bottom
+    anchors.left: preyType.right
+    margin-left: 6
+    anchors.right: preyAutoExtend.left
+    margin-right: 6
+    font: verdana-11px-rounded
+    color: #c0c0c0
+    text-align: left
+    phantom: true
+    text-offset: 0 0
+
+  ProgressBar
+    id: time
+    height: 5
+    anchors.left: preyType.right
+    margin-left: 6
+    anchors.bottom: bountyKillProgress.top
+    margin-bottom: 1
+    anchors.right: preyAutoExtend.left
+    margin-right: 6
     background-color: #C28400
     color: #c0c0c0
     phantom: true
 
   UIWidget
     id: creatureName
-    size: 110 11
-    anchors.bottom: prev.top
-    anchors.left: prev.left
+    height: 11
+    anchors.bottom: time.top
+    anchors.left: time.left
+    anchors.right: time.right
+    margin-bottom: 1
     text: Inactive
     font: verdana-11px-rounded
     color: #c0c0c0
@@ -1942,7 +1973,7 @@ BountyTaskWidget < Panel
     text-offset: -1 -4
 
 WeeklyTasksWidget < Panel
-  size: 140 20
+  size: 210 52
   phantom: false
   tooltip-font: verdana-11px-rounded
   @onClick: TaskBoard:toggleWindow('weekly')
@@ -1950,25 +1981,29 @@ WeeklyTasksWidget < Panel
 
   UICreature
     id: creature
-    size: 18 18
+    size: 40 40
     anchors.left: parent.left
-    anchors.top: parent.top
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 2
+    margin-right: 6
     phantom: true
 
   UICreature
     id: noCreature
-    size: 18 18
-    margin-top: -1
-    anchors.verticalCenter: parent.verticalCenter
+    size: 40 40
     anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 2
     image-source: /images/game/prey/prey-noprey-small
+    phantom: true
 
   UIWidget
     id: huntingBonus
-    size: 15 15
+    size: 18 18
     anchors.verticalCenter: parent.verticalCenter
     anchors.left: prev.right
-    margin-left: 5
+    margin-left: 10
+    margin-bottom: 6
     phantom: true
 
     UIWidget
@@ -1980,21 +2015,49 @@ WeeklyTasksWidget < Panel
       phantom: true
       margin-left: 1
 
-  ProgressBar
-    id: time
-    size: 95 5
+  UIWidget
+    id: weeklyAutoExtend
+    size: 6 5
     anchors.bottom: parent.bottom
     anchors.right: parent.right
-    margin-right: 12
-    background-color: #C28400
+    margin-right: 1
     phantom: true
+    visible: false
+
+  UIWidget
+    id: weeklyKillProgress
+    height: 11
+    anchors.bottom: parent.bottom
+    anchors.left: huntingBonus.right
+    margin-left: 6
+    anchors.right: weeklyAutoExtend.left
+    margin-right: 6
+    font: verdana-11px-rounded
     color: #c0c0c0
+    text-align: left
+    phantom: true
+    text-offset: 0 0
+
+  ProgressBar
+    id: time
+    height: 5
+    anchors.left: huntingBonus.right
+    margin-left: 6
+    anchors.bottom: weeklyKillProgress.top
+    margin-bottom: 1
+    anchors.right: weeklyAutoExtend.left
+    margin-right: 6
+    background-color: #C28400
+    color: #c0c0c0
+    phantom: true
 
   UIWidget
     id: creatureName
-    size: 110 11
-    anchors.bottom: prev.top
-    anchors.left: prev.left
+    height: 11
+    anchors.bottom: time.top
+    anchors.left: time.left
+    anchors.right: time.right
+    margin-bottom: 1
     text: Inactive
     font: verdana-11px-rounded
     color: #c0c0c0
