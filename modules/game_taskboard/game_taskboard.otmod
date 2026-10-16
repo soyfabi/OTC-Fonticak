@@ -1,0 +1,7 @@
+Module
+  name: game_taskboard
+  description: game_taskboard
+  scripts: [ game_taskboard, menus/* ]
+  sandboxed: false
+  @onLoad: init()
+  @onUnload: terminate()

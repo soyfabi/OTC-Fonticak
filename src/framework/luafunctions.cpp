@@ -1045,6 +1045,8 @@ void Application::registerLuaFunctions()
     g_lua.bindClassMemberFunction<InputMessage>("setBuffer", &InputMessage::setBuffer);
     g_lua.bindClassMemberFunction<InputMessage>("getBuffer", &InputMessage::getBuffer);
     g_lua.bindClassMemberFunction<InputMessage>("skipBytes", &InputMessage::skipBytes);
+    g_lua.bindClassMemberFunction<InputMessage>("getReadPos", &InputMessage::getReadPos);
+    g_lua.bindClassMemberFunction<InputMessage>("setReadPos", &InputMessage::setReadPos);
     g_lua.bindClassMemberFunction<InputMessage>("getU8", &InputMessage::getU8);
     g_lua.bindClassMemberFunction<InputMessage>("getU16", &InputMessage::getU16);
     g_lua.bindClassMemberFunction<InputMessage>("getU32", &InputMessage::getU32);

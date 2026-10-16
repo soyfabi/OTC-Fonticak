@@ -373,6 +373,31 @@ function openPremiumBoost()
   openCategory("Boosts")
 end
 
+function openTaskHuntStore()
+  openCategory("Task Hunt")
+end
+
+function openTaskHuntStoreSearch(searchText)
+  local query = tostring(searchText or "")
+  if query == "" then
+    openTaskHuntStore()
+    return
+  end
+
+  show()
+
+  if g_game.requestStoreOffers then
+    g_game.requestStoreOffers(OPEN_SEARCH, query, 0)
+  end
+end
+
+-- OTUI handlers run outside the module sandbox; keep purchase close on modules.game_store.
+function completePurchase(widget, immediate)
+  if Offers and Offers.completePurchase then
+    return Offers.completePurchase(widget, immediate)
+  end
+end
+
 function openCategory(categoryName, subCategoryName)
   if not categoryName or categoryName == "" then
     show()

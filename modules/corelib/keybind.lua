@@ -1245,6 +1245,7 @@ Keybind.controlButtonHotkeys = {
   imbuementTrackerButton = { 'Windows', 'Open Imbuement Tracker' },
   highscoresButton = { 'Windows', 'Open Highscore Dialog' },
   unjustifiedPointsButton = { 'Windows', 'Open Unjustified Points' },
+  taskBoard = { 'Windows', 'Open Task Board' },
   manageControlButtons = { 'UI', 'Manage Control Buttons' },
 }
 

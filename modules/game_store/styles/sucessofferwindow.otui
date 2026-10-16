@@ -32,7 +32,7 @@ SucessOfferWindow < NewMainWindow
   size: 350 153
   id: sucessOfferWindow
   !text: tr('Purchase completed successfully')
-  @onEscape: completePurchase(nil, true)
+  @onEscape: modules.game_store.completePurchase(nil, true)
 
   UIWidget
     id: dragon

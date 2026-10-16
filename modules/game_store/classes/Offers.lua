@@ -1156,7 +1156,7 @@ local function animatePurchaseChest(image)
 	end
 end
 
-function completePurchase(widget, immediate)
+function Offers.completePurchase(widget, immediate)
 	removeEvent(Offers.completePurchaseEvent)
 	Offers.completePurchaseEvent = nil
 	if widget and widget.image then
