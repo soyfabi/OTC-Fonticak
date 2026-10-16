@@ -323,6 +323,7 @@ end
 
 local deliveryNameCatalogRefreshEvent = nil
 local deliveryInventoryRefreshEvent = nil
+local weeklyKillProgressRefreshEvent = nil
 local deliveryServerSyncEvent = nil
 local fillDeliverySlot
 
@@ -920,6 +921,121 @@ local function buildKillSlots(weeklyTasks)
 	refreshBountyKillTrackerIfAvailable()
 end
 
+local function applyWeeklyKillEntryToState(entry)
+	if not lastWeeklyTasksState then
+		return false
+	end
+
+	local rid = tonumber(entry.raceId) or 0
+
+	if rid == 0 then
+		lastWeeklyTasksState.killedsAnyMonsters = entry.totalMonsterKilleds
+
+		if entry.totalKills then
+			lastWeeklyTasksState.killsAnyMonsters = entry.totalKills
+		end
+
+		return true
+	end
+
+	for _, e in ipairs(lastWeeklyTasksState.killEntries or {}) do
+		if e.raceId == rid then
+			e.totalMonsterKilleds = entry.totalMonsterKilleds
+			e.totalKills = entry.totalKills
+			e.state = entry.state
+
+			return true
+		end
+	end
+
+	lastWeeklyTasksState.killEntries = lastWeeklyTasksState.killEntries or {}
+	lastWeeklyTasksState.killEntries[#lastWeeklyTasksState.killEntries + 1] = {
+		raceId = rid,
+		totalMonsterKilleds = entry.totalMonsterKilleds,
+		totalKills = entry.totalKills,
+		state = entry.state,
+	}
+
+	return true
+end
+
+local function refreshWeeklyKillProgressFromState()
+	if not lastWeeklyTasksState then
+		return
+	end
+
+	local weeklyTasks = lastWeeklyTasksState
+	local killSlotsList = getKillSlotsList()
+
+	if not killSlotsList then
+		return
+	end
+
+	local children = killSlotsList:getChildren()
+
+	if #children == 0 then
+		onWeeklyTasks(weeklyTasks)
+
+		return
+	end
+
+	local anyPanel = children[1]
+
+	if anyPanel then
+		fillKillSlot(anyPanel, "Any Creature", weeklyTasks.killedsAnyMonsters, weeklyTasks.killsAnyMonsters, nil)
+	end
+
+	setWeeklyTrackerSelected(1, nil, weeklyTasks.killedsAnyMonsters, weeklyTasks.killsAnyMonsters, true)
+
+	local killEntries = weeklyTasks.killEntries or {}
+	local maxSpeciesSlots = WEEKLY_KILL_TRACKER_MAX_SLOTS - 1
+
+	for slotIndex, entry in ipairs(killEntries) do
+		local panel = children[slotIndex + 1]
+
+		if panel then
+			local raceData = weeklyRaceDisplayFromEntry(entry)
+			local raceName = raceData and raceData.name or entry.creatureName or "?"
+
+			fillKillSlot(panel, raceName, entry.totalMonsterKilleds, entry.totalKills, raceData, entry.state)
+		end
+
+		if slotIndex <= maxSpeciesSlots then
+			setWeeklyTrackerSelected(slotIndex + 1, entry.raceId, entry.totalMonsterKilleds, entry.totalKills, false, entry)
+		end
+	end
+
+	local usedTrackerSlots = math.min(1 + #killEntries, WEEKLY_KILL_TRACKER_MAX_SLOTS)
+
+	layoutWeeklyKillTrackerSlots(usedTrackerSlots)
+	killSlotsList:updateLayout()
+
+	if modules.game_prey and modules.game_prey.updateTrackerHeight then
+		modules.game_prey.updateTrackerHeight()
+	end
+
+	refreshBountyKillTrackerIfAvailable()
+	buildBarProgress(weeklyTasks)
+end
+
+local function scheduleWeeklyKillProgressRefresh()
+	if weeklyKillProgressRefreshEvent then
+		removeEvent(weeklyKillProgressRefreshEvent)
+	end
+
+	weeklyKillProgressRefreshEvent = scheduleEvent(function()
+		weeklyKillProgressRefreshEvent = nil
+		refreshWeeklyKillProgressFromState()
+	end, 0)
+end
+
+local function cancelWeeklyKillProgressRefresh()
+	if weeklyKillProgressRefreshEvent then
+		removeEvent(weeklyKillProgressRefreshEvent)
+		weeklyKillProgressRefreshEvent = nil
+	end
+end
+
 local function buildDeliverySlots(weeklyTasks)
 	local deliverySlotsList = getDeliverySlotsList()
 
@@ -1131,50 +1247,19 @@ function WeeklyTask:allowDifficultyWeeklyTasks(unlockedDifficulties)
 end
 
 function onWeeklyKillUpdate(entry)
-	if type(entry) ~= "table" or not entry.raceId then
+	if type(entry) ~= "table" or entry.raceId == nil then
 		return
 	end
 
 	if lastWeeklyTasksState then
-		local found = false
-		for _, e in ipairs(lastWeeklyTasksState.killEntries or {}) do
-			if e.raceId == entry.raceId then
-				e.totalMonsterKilleds = entry.totalMonsterKilleds
-				e.totalKills = entry.totalKills
-				e.state = entry.state
-				found = true
-				break
-			end
-		end
+		applyWeeklyKillEntryToState(entry)
+		scheduleWeeklyKillProgressRefresh()
 
-		if not found then
-			lastWeeklyTasksState.killEntries = lastWeeklyTasksState.killEntries or {}
-			lastWeeklyTasksState.killEntries[#lastWeeklyTasksState.killEntries + 1] = {
-				raceId = entry.raceId,
-				totalMonsterKilleds = entry.totalMonsterKilleds,
-				totalKills = entry.totalKills,
-				state = entry.state,
-			}
-		end
-
-		onWeeklyTasks(lastWeeklyTasksState)
 		return
 	end
 
-	local rid = tonumber(entry.raceId) or 0
-	for slotIndex = 2, WEEKLY_KILL_TRACKER_MAX_SLOTS do
-		local slot = getWeeklyTrackerSlot(slotIndex)
-		if slot and slot:isVisible() then
-			local killEntry
-			for _, e in ipairs(lastWeeklyTasksState and lastWeeklyTasksState.killEntries or {}) do
-				if e.raceId == rid then
-					killEntry = e
-					break
-				end
-			end
-			setWeeklyTrackerSelected(slotIndex, rid, entry.totalMonsterKilleds, entry.totalKills, false, killEntry)
-			break
-		end
+	if g_game.requestWeeklyTaskData then
+		g_game.requestWeeklyTaskData()
 	end
 end
 
@@ -1321,5 +1406,6 @@ function WeeklyTask:terminate()
 	cancelDeliveryInventoryRefresh()
 	cancelDeliveryServerSync()
 	cancelDeliveryNameCatalogRefresh()
+	cancelWeeklyKillProgressRefresh()
 	lastWeeklyTasksState = nil
 end
