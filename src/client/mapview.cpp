@@ -666,6 +666,15 @@ void MapView::onTileUpdate(const Position& pos, const ThingPtr& thing, const Otc
 
         requestUpdateVisibleTiles();
     }
+
+    if (m_mousePosition.isValid() && m_mousePosition == pos) {
+        if (m_drawHighlightTarget) {
+            destroyHighlightTile();
+            updateHighlightTile(m_mousePosition);
+        }
+        invalidateContextMouseCursor();
+        updateContextMouseCursor(m_mousePosition);
+    }
 }
 
 void MapView::onFadeInFinished()
@@ -673,98 +682,99 @@ void MapView::onFadeInFinished()
     requestUpdateVisibleTiles();
 }
 
+MapView::ResolvedContextCursor MapView::resolveContextCursor(const Position& mousePos) const
+{
+    if (m_cursorAnimations) {
+        if (const auto& tile = getTopTile(mousePos)) {
+            if (const auto& creature = tile->getTopCreature(true)) {
+                if (creature->isMonster()) {
+                    const int id = getFirstCursorId({ "attacker", "attack" });
+                    if (id != -1)
+                        return { false, id };
+                } else if (creature->isNpc()) {
+                    const int id = g_mouse.getCursorId("talk");
+                    if (id != -1)
+                        return { false, id };
+                }
+            }
+
+            const auto& useThing = tile->getTopUseThing();
+            const auto& lookThing = tile->getTopLookThing();
+
+            if (const auto& thing = useThing) {
+                if (thing->getDefaultAction() == PLAYER_ACTION_OPEN || thing->isContainer() || thing->isLyingCorpse()) {
+                    const bool isDeadCreature = thing->isLyingCorpse();
+                    const bool quickLootActive = g_game.getFeature(Otc::GameThingQuickLoot)
+                        || g_game.getFeature(Otc::GameQuickLootFlags);
+                    int id = -1;
+                    if (isDeadCreature && quickLootActive)
+                        id = getFirstCursorId({ "quickloot", "quicklootcursor" });
+                    else
+                        id = getFirstCursorId({ "open", "containercursor" });
+
+                    if (id != -1)
+                        return { false, id };
+                }
+            }
+
+            if (const auto& thing = useThing) {
+                if (thing->getDefaultAction() == PLAYER_ACTION_USE || thing->isUsable() || thing->isMultiUse() || thing->isForceUse()) {
+                    const int id = getFirstCursorId({ "use", "pointinghand" });
+                    if (id != -1)
+                        return { false, id };
+                }
+            }
+
+            if ((useThing && useThing->getDefaultAction() == PLAYER_ACTION_LOOK) || isLookCursorThing(lookThing, tile)) {
+                const int id = getFirstCursorId({ "look", "lookcursor" });
+                if (id != -1)
+                    return { false, id };
+            }
+
+            if (tile->isWalkable()) {
+                const int id = g_mouse.getCursorId("walk");
+                if (id != -1)
+                    return { false, id };
+            }
+        }
+    }
+
+    const int id = g_mouse.getCursorId("default");
+    if (id != -1)
+        return { false, id };
+    return { true, -1 };
+}
+
+void MapView::updateContextMouseCursor(const Position& mousePos)
+{
+    if (g_mouse.isCursorChanged())
+        return;
+
+    const auto resolved = resolveContextCursor(mousePos);
+    if (m_cachedContextCursor == resolved)
+        return;
+
+    m_cachedContextCursor = resolved;
+    if (resolved.restoreNative)
+        g_window.restoreMouseCursor();
+    else
+        g_window.setMouseCursor(resolved.cursorId);
+}
+
 // isVirtualMove is when the mouse is stopped, but the camera moves,
 // so the onMouseMove event is triggered by sending the new tile position that the mouse is in.
 void MapView::onMouseMove(const Position& mousePos, const bool /*isVirtualMove*/)
 {
-    { // Highlight Target System
+    if (m_drawHighlightTarget) {
+        if (!m_lastHighlightTile || m_lastHighlightTile->getPosition() != mousePos) {
+            destroyHighlightTile();
+            updateHighlightTile(mousePos);
+        }
+    } else if (m_lastHighlightTile) {
         destroyHighlightTile();
-        updateHighlightTile(mousePos);
     }
 
-    if (!g_mouse.isCursorChanged()) {
-        bool cursorSet = false;
-        if (m_cursorAnimations) {
-            if (const auto& tile = getTopTile(mousePos)) {
-                if (const auto& creature = tile->getTopCreature(true)) {
-                    if (creature->isMonster()) {
-                        int id = getFirstCursorId({ "attacker", "attack" });
-                        if (id != -1) {
-                            g_window.setMouseCursor(id);
-                            cursorSet = true;
-                        }
-                    } else if (creature->isNpc()) {
-                        int id = g_mouse.getCursorId("talk");
-                        if (id != -1) {
-                            g_window.setMouseCursor(id);
-                            cursorSet = true;
-                        }
-                    }
-                }
-                
-                const auto& useThing = tile->getTopUseThing();
-                const auto& lookThing = tile->getTopLookThing();
-
-                if (!cursorSet) {
-                    if (const auto& thing = useThing) {
-                        // Check for both containers and corpses (corpses might not always be containers)
-                        if (thing->getDefaultAction() == PLAYER_ACTION_OPEN || thing->isContainer() || thing->isLyingCorpse()) {
-                            // Use quicklootcursor for dead creatures when quickloot is active
-                            const bool isDeadCreature = thing->isLyingCorpse();
-                            const bool quickLootActive = g_game.getFeature(Otc::GameThingQuickLoot)
-                                || g_game.getFeature(Otc::GameQuickLootFlags);
-                            int id = -1;
-                            if (isDeadCreature && quickLootActive)
-                                id = getFirstCursorId({ "quickloot", "quicklootcursor" });
-                            else
-                                id = getFirstCursorId({ "open", "containercursor" });
-                            
-                            if (id != -1) {
-                                g_window.setMouseCursor(id);
-                                cursorSet = true;
-                            }
-                        }
-                    }
-                }
-
-                if (!cursorSet) {
-                    if (const auto& thing = useThing) {
-                        if (thing->getDefaultAction() == PLAYER_ACTION_USE || thing->isUsable() || thing->isMultiUse() || thing->isForceUse()) {
-                            int id = getFirstCursorId({ "use", "pointinghand" });
-                            if (id != -1) {
-                                g_window.setMouseCursor(id);
-                                cursorSet = true;
-                            }
-                        }
-                    }
-                }
-
-                if (!cursorSet && ((useThing && useThing->getDefaultAction() == PLAYER_ACTION_LOOK) || isLookCursorThing(lookThing, tile))) {
-                    int id = getFirstCursorId({ "look", "lookcursor" });
-                    if (id != -1) {
-                        g_window.setMouseCursor(id);
-                        cursorSet = true;
-                    }
-                }
-
-                if (!cursorSet && tile->isWalkable()) {
-                    int id = g_mouse.getCursorId("walk");
-                    if (id != -1) {
-                        g_window.setMouseCursor(id);
-                        cursorSet = true;
-                    }
-                }
-            }
-        }
-
-        if (!cursorSet) {
-            int id = g_mouse.getCursorId("default");
-            if (id != -1)
-                g_window.setMouseCursor(id);
-            else
-                g_window.restoreMouseCursor();
-        }
-    }
+    updateContextMouseCursor(mousePos);
 }
 
 void MapView::onKeyRelease(const InputEvent& inputEvent)

@@ -71,8 +71,10 @@ void GraphicalApplication::init(std::vector<std::string>& args, ApplicationConte
     });
 
     g_window.setOnInputEvent([this](auto&& PH1) {
-        if (!m_running) inputEvent(PH1);
-        else g_dispatcher.addEvent([&, PH1] { inputEvent(PH1); });
+        if (!m_running)
+            inputEvent(PH1);
+        else
+            queueInputEvent(PH1);
     });
 
     g_window.setOnClose([this] { g_dispatcher.addEvent([this] { close(); }); });
@@ -353,6 +355,11 @@ void GraphicalApplication::mainPoll()
     {
         AutoStat s2(STATS_MAIN, "WindowPoll");
         g_window.poll();
+        if (m_hasCoalescedMouseMove) {
+            g_dispatcher.addEvent([this] {
+                flushCoalescedMouseMove();
+            });
+        }
     }
     {
         AutoStat s2(STATS_MAIN, "TexturePoll");
@@ -387,6 +394,35 @@ void GraphicalApplication::inputEvent(const InputEvent& event)
     m_onInputEvent = true;
     g_ui.inputEvent(event);
     m_onInputEvent = false;
+}
+
+void GraphicalApplication::queueInputEvent(const InputEvent& event)
+{
+    if (event.type == Fw::MouseMoveInputEvent) {
+        if (m_hasCoalescedMouseMove) {
+            const Point delta = event.mousePos - m_coalescedMouseMove.mousePos;
+            m_coalescedMouseMove.mousePos = event.mousePos;
+            m_coalescedMouseMove.mouseMoved += delta;
+        } else {
+            m_coalescedMouseMove = event;
+            m_hasCoalescedMouseMove = true;
+        }
+        return;
+    }
+
+    g_dispatcher.addEvent([this, event] {
+        flushCoalescedMouseMove();
+        inputEvent(event);
+    });
+}
+
+void GraphicalApplication::flushCoalescedMouseMove()
+{
+    if (!m_hasCoalescedMouseMove)
+        return;
+
+    m_hasCoalescedMouseMove = false;
+    inputEvent(m_coalescedMouseMove);
 }
 
 bool GraphicalApplication::isLoadingAsyncTexture() { return m_loadingAsyncTexture || (m_drawEvents && m_drawEvents->isLoadingAsyncTexture()); }

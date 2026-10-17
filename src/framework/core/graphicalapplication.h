@@ -142,8 +142,12 @@ protected:
     void inputEvent(const InputEvent& event);
 
 private:
+    void queueInputEvent(const InputEvent& event);
+    void flushCoalescedMouseMove();
+
     bool canDrawMap() const;
     bool m_onInputEvent{ false };
+    bool m_hasCoalescedMouseMove{ false };
     bool m_optimize{ true };
     bool m_forceEffectOptimization{ true };
     bool m_drawEffectOnTop{ false };
@@ -157,6 +161,7 @@ private:
     AdaptativeFrameCounter m_mapProcessFrameCounter;
     AdaptativeFrameCounter m_graphicFrameCounter;
 
+    InputEvent m_coalescedMouseMove;
     ApplicationDrawEventsPtr m_drawEvents;
 };
 

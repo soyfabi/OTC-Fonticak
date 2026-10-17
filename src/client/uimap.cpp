@@ -273,6 +273,7 @@ void UIMap::onGeometryChange(const Rect& oldRect, const Rect& newRect)
 
 void UIMap::resetCursorToDefault()
 {
+    m_mapView->invalidateContextMouseCursor();
     if (m_mapView->hasCursorAnimations() && !g_mouse.isCursorChanged()) {
         const int defaultId = g_mouse.getCursorId("default");
         if (defaultId != -1)
@@ -292,18 +293,24 @@ void UIMap::onHoverChange(bool hovered)
 bool UIMap::onMouseMove(const Point& mousePos, const Point& mouseMoved)
 {
     const auto& pos = getPosition(mousePos);
+    const bool tileChanged = m_mapView->getLastMousePosition() != pos;
+
     if (!pos.isValid()) {
         if (isHovered())
             resetCursorToDefault();
-        return false;
+        if (tileChanged)
+            m_mapView->setLastMousePosition(pos);
+        return tileChanged ? UIWidget::onMouseMove(mousePos, mouseMoved) : false;
     }
 
-    if (isHovered() && m_mapView->getLastMousePosition() != pos) {
+    if (isHovered() && tileChanged) {
         m_mapView->onMouseMove(pos);
         m_mapView->setLastMousePosition(pos);
     }
 
-    return UIWidget::onMouseMove(mousePos, mouseMoved);
+    if (tileChanged)
+        return UIWidget::onMouseMove(mousePos, mouseMoved);
+    return false;
 }
 
 bool UIMap::onMousePress(const Point& mousePos, Fw::MouseButton button)
