@@ -445,7 +445,7 @@ local function updateNpcModalButtons(buttons)
 				end
 
 				if button.text and (button.text:lower() == "bye" or button.text:lower() == "farewell") then
-					closeNpcModal()
+					scheduleNpcModalClose(true)
 				end
 			end
 		end
@@ -465,11 +465,11 @@ function cancelNpcModalClose()
 	end
 end
 
-function scheduleNpcModalClose()
+function scheduleNpcModalClose(skipFarewellOnClose)
 	cancelNpcModalClose()
 	npcModalPendingCloseEvent = scheduleEvent(function()
 		npcModalPendingCloseEvent = nil
-		closeNpcModal()
+		closeNpcModal(skipFarewellOnClose)
 	end, 400)
 end
 
@@ -1015,7 +1015,7 @@ local function isNpcFarewellText(text)
 		return true
 	end
 
-	if lower:find("goodbye", 1, true) or lower:find("farewell", 1, true) then
+	if lower:find("goodbye", 1, true) or lower:find("good%s*bye", 1) or lower:find("farewell", 1, true) then
 		return true
 	end
 
@@ -1035,38 +1035,43 @@ local function onGameTalk(name, level, mode, text, channelId, creaturePos)
 	if mode == MessageModes.NpcFrom or mode == MessageModes.NpcFromStartBlock then
 		local creature = findCreatureByName(name) or activeNpcCreature or findNearestNpc()
 		local detectedButtons = detectNpcButtons(name, text, creature)
+		local farewell = isNpcFarewellText(text)
 
-		if not isAnyNpcModalVisible() then
-			local now = os.clock()
-			if (now - npcModalClosedAt) > 1.5 then
-				if creature then
-					local nearby = findNearbyNpcs(3)
-					local ids = {}
-					if #nearby > 1 then
-						table.insert(ids, creature:getId())
-						for _, npc in ipairs(nearby) do
-							if npc:getId() ~= creature:getId() then
-								table.insert(ids, npc:getId())
+		if not farewell then
+			if not isAnyNpcModalVisible() then
+				local now = os.clock()
+				if (now - npcModalClosedAt) > 1.5 then
+					if creature then
+						local nearby = findNearbyNpcs(3)
+						local ids = {}
+						if #nearby > 1 then
+							table.insert(ids, creature:getId())
+							for _, npc in ipairs(nearby) do
+								if npc:getId() ~= creature:getId() then
+									table.insert(ids, npc:getId())
+								end
 							end
+						else
+							ids = { creature:getId() }
 						end
-					else
-						ids = { creature:getId() }
+						sendNpcModal({ npcIds = ids, buttons = detectedButtons })
 					end
-					sendNpcModal({ npcIds = ids, buttons = detectedButtons })
 				end
-			end
-		else
-			if mainNpcModal and mainNpcModal:isVisible() then
-				if creature then
-					addNpcToModal(creature)
+			else
+				if mainNpcModal and mainNpcModal:isVisible() then
+					if creature then
+						addNpcToModal(creature)
+					end
+					updateNpcModalButtons(detectedButtons)
 				end
-				updateNpcModalButtons(detectedButtons)
 			end
 		end
 
-		if isNpcFarewellText(text) then
-			addNpcDialogLine(name, text, false)
-			scheduleNpcModalClose()
+		if farewell then
+			if isAnyNpcModalVisible() then
+				addNpcDialogLine(name, text, false)
+				scheduleNpcModalClose(true)
+			end
 			return
 		end
 
@@ -1075,7 +1080,7 @@ local function onGameTalk(name, level, mode, text, channelId, creaturePos)
 		if lowerText == "bye" or lowerText == "adios" or lowerText == "cya" or lowerText == "farewell" then
 			if isAnyNpcModalVisible() then
 				addNpcDialogLine(g_game.getCharacterName(), text, true)
-				scheduleNpcModalClose()
+				scheduleNpcModalClose(true)
 				return
 			end
 		end
@@ -3129,7 +3134,7 @@ onCloseNpcTrade = function()
 	end)
 end
 
-function closeNpcModal()
+function closeNpcModal(skipFarewellOnClose)
 	cancelNpcModalClose()
 
 	if g_tooltip then
@@ -3192,11 +3197,13 @@ function closeNpcModal()
 
 	if g_game.isOnline() then
 		g_game.closeNpcTrade()
-		local npcTab = modules.game_console and modules.game_console.consoleTabBar and modules.game_console.consoleTabBar:getTab("NPCs")
-		if npcTab then
-			modules.game_console.sendMessage("bye", npcTab)
-		else
-			g_game.talkPrivate(MessageModes.NpcTo, "NPCs", "bye")
+		if not skipFarewellOnClose then
+			local npcTab = modules.game_console and modules.game_console.consoleTabBar and modules.game_console.consoleTabBar:getTab("NPCs")
+			if npcTab then
+				modules.game_console.sendMessage("bye", npcTab)
+			else
+				g_game.talkPrivate(MessageModes.NpcTo, "NPCs", "bye")
+			end
 		end
 	end
 

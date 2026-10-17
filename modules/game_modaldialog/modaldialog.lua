@@ -1,239 +1,409 @@
-controllerModal = Controller:new()
+modalDialog = nil
+lastDialogChoices = 0
+lastDialogChoice = 0
+lastDialogAnswer = 0
 
-local MINIMUM_WIDTH_QT = 380
-local MINIMUM_WIDTH_OLD = 245
-local MAXIMUM_WIDTH = 600
-local MINIMUM_CHOICES = 4
-local MAXIMUM_CHOICES = 10
-local BASE_HEIGHT = 40
-local MAX_CHOICE_TEXT = 28
-
-local function destroyWindow()
-    local ui = controllerModal.ui
-    if ui then
-        controllerModal:unloadHtml()
-    end
-end
-
-function controllerModal:onInit()
-    controllerModal:registerEvents(g_game, {
-        onModalDialog = onModalDialog
-    })
-end
-
-function controllerModal:onTerminate()
-end
-
-function controllerModal:onGameEnd()
-    destroyWindow()
-end
-
-local function createButtonHandler(id, buttonId, choiceList)
-    return function()
-        local focusedChoice = choiceList and choiceList:getFocusedChild()
-        local choice = (choiceList and choiceList.selectedChoice) or (focusedChoice and focusedChoice.choiceId) or 0xFF
-        g_game.answerModalDialog(id, buttonId, choice)
-        destroyWindow()
-    end
-end
-
-local function selectChoiceWidget(choiceList, choiceWidget, reason)
-    if not choiceList or not choiceWidget then
-        return
-    end
-
-    choiceList.selectedChoice = choiceWidget.choiceId
-    choiceList.selectedChoiceIndex = choiceWidget.choiceIndex
-    choiceList:focusChild(choiceWidget, reason or ActiveFocusReason)
-    choiceList:ensureChildVisible(choiceWidget)
-end
-
-local function shortText(text, maxLen)
-    return #text <= maxLen and text or text:sub(1, maxLen)
+function isModalDialogOpen()
+	return modalDialog ~= nil and not modalDialog:isDestroyed()
 end
 
 local function resolveModalButtons(buttons, enterButton, escapeButton)
-    if not buttons or #buttons == 0 then
-        return enterButton, escapeButton
-    end
+	if not buttons or #buttons == 0 then
+		return enterButton, escapeButton
+	end
 
-    local buttonExistsById = {}
-    for i = 1, #buttons do
-        local buttonId = buttons[i][1]
-        buttonExistsById[buttonId] = true
-    end
+	local buttonExistsById = {}
+	for i = 1, #buttons do
+		buttonExistsById[buttons[i][1]] = true
+	end
 
-    local firstButtonId = buttons[1][1]
-    local lastButtonId = buttons[#buttons][1]
+	local firstButtonId = buttons[1][1]
+	local lastButtonId = buttons[#buttons][1]
 
-    if not buttonExistsById[enterButton] then
-        enterButton = firstButtonId
-    end
+	if not buttonExistsById[enterButton] then
+		enterButton = firstButtonId
+	end
 
-    if not buttonExistsById[escapeButton] then
-        escapeButton = #buttons > 1 and lastButtonId or enterButton
-    end
+	if not buttonExistsById[escapeButton] then
+		escapeButton = #buttons > 1 and lastButtonId or enterButton
+	end
 
-    if enterButton == escapeButton and #buttons > 1 then
-        for i = #buttons, 1, -1 do
-            local candidateId = buttons[i][1]
-            if candidateId ~= enterButton then
-                escapeButton = candidateId
-                break
-            end
-        end
-    end
+	if enterButton == escapeButton and #buttons > 1 then
+		for i = #buttons, 1, -1 do
+			local candidateId = buttons[i][1]
+			if candidateId ~= enterButton then
+				escapeButton = candidateId
+				break
+			end
+		end
+	end
 
-    return enterButton, escapeButton
+	return enterButton, escapeButton
 end
 
-local function calculateAndSetWidth(ui, messageLabel, buttonsWidth, message)
-    local horizontalPadding = ui:getPaddingLeft() + ui:getPaddingRight()
-    local totalButtonsWidth = buttonsWidth + horizontalPadding
-    local calculatedWidth = math.max(totalButtonsWidth, g_game.getFeature(GameEnterGameShowAppearance) and
-        MINIMUM_WIDTH_OLD or MINIMUM_WIDTH_QT)
-    if calculatedWidth > MAXIMUM_WIDTH then
-        calculatedWidth = MAXIMUM_WIDTH
-    end
-    local contentWidth = calculatedWidth - horizontalPadding
-    ui:setWidth(contentWidth)
-    messageLabel:setWidth(contentWidth)
-    messageLabel:setTextWrap(true)
-    return calculatedWidth
+local function normalizeButtonText(text)
+	if type(text) ~= "string" then
+		return ""
+	end
+	return text:lower():gsub("^%s+", ""):gsub("%s+$", "")
 end
 
-local function calculateChoicesHeight(choiceList, choices, labelHeight)
-    if #choices == 0 or not labelHeight then
-        return 0
-    end
-    local visibleChoices = math.min(MAXIMUM_CHOICES, math.max(MINIMUM_CHOICES, #choices))
-    local additionalHeight = visibleChoices * labelHeight + choiceList:getPaddingTop() + choiceList:getPaddingBottom()
-    choiceList:setHeight(additionalHeight)
-    return additionalHeight
+local function isAffirmativeButtonLabel(text)
+	local t = normalizeButtonText(text)
+	if t == "" then
+		return false
+	end
+	if t == "yes" or t == "ok" or t == "accept" or t == "confirm" or t == "select"
+		or t == "si" or t == "sí" or t == "elegir" or t == "seleccionar" or t == "aceptar" then
+		return true
+	end
+	return t:find("choose", 1, true) ~= nil or t:find("select", 1, true) ~= nil
 end
 
-local function applyFinalHeight(ui, messageLabel, additionalHeight)
-    local finalHeight = BASE_HEIGHT + additionalHeight + messageLabel:getHeight()
-    ui:setHeight(finalHeight)
-    controllerModal:findWidget('#choiceList'):setWidth(ui:getWidth() * 0.9) -- html not work "Width:100%"
+local function isNegativeButtonLabel(text)
+	local t = normalizeButtonText(text)
+	if t == "" then
+		return false
+	end
+	if t == "no" or t == "cancel" or t == "cancelar" then
+		return true
+	end
+	return t:find("cancel", 1, true) ~= nil
+end
+
+local function buttonTextById(buttons, buttonId)
+	for i = 1, #buttons do
+		if buttons[i][1] == buttonId then
+			return buttons[i][2]
+		end
+	end
+end
+
+local function findButtonIdByLabel(buttons, predicate)
+	for i = 1, #buttons do
+		if predicate(buttons[i][2]) then
+			return buttons[i][1]
+		end
+	end
+end
+
+local function resolveEnterEscapeButtonIds(buttons, serverEnter, serverCancel)
+	if not buttons or #buttons == 0 then
+		return serverEnter, serverCancel
+	end
+
+	local enterId = findButtonIdByLabel(buttons, isAffirmativeButtonLabel)
+	local escapeId = findButtonIdByLabel(buttons, isNegativeButtonLabel)
+
+	local function serverButtonExists(buttonId)
+		for i = 1, #buttons do
+			if buttons[i][1] == buttonId then
+				return true
+			end
+		end
+		return false
+	end
+
+	if not enterId and serverEnter and serverButtonExists(serverEnter) then
+		local label = buttonTextById(buttons, serverEnter)
+		if not isNegativeButtonLabel(label) then
+			enterId = serverEnter
+		end
+	end
+
+	if not escapeId and serverCancel and serverButtonExists(serverCancel) then
+		local label = buttonTextById(buttons, serverCancel)
+		if not isAffirmativeButtonLabel(label) then
+			escapeId = serverCancel
+		end
+	end
+
+	enterId = enterId or buttons[1][1]
+	escapeId = escapeId or buttons[#buttons][1]
+
+	if enterId == escapeId and #buttons > 1 then
+		for i = 1, #buttons do
+			local candidate = buttons[i][1]
+			if candidate ~= enterId then
+				escapeId = candidate
+				break
+			end
+		end
+	end
+
+	return enterId, escapeId
+end
+
+function init()
+	g_ui.importStyle("modaldialog")
+	connect(g_game, {
+		onModalDialog = onModalDialog,
+		onGameEnd = destroyDialog
+	})
+
+	local dialog = rootWidget:recursiveGetChildById("modalDialog")
+	if dialog then
+		modalDialog = dialog
+	end
+end
+
+function terminate()
+	if g_client and g_client.setInputLockWidget then
+		g_client.setInputLockWidget(nil)
+	end
+
+	disconnect(g_game, {
+		onModalDialog = onModalDialog,
+		onGameEnd = destroyDialog
+	})
+
+	if modalDialog then
+		modalDialog:destroy()
+		modalDialog = nil
+	end
+end
+
+local function unbindModalDialogKeys()
+	if not modalDialog or modalDialog:isDestroyed() then
+		return
+	end
+
+	if modalDialog._boundEnter then
+		g_keyboard.unbindKeyDown("Enter", modalDialog._boundEnter, modalDialog)
+		modalDialog._boundEnter = nil
+	end
+	if modalDialog._boundEscape then
+		g_keyboard.unbindKeyDown("Escape", modalDialog._boundEscape, modalDialog)
+		modalDialog._boundEscape = nil
+	end
+end
+
+function destroyDialog()
+	unbindModalDialogKeys()
+
+	if g_client and g_client.setInputLockWidget then
+		g_client.setInputLockWidget(nil)
+	end
+
+	if modalDialog then
+		modalDialog:destroy()
+		modalDialog = nil
+	end
 end
 
 function onModalDialog(id, title, message, buttons, enterButton, escapeButton, choices, priority)
-    destroyWindow()
+	if modalDialog then
+		return
+	end
 
-    -- C++ parse currently uses clientVersion for enter/escape byte order.
-    local protocolVersion = g_game.getProtocolVersion()
-    local clientVersion = g_game.getClientVersion()
-    local protocolAfter970 = protocolVersion > 970
-    local clientAfter970 = clientVersion > 970
-    if protocolAfter970 ~= clientAfter970 then
-        enterButton, escapeButton = escapeButton, enterButton
-    end
-    enterButton, escapeButton = resolveModalButtons(buttons, enterButton, escapeButton)
-    local MINIMUM_WIDTH = g_game.getFeature(GameEnterGameShowAppearance) and MINIMUM_WIDTH_OLD or MINIMUM_WIDTH_QT
-    controllerModal:loadHtml('modaldialog.html')
-    local ui = controllerModal.ui
-    ui:hide()
-    ui:grabKeyboard()
-    local messageLabel = controllerModal:findWidget('#messageLabel')
-    local choiceList = controllerModal:findWidget('#choiceList')
-    local buttonsPanel = controllerModal:findWidget('#buttonsPanel')
-    local enterFunc = createButtonHandler(id, enterButton, choiceList)
-    local escapeFunc = createButtonHandler(id, escapeButton, choiceList)
-    local confirmKeysEnabledAt = g_clock.millis() + 180
-    local firstChoiceWidget = nil
-    ui:setTitle(title)
-    messageLabel:html(message)
-    local labelHeight = nil
-    local buttonsWidth = 0
-    local choicesCount = #choices
-    if choicesCount > 0 then
-        choiceList:setVisible(true)
-        for i = 1, choicesCount do
-            local choiceId = choices[i][1]
-            local choiceName = choices[i][2]
-            local displayName = shortText(choiceName, MAX_CHOICE_TEXT)
-            local choiceHtml = string.format('<div class="choice-item" style="width: %d;" data-choice-id="%d">%s</div>',
-                MINIMUM_WIDTH, choiceId, displayName)
-            local choiceWidget = controllerModal:createWidgetFromHTML(choiceHtml, choiceList)
-            if choiceWidget then
-                choiceWidget.choiceId = choiceId
-                choiceWidget.choiceIndex = i
-                if #choiceName > MAX_CHOICE_TEXT then
-                    choiceWidget:setTooltip(choiceName)
-                end
-                if not labelHeight then
-                    labelHeight = choiceWidget:getHeight()
-                end
-                choiceWidget.onClick = function()
-                    selectChoiceWidget(choiceList, choiceWidget, MouseFocusReason)
-                end
-                choiceWidget.onDoubleClick = enterFunc
-                if not firstChoiceWidget then
-                    firstChoiceWidget = choiceWidget
-                end
-            end
-        end
-    else
-        choiceList:setVisible(false)
-    end
-    for i = #buttons, 1, -1 do
-        local buttonId = buttons[i][1]
-        local buttonText = buttons[i][2]
-        local buttonHtml = string.format('<button class="modal-button">%s</button>', buttonText)
-        local button = controllerModal:createWidgetFromHTML(buttonHtml, buttonsPanel)
+	enterButton, escapeButton = resolveModalButtons(buttons, enterButton, escapeButton)
+	local enterButtonId, escapeButtonId = resolveEnterEscapeButtonIds(buttons, enterButton, escapeButton)
 
-        if button then
-            button.onClick = createButtonHandler(id, buttonId, choiceList)
-            buttonsWidth = buttonsWidth + button:getWidth() + button:getMarginLeft() + button:getMarginRight()
-        end
-    end
-    ui.onKeyDown = function(_, keyCode, keyboardModifiers)
-        if keyboardModifiers ~= KeyboardNoModifier then
-            return false
-        end
+	modalDialog = g_ui.createWidget("ModalDialog", rootWidget)
 
-        if keyCode == KeyEscape then
-            if not ui:isVisible() or g_clock.millis() < confirmKeysEnabledAt then
-                return true
-            end
-            escapeFunc()
-            return true
-        end
+	if g_client and g_client.setInputLockWidget then
+		g_client.setInputLockWidget(modalDialog)
+	end
 
-        if keyCode == KeyEnter then
-            if not ui:isVisible() or g_clock.millis() < confirmKeysEnabledAt then
-                return true
-            end
-            enterFunc()
-            return true
-        end
+	local messageLabel = modalDialog:getChildById("messageLabel")
+	local choiceList = modalDialog:getChildById("choiceList")
+	local choiceScrollbar = modalDialog:getChildById("choiceScrollBar")
+	local buttonsPanel = modalDialog:getChildById("buttonsPanel")
 
-        if keyCode == KeyUp and choiceList and choiceList:isVisible() then
-            choiceList:focusPreviousChild(KeyboardFocusReason)
-            selectChoiceWidget(choiceList, choiceList:getFocusedChild(), KeyboardFocusReason)
-            return true
-        end
+	modalDialog:setText(title)
+	messageLabel:setText(message)
 
-        if keyCode == KeyDown and choiceList and choiceList:isVisible() then
-            choiceList:focusNextChild(KeyboardFocusReason)
-            selectChoiceWidget(choiceList, choiceList:getFocusedChild(), KeyboardFocusReason)
-            return true
-        end
+	if messageLabel.setFont then
+		messageLabel:setFont("Verdana Bold-11px-new")
+	end
 
-        return false
-    end
-    calculateAndSetWidth(ui, messageLabel, buttonsWidth, message)
-    local additionalHeight = calculateChoicesHeight(choiceList, choices, labelHeight)
-    controllerModal:scheduleEvent(function()
-        applyFinalHeight(ui, messageLabel, additionalHeight)
-        ui:show()
-        ui:raise()
-        ui:focus()
-        ui:grabKeyboard()
-        confirmKeysEnabledAt = g_clock.millis() + 180
-        if firstChoiceWidget then
-            selectChoiceWidget(choiceList, firstChoiceWidget, KeyboardFocusReason)
-        end
-    end, 222, "lazyHeightHtml")
+	local labelHeight
+	local useZebra = #choices >= 2
+
+	for i = 1, #choices do
+		local choiceId = choices[i][1]
+		local choiceName = choices[i][2]
+		local labelStyle = (not useZebra or i % 2 == 1) and "ChoiceListLabelOdd" or "ChoiceListLabelEven"
+		local label = g_ui.createWidget(labelStyle, choiceList)
+
+		label.choiceId = choiceId
+		label:setText(short_text(choiceName, 28))
+		if #choiceName > 28 then
+			label:setTooltip(choiceName)
+		end
+		label:setPhantom(false)
+		labelHeight = labelHeight or label:getHeight()
+	end
+
+	if #choices > 0 then
+		choiceList:focusChild(choiceList:getFirstChild())
+	end
+
+	for i = 1, #buttons do
+		local buttonId = buttons[i][1]
+
+		local button = g_ui.createWidget("ModalButton", buttonsPanel)
+		button:setText(buttons[i][2])
+		button.onClick = function()
+			local focusedChoice = choiceList:getFocusedChild()
+			local choice = 0xFF
+			if focusedChoice then
+				choice = focusedChoice.choiceId
+				lastDialogChoice = choiceList:getChildIndex(focusedChoice)
+				lastDialogAnswer = g_clock.millis()
+			end
+			g_game.answerModalDialog(id, buttonId, choice)
+			destroyDialog()
+		end
+	end
+
+	local choiceSeparator = modalDialog:getChildById("choiceSeparator")
+	local additionalHeight = 0
+	local listSeparatorGap = 0
+	local visibleRows = 0
+	local hasChoices = #choices > 0
+
+	if hasChoices then
+		choiceList:setVisible(true)
+		choiceScrollbar:setVisible(true)
+
+		visibleRows = math.min(modalDialog.maximumChoices, math.max(modalDialog.minimumChoices, #choices))
+		listSeparatorGap = choiceList:getMarginBottom()
+
+		local listContentHeight = visibleRows * labelHeight + choiceList:getPaddingTop() + choiceList:getPaddingBottom()
+
+		choiceList:setHeight(listContentHeight)
+		choiceList:setMarginBottom(0)
+		if choiceSeparator then
+			choiceSeparator:breakAnchors()
+			choiceSeparator:addAnchor(AnchorTop, "choiceList", AnchorBottom)
+			choiceSeparator:setMarginTop(listSeparatorGap)
+			choiceSeparator:setHeight(2)
+			choiceSeparator:setFixedSize(true)
+			choiceSeparator:addAnchor(AnchorLeft, "parent", AnchorLeft)
+			choiceSeparator:addAnchor(AnchorRight, "parent", AnchorRight)
+		end
+
+		additionalHeight = choiceList:getMarginTop() + listContentHeight + listSeparatorGap
+	end
+
+	modalDialog:setWidth(modalDialog.maximumWidth)
+
+	if messageLabel.resizeToText then
+		messageLabel:resizeToText()
+	end
+
+	local messageHeight = math.max(14, messageLabel:getTextSize().height)
+	local paddingTop = modalDialog:getPaddingTop()
+	local paddingBottom = modalDialog:getPaddingBottom()
+	local buttonsHeight = buttonsPanel:getHeight()
+	local separatorBlock = hasChoices and 22 - listSeparatorGap or 22
+	local modalHeight = paddingTop + messageHeight + 4 + separatorBlock + buttonsHeight + paddingBottom + additionalHeight
+
+	if hasChoices and visibleRows > modalDialog.minimumChoices then
+		modalHeight = modalHeight - 1
+	end
+
+	modalDialog:setHeight(math.max(100, modalHeight))
+
+	local answered = false
+
+	local function currentChoiceId()
+		local focusedChoice = choiceList:getFocusedChild()
+		if not focusedChoice and hasChoices then
+			focusedChoice = choiceList:getFirstChild()
+			if focusedChoice then
+				choiceList:focusChild(focusedChoice, KeyboardFocusReason)
+			end
+		end
+		if focusedChoice then
+			return focusedChoice.choiceId
+		end
+		return 0xFF
+	end
+
+	local function answer(buttonId, choice)
+		if answered then
+			return
+		end
+		answered = true
+
+		local focusedChoice = choiceList:getFocusedChild()
+		if focusedChoice and choice ~= 255 and choice ~= 0xFF then
+			lastDialogChoice = choiceList:getChildIndex(focusedChoice)
+			lastDialogAnswer = g_clock.millis()
+		end
+
+		g_game.answerModalDialog(id, buttonId, choice)
+		destroyDialog()
+	end
+
+	local function enterFunc()
+		answer(enterButtonId, currentChoiceId())
+	end
+
+	local function escapeFunc()
+		answer(escapeButtonId, 0xFF)
+	end
+
+	choiceList.onDoubleClick = enterFunc
+	modalDialog.onEnter = enterFunc
+	modalDialog.onEscape = escapeFunc
+
+	function modalDialog:onKeyPress(keyCode, keyboardModifiers)
+		if keyboardModifiers ~= KeyboardNoModifier then
+			return false
+		end
+
+		if g_keyboard.isEnterKey(keyCode) then
+			enterFunc()
+			return true
+		elseif keyCode == KeyEscape then
+			escapeFunc()
+			return true
+		elseif keyCode == KeyDown and hasChoices then
+			choiceList:focusNextChild(KeyboardFocusReason)
+			return true
+		elseif keyCode == KeyUp and hasChoices then
+			choiceList:focusPreviousChild(KeyboardFocusReason)
+			return true
+		end
+
+		return false
+	end
+
+	function choiceList:onKeyPress(keyCode, keyboardModifiers)
+		if keyboardModifiers ~= KeyboardNoModifier then
+			return false
+		end
+
+		if g_keyboard.isEnterKey(keyCode) then
+			enterFunc()
+			return true
+		elseif keyCode == KeyEscape then
+			escapeFunc()
+			return true
+		end
+
+		return false
+	end
+
+	modalDialog._boundEnter = enterFunc
+	modalDialog._boundEscape = escapeFunc
+	g_keyboard.bindKeyDown("Enter", modalDialog._boundEnter, modalDialog)
+	g_keyboard.bindKeyDown("Escape", modalDialog._boundEscape, modalDialog)
+
+	lastDialogChoices = #choices
+
+	modalDialog:raise()
+	modalDialog:show()
+	modalDialog:focus()
+	modalDialog:grabKeyboard()
+
+	if hasChoices then
+		local first = choiceList:getFirstChild()
+		if first then
+			choiceList:focusChild(first, KeyboardFocusReason)
+		end
+	end
 end

@@ -511,6 +511,11 @@ function applyChatModeFromKeybind(chatMode)
 end
 
 function switchChatOnCall()
+    if modules.game_modaldialog and modules.game_modaldialog.isModalDialogOpen
+        and modules.game_modaldialog.isModalDialogOpen() then
+        return
+    end
+
     if not g_game.isOnline() or modules.game_hotkeys.areHotkeysDisabled() then
         return
     end
@@ -1552,7 +1557,7 @@ function sendNpcModalReply(message)
 
     if (lowerMsg == "bye" or lowerMsg == "adios" or lowerMsg == "farewell" or lowerMsg == "cya")
         and modules.game_npcmodal and modules.game_npcmodal.scheduleNpcModalClose then
-        modules.game_npcmodal.scheduleNpcModalClose()
+        modules.game_npcmodal.scheduleNpcModalClose(true)
     end
 
     local npcTab = getTab("NPCs")

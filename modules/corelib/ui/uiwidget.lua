@@ -80,6 +80,22 @@ local function trimColoredTextToken(value)
     return value:gsub("^%s+", ""):gsub("%s+$", "")
 end
 
+-- Match C++ setColoredText: color is after the last comma in the segment.
+local function splitColoredTextSegment(segment)
+    if type(segment) ~= "string" or segment == "" then
+        return nil, nil
+    end
+    for i = #segment, 1, -1 do
+        if segment:sub(i, i) == "," then
+            local token = trimColoredTextToken(segment:sub(i + 1))
+            if isColoredTextColorToken(token) then
+                return segment:sub(1, i - 1), token
+            end
+        end
+    end
+    return nil, nil
+end
+
 -- C++ std::regex can fail on long loot lines; parse {text, color} in Lua first.
 local function parseFonticakColoredMarkup(markup, defaultColor)
     if type(markup) ~= "string" or markup == "" then
@@ -114,9 +130,8 @@ local function parseFonticakColoredMarkup(markup, defaultColor)
             break
         end
         local segment = markup:sub(open + 1, close - 1)
-        local content, colorToken = segment:match("^(.-),%s*(.+)$")
-        colorToken = trimColoredTextToken(colorToken)
-        if not content or colorToken == "" or not isColoredTextColorToken(colorToken) then
+        local content, colorToken = splitColoredTextSegment(segment)
+        if not content or not colorToken then
             appendPlain(markup:sub(open, close), defaultColor)
         else
             appendPlain(content, colorToken)
