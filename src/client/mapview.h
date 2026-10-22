@@ -29,6 +29,8 @@
 #include "staticdata.h"
 #include "framework/core/inputevent.h"
 
+#include <optional>
+
  // @bindclass
 class MapView final : public LuaObject
 {
@@ -192,6 +194,18 @@ private:
     void updateHighlightTile(const Position& mousePos);
     void destroyHighlightTile();
 
+    struct ResolvedContextCursor
+    {
+        bool restoreNative{ false };
+        int cursorId{ -1 };
+
+        friend bool operator==(const ResolvedContextCursor&, const ResolvedContextCursor&) = default;
+    };
+
+    ResolvedContextCursor resolveContextCursor(const Position& mousePos) const;
+    void updateContextMouseCursor(const Position& mousePos);
+    void invalidateContextMouseCursor() { m_cachedContextCursor.reset(); }
+
     void updateLight();
     void updateViewportDirectionCache();
     void updateGeometry(const Size& visibleDimension);
@@ -310,6 +324,7 @@ private:
     Timer m_fadeTimer;
 
     TilePtr m_lastHighlightTile;
+    std::optional<ResolvedContextCursor> m_cachedContextCursor;
     TexturePtr m_crosshairTexture;
 
     DrawPool* m_pool;
