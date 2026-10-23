@@ -1244,10 +1244,25 @@ Keybind.controlButtonHotkeys = {
   analyzerButton = { 'Windows', 'Open Analyser Window' },
   imbuementTrackerButton = { 'Windows', 'Open Imbuement Tracker' },
   highscoresButton = { 'Windows', 'Open Highscore Dialog' },
+  compendiumDialog = { 'Dialogs', 'Open Compendium' },
+  friendsDialog = { 'Dialogs', 'Open Social Dialog' },
   unjustifiedPointsButton = { 'Windows', 'Open Unjustified Points' },
   taskBoard = { 'Windows', 'Open Task Board' },
   manageControlButtons = { 'UI', 'Manage Control Buttons' },
 }
+
+local function controlButtonTooltipBaseFromAction(button, action)
+  if not action or action:sub(1, 5) ~= 'Open ' then
+    return nil
+  end
+
+  local subject = action:sub(6)
+  if button:isOn() then
+    return tr('Close ' .. subject)
+  end
+
+  return tr(action)
+end
 
 function Keybind.registerControlButtonHotkey(buttonId, category, action)
   Keybind.controlButtonHotkeys[buttonId] = { category, action }
@@ -1302,10 +1317,13 @@ function Keybind.applyControlButtonTooltip(button, buttonId)
     return
   end
 
-  local base = button.hotkeyTooltipBase
+  local base = controlButtonTooltipBaseFromAction(button, hotkey[2])
   if not base or base == '' then
-    if button.getTooltip then
-      base = Keybind.stripHotkeySuffix(button:getTooltip() or '')
+    base = button.hotkeyTooltipBase
+    if not base or base == '' then
+      if button.getTooltip then
+        base = Keybind.stripHotkeySuffix(button:getTooltip() or '')
+      end
     end
   end
 
@@ -1317,13 +1335,34 @@ function Keybind.applyControlButtonTooltip(button, buttonId)
   button:setTooltip(Keybind.formatTooltipWithHotkey(base, hotkey[1], hotkey[2]))
 end
 
+function Keybind.syncControlButtonTooltip(button, buttonId)
+  if not button or button:isDestroyed() then
+    return
+  end
+  Keybind.applyControlButtonTooltip(button, buttonId)
+end
+
+function Keybind.syncControlButtonTooltipById(buttonId)
+  if modules.game_mainpanel and modules.game_mainpanel.getButton then
+    local button = modules.game_mainpanel.getButton(buttonId)
+    if button and not button:isDestroyed() then
+      Keybind.applyControlButtonTooltip(button, buttonId)
+    end
+  end
+
+  if modules.client_topmenu and modules.client_topmenu.getButton then
+    local button = modules.client_topmenu.getButton(buttonId)
+    if button and not button:isDestroyed() then
+      Keybind.applyControlButtonTooltip(button, buttonId)
+    end
+  end
+end
+
 function Keybind.syncToggleButtonTooltip(button, buttonId, openLabel, closeLabel)
   if not button or button:isDestroyed() then
     return
   end
 
-  local on = button:isOn()
-  button.hotkeyTooltipBase = tr(on and closeLabel or openLabel)
   Keybind.applyControlButtonTooltip(button, buttonId)
 end
 
@@ -1333,10 +1372,7 @@ function Keybind.refreshControlButtonTooltips()
   end
 
   for buttonId in pairs(Keybind.controlButtonHotkeys) do
-    local button = findControlButton(buttonId)
-    if button then
-      Keybind.applyControlButtonTooltip(button, buttonId)
-    end
+    Keybind.syncControlButtonTooltipById(buttonId)
   end
 end
 

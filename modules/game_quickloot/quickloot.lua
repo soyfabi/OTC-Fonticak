@@ -400,7 +400,7 @@ function QuickLoot.ensureManageContainersUi()
         end
     end
 
-    QuickLoot.start(QuickLoot.lastQuickLootFallback or false, containers)
+    QuickLoot.start(quickLootFallbackEnabled(QuickLoot.lastQuickLootFallback), containers)
     return true
 end
 
@@ -495,6 +495,37 @@ local CLEAR_ICON = "/images/ui/button-clear-20x20-up.png"
 local CHAINED_CLEAR_ICON = "/modules/game_quickloot/images/button-chain-clear-20x20-up.png"
 local GOLD_POUCH_ITEM_ID = 23721
 local SET_OBTAIN_CONTAINER_ACTION = 4
+local UNASSIGNED_LOOT_CATEGORY = 31
+
+local function quickLootFallbackEnabled(fallback)
+    return fallback ~= false
+end
+
+local function getMainLootContainerItemId()
+    local player = g_game.getLocalPlayer()
+    if not player then
+        return 0
+    end
+
+    local backpack = player:getInventoryItem(InventorySlotBack)
+    if backpack and backpack:isContainer() then
+        return backpack:getId()
+    end
+
+    return 0
+end
+
+local function resolveFallbackDisplayContainerId(categoryId, containerId, fallback)
+    if containerId and containerId > 0 then
+        return containerId
+    end
+
+    if not quickLootFallbackEnabled(fallback) or categoryId ~= UNASSIGNED_LOOT_CATEGORY then
+        return 0
+    end
+
+    return getMainLootContainerItemId()
+end
 
 local function getQuickLootFilterItemName(itemId)
 	itemId = tonumber(itemId)
@@ -761,6 +792,20 @@ local function listQuickLootExportFiles()
 	return files
 end
 
+local function getUnassignedLootContainerIds()
+	local lootId, obtainId = 0, 0
+
+	for _, container in ipairs(QuickLoot.lootContainers or {}) do
+		if container[1] == UNASSIGNED_LOOT_CATEGORY then
+			lootId = container[3] or 0
+			obtainId = container[2] or 0
+			break
+		end
+	end
+
+	return lootId, obtainId
+end
+
 function QuickLoot.getConfiguredLootFlags(itemId)
 	if not itemId or itemId <= 0 then
 		return 0, 0
@@ -780,6 +825,22 @@ function QuickLoot.getConfiguredLootFlags(itemId)
 
 		if obtainId == itemId then
 			obtainFlags = bit.bor(obtainFlags, bitFlag)
+		end
+	end
+
+	if quickLootFallbackEnabled(QuickLoot.lastQuickLootFallback) then
+		local mainContainerId = getMainLootContainerItemId()
+		if mainContainerId > 0 and itemId == mainContainerId then
+			local unassignedLootId, unassignedObtainId = getUnassignedLootContainerIds()
+			local unassignedBit = bit.lshift(1, UNASSIGNED_LOOT_CATEGORY)
+
+			if unassignedLootId == 0 then
+				lootFlags = bit.bor(lootFlags, unassignedBit)
+			end
+
+			if unassignedObtainId == 0 then
+				obtainFlags = bit.bor(obtainFlags, unassignedBit)
+			end
 		end
 	end
 
@@ -1178,6 +1239,8 @@ function quickLootController:onGameStart()
     QuickLoot.load()
     g_game.requestQuickLootBlackWhiteList(getFilter(QuickLoot.data.filter), #QuickLoot.data.loots[QuickLoot.data.filter], QuickLoot.data.loots[QuickLoot.data.filter])
     QuickLoot.bindKeybinds()
+    g_game.openContainerQuickLoot(3, nil, {}, nil, nil, quickLootFallbackEnabled(QuickLoot.lastQuickLootFallback))
+
     scheduleEvent(function()
         QuickLoot.refreshAllQuickLootIcons()
     end, 100)
@@ -1417,34 +1480,30 @@ function QuickLoot.Define()
             widget:setBackgroundColor(slot.color)
             widget.label:setText(slot.name)
 
-            for _, container in pairs(lootContainers) do
+            local lootContainerId = 0
+            local obtainerContainerId = 0
+
+            for _, container in pairs(lootContainers or {}) do
                 if container[1] == id then
-                    local lootContainerId = container[3]
-                    local obtainerContainerId = container[2]
+                    lootContainerId = container[3] or 0
+                    obtainerContainerId = container[2] or 0
+                    break
+                end
+            end
 
-                    if lootContainerId and lootContainerId > 0 then
-                        widget.item2:setItemId(lootContainerId)
-                    else
-                        widget.item2:setItemId(0)
-                    end
+            local displayLootId = resolveFallbackDisplayContainerId(id, lootContainerId, fallback)
+            local displayObtainId = resolveFallbackDisplayContainerId(id, obtainerContainerId, fallback)
 
-                    if obtainerContainerId and obtainerContainerId > 0 then
-                        widget.item:setItemId(obtainerContainerId)
-                    else
-                        widget.item:setItemId(0)
-                    end
+            widget.item2:setItemId(displayLootId)
+            widget.item:setItemId(displayObtainId)
 
-					if lootContainerId and lootContainerId > 0 then
-						hasItem2 = true
-					end
+            if lootContainerId and lootContainerId > 0 then
+                hasItem2 = true
+            end
 
-					if obtainerContainerId and obtainerContainerId > 0 then
-						hasItem = true
-					end
-
-					break
-				end
-			end
+            if obtainerContainerId and obtainerContainerId > 0 then
+                hasItem = true
+            end
 
 			if not hasItem then
                 widget.removeBag:setEnabled(false)
@@ -1722,11 +1781,25 @@ function QuickLoot.Define()
         end
     end
 
+    local function rebuildManageContainersUi()
+        if not g_game.isOnline() or not QuickLoot.lootContainers then
+            return
+        end
+
+        local containers = {}
+        for i, entry in ipairs(QuickLoot.lootContainers) do
+            containers[i] = { entry[1], entry[2], entry[3] }
+        end
+
+        QuickLoot.start(quickLootFallbackEnabled(QuickLoot.lastQuickLootFallback), containers)
+    end
+
     function QuickLoot.show()
         if not quickLootController.ui then
             return
         end
 
+        rebuildManageContainersUi()
         quickLootController.ui:show()
         showModal(quickLootController.ui)
     end

@@ -344,6 +344,7 @@ local function onTaskBoardGameEnd()
 
 	if TaskBoard.mainButton then
 		TaskBoard.mainButton:setOn(false)
+		Keybind.syncControlButtonTooltip(TaskBoard.mainButton, 'taskBoard')
 	end
 
 	destroyTaskBoardPanelButton()
@@ -514,12 +515,14 @@ function TaskBoard:toggleWindow(mode)
 		local button = getTaskBoardMainButton()
 		if button then
 			button:setOn(true)
+			Keybind.syncControlButtonTooltip(button, 'taskBoard')
 		end
 	else
 		self.mainWindow:setVisible(false)
 
 		if self.mainButton then
 			self.mainButton:setOn(false)
+			Keybind.syncControlButtonTooltip(self.mainButton, 'taskBoard')
 		end
 
 		hideTaskBoardModal(self.mainWindow)

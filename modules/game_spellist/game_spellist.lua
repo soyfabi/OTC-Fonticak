@@ -120,6 +120,7 @@ end
 local function setButtonOn(state)
   if spelllistButton then
     spelllistButton:setOn(state)
+    Keybind.syncControlButtonTooltip(spelllistButton, 'spelllistButton')
   end
 end
 

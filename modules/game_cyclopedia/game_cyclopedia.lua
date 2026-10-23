@@ -980,9 +980,11 @@ function syncBosstiaryShortcutButtons()
 
 	if bosstiaryShortcutButton and not bosstiaryShortcutButton:isDestroyed() then
 		bosstiaryShortcutButton:setOn(bosstiaryOn)
+		Keybind.syncControlButtonTooltip(bosstiaryShortcutButton, 'bosstiary')
 	end
 	if bossSlotShortcutButton and not bossSlotShortcutButton:isDestroyed() then
 		bossSlotShortcutButton:setOn(bossSlotOn)
+		Keybind.syncControlButtonTooltip(bossSlotShortcutButton, 'bossSlot')
 	end
 end
 
@@ -1125,6 +1127,7 @@ function init()
 	window.onVisibilityChange = function(widget, visible)
 		if cyclopediaButton then
 			cyclopediaButton:setOn(visible)
+			Keybind.syncControlButtonTooltip(cyclopediaButton, 'cyclopediaButton')
 		end
 		if not visible then
 			syncBosstiaryShortcutButtons()

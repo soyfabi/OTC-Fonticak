@@ -1874,11 +1874,13 @@ function onBestiaryTrackerOpen()
 	local topMenuButton = modules.game_cyclopedia and modules.game_cyclopedia.bestiaryTrackerButton
 	if topMenuButton then
 		topMenuButton:setOn(true)
+		Keybind.syncControlButtonTooltip(topMenuButton, 'bestiaryTrackerButton')
 	end
 	if modules.game_mainpanel and modules.game_mainpanel.getButton then
 		local btn = modules.game_mainpanel.getButton('bestiaryTrackerButton')
 		if btn then
 			btn:setOn(true)
+			Keybind.syncControlButtonTooltip(btn, 'bestiaryTrackerButton')
 		end
 	end
 	scheduleBestiaryTrackerRefresh()
@@ -1891,11 +1893,13 @@ function onBestiaryTrackerClose()
 	local topMenuButton = modules.game_cyclopedia and modules.game_cyclopedia.bestiaryTrackerButton
 	if topMenuButton then
 		topMenuButton:setOn(false)
+		Keybind.syncControlButtonTooltip(topMenuButton, 'bestiaryTrackerButton')
 	end
 	if modules.game_mainpanel and modules.game_mainpanel.getButton then
 		local btn = modules.game_mainpanel.getButton('bestiaryTrackerButton')
 		if btn then
 			btn:setOn(false)
+			Keybind.syncControlButtonTooltip(btn, 'bestiaryTrackerButton')
 		end
 	end
 	if bestiaryTrackerRefreshEvent then

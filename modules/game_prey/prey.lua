@@ -1177,10 +1177,7 @@ local function syncPreyTrackerButton()
 	end
 
 	preyTrackerButton:setOn(on)
-
-	if preyTrackerButton.setTooltip then
-		preyTrackerButton:setTooltip(tr(on and "Close Kill Tracker Window" or "Open Kill Tracker Window"))
-	end
+	Keybind.syncControlButtonTooltip(preyTrackerButton, 'preyTrackerButton')
 end
 
 function onPreyTrackerWindowOpen()

@@ -558,6 +558,7 @@ function Cyclopedia.syncBosstiaryTrackerButton()
 
 	if bosstiaryTrackerTopButton and not bosstiaryTrackerTopButton:isDestroyed() then
 		bosstiaryTrackerTopButton:setOn(visible)
+		Keybind.syncControlButtonTooltip(bosstiaryTrackerTopButton, 'bosstiaryTrackerButton')
 	end
 end
 

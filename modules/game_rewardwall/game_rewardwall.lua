@@ -1164,6 +1164,7 @@ function toggle()
 	if rewardWallController.ui:isVisible() then
 		if ButtonRewardWall then
 			ButtonRewardWall:setOn(false)
+			Keybind.syncControlButtonTooltip(ButtonRewardWall, 'rewardWall')
 		end
 
 		return hide(true)
@@ -1685,6 +1686,7 @@ function rewardWallController:onGameEnd()
 
 		if ButtonRewardWall then
 			ButtonRewardWall:setOn(false)
+			Keybind.syncControlButtonTooltip(ButtonRewardWall, 'rewardWall')
 		end
 	end
 

@@ -138,12 +138,14 @@ end
 function onMiniWindowOpen()
     if imbuementTrackerButton then
         imbuementTrackerButton:setOn(true)
+        Keybind.syncControlButtonTooltip(imbuementTrackerButton, 'imbuementTrackerButton')
     end
 end
 
 function onMiniWindowClose()
     if imbuementTrackerButton then
         imbuementTrackerButton:setOn(false)
+        Keybind.syncControlButtonTooltip(imbuementTrackerButton, 'imbuementTrackerButton')
     end
 end
 
@@ -174,6 +176,7 @@ function toggle()
         imbuementTrackerButton:setOn(true)
         -- updateHeight()
     end
+    Keybind.syncControlButtonTooltip(imbuementTrackerButton, 'imbuementTrackerButton')
     g_game.imbuementDurations(imbuementTrackerButton:isOn())
 end
 

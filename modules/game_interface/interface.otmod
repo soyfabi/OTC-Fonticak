@@ -51,6 +51,8 @@ Module
     - game_blessing
     - game_quickloot
     - game_cyclopedia
+    - game_compendium
+    - game_social
     - game_creatureinformation
     - game_rewardwall
     - game_forge
