@@ -100,6 +100,10 @@ function updatePartyListVitalsBars(creatureId, healthPercent, manaPercent)
 			end
 		end
 	end
+
+	if refreshPartyFloatingVitalsBars then
+		refreshPartyFloatingVitalsBars(creatureId, healthPercent, manaPercent)
+	end
 end
 
 function getPartyVitalsForCreature(creature)

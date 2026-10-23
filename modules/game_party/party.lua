@@ -350,7 +350,7 @@ local function migratePartyFilterButtonStates(instance)
 	refreshAllPartyFilterButtonTooltips(instance)
 end
 
-local function onPartyButtonMouseRelease(self, mousePosition, mouseButton)
+function partyCreatureButtonMouseRelease(self, mousePosition, mouseButton)
 	if not self.creature then
 		return false
 	end
@@ -376,7 +376,7 @@ local function onPartyButtonMouseRelease(self, mousePosition, mouseButton)
 	return false
 end
 
-local function onPartyButtonHoverChange(button, hovered)
+function partyCreatureButtonHoverChange(button, hovered)
 	if button.isPartyButton then
 		button.isHovered = hovered
 		if button.update then
@@ -391,8 +391,12 @@ local function onHoveredCreatureChange(creature)
 end
 
 local function bindPartyButtonHandlers(widget)
-	widget.onHoverChange = onPartyButtonHoverChange
-	widget.onMouseRelease = onPartyButtonMouseRelease
+	widget.onHoverChange = partyCreatureButtonHoverChange
+	widget.onMouseRelease = partyCreatureButtonMouseRelease
+
+	if bindPartyButtonForFloatingPlacement then
+		bindPartyButtonForFloatingPlacement(widget)
+	end
 end
 
 local function partyAfterButtonSetup(_, button, creature)
@@ -458,6 +462,10 @@ local function partyOnShieldChange(manager, instance, creature, shieldId)
 		end
 	else
 		PartyListRegistry:remove(creature)
+
+		if onPartyMemberLeftFloatingHud then
+			onPartyMemberLeftFloatingHud(creature:getId())
+		end
 
 		if btn then
 			instance:removeCreature(creature)
@@ -652,6 +660,10 @@ function init()
 
 	g_ui.importStyle("partybutton")
 
+	if initPartyFloatingVitals then
+		initPartyFloatingVitals()
+	end
+
 	partyButton = modules.game_mainpanel.addToggleButton("partyWidget", tr("Party List"), "/images/options/button_party_list", toggle, false, 2)
 	partyWindow = g_ui.loadUI("party")
 
@@ -789,6 +801,10 @@ function init()
 end
 
 function onPartyAttack(creature)
+	if syncPartyFloatingTargetAndFollow then
+		syncPartyFloatingTargetAndFollow()
+	end
+
 	for _, instance in pairs(PartyListManager.instances) do
 		for _, battleButton in pairs(instance.battleButtons) do
 			local isTarget = creature and battleButton.creature == creature or false
@@ -803,6 +819,10 @@ function onPartyAttack(creature)
 end
 
 function onPartyFollow(creature)
+	if syncPartyFloatingTargetAndFollow then
+		syncPartyFloatingTargetAndFollow()
+	end
+
 	for _, instance in pairs(PartyListManager.instances) do
 		for _, battleButton in pairs(instance.battleButtons) do
 			local isFollowed = creature and battleButton.creature == creature or false
@@ -831,10 +851,18 @@ function onGameStart()
 		scheduleEvent(function()
 			mainInstance:checkCreatures()
 		end, 500)
+
+		if restorePartyFloatingVitals then
+			restorePartyFloatingVitals()
+		end
 	end
 end
 
 function onGameEnd()
+	if clearPartyFloatingVitalsRuntime then
+		clearPartyFloatingVitalsRuntime(true)
+	end
+
 	PartyListRegistry:clear()
 
 	local mainInstance = PartyListManager.instances[0]
@@ -851,6 +879,10 @@ function onGameEnd()
 end
 
 function terminate()
+	if terminatePartyFloatingVitals then
+		terminatePartyFloatingVitals()
+	end
+
 	if terminatePartyVitalsProtocol then
 		terminatePartyVitalsProtocol()
 	end

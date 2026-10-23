@@ -1537,6 +1537,14 @@ return {
             end
         end,
     },
+    freePartyVitalsPlacement = {
+        value = false,
+        action = function(value)
+            if modules.game_party and modules.game_party.setFreePartyVitalsPlacement then
+                modules.game_party.setFreePartyVitalsPlacement(value)
+            end
+        end,
+    },
     actionBarBottomLocked = false,
     actionBarLeftLocked = false,
     actionBarRightLocked = false,
