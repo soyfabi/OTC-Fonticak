@@ -1146,6 +1146,12 @@ local function setupCyclopediaAreas()
 		end
 	end
 
+	local function syncCyclopediaPartyPins(minimapWidget)
+		if minimapWidget and not minimapWidget:isDestroyed() and minimapWidget.updateAllPartyPinsVisibility then
+			minimapWidget:updateAllPartyPinsVisibility()
+		end
+	end
+
 	if not minimap._cyclopediaAreaHooked then
 		local baseZoomChange = minimap.onZoomChange
 
@@ -1154,6 +1160,7 @@ local function setupCyclopediaAreas()
 				baseZoomChange(widget, zoom, oldZoom)
 			end
 
+			syncCyclopediaPartyPins(widget)
 			scheduleAreaLabelRefresh()
 		end
 
@@ -1164,6 +1171,7 @@ local function setupCyclopediaAreas()
 				baseSmoothZoomScaleChange(widget, scale)
 			end
 
+			syncCyclopediaPartyPins(widget)
 			updateAreaLabelAppearance()
 		end
 
@@ -1173,6 +1181,8 @@ local function setupCyclopediaAreas()
 			if baseCameraChange then
 				baseCameraChange(widget, position, oldPosition)
 			end
+
+			syncCyclopediaPartyPins(widget)
 
 			if position and oldPosition and position.z ~= oldPosition.z then
 				if areaLabelRefreshEvent then
@@ -1777,6 +1787,10 @@ function Cyclopedia.setVirtualFloor(target)
 			refreshVirtualFloors()
 		end
 
+		if minimap.updateAllPartyPinsVisibility then
+			minimap:updateAllPartyPinsVisibility()
+		end
+
 		return
 	end
 
@@ -1794,6 +1808,10 @@ function Cyclopedia.setVirtualFloor(target)
 
 	if minimap.updateCrossVisibility then
 		minimap:updateCrossVisibility()
+	end
+
+	if minimap.updateAllPartyPinsVisibility then
+		minimap:updateAllPartyPinsVisibility()
 	end
 end
 
@@ -2009,6 +2027,10 @@ function initMap(contentContainer)
 		if UI and getCyclopediaMinimap() then
 			Cyclopedia.applyMapFlagFilter()
 		end
+
+		if modules.game_minimap and modules.game_minimap.refreshMinimapPartyPins then
+			modules.game_minimap.refreshMinimapPartyPins()
+		end
 	end, 100)
 
 end
@@ -2068,6 +2090,11 @@ function Cyclopedia.getMapMinimapWidget()
 	return UI.MapBase.minimap
 end
 
+-- Exported for game_minimap (other sandboxes call modules.game_cyclopedia.getMapMinimapWidget)
+function getMapMinimapWidget()
+	return Cyclopedia.getMapMinimapWidget()
+end
+
 function Cyclopedia.onUpdateCameraPosition()
 	if not UI or not UI.MapBase then
 		return
@@ -2112,6 +2139,8 @@ function Cyclopedia.onUpdateCameraPosition()
 
 	if modules.game_minimap and modules.game_minimap.refreshMinimapPartyPins then
 		modules.game_minimap.refreshMinimapPartyPins()
+	elseif minimapWidget.updateAllPartyPinsVisibility then
+		minimapWidget:updateAllPartyPinsVisibility()
 	end
 end
 

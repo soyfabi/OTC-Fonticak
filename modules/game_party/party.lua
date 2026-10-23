@@ -49,13 +49,6 @@ local PARTY_FILTER_BUTTON_TOOLTIPS = {
 }
 local PARTY_LIST_FILTERS_HIDDEN_CONTENTS_MARGIN_TOP = -3
 local PARTY_LIST_FILTERS_HIDDEN_SCROLLBAR_MARGIN_TOP = 15
-local PARTY_FILTER_DEBUG = true
-
-local function partyFilterDebug(...)
-	if PARTY_FILTER_DEBUG then
-		print('[PartyListFilter]', ...)
-	end
-end
 
 local function getPartyListScrollbarMarginTopWithFilters(filterPanel)
 	local h = filterPanel and filterPanel:getHeight() or 0
@@ -308,25 +301,7 @@ local function partyDoCreatureFitFilters(instance, creature)
 	end
 
 	for filterId, button in pairs(instance.hideButtons or {}) do
-		local checked = partyFilterHideActive(button)
-		local matches = partyCreatureMatchesHideFilter(filterId, creature)
-
-		if PARTY_FILTER_DEBUG and checked then
-			partyFilterDebug(string.format(
-				'filter=%s checked=%s matches=%s creature=%s voc=%s knight=%s paladin=%s druid=%s',
-				filterId,
-				tostring(checked),
-				tostring(matches),
-				creature:getName(),
-				tostring(creature:getVocation()),
-				tostring(creature:isKnight()),
-				tostring(creature:isPaladin()),
-				tostring(creature:isDruid())
-			))
-		end
-
-		if checked and matches then
-			partyFilterDebug(string.format('hidden: %s (%s)', creature:getName(), filterId))
+		if partyFilterHideActive(button) and partyCreatureMatchesHideFilter(filterId, creature) then
 			return false
 		end
 	end
@@ -583,14 +558,6 @@ function onFilterButtonClick(button)
 	mainInstance:saveHideButtonStates()
 	mainInstance:checkCreatures()
 	refreshPartyFilterButtonTooltip(button)
-
-	partyFilterDebug(string.format(
-		'toggle %s -> checked=%s on=%s tooltip=%s',
-		button:getId(),
-		tostring(button:isChecked()),
-		tostring(button:isOn()),
-		button:getTooltip() or ''
-	))
 end
 
 local function partyConnecting()

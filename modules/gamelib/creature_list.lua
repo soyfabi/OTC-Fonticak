@@ -287,13 +287,23 @@ function CreatureList.getPartyMemberLevel(creature)
 		return nil
 	end
 
-	local cached = PartyVitalsCache and PartyVitalsCache[creature:getId()]
+	local cached
+
+	if modules.game_party and modules.game_party.getPartyVitalsCacheTable then
+		cached = modules.game_party.getPartyVitalsCacheTable()[creature:getId()]
+	else
+		cached = PartyVitalsCache and PartyVitalsCache[creature:getId()]
+	end
 
 	if cached and cached.level and cached.level > 0 then
 		return cached.level
 	end
 
 	return nil
+end
+
+function CreatureList.getPartyMemberVocationNameByServerId(vocationId)
+	return vocationNamesByServerId[vocationId] or "Unknown Vocation"
 end
 
 function CreatureList.buildPartyMemberPinTooltip(creature)
@@ -305,6 +315,27 @@ function CreatureList.buildPartyMemberPinTooltip(creature)
 	local level = CreatureList.getPartyMemberLevel(creature)
 	local title = level and string.format("%s (%d)", name, level) or name
 	local vocation = CreatureList.getPartyMemberVocationName(creature)
+
+	return string.format("%s\n%s: %s", title, tr("Vocation"), vocation)
+end
+
+function CreatureList.buildPartyMemberPinTooltipFromCache(creatureId)
+	local cached
+
+	if modules.game_party and modules.game_party.getPartyVitalsCacheTable then
+		cached = modules.game_party.getPartyVitalsCacheTable()[creatureId]
+	else
+		cached = PartyVitalsCache and PartyVitalsCache[creatureId]
+	end
+
+	if not cached then
+		return tr("Party member")
+	end
+
+	local name = cached.name or tr("Party member")
+	local level = cached.level
+	local title = level and level > 0 and string.format("%s (%d)", name, level) or name
+	local vocation = CreatureList.getPartyMemberVocationNameByServerId(cached.vocation or 0)
 
 	return string.format("%s\n%s: %s", title, tr("Vocation"), vocation)
 end

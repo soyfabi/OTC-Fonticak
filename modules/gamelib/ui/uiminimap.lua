@@ -71,6 +71,65 @@ local function positionMarkerAtTile(minimap, marker, displayPos)
     minimap:anchorPosition(marker, AnchorBottom, displayPos, AnchorVerticalCenter)
 end
 
+local function destroyPartyPinFloorLabel(pin)
+    if not pin or not pin.floorDeltaLabel or pin.floorDeltaLabel:isDestroyed() then
+        return
+    end
+
+    pin.floorDeltaLabel:destroy()
+    pin.floorDeltaLabel = nil
+end
+
+local function updatePartyPinFloorLabel(minimap, pin, deltaZ)
+    if not pin or not minimap then
+        return
+    end
+
+    if pin:isDestroyed() or pin:isHidden() or deltaZ == 0 then
+        destroyPartyPinFloorLabel(pin)
+        return
+    end
+
+    local label = pin.floorDeltaLabel
+
+    if not label or label:isDestroyed() then
+        label = g_ui.createWidget('Label', minimap)
+        label:setId('partyPinFloorDelta')
+        label:setPhantom(true)
+        label:setFocusable(false)
+        label:setTextAlign(AlignLeft)
+        pin.floorDeltaLabel = label
+    end
+
+    label:setText(string.format('%+d', deltaZ))
+    label:resizeToText()
+    label:breakAnchors()
+
+    local pinPos = pin:getPosition()
+    local pinSize = pin:getSize()
+    local labelSize = label:getSize()
+
+    local floorLabelOffsetX = 1
+    local floorLabelOffsetY = 6 -- screen Y grows downward: increase to move text lower
+
+    if minimap:isCyclopediaMap() then
+        floorLabelOffsetX = 2
+        floorLabelOffsetY = 4
+        label:setFont('verdana-11px-rounded')
+        label:setColor('#FFFF66')
+    else
+        label:setFont('verdana-11px-monochrome')
+        label:setColor('#FFFFFF')
+    end
+
+    label:setPosition({
+        x = pinPos.x + pinSize.width + floorLabelOffsetX,
+        y = pinPos.y + math.floor((pinSize.height - labelSize.height) / 2) + floorLabelOffsetY
+    })
+    label:show()
+    label:raise()
+end
+
 local function updateMinimapMarkerVisibility(minimap, marker)
     if not marker or not marker.pos then
         return
@@ -112,6 +171,55 @@ local function updateMinimapMarkerVisibility(minimap, marker)
     positionMarkerAtTile(minimap, marker, displayPos)
 end
 
+local function updatePartyPinVisibility(minimap, pin)
+    if not pin or not pin.pos then
+        return
+    end
+
+    local cameraPos = minimap:getCameraPosition()
+    if not cameraPos then
+        pin:hide()
+        destroyPartyPinFloorLabel(pin)
+        return
+    end
+
+    local markerZ = pin.pos.z
+    local viewZ = cameraPos.z
+    local playerZ = viewZ
+
+    local localPlayer = g_game.getLocalPlayer()
+    if localPlayer and localPlayer:getPosition() then
+        playerZ = localPlayer:getPosition().z
+    end
+
+    -- Tibia floors: lower Z is up. Member above you => +N, below you => -N.
+    local deltaZ = playerZ - markerZ
+    local displayPos = {
+        x = pin.pos.x,
+        y = pin.pos.y,
+        z = viewZ
+    }
+
+    if viewZ < 0 or viewZ > 15 then
+        pin:hide()
+        destroyPartyPinFloorLabel(pin)
+        return
+    end
+
+    local sameFloorAsView = viewZ == markerZ
+    local sameFloorAsPlayer = playerZ == markerZ
+
+    if minimap:isCyclopediaMap() then
+        pin:setOpacity(sameFloorAsView and 1 or 0.25)
+    else
+        pin:setOpacity(sameFloorAsView and 1 or 0.55)
+    end
+
+    pin:show()
+    positionMarkerAtTile(minimap, pin, displayPos)
+    updatePartyPinFloorLabel(minimap, pin, sameFloorAsPlayer and 0 or deltaZ)
+end
+
 function UIMinimap:updateCrossVisibility()
     updateMinimapMarkerVisibility(self, self.cross)
 end
@@ -123,6 +231,7 @@ function UIMinimap:clearPartyPins()
     end
 
     for _, pin in pairs(self.partyPins) do
+        destroyPartyPinFloorLabel(pin)
         pin:destroy()
     end
 
@@ -135,7 +244,7 @@ function UIMinimap:updateAllPartyPinsVisibility()
     end
 
     for _, pin in pairs(self.partyPins) do
-        updateMinimapMarkerVisibility(self, pin)
+        updatePartyPinVisibility(self, pin)
     end
 end
 
@@ -145,6 +254,7 @@ function UIMinimap:updatePartyPins(memberById)
 
     for id, pin in pairs(self.partyPins) do
         if not memberById[id] then
+            destroyPartyPinFloorLabel(pin)
             pin:destroy()
             self.partyPins[id] = nil
         end
@@ -160,7 +270,9 @@ function UIMinimap:updatePartyPins(memberById)
         local pin = self.partyPins[id]
         if not pin then
             pin = g_ui.createWidget('MinimapCross', self)
+            pin:setId('partyPin_' .. id)
             pin:setImageSource('')
+            pin:setClipping(false)
             pin:setPhantom(false)
             pin:setFocusable(false)
             self.partyPins[id] = pin
@@ -182,6 +294,12 @@ function UIMinimap:updatePartyPins(memberById)
 
     if self.cross and not self.cross:isDestroyed() then
         self.cross:raise()
+    end
+
+    for _, pin in pairs(self.partyPins) do
+        if pin.floorDeltaLabel and not pin.floorDeltaLabel:isDestroyed() and pin.floorDeltaLabel:isVisible() then
+            pin.floorDeltaLabel:raise()
+        end
     end
 end
 

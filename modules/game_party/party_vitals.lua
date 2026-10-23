@@ -1,6 +1,8 @@
 -- Server opcode 0x34: party member health/mana percentages (OTC-Fonticak + FS partyvitals.lua)
 
 local OPCODE_PARTY_VITALS = 0x34
+local PARTY_VITALS_VERSION_LEGACY = 1
+local PARTY_VITALS_VERSION_MAP = 2
 
 PartyVitalsCache = PartyVitalsCache or {}
 
@@ -173,25 +175,101 @@ local function onPartyMemberHealthPercentChange(creature, healthPercent, oldHeal
 	refreshPartyMemberMapHud(creature)
 end
 
+local function storePartyVitalsEntry(creatureId, healthPercent, manaPercent, level, extra, localId, seenIds)
+	seenIds[creatureId] = true
+
+	PartyVitalsCache[creatureId] = PartyVitalsCache[creatureId] or {}
+	local cache = PartyVitalsCache[creatureId]
+	cache.health = healthPercent
+	cache.mana = manaPercent
+
+	if level and level > 0 then
+		cache.level = level
+	end
+
+	if extra then
+		if extra.pos then
+			cache.pos = extra.pos
+		end
+		if extra.isLeader ~= nil then
+			cache.isLeader = extra.isLeader
+		end
+		if extra.vocation then
+			cache.vocation = extra.vocation
+		end
+		if extra.name and extra.name ~= "" then
+			cache.name = extra.name
+		end
+	end
+
+	if creatureId ~= localId then
+		applyPartyMemberVitals(creatureId, healthPercent, manaPercent)
+	end
+end
+
 local function onPartyVitalsOpcode(_protocol, msg)
-	-- Per member: u32 id, u8 hp%, u8 mana%, u16 level (FS partyvitals.lua)
 	local count = msg:getU8()
+
+	if count == 0 then
+		PartyVitalsCache = {}
+
+		if modules.game_minimap and modules.game_minimap.refreshMinimapPartyPins then
+			modules.game_minimap.refreshMinimapPartyPins()
+		end
+
+		return true
+	end
+
+	local posAfterCount = msg:getReadPos()
+	local version = msg:getU8()
+
+	if version ~= PARTY_VITALS_VERSION_LEGACY and version ~= PARTY_VITALS_VERSION_MAP then
+		msg:setReadPos(posAfterCount)
+		version = PARTY_VITALS_VERSION_LEGACY
+	end
+
+	local seenIds = {}
+	local localPlayer = g_game.getLocalPlayer()
+	local localId = localPlayer and localPlayer:getId()
 
 	for _ = 1, count do
 		local creatureId = msg:getU32()
 		local healthPercent = msg:getU8()
 		local manaPercent = msg:getU8()
 		local level = msg:getU16()
+		local extra
 
-		if level > 0 then
-			PartyVitalsCache[creatureId] = PartyVitalsCache[creatureId] or {}
-			PartyVitalsCache[creatureId].level = level
+		if version >= PARTY_VITALS_VERSION_MAP then
+			extra = {
+				pos = {
+					x = msg:getU16(),
+					y = msg:getU16(),
+					z = msg:getU8()
+				},
+				isLeader = msg:getU8() == 1,
+				vocation = msg:getU8(),
+				name = ""
+			}
+
+			local ok, name = pcall(function()
+				return msg:getString()
+			end)
+
+			if ok and name then
+				extra.name = name
+			end
 		end
 
-		applyPartyMemberVitals(creatureId, healthPercent, manaPercent)
+		storePartyVitalsEntry(creatureId, healthPercent, manaPercent, level, extra, localId, seenIds)
 	end
 
-	if count > 0 and modules.game_minimap and modules.game_minimap.refreshMinimapPartyPins then
+	for cachedId in pairs(PartyVitalsCache) do
+		if not seenIds[cachedId] then
+			PartyVitalsCache[cachedId] = nil
+		end
+	end
+
+	if modules.game_minimap and modules.game_minimap.refreshMinimapPartyPins then
 		modules.game_minimap.refreshMinimapPartyPins()
 	end
 
@@ -210,6 +288,20 @@ local function onPartyMemberShieldChange(creature)
 	end
 end
 
+local function onLocalPartyShieldChange(player)
+	if player and player.isPartyMember and not player:isPartyMember() then
+		PartyVitalsCache = {}
+
+		if modules.game_minimap and modules.game_minimap.refreshMinimapPartyPins then
+			modules.game_minimap.refreshMinimapPartyPins()
+		end
+	end
+end
+
+function getPartyVitalsCacheTable()
+	return PartyVitalsCache
+end
+
 function initPartyVitalsProtocol()
 	ProtocolGame.registerOpcode(OPCODE_PARTY_VITALS, onPartyVitalsOpcode)
 
@@ -220,6 +312,13 @@ function initPartyVitalsProtocol()
 			onHealthPercentChange = onPartyMemberHealthPercentChange
 		})
 		partyVitalsCreatureConnected = true
+	end
+
+	if not partyVitalsLocalConnected then
+		connect(LocalPlayer, {
+			onShieldChange = onLocalPartyShieldChange
+		})
+		partyVitalsLocalConnected = true
 	end
 
 	if not partyVitalsSyncEvent then
@@ -237,6 +336,13 @@ function terminatePartyVitalsProtocol()
 			onHealthPercentChange = onPartyMemberHealthPercentChange
 		})
 		partyVitalsCreatureConnected = false
+	end
+
+	if partyVitalsLocalConnected then
+		disconnect(LocalPlayer, {
+			onShieldChange = onLocalPartyShieldChange
+		})
+		partyVitalsLocalConnected = false
 	end
 
 	if partyVitalsSyncEvent then
