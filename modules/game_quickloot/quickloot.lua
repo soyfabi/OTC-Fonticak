@@ -1600,6 +1600,20 @@ function QuickLoot.Define()
         g_game.openContainerQuickLoot(3, nil, {}, nil, nil, isChecked)
     end
 
+    function QuickLoot.onContainerSlotClick(slotWidget)
+        if not slotWidget or slotWidget:isDestroyed() then
+            return
+        end
+
+        local itemId = slotWidget:getItemId() or 0
+        if itemId <= 0 then
+            QuickLoot.chooseItem(slotWidget)
+            return
+        end
+
+        QuickLoot.openContainer(slotWidget)
+    end
+
     function QuickLoot:chooseItem()
         if g_ui.isMouseGrabbed() then
             return

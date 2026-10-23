@@ -546,7 +546,7 @@ QuicklootBagLabel < UIWidget
     &Select:0
     &borrar:1
     opacity: 1.0
-    @onClick: modules.game_quickloot.QuickLoot.openContainer(self)
+    @onClick: modules.game_quickloot.QuickLoot.onContainerSlotClick(self)
     $pressed:
       opacity: 0.5
 
@@ -582,7 +582,7 @@ QuicklootBagLabel < UIWidget
     &click: 2
     &Select:4
     &borrar:5
-    @onClick: modules.game_quickloot.QuickLoot.openContainer(self)
+    @onClick: modules.game_quickloot.QuickLoot.onContainerSlotClick(self)
     $pressed:
       opacity: 0.5
 
