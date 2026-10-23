@@ -1,0 +1,9 @@
+Module
+  name: game_party
+  description: Party List window
+  author: MehahGlobal
+  sandboxed: true
+  dependencies: [ game_battle ]
+  scripts: [ party ]
+  @onLoad: init()
+  @onUnload: terminate()

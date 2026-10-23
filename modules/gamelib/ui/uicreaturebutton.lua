@@ -189,6 +189,69 @@ function UICreatureButton:setLifeBarPercent(percent)
     lifeBarWidget:setBackgroundColor(color)
 end
 
+function UICreatureButton:setManaBarPercent(percent)
+    local manaBarWidget = self:getChildById('manaBar')
+    if not manaBarWidget then
+        return
+    end
+
+    manaBarWidget:setPercent(percent)
+    manaBarWidget:setBackgroundColor('#0000FF')
+end
+
+function UICreatureButton:updatePartyShield(shieldId)
+    if not self.creature then
+        return
+    end
+
+    local shieldWidget = self:getChildById('partyShield')
+    if not shieldWidget then
+        return
+    end
+
+    shieldId = shieldId or self.creature:getShield()
+
+    if shieldId ~= ShieldNone then
+        shieldWidget:setWidth(shieldWidget:getHeight())
+        local imagePath = getShieldImagePathAndBlink(shieldId)
+        if imagePath then
+            shieldWidget:setImageSource(imagePath)
+        end
+    else
+        shieldWidget:setWidth(0)
+        shieldWidget:setImageSource('')
+    end
+end
+
+function UICreatureButton:updateShowStatus(showStatus)
+    if showStatus == nil and self.creature and self.creature.getShowStatus then
+        showStatus = self.creature:getShowStatus()
+    end
+
+    if showStatus == nil then
+        showStatus = true
+    end
+
+    local lifeBarWidget = self:getChildById('lifeBar')
+    local manaBarWidget = self:getChildById('manaBar')
+
+    if lifeBarWidget then
+        local visible = self.isBattleButton or showStatus
+        lifeBarWidget:setVisible(visible)
+
+        if visible and self.creature and self.creature.getHealthPercent then
+            self:setLifeBarPercent(self.creature:getHealthPercent())
+        end
+    end
+
+    if manaBarWidget then
+        manaBarWidget:setVisible(showStatus)
+        if showStatus and self.creature and self.creature.getManaPercent then
+            self:setManaBarPercent(self.creature:getManaPercent())
+        end
+    end
+end
+
 function UICreatureButton:updateIcons(icons)
     if not self.creature or not icons or #icons == 0 then
         return

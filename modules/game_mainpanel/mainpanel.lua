@@ -33,6 +33,7 @@ local optionsShrink = false
 ControlButtonNames = {
     skillsButton = 'Skills',
     battleButton = 'Battle List',
+    partyWidget = 'Party List',
     vipListButton = 'VIP List',
     unjustifiedPointsButton = 'Unjustified Points',
     questLogButton = 'Quest Log',

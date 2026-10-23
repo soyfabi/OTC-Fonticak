@@ -1109,6 +1109,20 @@ local function addOtherPlayerVipOption(menu, localPlayer, creatureName)
     end
 end
 
+local function addExuraSioOption(menu, localPlayer, creatureName)
+    if not localPlayer or not creatureName or creatureName == '' then
+        return
+    end
+
+    if not localPlayer.isDruid or not localPlayer:isDruid() then
+        return
+    end
+
+    menu:addOption(tr('Exura Sio'), function()
+        g_game.talk(string.format('exura sio "%s"', creatureName))
+    end)
+end
+
 local function addOtherPlayerPartyOption(menu, localPlayer, creatureThing, creatureName)
     local localPlayerShield = localPlayer:getShield()
     local creatureShield = creatureThing:getShield()
@@ -1147,6 +1161,7 @@ local function addOtherPlayerPartyOption(menu, localPlayer, creatureThing, creat
         end
     end
 
+    addExuraSioOption(menu, localPlayer, creatureName)
     addOtherPlayerInspectOptions(menu, creatureThing, creatureName)
 end
 

@@ -1235,6 +1235,7 @@ Keybind.controlButtonHotkeys = {
   wheelButton = { 'Windows', 'Open Wheel of Destiny' },
   skillsButton = { 'Windows', 'Open Skills Window' },
   battleButton = { 'Windows', 'Open Battle List' },
+  partyWidget = { 'Windows', 'Open Party List' },
   vipListButton = { 'Windows', 'Open VIP List' },
   questLogButton = { 'Windows', 'Open Quest Log' },
   questTrackerButton = { 'Windows', 'Open Quest Tracker' },
