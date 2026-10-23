@@ -233,6 +233,82 @@ function CreatureList.isRemotePartyMember(creature)
 	return CreatureList.isConfirmedPartyMemberShield(creature:getShield())
 end
 
+function CreatureList.isPartyLeaderShield(shield)
+	return shield == ShieldWhiteYellow or shield == ShieldYellow or shield == ShieldYellowSharedExp or shield == ShieldYellowNoSharedExpBlink or shield == ShieldYellowNoSharedExp
+end
+
+function CreatureList.isRemotePartyLeader(creature)
+	if not CreatureList.isRemotePartyMember(creature) then
+		return false
+	end
+
+	return CreatureList.isPartyLeaderShield(creature:getShield())
+end
+
+local vocationNamesByServerId = {
+	[VocationsServer.None] = "No Vocation",
+	[VocationsServer.Sorcerer] = "Sorcerer",
+	[VocationsServer.Druid] = "Druid",
+	[VocationsServer.Paladin] = "Paladin",
+	[VocationsServer.Knight] = "Knight",
+	[VocationsServer.MasterSorcerer] = "Master Sorcerer",
+	[VocationsServer.ElderDruid] = "Elder Druid",
+	[VocationsServer.RoyalPaladin] = "Royal Paladin",
+	[VocationsServer.EliteKnight] = "Elite Knight",
+	[VocationsServer.Monk] = "Monk",
+	[VocationsServer.ExaltedMonk] = "Exalted Monk",
+}
+
+function CreatureList.getPartyMemberVocationName(creature)
+	if not creature or not creature.getVocation then
+		return "Unknown Vocation"
+	end
+
+	if creature:isLocalPlayer() and creature.getVocationNameByClientId then
+		return creature:getVocationNameByClientId()
+	end
+
+	local vocation = creature:getVocation()
+	local name = vocationNamesByServerId[vocation]
+
+	if name then
+		return name
+	end
+
+	if vocationNamesByClientId and vocationNamesByClientId[vocation] then
+		return vocationNamesByClientId[vocation]
+	end
+
+	return "Unknown Vocation"
+end
+
+function CreatureList.getPartyMemberLevel(creature)
+	if not creature or not creature.getId then
+		return nil
+	end
+
+	local cached = PartyVitalsCache and PartyVitalsCache[creature:getId()]
+
+	if cached and cached.level and cached.level > 0 then
+		return cached.level
+	end
+
+	return nil
+end
+
+function CreatureList.buildPartyMemberPinTooltip(creature)
+	if not creature then
+		return tr("Party member")
+	end
+
+	local name = creature:getName() or tr("Party member")
+	local level = CreatureList.getPartyMemberLevel(creature)
+	local title = level and string.format("%s (%d)", name, level) or name
+	local vocation = CreatureList.getPartyMemberVocationName(creature)
+
+	return string.format("%s\n%s: %s", title, tr("Vocation"), vocation)
+end
+
 function CreatureList.isPartyMemberLeavingShield(shield)
 	return shield == ShieldNone or shield == ShieldGray
 end

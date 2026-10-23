@@ -40,15 +40,26 @@ local function pushManaToCreature(creature, manaPercent)
 	end
 end
 
+local function refreshPartyMemberMapHud(creature)
+	if not creature or creature:isLocalPlayer() then
+		return
+	end
+
+	applyCachedPartyVitals(creature)
+
+	if modules.game_creatureinformation and modules.game_creatureinformation.refreshOtherManaBar then
+		modules.game_creatureinformation.refreshOtherManaBar(creature)
+	end
+end
+
 function applyPartyMemberVitals(creatureId, healthPercent, manaPercent)
 	if not creatureId then
 		return
 	end
 
-	PartyVitalsCache[creatureId] = {
-		health = healthPercent,
-		mana = manaPercent
-	}
+	PartyVitalsCache[creatureId] = PartyVitalsCache[creatureId] or {}
+	PartyVitalsCache[creatureId].health = healthPercent
+	PartyVitalsCache[creatureId].mana = manaPercent
 
 	local creature = findMapCreature(creatureId)
 
@@ -64,6 +75,7 @@ function applyPartyMemberVitals(creatureId, healthPercent, manaPercent)
 	if creature then
 		refreshPartyMemberMapHud(creature)
 	end
+
 end
 
 function updatePartyListVitalsBars(creatureId, healthPercent, manaPercent)
@@ -162,29 +174,28 @@ local function onPartyMemberHealthPercentChange(creature, healthPercent, oldHeal
 end
 
 local function onPartyVitalsOpcode(_protocol, msg)
+	-- Per member: u32 id, u8 hp%, u8 mana%, u16 level (FS partyvitals.lua)
 	local count = msg:getU8()
 
 	for _ = 1, count do
 		local creatureId = msg:getU32()
 		local healthPercent = msg:getU8()
 		local manaPercent = msg:getU8()
+		local level = msg:getU16()
+
+		if level > 0 then
+			PartyVitalsCache[creatureId] = PartyVitalsCache[creatureId] or {}
+			PartyVitalsCache[creatureId].level = level
+		end
 
 		applyPartyMemberVitals(creatureId, healthPercent, manaPercent)
 	end
 
+	if count > 0 and modules.game_minimap and modules.game_minimap.refreshMinimapPartyPins then
+		modules.game_minimap.refreshMinimapPartyPins()
+	end
+
 	return true
-end
-
-local function refreshPartyMemberMapHud(creature)
-	if not creature or creature:isLocalPlayer() then
-		return
-	end
-
-	applyCachedPartyVitals(creature)
-
-	if modules.game_creatureinformation and modules.game_creatureinformation.refreshOtherManaBar then
-		modules.game_creatureinformation.refreshOtherManaBar(creature)
-	end
 end
 
 local function onPartyMemberAppear(creature)

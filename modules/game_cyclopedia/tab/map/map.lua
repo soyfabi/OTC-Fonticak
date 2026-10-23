@@ -2027,6 +2027,10 @@ function Cyclopedia.loadMap()
 	end
 
 	applyCyclopediaDefaultZoom(minimapWidget)
+
+	if modules.game_minimap and modules.game_minimap.refreshMinimapPartyPins then
+		modules.game_minimap.refreshMinimapPartyPins()
+	end
 end
 
 function Cyclopedia.toggleMapFlag(widget, checked)
@@ -2054,6 +2058,14 @@ function Cyclopedia.showAllFlags(checked)
 
 	Cyclopedia.applyMapFlagFilter()
 	onMapConfigurationChanged()
+end
+
+function Cyclopedia.getMapMinimapWidget()
+	if not UI or not UI.MapBase then
+		return nil
+	end
+
+	return UI.MapBase.minimap
 end
 
 function Cyclopedia.onUpdateCameraPosition()
@@ -2097,6 +2109,10 @@ function Cyclopedia.onUpdateCameraPosition()
 	refreshVirtualFloors()
 	syncCyclopediaSatelliteMode(minimapWidget, getCyclopediaTilesDir(useSurface))
 	Cyclopedia.updateLevelSeparatorState()
+
+	if modules.game_minimap and modules.game_minimap.refreshMinimapPartyPins then
+		modules.game_minimap.refreshMinimapPartyPins()
+	end
 end
 
 function Cyclopedia.resetMap()

@@ -74,6 +74,7 @@ local function onPositionChange()
     minimapWidget:setCrossPosition(pos)
     virtualFloor = pos.z
     refreshVirtualFloors()
+    refreshMinimapPartyPins()
 end
 
 mapController = Controller:new()
@@ -100,6 +101,114 @@ local function getLayoutWidget(layoutRoot, widgetId)
         return nil
     end
     return layoutRoot:getChildById(widgetId)
+end
+
+local function collectMinimapPartyMembers()
+    local memberById = {}
+
+    if not g_game.isOnline() or not CreatureList or not CreatureList.isRemotePartyMember then
+        return memberById
+    end
+
+    local localPlayer = g_game.getLocalPlayer()
+    local localIsPartyLeader = localPlayer and localPlayer.isPartyLeader and localPlayer:isPartyLeader()
+
+    local function addMember(creature)
+        if not creature or creature:isRemoved() or not CreatureList.isRemotePartyMember(creature) then
+            return
+        end
+
+        local pos = creature:getPosition()
+        if not pos then
+            return
+        end
+
+        local showAsLeader = CreatureList.isRemotePartyLeader(creature) and not localIsPartyLeader
+        local pinIcon = showAsLeader
+            and '/game_cyclopedia/images/icon-map-player-red'
+            or '/game_cyclopedia/images/icon-map-player-yellow'
+
+        memberById[creature:getId()] = {
+            name = creature:getName(),
+            pinIcon = pinIcon,
+            tooltip = CreatureList.buildPartyMemberPinTooltip(creature),
+            pos = {
+                x = pos.x,
+                y = pos.y,
+                z = pos.z
+            }
+        }
+    end
+
+    if PartyListRegistry and PartyListRegistry.byId then
+        for id, creature in pairs(PartyListRegistry.byId) do
+            if creature and not creature:isRemoved() and CreatureList.isRemotePartyMember(creature) then
+                addMember(creature)
+            else
+                PartyListRegistry.byId[id] = nil
+            end
+        end
+    end
+
+    local mapPanel = modules.game_interface.getMapPanel()
+    if mapPanel then
+        for _, creature in ipairs(mapPanel:getSpectators()) do
+            if CreatureList.isRemotePartyMember(creature) then
+                if PartyListRegistry then
+                    PartyListRegistry:add(creature)
+                end
+                addMember(creature)
+            end
+        end
+    end
+
+    return memberById
+end
+
+local function foreachMinimapWidget(callback)
+    local ui = mapController and mapController.ui
+    if not ui or ui:isDestroyed() or not callback then
+        return
+    end
+
+    for _, useHorizontal in ipairs({ false, true }) do
+        local border = getLayoutWidget(getLayoutRoot(ui, useHorizontal), 'minimapBorder')
+        local mini = border and border:getChildById('minimap')
+        if mini and not mini:isDestroyed() then
+            callback(mini)
+        end
+    end
+end
+
+function refreshMinimapPartyPins()
+    if not g_game.isOnline() then
+        foreachMinimapWidget(function(mini)
+            mini:updatePartyPins({})
+        end)
+        return
+    end
+
+    local members = collectMinimapPartyMembers()
+
+    local function applyPins(mini)
+        if mini and not mini:isDestroyed() and mini.updatePartyPins then
+            mini:updatePartyPins(members)
+        end
+    end
+
+    foreachMinimapWidget(applyPins)
+
+    if modules.game_cyclopedia and modules.game_cyclopedia.getMapMinimapWidget then
+        applyPins(modules.game_cyclopedia.getMapMinimapWidget())
+    end
+end
+
+local function onPartyMinimapCreatureEvent(creature)
+    if not creature or creature:isLocalPlayer() then
+        return
+    end
+
+    refreshMinimapPartyPins()
 end
 
 local function prepareDefaultLayout(ui)
@@ -609,6 +718,13 @@ function mapController:onGameStart()
         onPositionChange = onPositionChange
     }):execute()
 
+    mapController:registerEvents(Creature, {
+        onPositionChange = onPartyMinimapCreatureEvent,
+        onAppear = onPartyMinimapCreatureEvent,
+        onDisappear = onPartyMinimapCreatureEvent,
+        onShieldChange = onPartyMinimapCreatureEvent
+    }):execute()
+
     minimapWidget = findMinimapWidget(self.ui)
 
     -- Load Map
@@ -646,9 +762,13 @@ function mapController:onGameStart()
             applyContainerLayout(self.ui:getParent())
         end
     end)
+
+    addEvent(refreshMinimapPartyPins)
 end
 
 function mapController:onGameEnd()
+    refreshMinimapPartyPins()
+
     -- Save Map
     if otmm then
         g_minimap.saveOtmm('/minimap.otmm')
