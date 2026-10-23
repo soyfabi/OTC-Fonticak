@@ -303,13 +303,31 @@ void MapView::drawLights() {
     }
 }
 
+namespace {
+bool isConfirmedPartyMemberShield(const uint8_t shield)
+{
+    switch (shield) {
+        case Otc::ShieldBlue:
+        case Otc::ShieldYellow:
+        case Otc::ShieldBlueSharedExp:
+        case Otc::ShieldYellowSharedExp:
+        case Otc::ShieldBlueNoSharedExpBlink:
+        case Otc::ShieldYellowNoSharedExpBlink:
+        case Otc::ShieldBlueNoSharedExp:
+        case Otc::ShieldYellowNoSharedExp:
+            return true;
+        default:
+            return false;
+    }
+}
+} // namespace
+
 void MapView::drawCreatureInformation() {
     g_drawPool.scale(g_app.getCreatureInformationScale());
 
     uint32_t flags = Otc::DrawThings;
     if (m_drawNames) { flags |= Otc::DrawNames; }
     if (m_drawHealthBars) { flags |= Otc::DrawBars; }
-    if (m_drawManaBar) { flags |= Otc::DrawManaBar; }
 
     Position _camera = m_posInfo.camera;
     const bool alwaysTransparent = m_floorViewMode == Otc::ALWAYS_WITH_TRANSPARENCY && _camera.coveredUp(m_posInfo.camera.z - m_floorMin);
@@ -343,8 +361,18 @@ void MapView::drawCreatureInformation() {
                 creatureFlags |= Otc::DrawHarmony;
             else
                 creatureFlags &= ~Otc::DrawHarmony;
+
+            if (m_drawManaBar)
+                creatureFlags |= Otc::DrawManaBar;
+            else
+                creatureFlags &= ~Otc::DrawManaBar;
         } else {
             creatureFlags &= ~Otc::DrawHarmony;
+            creatureFlags &= ~Otc::DrawManaBar;
+            if (m_drawPartyManaBars && creature->isPlayer()
+                && isConfirmedPartyMemberShield(creature->getShield())) {
+                creatureFlags |= Otc::DrawManaBar;
+            }
         }
 
         creature->drawInformation(m_posInfo, transformPositionTo2D(creature->getPosition()), creatureFlags);

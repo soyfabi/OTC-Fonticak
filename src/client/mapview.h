@@ -86,6 +86,9 @@ public:
     void setDrawManaBar(const bool enable) { m_drawManaBar = enable; }
     bool isDrawingManaBar() const { return m_drawManaBar; }
 
+    void setDrawPartyManaBar(const bool enable) { m_drawPartyManaBars = enable; }
+    bool isDrawingPartyManaBar() const { return m_drawPartyManaBars; }
+
     void setDrawPlayerBars(const bool enable) { m_drawPlayerBars = enable; }
     bool isDrawingPlayerBars() const { return m_drawPlayerBars; }
 
@@ -272,6 +275,7 @@ private:
     bool m_shaderSwitchDone{ true };
     bool m_drawHealthBars{ true };
     bool m_drawManaBar{ true };
+    bool m_drawPartyManaBars{ true };
     bool m_drawPlayerBars{ true };
     bool m_drawPlayerNames{ true };
     bool m_drawNames{ true };

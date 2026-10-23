@@ -422,15 +422,47 @@ end
 
 local function partyAfterButtonSetup(_, button, creature)
 	PartyListRegistry:add(creature)
-	button:setLifeBarPercent(creature:getHealthPercent())
-	button:setManaBarPercent(creature:getManaPercent())
+
+	if applyCachedPartyVitals then
+		applyCachedPartyVitals(creature)
+	end
+
+	local vitals = getPartyVitalsForCreature and getPartyVitalsForCreature(creature)
+
+	if vitals and vitals.health and vitals.health <= 100 then
+		button:setLifeBarPercent(vitals.health)
+	else
+		button:setLifeBarPercent(creature:getHealthPercent())
+	end
+
+	if vitals and vitals.mana and vitals.mana <= 100 then
+		button:setManaBarPercent(vitals.mana)
+	else
+		button:setManaBarPercent(creature:getManaPercent())
+	end
+
 	button:updatePartyShield(creature:getShield())
 	button:updateShowStatus(true)
 end
 
 local function partyAfterButtonUpdate(_, button, creature)
-	button:setLifeBarPercent(creature:getHealthPercent())
-	button:setManaBarPercent(creature:getManaPercent())
+	if applyCachedPartyVitals then
+		applyCachedPartyVitals(creature)
+	end
+
+	local vitals = getPartyVitalsForCreature and getPartyVitalsForCreature(creature)
+
+	if vitals and vitals.health and vitals.health <= 100 then
+		button:setLifeBarPercent(vitals.health)
+	else
+		button:setLifeBarPercent(creature:getHealthPercent())
+	end
+
+	if vitals and vitals.mana and vitals.mana <= 100 then
+		button:setManaBarPercent(vitals.mana)
+	else
+		button:setManaBarPercent(creature:getManaPercent())
+	end
 	button:updatePartyShield(creature:getShield())
 	button:updateShowStatus(true)
 end
@@ -647,6 +679,10 @@ function toggle()
 end
 
 function init()
+	if initPartyVitalsProtocol then
+		initPartyVitalsProtocol()
+	end
+
 	g_ui.importStyle("partybutton")
 
 	partyButton = modules.game_mainpanel.addToggleButton("partyWidget", tr("Party List"), "/images/options/button_party_list", toggle, false, 2)
@@ -848,6 +884,10 @@ function onGameEnd()
 end
 
 function terminate()
+	if terminatePartyVitalsProtocol then
+		terminatePartyVitalsProtocol()
+	end
+
 	local mainInstance = PartyListManager.instances[0]
 
 	if mainInstance then

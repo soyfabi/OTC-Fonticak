@@ -4,6 +4,6 @@ Module
   author: MehahGlobal
   sandboxed: true
   dependencies: [ game_battle ]
-  scripts: [ party ]
+  scripts: [ party_vitals, party ]
   @onLoad: init()
   @onUnload: terminate()

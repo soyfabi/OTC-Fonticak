@@ -594,7 +594,7 @@ return {
         value = true,
         action = function(value, options, controller, panels, extraWidgets)
             local hud = panels.interfaceHUD
-            local children = { 'displayNames', 'displayHealth' }
+            local children = { 'displayNames', 'displayHealth', 'displayOtherMana' }
             if hud then
                 for _, id in ipairs(children) do
                     local w = hud:recursiveGetChildById(id)
@@ -629,6 +629,20 @@ return {
                 modules.client_options.applyOtherHUD(options, panels)
             else
                 panels.gameMapPanel:setDrawHealthBars(value)
+            end
+
+            if g_gameConfig.isDrawingInformationByWidget() then
+                modules.game_creatureinformation.toggleInformation()
+            end
+        end
+    },
+    displayOtherMana                  = {
+        value = true,
+        action = function(value, options, controller, panels, extraWidgets)
+            if modules.client_options and modules.client_options.applyOtherHUD then
+                modules.client_options.applyOtherHUD(options, panels)
+            elseif panels.gameMapPanel.setDrawPartyManaBar then
+                panels.gameMapPanel:setDrawPartyManaBar(value)
             end
 
             if g_gameConfig.isDrawingInformationByWidget() then
