@@ -193,20 +193,22 @@ RenownWindow < MainWindow
 
       UIItem
         id: podiumItem
-        size: 128 128
+        size: 72 72
         virtual: true
         item-align: bottomRight
-        item-scale: 2
         anchors.verticalCenter: parent.verticalCenter
         anchors.horizontalCenter: parent.horizontalCenter
+        margin-top: 10
+        margin-left: 4
 
       UICreature
         id: podiumCreature
-        size: 96 96
+        size: 128 128
         anchors.verticalCenter: parent.verticalCenter
         anchors.horizontalCenter: parent.horizontalCenter
-        margin-top: -12
-        margin-left: -8
+        margin-top: -30
+        margin-left: -50
+        force-center: true
         phantom: true
 
       UICreature

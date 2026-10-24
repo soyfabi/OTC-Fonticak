@@ -76,6 +76,7 @@ install(g_game, 'changeOutfitPodium', function(outfit, position, itemClientId, s
 	end
 
 	if not position or position.x == 65535 then
+		g_logger.warning('Player podium: invalid position (missing or inventory); outfit not sent.')
 		return
 	end
 

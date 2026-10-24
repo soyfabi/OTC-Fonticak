@@ -26,6 +26,31 @@ local podiumItemWidget
 local podiumCreaturePreview
 local podiumData
 
+local PREVIEW_CREATURE_MARGIN_TOP = -30
+local PREVIEW_CREATURE_MARGIN_LEFT = -50
+
+local function applyPodiumCreaturePreview(spriteWidget)
+	if not spriteWidget then
+		return
+	end
+
+	if spriteWidget.setCenter then
+		spriteWidget:setCenter(true)
+	end
+	if spriteWidget.setCreatureSize then
+		spriteWidget:setCreatureSize(64)
+	end
+	if spriteWidget.setAnimate then
+		spriteWidget:setAnimate(false)
+	end
+	if spriteWidget.setIdleAnimate then
+		spriteWidget:setIdleAnimate(false)
+	end
+
+	spriteWidget:setMarginTop(PREVIEW_CREATURE_MARGIN_TOP)
+	spriteWidget:setMarginLeft(PREVIEW_CREATURE_MARGIN_LEFT)
+end
+
 local function callIf(item, method, ...)
 	if item and item[method] then
 		item[method](item, ...)
@@ -44,7 +69,10 @@ local function syncPodiumPreviewWidgets()
 		if showOutfit then
 			podiumCreaturePreview:setVisible(true)
 			podiumCreaturePreview:setOutfit(outfit)
-			callIf(podiumCreaturePreview, 'setAnimate', false)
+			applyPodiumCreaturePreview(podiumCreaturePreview)
+			if podiumItem and podiumItem.getPodiumDir then
+				podiumCreaturePreview:setDirection(podiumItem:getPodiumDir())
+			end
 		else
 			podiumCreaturePreview:setVisible(false)
 		end
@@ -74,6 +102,7 @@ function init()
 	PodiumWindow:hide()
 	podiumItemWidget = PodiumWindow:recursiveGetChildById("podiumItem")
 	podiumCreaturePreview = PodiumWindow:recursiveGetChildById("podiumCreature")
+	applyPodiumCreaturePreview(podiumCreaturePreview)
 
 	sexRadio = UIRadioGroup.create()
 	femaleButton = PodiumWindow:recursiveGetChildById("femaleButton")
@@ -360,10 +389,18 @@ function onShowPodiumOutfits(startup, searchText)
 
 	if startup then
 		optionsRadio:selectWidget(PodiumWindow:recursiveGetChildById("outfitCheck"))
-		showOutfitCheck:setChecked(podiumData.showOutfit, false)
-		showMountCheck:setChecked(podiumData.mounted, false)
+		local showCreature = podiumData.showCreature
+		if showCreature == nil then
+			showCreature = podiumData.showOutfit
+		end
+		showOutfitCheck:setChecked(showCreature ~= false, false)
+		showMountCheck:setChecked(podiumData.mounted == true, false)
 		showAuraCheck:setChecked(currentItemOutfit.aura, false)
-		showPodiumCheck:setChecked(podiumData.showPodium, false)
+		local showPlatform = podiumData.showPlatform
+		if showPlatform == nil then
+			showPlatform = podiumData.showPodium
+		end
+		showPodiumCheck:setChecked(showPlatform ~= false, false)
 		showFloorCheck:setChecked(true)
 
 		local addons = currentItemOutfit.addons
@@ -734,18 +771,9 @@ function onAddon1Button(state)
 	end
 
 	local tmpOutfit = podiumItem:getOutfit()
-
-	if state and addon2Check:isChecked() then
-		tmpOutfit.addons = 3
-	elseif state and not addon2Check:isChecked() then
-		tmpOutfit.addons = 2
-	elseif not state and addon2Check:isChecked() then
-		tmpOutfit.addons = 2
-	elseif not state and not addon2Check:isChecked() then
-		tmpOutfit.addons = 0
-	end
-
+	applyAddonChecksToOutfit(tmpOutfit, getFocusedOutfitAddonCap())
 	podiumItem:setOutfit(tmpOutfit)
+	syncPodiumPreviewWidgets()
 end
 
 function onAddon2Button(state)
@@ -754,18 +782,9 @@ function onAddon2Button(state)
 	end
 
 	local tmpOutfit = podiumItem:getOutfit()
-
-	if state and addon1Check:isChecked() then
-		tmpOutfit.addons = 3
-	elseif state and not addon1Check:isChecked() then
-		tmpOutfit.addons = 2
-	elseif not state and addon1Check:isChecked() then
-		tmpOutfit.addons = 1
-	elseif not state and not addon1Check:isChecked() then
-		tmpOutfit.addons = 0
-	end
-
+	applyAddonChecksToOutfit(tmpOutfit, getFocusedOutfitAddonCap())
 	podiumItem:setOutfit(tmpOutfit)
+	syncPodiumPreviewWidgets()
 end
 
 function rotatePreview(isRight)
@@ -786,6 +805,19 @@ function rotatePreview(isRight)
 	else
 		podiumItem:setPodiumDirection(currentDirection + 1)
 	end
+
+	syncPodiumPreviewWidgets()
+end
+
+local function getAppearancePanel()
+	return PodiumWindow and PodiumWindow:recursiveGetChildById("appearance")
+end
+
+local function getColorBoxWidget(colorId)
+	if not PodiumWindow then
+		return nil
+	end
+	return PodiumWindow:recursiveGetChildById("colorBox" .. (colorId or 0))
 end
 
 function onColorModeChange(widget, selectedWidget)
@@ -796,38 +828,21 @@ function onColorModeChange(widget, selectedWidget)
 	local colorMode = selectedWidget:getId()
 	local tmpOutfit = podiumItem:getOutfit()
 
+	local appearance = getAppearancePanel()
+	local mountMode = appearance and optionsRadio:getSelectedWidget() == appearance:getChildById("mountCheck")
+
 	if colorMode == "HeadButton" then
 		selectedWidget:getParent():setImageClip("0 0 253 18")
-
-		if optionsRadio:getSelectedWidget() == PodiumWindow.appearance.mountCheck then
-			colorBoxGroup:selectWidget(PodiumWindow.appearance.panelcolor["colorBox" .. tmpOutfit.mountHead])
-		else
-			colorBoxGroup:selectWidget(PodiumWindow.appearance.panelcolor["colorBox" .. tmpOutfit.head])
-		end
+		colorBoxGroup:selectWidget(getColorBoxWidget(mountMode and tmpOutfit.mountHead or tmpOutfit.head))
 	elseif colorMode == "PrimaryButton" then
 		selectedWidget:getParent():setImageClip("0 18 253 18")
-
-		if optionsRadio:getSelectedWidget() == PodiumWindow.appearance.mountCheck then
-			colorBoxGroup:selectWidget(PodiumWindow.appearance.panelcolor["colorBox" .. tmpOutfit.mountBody])
-		else
-			colorBoxGroup:selectWidget(PodiumWindow.appearance.panelcolor["colorBox" .. tmpOutfit.body])
-		end
+		colorBoxGroup:selectWidget(getColorBoxWidget(mountMode and tmpOutfit.mountBody or tmpOutfit.body))
 	elseif colorMode == "SecondaryButton" then
 		selectedWidget:getParent():setImageClip("0 36 253 18")
-
-		if optionsRadio:getSelectedWidget() == PodiumWindow.appearance.mountCheck then
-			colorBoxGroup:selectWidget(PodiumWindow.appearance.panelcolor["colorBox" .. tmpOutfit.mountLegs])
-		else
-			colorBoxGroup:selectWidget(PodiumWindow.appearance.panelcolor["colorBox" .. tmpOutfit.legs])
-		end
+		colorBoxGroup:selectWidget(getColorBoxWidget(mountMode and tmpOutfit.mountLegs or tmpOutfit.legs))
 	elseif colorMode == "DetailButton" then
 		selectedWidget:getParent():setImageClip("0 54 253 18")
-
-		if optionsRadio:getSelectedWidget() == PodiumWindow.appearance.mountCheck then
-			colorBoxGroup:selectWidget(PodiumWindow.appearance.panelcolor["colorBox" .. tmpOutfit.mountFeet])
-		else
-			colorBoxGroup:selectWidget(PodiumWindow.appearance.panelcolor["colorBox" .. tmpOutfit.feet])
-		end
+		colorBoxGroup:selectWidget(getColorBoxWidget(mountMode and tmpOutfit.mountFeet or tmpOutfit.feet))
 	end
 end
 
@@ -852,26 +867,29 @@ function onColorCheckChange(widget, selectedWidget)
 
 	local tmpOutfit = podiumItem:getOutfit()
 
+	local appearance = getAppearancePanel()
+	local mountMode = appearance and optionsRadio:getSelectedWidget() == appearance:getChildById("mountCheck")
+
 	if colorMode == "HeadButton" then
-		if optionsRadio:getSelectedWidget() == PodiumWindow.appearance.mountCheck then
+		if mountMode then
 			tmpOutfit.mountHead = colorId
 		else
 			tmpOutfit.head = colorId
 		end
 	elseif colorMode == "PrimaryButton" then
-		if optionsRadio:getSelectedWidget() == PodiumWindow.appearance.mountCheck then
+		if mountMode then
 			tmpOutfit.mountBody = colorId
 		else
 			tmpOutfit.body = colorId
 		end
 	elseif colorMode == "SecondaryButton" then
-		if optionsRadio:getSelectedWidget() == PodiumWindow.appearance.mountCheck then
+		if mountMode then
 			tmpOutfit.mountLegs = colorId
 		else
 			tmpOutfit.legs = colorId
 		end
 	elseif colorMode == "DetailButton" then
-		if optionsRadio:getSelectedWidget() == PodiumWindow.appearance.mountCheck then
+		if mountMode then
 			tmpOutfit.mountFeet = colorId
 		else
 			tmpOutfit.feet = colorId
@@ -879,6 +897,7 @@ function onColorCheckChange(widget, selectedWidget)
 	end
 
 	podiumItem:setOutfit(tmpOutfit)
+	syncPodiumPreviewWidgets()
 
 	local typeList = PodiumWindow.ScrollBar.selectionList
 
@@ -903,16 +922,36 @@ local function resolvePodiumSendAddons(outfitLabel)
 		return 0
 	end
 
-	if addon1Check:isChecked() and addon2Check:isChecked() and outfitLabel == 3 then
+	outfitLabel = outfitLabel or 0
+	local addon1 = addon1Check:isChecked() and outfitLabel >= 1
+	local addon2 = addon2Check:isChecked() and outfitLabel >= 2
+	if addon1 and addon2 then
 		return 3
 	end
-	if addon2Check:isChecked() and outfitLabel > 1 then
+	if addon2 then
 		return 2
 	end
-	if addon1Check:isChecked() and outfitLabel > 0 then
+	if addon1 then
 		return 1
 	end
 	return 0
+end
+
+local function applyAddonChecksToOutfit(tmpOutfit, outfitLabel)
+	tmpOutfit.addons = resolvePodiumSendAddons(outfitLabel)
+	return tmpOutfit
+end
+
+local function getFocusedOutfitAddonCap()
+	local typeList = PodiumWindow and PodiumWindow.ScrollBar and PodiumWindow.ScrollBar.selectionList
+	if not typeList then
+		return 0
+	end
+	local focused = typeList:getFocusedChild()
+	if focused and focused.outfitInfo then
+		return focused.outfitInfo.addons or 0
+	end
+	return resolvePodiumOutfitLabel((podiumItem and podiumItem:getOutfit() or {}).type)
 end
 
 local function resolvePodiumOutfitLabel(lookType)
@@ -929,34 +968,48 @@ local function resolvePodiumOutfitLabel(lookType)
 end
 
 function onChoosePodiumOutfit()
-	if not podiumItem then
+	if not podiumItem or not podiumData then
 		return
 	end
 
-	local outfit = podiumItem:getOutfit()
+	local outfit = table.copy(podiumItem:getOutfit() or {})
+	local showOutfit = showOutfitCheck:isChecked()
+	local lookType = showOutfit and (podiumItem.cachedOutfitId or outfit.type or 0) or 0
 
-	local lookType = showOutfitCheck:isChecked() and (podiumItem.cachedOutfitId or outfit.type or 0) or 0
+	if showOutfit and lookType <= 0 then
+		g_logger.warning("Renown podium: select an outfit before confirming.")
+		return
+	end
+
 	outfit.type = lookType
 	outfit.addons = resolvePodiumSendAddons(resolvePodiumOutfitLabel(lookType))
-	outfit.mount = showMountCheck:isChecked() and podiumItem.cachedMountId or 0
+	outfit.mount = showMountCheck:isChecked() and (podiumItem.cachedMountId or outfit.mount or 0) or 0
 
 	if not showAuraCheck:isChecked() then
 		outfit.auraId = 0
+		outfit.aura = 0
 	else
 		outfit.auraId = podiumItem.cachedAuraId
 		outfit.auraCategory = podiumItem.cachedAuraCat
 		outfit.aura = podiumItem.cachedAuraCid
 	end
 
+	local pos = podiumData.position or podiumData.pos
+	local itemId = podiumData.itemId or podiumData.itemClientId
+	local stackPos = podiumData.stackpos or podiumData.stackPos or 0
 	local direction = podiumItem.getPodiumDir and podiumItem:getPodiumDir() or podiumData.direction or 2
 	local showPodium = showPodiumCheck:isChecked()
-	local showOutfit = showOutfitCheck:isChecked()
+
+	if not pos or pos.x == 65535 then
+		g_logger.warning("Renown podium: invalid podium position; cannot save.")
+		return
+	end
 
 	if g_game.changeOutfitPodium then
-		g_game.changeOutfitPodium(outfit, podiumData.pos or podiumData.position, podiumData.itemId,
-			podiumData.stackpos or 0, direction, showPodium, showOutfit)
-	elseif g_game.changePodiumOutfit then
-		g_game.changePodiumOutfit(outfit, podiumData.pos or podiumData.position, podiumData.itemId, direction, showPodium)
+		g_game.changeOutfitPodium(outfit, pos, itemId, stackPos, direction, showPodium, showOutfit)
+	elseif g_game.sendPlayerPodiumOutfit then
+		g_game.sendPlayerPodiumOutfit(lookType, outfit.head or 0, outfit.body or 0, outfit.legs or 0, outfit.feet or 0,
+			outfit.addons or 0, outfit.mount or 0, pos, itemId or 0, stackPos, direction, showPodium, showOutfit)
 	end
 	close()
 end

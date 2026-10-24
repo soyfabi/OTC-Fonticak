@@ -22,6 +22,7 @@
 
 #include "item.h"
 
+#include <functional>
 #include <unordered_map>
 
 #include "animator.h"
@@ -42,6 +43,34 @@
 #include "itemtype.h"
 #endif
 
+namespace {
+// Podium .dat sprites are larger than one tile; scale down to match Tibia/Rubinot on-map look.
+constexpr float PODIUM_PLATFORM_DRAW_SCALE = 0.62f;
+
+Point podiumPlatformAnchor(const Point& dest)
+{
+    const int tile = g_gameConfig.getSpriteSize();
+    return dest + Point(tile / 2, tile * 2 / 3);
+}
+
+Point podiumCreatureDest(const Point& dest)
+{
+    const int tile = g_gameConfig.getSpriteSize();
+    return dest + Point(tile / 2, tile / 2 - 4);
+}
+
+void drawScaledPodiumPlatform(const std::function<void()>& drawFn, const Point& dest)
+{
+    const Point anchor = podiumPlatformAnchor(dest);
+    g_drawPool.pushTransformMatrix();
+    g_drawPool.translate(anchor);
+    g_drawPool.scale(PODIUM_PLATFORM_DRAW_SCALE);
+    g_drawPool.translate(-anchor);
+    drawFn();
+    g_drawPool.popTransformMatrix();
+}
+} // namespace
+
 ItemPtr Item::create(const int id)
 {
     const auto& item = std::make_shared<Item>();
@@ -58,7 +87,15 @@ void Item::draw(const Point& dest, const bool drawThings, LightView* lightView)
     // determine animation phase
     const int animationPhase = calculateAnimationPhase();
 
-    internalDraw(animationPhase, dest, m_color, drawThings, false, lightView);
+    const auto drawPlatform = [&] {
+        internalDraw(animationPhase, dest, m_color, drawThings, false, lightView);
+    };
+
+    if (isPodium()) {
+        drawScaledPodiumPlatform(drawPlatform, dest);
+    } else {
+        drawPlatform();
+    }
 
     if (drawThings && hasPodiumCreature()) {
         if (!m_podiumCreature)
@@ -69,7 +106,7 @@ void Item::draw(const Point& dest, const bool drawThings, LightView* lightView)
 
         const auto drawOrder = g_drawPool.getDrawOrder();
         g_drawPool.setDrawOrder(DrawOrder::FOURTH);
-        m_podiumCreature->draw(dest, drawThings, lightView);
+        m_podiumCreature->draw(podiumCreatureDest(dest), drawThings, lightView);
         g_drawPool.setDrawOrder(drawOrder);
     }
 
