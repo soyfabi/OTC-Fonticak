@@ -93,8 +93,28 @@ local function getCreatureCursor(creature)
 	return nil
 end
 
+local function usesNativeCursorOption()
+	return modules.client_options and modules.client_options.getOption("nativeCursor")
+end
+
 local function setCreatureCursor(cursor)
 	if cursor == hoveredCreatureCursor then
+		return
+	end
+
+	if usesNativeCursorOption() then
+		hoveredCreatureCursor = cursor
+
+		if cursor then
+			if cursor == "attack" then
+				g_window.setSystemCursor("cross")
+			else
+				g_window.setSystemCursor("hand")
+			end
+		else
+			g_window.restoreMouseCursor()
+		end
+
 		return
 	end
 
@@ -190,6 +210,37 @@ function CreatureList.onButtonHoverChange(button, hovered)
 	else
 		g_game.clearHoveredCreature(button.creature)
 		clearCreatureCursor(button)
+	end
+end
+
+local function drainMouseCursorStack()
+	for _ = 1, 24 do
+		if not g_mouse.isCursorChanged() then
+			break
+		end
+
+		g_mouse.popCursor("attack")
+		g_mouse.popCursor("target")
+		g_mouse.popCursor("open")
+		g_mouse.popCursor("pointerbutton")
+	end
+end
+
+function CreatureList.clearHoverCursor()
+	hoveredCreatureButton = nil
+
+	if hoveredCreatureCursorEvent then
+		removeEvent(hoveredCreatureCursorEvent)
+
+		hoveredCreatureCursorEvent = nil
+	end
+
+	setCreatureCursor(nil)
+
+	if usesNativeCursorOption() then
+		g_window.restoreMouseCursor()
+	else
+		drainMouseCursorStack()
 	end
 end
 

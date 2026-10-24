@@ -1,6 +1,6 @@
--- Server opcode 0x34: party member health/mana percentages (OTC-Fonticak + FS partyvitals.lua)
+-- Server opcode 0x3E: party member vitals (must not use 0x34 — that is GameServerAttchedEffect in C++).
 
-local OPCODE_PARTY_VITALS = 0x34
+local OPCODE_PARTY_VITALS = 0x3E
 local PARTY_VITALS_VERSION_LEGACY = 1
 local PARTY_VITALS_VERSION_MAP = 2
 

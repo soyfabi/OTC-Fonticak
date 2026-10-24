@@ -6,5 +6,3 @@ PartyFloatingVitals < PartyButton
   &isPartyFloatingCopy: true
   focusable: true
   phantom: false
-  change-cursor-image: true
-  cursor: open

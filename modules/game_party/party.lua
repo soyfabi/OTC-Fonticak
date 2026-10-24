@@ -377,12 +377,26 @@ function partyCreatureButtonMouseRelease(self, mousePosition, mouseButton)
 end
 
 function partyCreatureButtonHoverChange(button, hovered)
-	if button.isPartyButton then
-		button.isHovered = hovered
-		if button.update then
-			button:update()
-		end
+	if not button.isPartyButton then
+		return
+	end
+
+	button.isHovered = hovered
+
+	if button.update then
+		button:update()
+	end
+
+	if hovered then
 		CreatureList.onButtonHoverChange(button, hovered)
+	elseif button.creature then
+		g_game.clearHoveredCreature(button.creature)
+
+		if CreatureList.clearHoverCursor then
+			CreatureList.clearHoverCursor()
+		else
+			CreatureList.onButtonHoverChange(button, false)
+		end
 	end
 end
 
@@ -784,6 +798,11 @@ function init()
 	mainInstance:loadLockState()
 	partyWindow:setContentMinimumHeight(80)
 	partyWindow:setup()
+
+	if bindPartyWindowCursorCleanup then
+		bindPartyWindowCursorCleanup()
+	end
+
 	connect(g_game, {
 		onAttackingCreatureChange = onPartyAttack,
 		onFollowingCreatureChange = onPartyFollow,

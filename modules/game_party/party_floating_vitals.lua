@@ -362,6 +362,22 @@ local function bindFloatingCopyContextMenu(copy, creatureId)
 		if button.update then
 			button:update()
 		end
+
+		if modules.client_options and modules.client_options.getOption('nativeCursor') then
+			if hovered then
+				g_window.setSystemCursor('hand')
+			else
+				g_window.restoreMouseCursor()
+			end
+		end
+
+		if not hovered then
+			clearPartyListDragCursor()
+
+			if CreatureList and CreatureList.clearHoverCursor then
+				CreatureList.clearHoverCursor()
+			end
+		end
 	end
 end
 
@@ -594,6 +610,12 @@ local function clearPartyListButtonHover(button)
 	if partyCreatureButtonHoverChange then
 		partyCreatureButtonHoverChange(button, false)
 	end
+
+	clearPartyListDragCursor()
+
+	if CreatureList and CreatureList.clearHoverCursor then
+		CreatureList.clearHoverCursor()
+	end
 end
 
 local function destroyPartyListDragGhost()
@@ -788,6 +810,10 @@ function bindPartyButtonForFloatingPlacement(button)
 			end
 
 			if hovered and self.creature then
+				if CreatureList and CreatureList.clearHoverCursor then
+					CreatureList.clearHoverCursor()
+				end
+
 				g_game.setHoveredCreature(self.creature)
 			elseif self.creature then
 				g_game.clearHoveredCreature(self.creature)
@@ -904,6 +930,44 @@ function setFreePartyVitalsPlacement(enabled)
 
 	if enabled then
 		restorePartyFloatingVitals()
+	end
+end
+
+function bindPartyWindowCursorCleanup()
+	if not partyWindow or partyWindow._partyCursorCleanupBound then
+		return
+	end
+
+	partyWindow._partyCursorCleanupBound = true
+
+	local wasInside = false
+
+	local function onRootMouseMove(_, mousePos)
+		if not partyWindow or partyWindow:isDestroyed() or not partyWindow:isVisible() then
+			wasInside = false
+
+			return
+		end
+
+		local inside = partyWindow:containsPoint(mousePos)
+
+		if wasInside and not inside then
+			clearPartyListDragCursor()
+
+			if CreatureList and CreatureList.clearHoverCursor then
+				CreatureList.clearHoverCursor()
+			end
+		end
+
+		wasInside = inside
+	end
+
+	local root = getRootPanel()
+
+	if root then
+		connect(root, {
+			onMouseMove = onRootMouseMove
+		})
 	end
 end
 
