@@ -206,6 +206,7 @@ local function creatureMatchesVocationFamily(creature, serverBase, serverPromote
     local vocation = creature:getVocation()
     if creature:isLocalPlayer() then
         return vocation == clientBase or vocation == clientPromoted
+            or vocation == serverBase or vocation == serverPromoted
     end
     return vocation == serverBase or vocation == serverPromoted
 end

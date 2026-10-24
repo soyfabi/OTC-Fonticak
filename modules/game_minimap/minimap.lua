@@ -277,8 +277,37 @@ function refreshMinimapPartyPins()
     applyPins(cyclopediaMini)
 end
 
+local function creatureHasPartyPin(creatureId)
+    if not creatureId then
+        return false
+    end
+
+    local found = false
+
+    foreachMinimapWidget(function(mini)
+        if mini.partyPins and mini.partyPins[creatureId] then
+            found = true
+        end
+    end)
+
+    return found
+end
+
 local function onPartyMinimapCreatureEvent(creature)
-    if not creature or creature:isLocalPlayer() then
+    if not creature or creature:isLocalPlayer() or not creature:isPlayer() then
+        return
+    end
+
+    if CreatureList and not CreatureList.isRemotePartyMember(creature)
+        and not creatureHasPartyPin(creature:getId()) then
+        return
+    end
+
+    refreshMinimapPartyPins()
+end
+
+local function onPartyMinimapShieldEvent(creature)
+    if not creature or creature:isLocalPlayer() or not creature:isPlayer() then
         return
     end
 
@@ -796,7 +825,7 @@ function mapController:onGameStart()
         onPositionChange = onPartyMinimapCreatureEvent,
         onAppear = onPartyMinimapCreatureEvent,
         onDisappear = onPartyMinimapCreatureEvent,
-        onShieldChange = onPartyMinimapCreatureEvent
+        onShieldChange = onPartyMinimapShieldEvent
     }):execute()
 
     minimapWidget = findMinimapWidget(self.ui)

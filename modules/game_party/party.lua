@@ -7,6 +7,10 @@ PartyListRegistry = {
 	byId = {}
 }
 
+function getPartyWindow()
+	return partyWindow
+end
+
 local PARTY_HIDE_BUTTONS_FORMAT = 2
 local PARTY_HIDE_BUTTON_OPTIONS = {
 	"hideParty",

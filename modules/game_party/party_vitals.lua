@@ -170,13 +170,27 @@ local function onPartyMemberHealthPercentChange(creature, healthPercent, oldHeal
 		return
 	end
 
-	local cached = PartyVitalsCache[creature:getId()]
+	local creatureId = creature:getId()
+	local cache = PartyVitalsCache[creatureId] or {}
+	PartyVitalsCache[creatureId] = cache
 
-	if cached and cached.mana and cached.mana <= 100 then
-		pushManaToCreature(creature, cached.mana)
+	if healthPercent and healthPercent <= 100 then
+		cache.health = healthPercent
+
+		if creature.setHealthPercent then
+			creature:setHealthPercent(healthPercent)
+		end
 	end
 
-	refreshPartyMemberMapHud(creature)
+	if cache.mana and cache.mana <= 100 then
+		pushManaToCreature(creature, cache.mana)
+	end
+
+	updatePartyListVitalsBars(creatureId, cache.health or 101, cache.mana or 101)
+
+	if modules.game_creatureinformation and modules.game_creatureinformation.refreshOtherManaBar then
+		modules.game_creatureinformation.refreshOtherManaBar(creature)
+	end
 end
 
 local function storePartyVitalsEntry(creatureId, healthPercent, manaPercent, level, extra, localId, seenIds)

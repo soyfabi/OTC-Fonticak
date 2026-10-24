@@ -82,6 +82,10 @@ local function shouldShowPartyMemberManaBar(creature)
 end
 
 function refreshOtherManaBar(creature)
+    if not creature or creature:isLocalPlayer() then
+        return
+    end
+
     local widget = creature:getWidgetInformation()
 
     if not widget or not widget.manaBar then
@@ -97,8 +101,10 @@ function refreshOtherManaBar(creature)
 
     local manaPercent = creature:getManaPercent()
 
-    if manaPercent > 100 and PartyVitalsCache then
-        local cached = PartyVitalsCache[creature:getId()]
+    if manaPercent > 100 then
+        local cacheTable = modules.game_party and modules.game_party.getPartyVitalsCacheTable
+            and modules.game_party.getPartyVitalsCacheTable()
+        local cached = cacheTable and cacheTable[creature:getId()]
 
         if cached and cached.mana and cached.mana <= 100 then
             manaPercent = cached.mana

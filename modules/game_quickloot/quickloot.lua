@@ -380,6 +380,10 @@ local function getLootKeybindWidget()
     return nil
 end
 
+local function quickLootFallbackEnabled(fallback)
+    return fallback ~= false
+end
+
 function QuickLoot.ensureManageContainersUi()
     if not quickLootController or not quickLootController.ui or not quickLootController.ui.list then
         return false
@@ -496,10 +500,6 @@ local CHAINED_CLEAR_ICON = "/modules/game_quickloot/images/button-chain-clear-20
 local GOLD_POUCH_ITEM_ID = 23721
 local SET_OBTAIN_CONTAINER_ACTION = 4
 local UNASSIGNED_LOOT_CATEGORY = 31
-
-local function quickLootFallbackEnabled(fallback)
-    return fallback ~= false
-end
 
 local function getMainLootContainerItemId()
     local player = g_game.getLocalPlayer()

@@ -13,6 +13,9 @@ local partyListDragGhost
 local partyListDragMoveHandler
 local beginPartyListDrag
 local finishPartyListDrag
+local clearPartyListDragCursor
+local partyWindowCursorMoveHandler
+local partyRestorePlacementsEvent
 
 local function isPlacementEnabled()
 	return modules.client_options
@@ -521,7 +524,7 @@ local function widgetContainsPoint(widget, pos)
 		and pos.y <= rect.y + rect.height
 end
 
-local function clearPartyListDragCursor()
+clearPartyListDragCursor = function()
 	if not partyListDragCursorActive then
 		return
 	end
@@ -534,6 +537,11 @@ local function clearPartyListDragCursor()
 
 	partyListDragCursorActive = false
 	partyListDragCursorNative = false
+end
+
+local function getPartyWindow()
+	return modules.game_party and modules.game_party.getPartyWindow
+		and modules.game_party.getPartyWindow()
 end
 
 local function pushPartyListDragCursor()
@@ -706,7 +714,7 @@ finishPartyListDrag = function(mousePos, placeCopy)
 		return false
 	end
 
-	local partyWin = partyWindow
+	local partyWin = getPartyWindow()
 
 	if partyWin and widgetContainsPoint(partyWin, mousePos) then
 		return false
@@ -885,7 +893,14 @@ function restorePartyFloatingVitals()
 		return
 	end
 
-	scheduleEvent(function()
+	if partyRestorePlacementsEvent then
+		removeEvent(partyRestorePlacementsEvent)
+		partyRestorePlacementsEvent = nil
+	end
+
+	partyRestorePlacementsEvent = scheduleEvent(function()
+		partyRestorePlacementsEvent = nil
+
 		for id, placement in pairs(placements) do
 			local creatureId = tonumber(id)
 			local creature = creatureId and findPartyCreature(creatureId)
@@ -914,6 +929,29 @@ function clearPartyFloatingVitalsRuntime(skipSave)
 		savePartyFloatingVitalsPlacements()
 	end
 
+	if partyRestorePlacementsEvent then
+		removeEvent(partyRestorePlacementsEvent)
+		partyRestorePlacementsEvent = nil
+	end
+
+	if partyWindowCursorMoveHandler then
+		local root = getRootPanel()
+
+		if root then
+			disconnect(root, {
+				onMouseMove = partyWindowCursorMoveHandler
+			})
+		end
+
+		partyWindowCursorMoveHandler = nil
+
+		local partyWin = getPartyWindow()
+
+		if partyWin and not partyWin:isDestroyed() then
+			partyWin._partyCursorCleanupBound = false
+		end
+	end
+
 	for creatureId in pairs(floatingCopies) do
 		removePartyFloatingCopy(creatureId)
 	end
@@ -934,22 +972,26 @@ function setFreePartyVitalsPlacement(enabled)
 end
 
 function bindPartyWindowCursorCleanup()
-	if not partyWindow or partyWindow._partyCursorCleanupBound then
+	local partyWin = getPartyWindow()
+
+	if not partyWin or partyWin._partyCursorCleanupBound or partyWindowCursorMoveHandler then
 		return
 	end
 
-	partyWindow._partyCursorCleanupBound = true
+	partyWin._partyCursorCleanupBound = true
 
 	local wasInside = false
 
-	local function onRootMouseMove(_, mousePos)
-		if not partyWindow or partyWindow:isDestroyed() or not partyWindow:isVisible() then
+	partyWindowCursorMoveHandler = function(_, mousePos)
+		local window = getPartyWindow()
+
+		if not window or window:isDestroyed() or not window:isVisible() then
 			wasInside = false
 
 			return
 		end
 
-		local inside = partyWindow:containsPoint(mousePos)
+		local inside = window:containsPoint(mousePos)
 
 		if wasInside and not inside then
 			clearPartyListDragCursor()
@@ -966,7 +1008,7 @@ function bindPartyWindowCursorCleanup()
 
 	if root then
 		connect(root, {
-			onMouseMove = onRootMouseMove
+			onMouseMove = partyWindowCursorMoveHandler
 		})
 	end
 end
