@@ -1,0 +1,13 @@
+Module
+  name: game_podium_player
+  description: Player outfit podium (Podium of Renown)
+  author: Fonticak
+  sandboxed: true
+  dependencies: [ game_interface ]
+  scripts: [ player_podium_protocol, ppodium ]
+  @onLoad: |
+    initPlayerPodiumProtocol()
+    init()
+  @onUnload: |
+    terminate()
+    terminatePlayerPodiumProtocol()

@@ -73,7 +73,46 @@ local function onMonsterPodiumOpcode(_, msg)
 	local podiumVisible = msg:getU8() ~= 0
 	local creatureVisible = msg:getU8() ~= 0
 
-	if modules.game_podium_monster then
+	local creatures = {}
+	if bossPodium then
+		for raceId, name in pairs(bosses) do
+			table.insert(creatures, {
+				raceId = raceId,
+				name = name,
+				outfit = bossOutfits[raceId],
+			})
+		end
+	else
+		for _, raceId in ipairs(monsters) do
+			table.insert(creatures, {
+				raceId = raceId,
+				name = bosses[raceId],
+				outfit = bossOutfits[raceId],
+			})
+		end
+	end
+
+	table.sort(creatures, function(a, b)
+		return (a.name or '') < (b.name or '')
+	end)
+
+	local data = {
+		podiumOutfit = currentOutfit,
+		isBoss = bossPodium,
+		creatures = creatures,
+		position = position,
+		itemClientId = itemId,
+		stackpos = stackPos,
+		direction = direction,
+		showPlatform = podiumVisible,
+		showCreature = creatureVisible,
+	}
+
+	if g_game.onConfigureBossPodium then
+		signalcall(g_game.onConfigureBossPodium, data)
+	elseif modules.game_customisepodium and modules.game_customisepodium.onConfigureBossPodium then
+		modules.game_customisepodium.onConfigureBossPodium(data)
+	elseif modules.game_podium_monster then
 		if modules.game_podium_monster.setBossOutfits then
 			modules.game_podium_monster.setBossOutfits(bossOutfits)
 		end

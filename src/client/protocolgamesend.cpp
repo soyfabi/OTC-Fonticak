@@ -689,6 +689,38 @@ void ProtocolGame::sendMonsterPodiumOutfit(const uint32_t raceId, const Position
     send(msg);
 }
 
+void ProtocolGame::sendPlayerPodiumOutfit(const Outfit& outfit, const Position& position, const uint16_t itemId,
+                                          const uint8_t stackPos, const uint8_t direction, const bool podiumVisible,
+                                          const bool creatureVisible)
+{
+    const auto& msg = std::make_shared<OutputMessage>();
+    msg->addU8(Proto::ClientSetPlayerPodium);
+    msg->addU16(outfit.getId());
+    if (outfit.getId() != 0) {
+        msg->addU8(outfit.getHead());
+        msg->addU8(outfit.getBody());
+        msg->addU8(outfit.getLegs());
+        msg->addU8(outfit.getFeet());
+        msg->addU8(outfit.getAddons());
+    } else {
+        msg->addU16(outfit.getAuxId());
+    }
+    msg->addU16(outfit.getMount());
+    if (outfit.getMount() != 0) {
+        msg->addU8(0);
+        msg->addU8(0);
+        msg->addU8(0);
+        msg->addU8(0);
+    }
+    addPosition(msg, position);
+    msg->addU16(itemId);
+    msg->addU8(stackPos);
+    msg->addU8(direction);
+    msg->addU8(podiumVisible);
+    msg->addU8(creatureVisible);
+    send(msg);
+}
+
 void ProtocolGame::sendChangeFightModes(const Otc::FightModes fightMode, const Otc::ChaseModes chaseMode, const bool safeFight, const Otc::PVPModes pvpMode)
 {
     const auto& msg = std::make_shared<OutputMessage>();

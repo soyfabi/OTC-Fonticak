@@ -1374,9 +1374,19 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
             end
         end
 
-        if useThing:isRotateable() then
+        if useThing:isRotateable() or (useThing.isPodium and useThing:isPodium()) then
             menu:addOption(tr('Rotate'), function()
                 g_game.rotate(useThing)
+            end)
+        end
+
+        if useThing.isPodium and useThing:isPodium() then
+            menu:addOption(tr('Customise Podium'), function()
+                if modules.game_customisepodium then
+                    modules.game_customisepodium.requestConfigurePodium(useThing)
+                else
+                    g_game.use(useThing)
+                end
             end)
         end
 

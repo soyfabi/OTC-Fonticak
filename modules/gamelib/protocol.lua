@@ -21,6 +21,7 @@ GameServerOpcodes = {
     -- 51 - 99
     GameServerPartyMemberVitals = 62, -- 0x3E, OTC + FS partyvitals.lua (not 0x34 / attached effects)
     GameServerMonsterPodium = 194, -- 0xC2, monster podium window (FS sendMonsterPodiumWindow)
+    GameServerPlayerPodium = 197, -- 0xC5, player renown podium window (avoid 0xC3 cyclopedia)
 
     -- original tibia ONLY
     GameServerPassiveCooldown = 94,
@@ -171,6 +172,7 @@ ClientOpcodes = {
     ClientOpenPrivateChannel = 154,
     ClientCloseNpcChannel = 158,
     ClientSetMonsterPodium = 159, -- 0x9F
+    ClientSetPlayerPodium = 241, -- 0xF1
     ClientChangeFightModes = 160,
     ClientAttack = 161,
     ClientFollow = 162,

@@ -1,0 +1,9 @@
+Module
+  name: game_customisepodium
+  description: Janela de customizacao de podium
+  author: MehahGlobal
+  sandboxed: true
+  dependencies: [ game_interface ]
+  scripts: [ game_customisepodium ]
+  @onLoad: init()
+  @onUnload: terminate()

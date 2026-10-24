@@ -4,10 +4,8 @@ Module
   author: Fonticak (ported from Astra)
   sandboxed: true
   dependencies: [ game_interface ]
-  scripts: [ podium_protocol, mpodium ]
+  scripts: [ podium_protocol ]
   @onLoad: |
     initPodiumProtocol()
-    init()
   @onUnload: |
-    terminate()
     terminatePodiumProtocol()

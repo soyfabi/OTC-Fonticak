@@ -54,6 +54,8 @@ Module
     - game_cyclopedia
     - game_compendium
     - game_podium_monster
+    - game_customisepodium
+    - game_podium_player
     - game_social
     - game_creatureinformation
     - game_rewardwall
