@@ -1,0 +1,13 @@
+Module
+  name: game_podium_monster
+  description: Monster podium configuration (Podium of Vigour / Tenacity)
+  author: Fonticak (ported from Astra)
+  sandboxed: true
+  dependencies: [ game_interface ]
+  scripts: [ podium_protocol, mpodium ]
+  @onLoad: |
+    initPodiumProtocol()
+    init()
+  @onUnload: |
+    terminate()
+    terminatePodiumProtocol()

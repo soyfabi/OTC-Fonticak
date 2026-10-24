@@ -186,6 +186,8 @@ public:
     void wrap(const ThingPtr& thing);
     void use(const ThingPtr& thing);
     void useWith(const ItemPtr& item, const ThingPtr& toThing);
+    void sendMonsterPodiumOutfit(int raceId, const Position& position, int itemId, int stackPos, int direction,
+                                 bool podiumVisible, bool creatureVisible);
     void useInventoryItem(uint16_t itemId);
     void useInventoryItemWith(uint16_t itemId, const ThingPtr& toThing);
     ItemPtr findItemInContainers(uint32_t itemId, int subType, uint8_t tier);

@@ -28,6 +28,7 @@
 #include "game.h"
 #include "gameconfig.h"
 
+#include "creature.h"
 #include "thingtype.h"
 #include "thingtypemanager.h"
 #include "tile.h"
@@ -58,6 +59,19 @@ void Item::draw(const Point& dest, const bool drawThings, LightView* lightView)
     const int animationPhase = calculateAnimationPhase();
 
     internalDraw(animationPhase, dest, m_color, drawThings, false, lightView);
+
+    if (drawThings && hasPodiumCreature()) {
+        if (!m_podiumCreature)
+            m_podiumCreature = std::make_shared<Creature>();
+        m_podiumCreature->setDirection(m_podiumDirection);
+        m_podiumCreature->setOutfit(m_podiumOutfit, false);
+        m_podiumCreature->setStaticWalking(0);
+
+        const auto drawOrder = g_drawPool.getDrawOrder();
+        g_drawPool.setDrawOrder(DrawOrder::FOURTH);
+        m_podiumCreature->draw(dest, drawThings, lightView);
+        g_drawPool.setDrawOrder(drawOrder);
+    }
 
     if (isMarked())
         internalDraw(animationPhase, dest, getMarkedColor(), drawThings, true);
@@ -107,6 +121,39 @@ int Item::getSubType()
         return m_countOrSubType;
 
     return g_game.getClientVersion() > 862 ? 0 : 1;
+}
+
+void Item::setPodiumCreatureState(const Outfit& outfit, const Otc::Direction direction, const bool creatureVisible)
+{
+    m_podiumOutfit = outfit;
+    if (m_podiumOutfit.isInvalid()) {
+        if (m_podiumOutfit.getAuxId() > 0)
+            m_podiumOutfit.setCategory(ThingCategoryItem);
+        else
+            m_podiumOutfit.setCategory(ThingCategoryCreature);
+    }
+    m_podiumDirection = direction;
+    m_podiumCreatureVisible = creatureVisible && (m_podiumOutfit.getId() > 0 || m_podiumOutfit.getAuxId() > 0);
+    m_podiumCreature.reset();
+    updatePodiumDisplayPatterns();
+}
+
+void Item::updatePodiumDisplayPatterns()
+{
+    if (!isPodium() && !hasPodiumCreature())
+        return;
+
+    // Podium items in .dat encode creature sprites in patterns; using tile x/y/z picks garbage.
+    m_numPatternX = 0;
+    m_numPatternY = 0;
+    const int numDirectionPatterns = std::max(1, getNumPatternZ());
+    const int directionIndex = std::clamp<int>(static_cast<int>(m_podiumDirection), 0, numDirectionPatterns - 1);
+    m_numPatternZ = directionIndex;
+}
+
+bool Item::hasPodiumCreature() const
+{
+    return m_podiumCreatureVisible && (m_podiumOutfit.getId() > 0 || m_podiumOutfit.getAuxId() > 0);
 }
 
 ItemPtr Item::clone()
@@ -241,6 +288,8 @@ void Item::updatePatterns()
 
         m_numPatternX = (color % 4) % numPatternX;
         m_numPatternY = (color / 4) % numPatternY;
+    } else if (isPodium() || hasPodiumCreature()) {
+        updatePodiumDisplayPatterns();
     } else {
         m_numPatternX = m_position.x % std::max<int>(1, numPatternX);
         m_numPatternY = m_position.y % std::max<int>(1, numPatternY);

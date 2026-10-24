@@ -1009,6 +1009,19 @@ void Game::useWith(const ItemPtr& item, const ThingPtr& toThing)
     g_lua.callGlobalField("g_game", "onUseWith", pos, item->getId(), toThing, item->getStackPos());
 }
 
+void Game::sendMonsterPodiumOutfit(const int raceId, const Position& position, const int itemId, const int stackPos,
+                                   const int direction, const bool podiumVisible, const bool creatureVisible)
+{
+    if (!canPerformGameAction() || raceId < 0 || itemId < 0 || itemId > 65535 || stackPos < 0 || stackPos > 255 ||
+        direction < 0 || direction > 3) {
+        return;
+    }
+
+    m_protocolGame->sendMonsterPodiumOutfit(static_cast<uint32_t>(raceId), position, static_cast<uint16_t>(itemId),
+                                            static_cast<uint8_t>(stackPos), static_cast<uint8_t>(direction),
+                                            podiumVisible, creatureVisible);
+}
+
 void Game::useInventoryItemWith(const uint16_t itemId, const ThingPtr& toThing)
 {
     if (!canPerformGameAction() || !toThing)

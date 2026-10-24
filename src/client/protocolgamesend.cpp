@@ -673,6 +673,22 @@ void ProtocolGame::sendCloseNpcChannel()
     send(msg);
 }
 
+void ProtocolGame::sendMonsterPodiumOutfit(const uint32_t raceId, const Position& position, const uint16_t itemId,
+                                           const uint8_t stackPos, const uint8_t direction, const bool podiumVisible,
+                                           const bool creatureVisible)
+{
+    const auto& msg = std::make_shared<OutputMessage>();
+    msg->addU8(Proto::ClientSetMonsterPodium);
+    msg->addU32(raceId);
+    addPosition(msg, position);
+    msg->addU16(itemId);
+    msg->addU8(stackPos);
+    msg->addU8(direction);
+    msg->addU8(podiumVisible);
+    msg->addU8(creatureVisible);
+    send(msg);
+}
+
 void ProtocolGame::sendChangeFightModes(const Otc::FightModes fightMode, const Otc::ChaseModes chaseMode, const bool safeFight, const Otc::PVPModes pvpMode)
 {
     const auto& msg = std::make_shared<OutputMessage>();
