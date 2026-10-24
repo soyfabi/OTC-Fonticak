@@ -349,16 +349,32 @@ function BossCooldown:updateWindow()
 end
 
 function BossCooldown:setupCooldown(cooldown)
+	if type(cooldown) ~= 'table' then
+		return
+	end
+
+	-- A later empty bosstiary update must not erase still-active custom cooldowns.
+	if next(cooldown) == nil then
+		local now = os.time()
+		for _, current in ipairs(BossCooldown.cooldown) do
+			local untilTime = tonumber(current.cooldown)
+			if untilTime and untilTime > now then
+				return
+			end
+		end
+	end
+
 	BossCooldown.cooldown = {}
 	
 	for i, cooldownData in pairs(cooldown) do
-		local raceData = g_things.getRaceData(cooldownData.bossRaceId)
+		local raceId = cooldownData.raceId or cooldownData.bossRaceId
+		local raceData = g_things.getRaceData(raceId)
 		
 		local bossEntry = {
-			bossId = cooldownData.bossRaceId, 
-			cooldown = cooldownData.cooldownTime, 
-			name = raceData and raceData.name or "", 
-			outfit = raceData and raceData.outfit or nil
+			bossId = raceId,
+			cooldown = cooldownData.cooldown or cooldownData.cooldownTime,
+			name = cooldownData.name or (raceData and raceData.name) or "",
+			outfit = cooldownData.outfit or (raceData and raceData.outfit) or nil
 		}
 		
 		BossCooldown.cooldown[#BossCooldown.cooldown + 1] = bossEntry
