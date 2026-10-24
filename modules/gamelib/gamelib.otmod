@@ -15,6 +15,8 @@ Module
 
     dofile 'monk'
     dofile 'creature'
+    dofile 'creature_list'
+    dofile 'engine_compat'
     dofile 'player'
     dofile 'market'
     dofile 'textmessages'

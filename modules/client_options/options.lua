@@ -801,6 +801,9 @@ function controller:onGameStart()
     if applyOwnHUD then
         applyOwnHUD()
     end
+    if applyOtherHUD then
+        applyOtherHUD()
+    end
 end
 
 function controller:onGameEnd()
@@ -1215,9 +1218,15 @@ function applyOtherHUD(opts, panelTable)
     if not othersEnabled then
         map:setDrawNames(false)
         map:setDrawHealthBars(false)
+        if map.setDrawPartyManaBar then
+            map:setDrawPartyManaBar(false)
+        end
     else
         map:setDrawNames(opts.displayNames and opts.displayNames.value)
         map:setDrawHealthBars(opts.displayHealth and opts.displayHealth.value)
+        if map.setDrawPartyManaBar then
+            map:setDrawPartyManaBar(opts.displayOtherMana and opts.displayOtherMana.value)
+        end
     end
 
     if g_gameConfig.isDrawingInformationByWidget() and modules.game_creatureinformation then
@@ -1292,6 +1301,7 @@ function resetHUD()
     setOption('otherHUDCreatures', true, true)
     setOption('displayNames', true, true)
     setOption('displayHealth', true, true)
+    setOption('displayOtherMana', true, true)
 
     -- Arcs: Health + Mana on; Experience/Skill off (CIP-like defaults).
     setOption('healthCheckBox', true, true)

@@ -1,0 +1,264 @@
+BattleIcon < UIButton
+  size: 20 20
+  image-source: /images/options/button_empty
+  image-clip: 0 0 20 20
+  image-border: 3
+  checkable: true
+
+  $pressed:
+    image-clip: 20 0 20 20
+
+  $on:
+    image-clip: 20 0 20 20
+
+  $checked:
+    image-clip: 20 0 20 20
+
+  $active:
+    image-clip: 20 0 20 20
+
+  $hover !disabled:
+    image-color: #ffffffcc
+
+  $disabled:
+    image-color: #ffffff88
+
+  UIWidget
+    id: iconWidget
+    anchors.centerIn: parent
+    image-color: white
+    focusable: false
+    phantom: true
+
+BattleParty < BattleIcon
+  UIWidget
+    id: iconWidget
+    anchors.centerIn: parent
+    image-color: white
+    focusable: false
+    phantom: true
+    image-source: /images/game/battle/icon-battlelist-party
+
+BattleKnights < BattleIcon
+  UIWidget
+    id: iconWidget
+    anchors.centerIn: parent
+    image-color: white
+    focusable: false
+    phantom: true
+    image-source: /images/game/battle/icon-battlelist-knight
+
+BattlePaladins < BattleIcon
+  UIWidget
+    id: iconWidget
+    anchors.centerIn: parent
+    image-color: white
+    focusable: false
+    phantom: true
+    image-source: /images/game/battle/icon-battlelist-paladin
+
+BattleDruids < BattleIcon
+  UIWidget
+    id: iconWidget
+    anchors.centerIn: parent
+    image-color: white
+    focusable: false
+    phantom: true
+    image-source: /images/game/battle/icon-battlelist-druid
+
+BattleSorcerers < BattleIcon
+  UIWidget
+    id: iconWidget
+    anchors.centerIn: parent
+    image-color: white
+    focusable: false
+    phantom: true
+    image-source: /images/game/battle/icon-battlelist-sorcerer
+
+BattleMonks < BattleIcon
+  @onSetup: |
+    if g_game.getFeature(GameVocationMonk) then
+      self:setVisible(true)
+    else
+      self:setVisible(false)
+    end
+
+  UIWidget
+    id: iconWidget
+    anchors.centerIn: parent
+    image-color: white
+    focusable: false
+    phantom: true
+    image-source: /images/game/battle/icon-battlelist-monk
+
+BattleSummons < BattleIcon
+  UIWidget
+    id: iconWidget
+    anchors.centerIn: parent
+    image-color: white
+    focusable: false
+    phantom: true
+    image-source: /images/game/battle/icon-battlelist-summon
+
+BattleSkulls < BattleIcon
+  UIWidget
+    id: iconWidget
+    anchors.centerIn: parent
+    image-color: white
+    focusable: false
+    phantom: true
+    image-source: /images/game/battle/icon-battlelist-skull
+
+MiniWindow
+  id: partyWindow
+  height: 166
+  image-smooth: false
+  @onOpen: modules.game_party.onOpen()
+  @onClose: modules.game_party.onClose()
+  &save: true
+
+  UIWidget
+    id: miniwindowIcon
+    anchors.top: miniwindowHeader.top
+    anchors.left: miniwindowHeader.left
+    margin-top: 2
+    margin-left: 4
+    image-source: /images/game/battle/icon-battlelist-party-widget
+    image-rect: 0 0 12 12
+    image-smooth: false
+
+  Label
+    id: miniwindowTitle
+    anchors.top: miniwindowHeader.top
+    anchors.left: miniwindowHeader.left
+    anchors.right: miniwindowHeader.right
+    margin-top: 1
+    margin-left: 20
+    margin-right: 50
+    font: verdana-11px-monochrome
+    height: 13
+    color: #909090
+    !text: tr('Party List')
+
+  Panel
+    id: filterPanel
+    margin-top: 17
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-left: 12
+    height: 46
+    width: 152
+    layout:
+      type: grid
+      flow: true
+      cell-spacing: 2
+      num-columns: 7
+      cell-size: 20 20
+      fit-children: false
+
+    BattleParty
+      id: hideParty
+
+    BattleKnights
+      id: hideKnights
+
+    BattlePaladins
+      id: hidePaladins
+
+    BattleDruids
+      id: hideDruids
+
+    BattleSorcerers
+      id: hideSorcerers
+
+    BattleMonks
+      id: hideMonks
+
+    BattleSummons
+      id: hideSummons
+
+  HorizontalSeparator
+    id: HorizontalSeparator
+    anchors.top: prev.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-right: 4
+    margin-left: 4
+    margin-top: -23
+    height: 2
+    color: #cccccc
+
+  MiniWindowContents
+    id: contentsPanel
+    anchors.top: prev.bottom
+
+    Panel
+      id: partyPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      margin-top: 15
+      padding-right: 5
+      layout:
+        type: verticalBox
+        fit-children: true
+
+    UIWidget
+      id: resizeIndicator
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      margin-bottom: 3
+      margin-left: 0
+      image-source: /images/ui/miniborder-bottom-left
+      image-smooth: false
+      focusable: false
+    pixels-scroll: true
+    $!on:
+      width: 0
+
+PartyListMenuOption < ThickCheckBox
+  text-offset: 18 1
+  text-align: left
+  color: white
+  background-color: alpha
+  font: verdana-11px-rounded
+  padding: 3 6
+
+  $hover:
+    background-color: #ffffff1a
+
+PartyListSubMenu < PopupMenu
+  id: partyListSubMenu
+  width: 285
+
+  PartyListMenuOption
+    id: sortAscByDisplayTime
+    !text: tr('Sort Ascending by Display Time')
+
+  PartyListMenuOption
+    id: sortDescByDisplayTime
+    !text: tr('Sort Descending by Display Time')
+
+  PartyListMenuOption
+    id: sortAscByDistance
+    !text: tr('Sort Ascending by Distance')
+
+  PartyListMenuOption
+    id: sortDescByDistance
+    !text: tr('Sort Descending by Distance')
+
+  PartyListMenuOption
+    id: sortAscByHitPoints
+    !text: tr('Sort Ascending by %% Hit Points')
+
+  PartyListMenuOption
+    id: sortDescByHitPoints
+    !text: tr('Sort Descending by %% Hit Points')
+
+  PartyListMenuOption
+    id: sortAscByName
+    !text: tr('Sort Ascending by Name')
+
+  PartyListMenuOption
+    id: sortDescByName
+    !text: tr('Sort Descending by Name')

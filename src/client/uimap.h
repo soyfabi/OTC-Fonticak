@@ -45,6 +45,7 @@ public:
     void setDrawLights(bool enable);
     void setLimitVisibleDimension(bool enable);
     void setDrawManaBar(bool enable);
+    void setDrawPartyManaBar(bool enable);
     void setDrawPlayerBars(bool enable);
     void setDrawPlayerNames(bool enable);
     void setDrawHarmony(bool enable);
@@ -57,6 +58,7 @@ public:
     bool isDrawingLights();
     bool isLimitedVisibleDimension();
     bool isDrawingManaBar();
+    bool isDrawingPartyManaBar();
     bool isDrawingHarmony();
     bool isDrawingOwnHarmonyBar();
     bool isDrawingPlayerBars();

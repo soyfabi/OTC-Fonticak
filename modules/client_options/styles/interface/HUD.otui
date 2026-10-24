@@ -27,7 +27,7 @@ UIWidget
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: parent.top
-      height: 190
+      height: 212
       margin-top: 2
 
       Panel
@@ -163,6 +163,19 @@ UIWidget
           OptionCheckBox
             id: displayHealth
             !text: tr('Show Health')
+
+        SmallReversedQtPanel
+          anchors.left: parent.left
+          anchors.right: parent.right
+          anchors.top: prev.bottom
+          margin-top: 4
+          margin-left: 16
+          height: 22
+
+          OptionCheckBox
+            id: displayOtherMana
+            !text: tr('Show Mana')
+            !tooltip: tr('Show mana bar for other players in your party.')
 
     QtPanel
       id: arcsPanel
@@ -601,6 +614,18 @@ UIWidget
       OptionCheckBox
         id: displayText
         !text: tr('Display text messages')
+
+    SmallReversedQtPanel
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: prev.bottom
+      margin-top: 7
+      height: 22
+
+      OptionCheckBoxMarked
+        id: freePartyVitalsPlacement
+        !text: tr('Free Party Vitals Placement')
+        !tooltip: tr('Drag party members from the party list onto the screen to show floating name, health and mana bars.\nRight-click a floating bar to lock, unlock or remove it.')
 
     SmallReversedQtPanel
       anchors.left: parent.left

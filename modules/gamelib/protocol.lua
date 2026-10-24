@@ -19,6 +19,7 @@ GameServerOpcodes = {
 
     -- NOTE: add any custom opcodes in this range
     -- 51 - 99
+    GameServerPartyMemberVitals = 62, -- 0x3E, OTC + FS partyvitals.lua (not 0x34 / attached effects)
 
     -- original tibia ONLY
     GameServerPassiveCooldown = 94,

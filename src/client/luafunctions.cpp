@@ -647,6 +647,7 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<Creature>("getMasterId", &Creature::getMasterId);
     g_lua.bindClassMemberFunction<Creature>("getName", &Creature::getName);
     g_lua.bindClassMemberFunction<Creature>("getHealthPercent", &Creature::getHealthPercent);
+    g_lua.bindClassMemberFunction<Creature>("setHealthPercent", &Creature::setHealthPercent);
     g_lua.bindClassMemberFunction<Creature>("getManaPercent", &Creature::getManaPercent);
     g_lua.bindClassMemberFunction<Creature>("getSpeed", &Creature::getSpeed);
     g_lua.bindClassMemberFunction<Creature>("getBaseSpeed", &Creature::getBaseSpeed);
@@ -1223,6 +1224,7 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMap>("setDrawLights", &UIMap::setDrawLights);
     g_lua.bindClassMemberFunction<UIMap>("setLimitVisibleDimension", &UIMap::setLimitVisibleDimension);
     g_lua.bindClassMemberFunction<UIMap>("setDrawManaBar", &UIMap::setDrawManaBar);
+    g_lua.bindClassMemberFunction<UIMap>("setDrawPartyManaBar", &UIMap::setDrawPartyManaBar);
     g_lua.bindClassMemberFunction<UIMap>("setDrawPlayerBars", &UIMap::setDrawPlayerBars);
     g_lua.bindClassMemberFunction<UIMap>("setDrawPlayerNames", &UIMap::setDrawPlayerNames);
     g_lua.bindClassMemberFunction<UIMap>("setKeepAspectRatio", &UIMap::setKeepAspectRatio);
@@ -1239,6 +1241,7 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMap>("isDrawingLights", &UIMap::isDrawingLights);
     g_lua.bindClassMemberFunction<UIMap>("isLimitedVisibleDimension", &UIMap::isLimitedVisibleDimension);
     g_lua.bindClassMemberFunction<UIMap>("isDrawingManaBar", &UIMap::isDrawingManaBar);
+    g_lua.bindClassMemberFunction<UIMap>("isDrawingPartyManaBar", &UIMap::isDrawingPartyManaBar);
     g_lua.bindClassMemberFunction<UIMap>("isDrawingHarmony", &UIMap::isDrawingHarmony);
     g_lua.bindClassMemberFunction<UIMap>("isDrawingPlayerBars", &UIMap::isDrawingPlayerBars);
     g_lua.bindClassMemberFunction<UIMap>("isDrawingPlayerNames", &UIMap::isDrawingPlayerNames);

@@ -319,7 +319,7 @@ void Creature::drawInformation(const MapPosInfo& mapRect, const Point& dest, con
     bool drewBar = false;
 
     const bool drawHealthBar = (drawFlags & Otc::DrawBars) && (g_game.getClientVersion() >= 1100 ? !isNpc() : true);
-    const bool drawManaBar = (drawFlags & Otc::DrawManaBar) && isLocalPlayer();
+    const bool drawManaBar = (drawFlags & Otc::DrawManaBar) != 0;
 
     if (drawHealthBar) {
         g_drawPool.addFilledRect(backgroundRect, Color::black);
@@ -329,7 +329,7 @@ void Creature::drawInformation(const MapPosInfo& mapRect, const Point& dest, con
     }
 
     // Mana is independent from health: can show alone when DrawBars is off.
-    if (drawManaBar) {
+    if (drawManaBar && isLocalPlayer()) {
         if (const auto& player = g_game.getLocalPlayer()) {
             if (player->isMage() && player->getMaxManaShield() > 0) {
                 if (drewBar)
@@ -353,6 +353,20 @@ void Creature::drawInformation(const MapPosInfo& mapRect, const Point& dest, con
             g_drawPool.addFilledRect(manaRect, Color::blue);
             drewBar = true;
         }
+    } else if (drawManaBar && isPlayer()) {
+        uint8_t manaPercent = getManaPercent();
+        if (manaPercent > 100)
+            manaPercent = 0;
+
+        if (drewBar)
+            barsRect.moveTop(barsRect.bottom());
+        g_drawPool.addFilledRect(barsRect, Color::black);
+
+        Rect manaRect = barsRect.expanded(-1);
+        manaRect.setWidth((manaPercent / 100.0) * 29);
+
+        g_drawPool.addFilledRect(manaRect, Color::blue);
+        drewBar = true;
     }
 
     if (drewBar)
@@ -1013,6 +1027,16 @@ void Creature::setHealthPercent(const uint8_t healthPercent)
 
     if (isDead())
         onDeath();
+}
+
+void Creature::setManaPercent(const uint8_t manaPercent)
+{
+    if (m_manaPercent == manaPercent)
+        return;
+
+    const uint8_t oldManaPercent = m_manaPercent;
+    m_manaPercent = manaPercent;
+    callLuaField("onManaPercentChange", manaPercent, oldManaPercent);
 }
 
 void Creature::setDirection(const Otc::Direction direction)

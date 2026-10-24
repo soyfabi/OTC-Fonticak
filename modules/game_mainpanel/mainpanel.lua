@@ -33,6 +33,7 @@ local optionsShrink = false
 ControlButtonNames = {
     skillsButton = 'Skills',
     battleButton = 'Battle List',
+    partyWidget = 'Party List',
     vipListButton = 'VIP List',
     unjustifiedPointsButton = 'Unjustified Points',
     questLogButton = 'Quest Log',
@@ -50,6 +51,8 @@ ControlButtonNames = {
     optionsMainButton = 'Options',
     preyButton = 'Prey Dialog',
     cyclopediaButton = 'Cyclopedia',
+    compendiumDialog = 'Compendium',
+    friendsDialog = 'Social',
     bestiaryTrackerButton = 'Bestiary Tracker',
     bosstiary = 'Bosstiary',
     bossSlot = 'Boss Slots',
@@ -292,6 +295,9 @@ local function createButton(id, description, image, callback, special, front, in
     button.onMouseRelease = function(widget, mousePos, mouseButton)
         if widget:containsPoint(mousePos) and mouseButton ~= MouseMidButton then
             callback()
+            if Keybind.applyControlButtonTooltip then
+                Keybind.applyControlButtonTooltip(widget, id)
+            end
             return true
         end
     end

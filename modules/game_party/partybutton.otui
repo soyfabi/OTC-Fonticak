@@ -1,0 +1,52 @@
+PartyButton < CreatureButton
+  &isPartyButton: true
+  height: 32
+  margin-top: -10
+
+  UIWidget
+    id: skull
+    height: 11
+    anchors.right: parent.right
+    anchors.top: creature.top
+    margin-right: 2
+    margin-top: 2
+    phantom: true
+
+  UIWidget
+    id: partyShield
+    height: 11
+    anchors.right: skull.left
+    anchors.top: creature.top
+    margin-right: 4
+    margin-top: 2
+    phantom: true
+
+  Label
+    id: label
+    anchors.left: spacer.right
+    anchors.right: partyShield.left
+    anchors.top: creature.top
+    color: #888888
+    margin-left: 2
+    margin-right: 4
+    phantom: true
+    font: verdana-11px-monochrome
+    text-align: left
+
+  LifeProgressBar
+    id: lifeBar
+    height: 5
+    anchors.left: spacer.right
+    anchors.right: parent.right
+    anchors.top: label.bottom
+    margin-top: 2
+    phantom: true
+
+  ManaProgressBar
+    id: manaBar
+    height: 5
+    anchors.left: spacer.right
+    anchors.right: parent.right
+    anchors.top: lifeBar.bottom
+    margin-top: 2
+    phantom: true

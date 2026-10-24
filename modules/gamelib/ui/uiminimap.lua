@@ -9,6 +9,7 @@ function UIMinimap:onSetup()
     self.zoomInWidget = self:getChildById('zoomInButton')
     self.zoomOutWidget = self:getChildById('zoomOutButton')
     self.flags = {}
+    self.partyPins = {}
     self.fullMapView = false
     -- CrystalOTC default: render the compact minimap one level closer.
     self.zoomMinimap = 1
@@ -41,6 +42,7 @@ function UIMinimap:onDestroy()
         onRemoveAutomapFlag = self.onRemoveAutomapFlag
     })
     self:destroyFlagWindow()
+    self:clearPartyPins()
     self.flags = {}
 end
 
@@ -52,6 +54,7 @@ end
 
 function UIMinimap:onCameraPositionChange(cameraPos)
     self:updateCrossVisibility()
+    self:updateAllPartyPinsVisibility()
 end
 
 function UIMinimap:isCyclopediaMap()
@@ -59,52 +62,245 @@ function UIMinimap:isCyclopediaMap()
     return parent and parent:getId() == "MapBase"
 end
 
-local function positionCrossAtTile(minimap, cross, displayPos)
-    cross:breakAnchors()
-    minimap:anchorPosition(cross, AnchorRight, displayPos, AnchorHorizontalCenter)
-    minimap:anchorPosition(cross, AnchorBottom, displayPos, AnchorVerticalCenter)
+local PARTY_PIN_MEMBER = '/game_cyclopedia/images/icon-map-player-yellow'
+local PARTY_PIN_LEADER = '/game_cyclopedia/images/icon-map-player-red'
+
+local function positionMarkerAtTile(minimap, marker, displayPos)
+    marker:breakAnchors()
+    minimap:anchorPosition(marker, AnchorRight, displayPos, AnchorHorizontalCenter)
+    minimap:anchorPosition(marker, AnchorBottom, displayPos, AnchorVerticalCenter)
 end
 
-function UIMinimap:updateCrossVisibility()
-    local cross = self.cross
-    if not cross or not cross.pos then
+local function destroyPartyPinFloorLabel(pin)
+    if not pin or not pin.floorDeltaLabel or pin.floorDeltaLabel:isDestroyed() then
         return
     end
 
-    local cameraPos = self:getCameraPosition()
+    pin.floorDeltaLabel:destroy()
+    pin.floorDeltaLabel = nil
+end
+
+local function updatePartyPinFloorLabel(minimap, pin, deltaZ)
+    if not pin or not minimap then
+        return
+    end
+
+    if pin:isDestroyed() or pin:isHidden() or deltaZ == 0 then
+        destroyPartyPinFloorLabel(pin)
+        return
+    end
+
+    local label = pin.floorDeltaLabel
+
+    if not label or label:isDestroyed() then
+        label = g_ui.createWidget('Label', minimap)
+        label:setId('partyPinFloorDelta')
+        label:setPhantom(true)
+        label:setFocusable(false)
+        label:setTextAlign(AlignLeft)
+        pin.floorDeltaLabel = label
+    end
+
+    label:setText(string.format('%+d', deltaZ))
+    label:resizeToText()
+    label:breakAnchors()
+
+    local pinPos = pin:getPosition()
+    local pinSize = pin:getSize()
+    local labelSize = label:getSize()
+
+    local floorLabelOffsetX = 1
+    local floorLabelOffsetY = 6 -- screen Y grows downward: increase to move text lower
+
+    if minimap:isCyclopediaMap() then
+        floorLabelOffsetX = 2
+        floorLabelOffsetY = 4
+        label:setFont('verdana-11px-rounded')
+        label:setColor('#FFFF66')
+    else
+        label:setFont('verdana-11px-monochrome')
+        label:setColor('#FFFFFF')
+    end
+
+    label:setPosition({
+        x = pinPos.x + pinSize.width + floorLabelOffsetX,
+        y = pinPos.y + math.floor((pinSize.height - labelSize.height) / 2) + floorLabelOffsetY
+    })
+    label:show()
+    label:raise()
+end
+
+local function updateMinimapMarkerVisibility(minimap, marker)
+    if not marker or not marker.pos then
+        return
+    end
+
+    local cameraPos = minimap:getCameraPosition()
     if not cameraPos then
-        cross:hide()
+        marker:hide()
         return
     end
 
-    local playerZ = cross.pos.z
+    local markerZ = marker.pos.z
     local viewZ = cameraPos.z
     local displayPos = {
-        x = cross.pos.x,
-        y = cross.pos.y,
+        x = marker.pos.x,
+        y = marker.pos.y,
         z = viewZ
     }
 
-    if not self:isCyclopediaMap() then
-        if viewZ ~= playerZ then
-            cross:hide()
+    if not minimap:isCyclopediaMap() then
+        if viewZ ~= markerZ then
+            marker:hide()
             return
         end
 
-        cross:setOpacity(1)
-        cross:show()
-        positionCrossAtTile(self, cross, displayPos)
+        marker:setOpacity(1)
+        marker:show()
+        positionMarkerAtTile(minimap, marker, displayPos)
         return
     end
 
     if viewZ < 0 or viewZ > 15 then
-        cross:hide()
+        marker:hide()
         return
     end
 
-    cross:setOpacity(viewZ == playerZ and 1 or 0.25)
-    cross:show()
-    positionCrossAtTile(self, cross, displayPos)
+    marker:setOpacity(viewZ == markerZ and 1 or 0.25)
+    marker:show()
+    positionMarkerAtTile(minimap, marker, displayPos)
+end
+
+local function updatePartyPinVisibility(minimap, pin)
+    if not pin or not pin.pos then
+        return
+    end
+
+    local cameraPos = minimap:getCameraPosition()
+    if not cameraPos then
+        pin:hide()
+        destroyPartyPinFloorLabel(pin)
+        return
+    end
+
+    local markerZ = pin.pos.z
+    local viewZ = cameraPos.z
+    local playerZ = viewZ
+
+    local localPlayer = g_game.getLocalPlayer()
+    if localPlayer and localPlayer:getPosition() then
+        playerZ = localPlayer:getPosition().z
+    end
+
+    -- Tibia floors: lower Z is up. Member above you => +N, below you => -N.
+    local deltaZ = playerZ - markerZ
+    local displayPos = {
+        x = pin.pos.x,
+        y = pin.pos.y,
+        z = viewZ
+    }
+
+    if viewZ < 0 or viewZ > 15 then
+        pin:hide()
+        destroyPartyPinFloorLabel(pin)
+        return
+    end
+
+    local sameFloorAsView = viewZ == markerZ
+    local sameFloorAsPlayer = playerZ == markerZ
+
+    if minimap:isCyclopediaMap() then
+        pin:setOpacity(sameFloorAsView and 1 or 0.25)
+    else
+        pin:setOpacity(sameFloorAsView and 1 or 0.55)
+    end
+
+    pin:show()
+    positionMarkerAtTile(minimap, pin, displayPos)
+    updatePartyPinFloorLabel(minimap, pin, sameFloorAsPlayer and 0 or deltaZ)
+end
+
+function UIMinimap:updateCrossVisibility()
+    updateMinimapMarkerVisibility(self, self.cross)
+end
+
+function UIMinimap:clearPartyPins()
+    if not self.partyPins then
+        self.partyPins = {}
+        return
+    end
+
+    for _, pin in pairs(self.partyPins) do
+        destroyPartyPinFloorLabel(pin)
+        pin:destroy()
+    end
+
+    self.partyPins = {}
+end
+
+function UIMinimap:updateAllPartyPinsVisibility()
+    if not self.partyPins then
+        return
+    end
+
+    for _, pin in pairs(self.partyPins) do
+        updatePartyPinVisibility(self, pin)
+    end
+end
+
+function UIMinimap:updatePartyPins(memberById)
+    memberById = memberById or {}
+    self.partyPins = self.partyPins or {}
+
+    for id, pin in pairs(self.partyPins) do
+        if not memberById[id] then
+            destroyPartyPinFloorLabel(pin)
+            pin:destroy()
+            self.partyPins[id] = nil
+        end
+    end
+
+    for id, data in pairs(memberById) do
+        local pos = data.pos
+        if not pos then
+            goto continue
+        end
+
+        local pinIcon = data.pinIcon or PARTY_PIN_MEMBER
+        local pin = self.partyPins[id]
+        if not pin then
+            pin = g_ui.createWidget('MinimapCross', self)
+            pin:setId('partyPin_' .. id)
+            pin:setImageSource('')
+            pin:setClipping(false)
+            pin:setPhantom(false)
+            pin:setFocusable(false)
+            self.partyPins[id] = pin
+        end
+
+        pin:setIcon(pinIcon)
+        pin:setIconColor('#ffffff')
+
+        pin.pos = {
+            x = pos.x,
+            y = pos.y,
+            z = pos.z
+        }
+        pin:setTooltip(data.tooltip or data.name or tr('Party member'))
+        ::continue::
+    end
+
+    self:updateAllPartyPinsVisibility()
+
+    if self.cross and not self.cross:isDestroyed() then
+        self.cross:raise()
+    end
+
+    for _, pin in pairs(self.partyPins) do
+        if pin.floorDeltaLabel and not pin.floorDeltaLabel:isDestroyed() and pin.floorDeltaLabel:isVisible() then
+            pin.floorDeltaLabel:raise()
+        end
+    end
 end
 
 function UIMinimap:getVisibleTileBounds()
@@ -309,6 +505,11 @@ function UIMinimap:setCrossPosition(pos)
     }
     cross:setTooltip(tr('You are here'))
     self:updateCrossVisibility()
+    self:updateAllPartyPinsVisibility()
+
+    if self.cross and not self.cross:isDestroyed() then
+        self.cross:raise()
+    end
 end
 
 function UIMinimap:addFlag(pos, icon, description, temporary)
@@ -382,6 +583,8 @@ function UIMinimap:onZoomChange(zoom)
             widget:hide()
         end
     end
+
+    self:updateAllPartyPinsVisibility()
 end
 
 function UIMinimap:getFlag(pos)

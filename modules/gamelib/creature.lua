@@ -201,37 +201,51 @@ local function matchesVocationFamily(vocation, serverBase, serverPromoted, clien
         or vocation == clientBase or vocation == clientPromoted
 end
 
+-- Remote players use server vocation ids from protocol; local player uses client ids (Otc::Vocations_t).
+local function creatureMatchesVocationFamily(creature, serverBase, serverPromoted, clientBase, clientPromoted)
+    local vocation = creature:getVocation()
+    if creature:isLocalPlayer() then
+        return vocation == clientBase or vocation == clientPromoted
+            or vocation == serverBase or vocation == serverPromoted
+    end
+    return vocation == serverBase or vocation == serverPromoted
+end
+
 function Creature.isDruid(self)
-    local vocation = self:getVocation()
-    return matchesVocationFamily(vocation,
+    return creatureMatchesVocationFamily(self,
         VocationsServer.Druid, VocationsServer.ElderDruid,
         VocationsClient.Druid, VocationsClient.ElderDruid)
 end
 
 function Creature.isSorcerer(self)
-    local vocation = self:getVocation()
-    return matchesVocationFamily(vocation,
+    return creatureMatchesVocationFamily(self,
         VocationsServer.Sorcerer, VocationsServer.MasterSorcerer,
         VocationsClient.Sorcerer, VocationsClient.MasterSorcerer)
 end
 
 function Creature.isPaladin(self)
-    local vocation = self:getVocation()
-    return matchesVocationFamily(vocation,
+    return creatureMatchesVocationFamily(self,
         VocationsServer.Paladin, VocationsServer.RoyalPaladin,
         VocationsClient.Paladin, VocationsClient.RoyalPaladin)
 end
 
 function Creature.isKnight(self)
-    local vocation = self:getVocation()
-    return matchesVocationFamily(vocation,
+    return creatureMatchesVocationFamily(self,
         VocationsServer.Knight, VocationsServer.EliteKnight,
         VocationsClient.Knight, VocationsClient.EliteKnight)
 end
 
 function Creature.isMonk(self)
-    local vocation = self:getVocation()
-    return matchesVocationFamily(vocation,
+    return creatureMatchesVocationFamily(self,
         VocationsServer.Monk, VocationsServer.ExaltedMonk,
         VocationsClient.Monk, VocationsClient.ExaltedMonk)
+end
+
+function Creature.isSummon(self)
+    if not self:isMonster() then
+        return false
+    end
+
+    local masterId = self:getMasterId()
+    return masterId and masterId > 0
 end

@@ -1,0 +1,34 @@
+[
+  {
+    "title": "Game Contents",
+    "pages": [
+      "Bestiary and Charms\nTrack creatures in the Bestiary, earn charm points and assign charms from the Cyclopedia.\n\nItem Cyclopedia\nBrowse items, compare stats and inspect equipment without leaving the client.",
+      "Prey and Task Board\nUse the Prey dialog to hunt selected creatures for bonus loot and experience. Open the Task Board for hunting tasks and rewards where your world supports them.\n\nMarket and Depot\nTrade through the Market window. Store items in your depot chest and manage inboxes from town depots."
+    ]
+  },
+  {
+    "title": "Client Features",
+    "pages": [
+      "Cyclopedia\nOpen the Cyclopedia from the side panel for Bestiary, Bosstiary, Charms, Map, Houses, Items, Character overview and Magical Archive (spells).\n\nMagical Archive\nSearch spells and runes, read combat stats and assign spells directly to your action bars.",
+      "Control Buttons\nRight-click the shortcut sidebar and choose Manage Control Buttons to show, hide and reorder panel icons.\n\nClient Help\nUse Lens Help to highlight interface areas and read short explanations while you play."
+    ]
+  },
+  {
+    "title": "Useful Info",
+    "pages": [
+      "Hotkeys and Action Bars\nConfigure hotkeys in Options. Drag spells, items and text to action bars for quick use in combat.\n\nQuest Log\nTrack active quests and pin objectives with the Quest Tracker from the quest log window."
+    ]
+  },
+  {
+    "title": "Major Updates",
+    "pages": [
+      "Modern Client Systems\nThis client integrates Cyclopedia tabs, Weapon Proficiency, Wheel of Destiny, Exaltation Forge, Reward Wall and other Tibia-style systems supported by your OT server.\n\nContent in this Compendium can be extended by editing compendium_pages.json in the game_compendium module."
+    ]
+  },
+  {
+    "title": "Support",
+    "pages": [
+      "Gameplay issues are handled by your game server staff. For client bugs, note your client version, steps to reproduce and attach screenshots when reporting to your server's support channel."
+    ]
+  }
+]

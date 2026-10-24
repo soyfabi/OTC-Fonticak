@@ -67,6 +67,55 @@ local function shouldShowMonkBars(creature)
     return creature:isLocalPlayer() and isMonkPlayer(creature) and isHarmonyHudEnabled()
 end
 
+local function shouldShowPartyMemberManaBar(creature)
+    if not creature or creature:isLocalPlayer() or not creature:isPlayer() then
+        return false
+    end
+
+    local gameMapPanel = modules.game_interface.getMapPanel()
+
+    if not gameMapPanel or not gameMapPanel.isDrawingPartyManaBar or not gameMapPanel:isDrawingPartyManaBar() then
+        return false
+    end
+
+    return CreatureList and CreatureList.isRemotePartyMember and CreatureList.isRemotePartyMember(creature)
+end
+
+function refreshOtherManaBar(creature)
+    if not creature or creature:isLocalPlayer() then
+        return
+    end
+
+    local widget = creature:getWidgetInformation()
+
+    if not widget or not widget.manaBar then
+        return
+    end
+
+    local visible = shouldShowPartyMemberManaBar(creature)
+    widget.manaBar:setVisible(visible)
+
+    if not visible then
+        return
+    end
+
+    local manaPercent = creature:getManaPercent()
+
+    if manaPercent > 100 then
+        local cacheTable = modules.game_party and modules.game_party.getPartyVitalsCacheTable
+            and modules.game_party.getPartyVitalsCacheTable()
+        local cached = cacheTable and cacheTable[creature:getId()]
+
+        if cached and cached.mana and cached.mana <= 100 then
+            manaPercent = cached.mana
+        else
+            manaPercent = 0
+        end
+    end
+
+    setAnimatedPercent(widget.manaBar, manaPercent, 'showAnimationHudManaBar', not widget.manaBar._animReady)
+end
+
 local function refreshMonkBars(creature)
     local widget = creature:getWidgetInformation()
     if not widget then
@@ -123,7 +172,24 @@ local function onCreate(creature)
     widget.manaBar:setVisible(creature:isLocalPlayer())
 
     creature:setWidgetInformation(widget)
+    refreshOtherManaBar(creature)
     refreshMonkBars(creature)
+end
+
+local function onManaPercentChange(creature, manaPercent, oldManaPercent)
+    if creature:isLocalPlayer() then
+        return
+    end
+
+    refreshOtherManaBar(creature)
+end
+
+local function onShieldChange(creature, shieldId)
+    if creature:isLocalPlayer() then
+        return
+    end
+
+    refreshOtherManaBar(creature)
 end
 
 local function onHealthPercentChange(creature, healthPercent, oldHealthPercent)
@@ -262,11 +328,15 @@ local creatureEvents = {
     onOutfitChange = onOutfitChange,
     onCovered = onCovered,
     onHealthPercentChange = onHealthPercentChange,
+    onManaPercentChange = onManaPercentChange,
     onChangeName = onChangeName,
     onTypeChange = function(creature, id) setIcon(creature, id, getTypeImagePath, 'type') end,
     onIconChange = function(creature, id) setIcon(creature, id, getIconImagePath, 'icon') end,
     onSkullChange = function(creature, id) setIcon(creature, id, getSkullImagePath, 'skull') end,
-    onShieldChange = function(creature, id) setIcon(creature, id, getShieldImagePathAndBlink, 'shield') end,
+    onShieldChange = function(creature, id)
+        setIcon(creature, id, getShieldImagePathAndBlink, 'shield')
+        onShieldChange(creature, id)
+    end,
     onEmblemChange = function(creature, id) setIcon(creature, id, getEmblemImagePath, 'emblem') end,
 };
 
@@ -292,6 +362,7 @@ function toggleInformation()
         else
             info.name:setVisible(gameMapPanel:isDrawingNames())
             info.lifeBar:setVisible(gameMapPanel:isDrawingHealthBars())
+            refreshOtherManaBar(creature)
         end
     end
 end

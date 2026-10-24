@@ -543,10 +543,7 @@ function syncVipMainPanelButton()
 	end
 
 	vipButton:setOn(on)
-
-	if vipButton.setTooltip then
-		vipButton:setTooltip(tr(on and "Close VIP List" or "Open VIP List"))
-	end
+	Keybind.syncControlButtonTooltip(vipButton, 'vipListButton')
 end
 
 function toggle()

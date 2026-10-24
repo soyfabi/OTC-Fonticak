@@ -1,0 +1,10 @@
+Module
+  name: game_social
+  description: Social dialog panel button (under development)
+  author: OTC-Fonticak
+  sandboxed: true
+  scripts: [ social ]
+  dependencies:
+    - game_interface
+  @onLoad: init()
+  @onUnload: terminate()

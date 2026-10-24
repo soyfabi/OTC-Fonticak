@@ -24,6 +24,8 @@ LifeProgressBar < UIProgressBar
   text-offset: 0 2
   margin: 2
 
+ManaProgressBar < LifeProgressBar
+
 ProgressRect < UIProgressRect
   anchors.fill: parent
   phantom: true

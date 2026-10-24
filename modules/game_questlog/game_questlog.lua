@@ -833,11 +833,7 @@ local function syncQuestLogTrackerMainPanelButton()
 	end
 
 	buttonQuestLogTrackerButton:setOn(on)
-
-	if buttonQuestLogTrackerButton.setTooltip then
-		buttonQuestLogTrackerButton.hotkeyTooltipBase = tr(on and "Close Quest Tracker" or "Open Quest Tracker")
-		Keybind.applyControlButtonTooltip(buttonQuestLogTrackerButton, 'questTrackerButton')
-	end
+	Keybind.syncControlButtonTooltip(buttonQuestLogTrackerButton, 'questTrackerButton')
 end
 
 function onOpenTracker()

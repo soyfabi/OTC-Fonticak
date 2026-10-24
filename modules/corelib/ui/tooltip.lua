@@ -1169,6 +1169,10 @@ function UIWidget:getTooltipDelay()
     return self.tooltipDelay
 end
 
+function g_tooltip.onWidgetHoverChange(widget, hovered)
+    onWidgetHoverChange(widget, hovered)
+end
+
 -- @}
 
 g_tooltip.init()

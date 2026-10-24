@@ -115,6 +115,8 @@ void UIMap::setLimitVisibleDimension(const bool enable) { m_mapView->setLimitVis
 
 void UIMap::setDrawManaBar(const bool enable) { m_mapView->setDrawManaBar(enable); }
 
+void UIMap::setDrawPartyManaBar(const bool enable) { m_mapView->setDrawPartyManaBar(enable); }
+
 void UIMap::setDrawPlayerBars(const bool enable) { m_mapView->setDrawPlayerBars(enable); }
 
 void UIMap::setDrawPlayerNames(const bool enable) { m_mapView->setDrawPlayerNames(enable); }
@@ -138,6 +140,8 @@ bool UIMap::isDrawingLights() { return m_mapView->isDrawingLights(); }
 bool UIMap::isLimitedVisibleDimension() { return m_mapView->isLimitedVisibleDimension(); }
 
 bool UIMap::isDrawingManaBar() { return m_mapView->isDrawingManaBar(); }
+
+bool UIMap::isDrawingPartyManaBar() { return m_mapView->isDrawingPartyManaBar(); }
 
 bool UIMap::isDrawingHarmony() { return m_mapView->isDrawingHarmony(); }
 

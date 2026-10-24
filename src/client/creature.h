@@ -62,7 +62,7 @@ public:
     void setMasterId(const uint32_t id) { m_masterId = id; }
     void setName(std::string_view name);
     void setHealthPercent(uint8_t healthPercent);
-    void setManaPercent(uint8_t value) { m_manaPercent = value; }
+    void setManaPercent(uint8_t manaPercent);
     void setDirection(Otc::Direction direction);
     void setOutfit(const Outfit& outfit, bool fireEvent = true);
     void setLight(const Light& light) { m_light = light; }
