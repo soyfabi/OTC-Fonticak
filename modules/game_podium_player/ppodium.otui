@@ -119,6 +119,113 @@ WindowPodium
         anchors.verticalCenter: parent.verticalCenter
         margin-left: 4
         @onCheckChange: modules.game_podium_player.showPodiumItem(self:isChecked())
+    FlatPanel
+      id: checkboxFlat3
+      size: 122 23
+      anchors.top: checkboxFlat2.bottom
+      anchors.left: checkboxFlat1.left
+      margin-top: 5
+      image-source: /modules/game_podium_monster/images/ui/panel-background
+      padding: 1 1 1 1
+      CheckBox
+        id: addon1
+        size: 12 12
+        font: $var-cip-font
+        text: Addon 1
+        text-offset: 14 -3
+        text-auto-resize: true
+        color: $var-text-cip-color
+        image-source: /images/ui/checkbox
+        image-clip: 0 0 12 12
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        margin-left: 4
+        @onCheckChange: modules.game_podium_player.onAddonChange()
+    FlatPanel
+      id: checkboxFlat4
+      size: 122 23
+      anchors.top: checkboxFlat3.bottom
+      anchors.left: checkboxFlat1.left
+      margin-top: 5
+      image-source: /modules/game_podium_monster/images/ui/panel-background
+      padding: 1 1 1 1
+      CheckBox
+        id: addon2
+        size: 12 12
+        font: $var-cip-font
+        text: Addon 2
+        text-offset: 14 -3
+        text-auto-resize: true
+        color: $var-text-cip-color
+        image-source: /images/ui/checkbox
+        image-clip: 0 0 12 12
+        anchors.left: parent.left
+        anchors.verticalCenter: parent.verticalCenter
+        margin-left: 4
+        @onCheckChange: modules.game_podium_player.onAddonChange()
+    Label
+      id: colorModeLabel
+      anchors.top: checkboxFlat4.bottom
+      anchors.left: checkboxFlat1.left
+      margin-top: 6
+      margin-left: 4
+      font: $var-cip-font
+      color: #909090
+      text: Colors
+    Panel
+      id: colorModeBar
+      size: 122 18
+      anchors.top: colorModeLabel.bottom
+      anchors.left: checkboxFlat1.left
+      margin-top: 2
+      layout:
+        type: horizontalBox
+        spacing: 2
+      UIButton
+        id: headColorBtn
+        size: 28 16
+        text: Head
+        font: $var-cip-font
+        @onClick: modules.game_podium_player.setColorMode('head')
+      UIButton
+        id: bodyColorBtn
+        size: 28 16
+        text: Body
+        font: $var-cip-font
+        @onClick: modules.game_podium_player.setColorMode('body')
+      UIButton
+        id: legsColorBtn
+        size: 28 16
+        text: Legs
+        font: $var-cip-font
+        @onClick: modules.game_podium_player.setColorMode('legs')
+      UIButton
+        id: feetColorBtn
+        size: 28 16
+        text: Feet
+        font: $var-cip-font
+        @onClick: modules.game_podium_player.setColorMode('feet')
+    ScrollablePanel
+      id: podiumColorGrid
+      size: 122 72
+      anchors.top: colorModeBar.bottom
+      anchors.left: checkboxFlat1.left
+      margin-top: 4
+      vertical-scrollbar: podiumColorScroll
+      layout:
+        type: grid
+        cell-size: 12 12
+        cell-spacing: 1
+        num-columns: 11
+        flow: true
+    VerticalScrollBar
+      id: podiumColorScroll
+      anchors.top: podiumColorGrid.top
+      anchors.bottom: podiumColorGrid.bottom
+      anchors.right: podiumColorGrid.right
+      margin-right: -12
+      step: 12
+      pixels-scroll: true
 
   WindowCyclopedia
     id: preview

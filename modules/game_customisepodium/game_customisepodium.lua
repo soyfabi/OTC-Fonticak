@@ -317,11 +317,29 @@ local function ensureWindow()
 	setupCreatureListScrollInsets()
 end
 
-local function findPodiumThing(position, itemClientId)
+local function findPodiumThing(position, itemClientId, stackPos)
 	if position then
 		local tile = g_map.getTile(position)
 
 		if tile then
+			if stackPos ~= nil then
+				local thing = tile:getThing(stackPos)
+
+				if thing and thing.isPodium and thing:isPodium() then
+					return thing
+				end
+			end
+
+			if itemClientId and itemClientId > 0 then
+				for i = 0, tile:getThingCount() - 1 do
+					local thing = tile:getThing(i)
+
+					if thing and thing.isItem and thing:getId() == itemClientId and thing.isPodium and thing:isPodium() then
+						return thing
+					end
+				end
+			end
+
 			local thing = tile:getTopUseThing()
 
 			if thing and thing.isPodium and thing:isPodium() then
@@ -732,7 +750,7 @@ function onConfigureBossPodium(data)
 
 	local position = data.position
 
-	currentThing = findPodiumThing(position, data.itemClientId)
+	currentThing = findPodiumThing(position, data.itemClientId, data.stackpos)
 	previewItem = buildPreviewItem(currentThing, data.itemClientId)
 	previewDirection = data.direction or Directions.South
 	previewOutfit = applyOpenStateFromTileItem(data)
@@ -978,6 +996,17 @@ function onCreatureSlotClick(slot)
 	selectedCreatureSlot = slot
 	previewOutfit = copyOutfit(slot.creatureOutfit)
 
+	if outfitHasDisplay(slot.creatureOutfit) and not showCreature then
+		showCreature = true
+		showPodiumBeforeCreatureOff = showPodium
+
+		local showCreatureCheck = customisePodiumWindow and customisePodiumWindow:recursiveGetChildById("showCreatureCheck")
+
+		if showCreatureCheck then
+			showCreatureCheck:setChecked(true)
+		end
+	end
+
 	syncShowPodiumOptionState()
 	updatePreview()
 end
@@ -1042,7 +1071,7 @@ function clearCreatureSearch()
 end
 
 local function sendEditPodium()
-	if not currentThing then
+	if not podiumProtocolData and not currentThing then
 		return
 	end
 
@@ -1053,6 +1082,10 @@ local function sendEditPodium()
 	end
 
 	local effectiveShowPlatform, effectiveShowCreature = getEffectivePodiumFlags()
+
+	if not effectiveShowCreature then
+		raceId = 0
+	end
 
 	g_game.confirmEditPodium(raceId, currentThing, previewDirection, effectiveShowPlatform, effectiveShowCreature)
 end

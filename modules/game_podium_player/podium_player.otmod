@@ -4,7 +4,7 @@ Module
   author: Fonticak
   sandboxed: true
   dependencies: [ game_interface ]
-  scripts: [ player_podium_protocol, ppodium ]
+  scripts: [ player_podium_protocol, renown_podium ]
   @onLoad: |
     initPlayerPodiumProtocol()
     init()

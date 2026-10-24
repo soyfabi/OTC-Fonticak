@@ -17,6 +17,47 @@ local function readOutfit(msg, lookType)
 	return outfit
 end
 
+local function openRenownPodiumWindow(currentOutfit, outfits, position, itemId, stackPos, podiumVisible, creatureVisible,
+	direction)
+	local outfit = {
+		type = currentOutfit.type or 0,
+		head = currentOutfit.head or 0,
+		body = currentOutfit.body or 0,
+		legs = currentOutfit.legs or 0,
+		feet = currentOutfit.feet or 0,
+		addons = currentOutfit.addons or 0,
+		mount = currentOutfit.mount or 0,
+		mountHead = currentOutfit.mountHead or 0,
+		mountBody = currentOutfit.mountBody or 0,
+		mountLegs = currentOutfit.mountLegs or 0,
+		mountFeet = currentOutfit.mountFeet or 0,
+	}
+
+	local rubinotList = {}
+	local maleOutfits = {}
+
+	for index, entry in ipairs(outfits) do
+		table.insert(rubinotList, { entry.lookType, entry.name or '', entry.addons or 0, 0, 0 })
+		maleOutfits[index] = entry.lookType
+	end
+
+	local data = {
+		pos = position,
+		position = position,
+		itemId = itemId,
+		stackpos = stackPos,
+		direction = direction or 2,
+		showPlatform = podiumVisible,
+		showCreature = creatureVisible,
+	}
+
+	if modules.game_podium_player and modules.game_podium_player.onOpenPodiumWindow then
+		modules.game_podium_player.onOpenPodiumWindow(outfit, rubinotList, {}, data, maleOutfits, {}, {})
+	elseif g_game.onOpenPodiumWindow then
+		signalcall(g_game.onOpenPodiumWindow, outfit, rubinotList, {}, data, maleOutfits, {}, {})
+	end
+end
+
 local function onPlayerPodiumOpcode(_, msg)
 	local currentOutfit = readOutfit(msg)
 	local mount = msg:getU16()
@@ -67,10 +108,8 @@ local function onPlayerPodiumOpcode(_, msg)
 	local podiumVisible = msg:getU8() ~= 0
 	local creatureVisible = msg:getU8() ~= 0
 
-	if modules.game_podium_player and modules.game_podium_player.onParsePlayerPodium then
-		modules.game_podium_player.onParsePlayerPodium(currentOutfit, outfits, position, itemId, stackPos, podiumVisible,
-			creatureVisible, direction)
-	end
+	openRenownPodiumWindow(currentOutfit, outfits, position, itemId, stackPos, podiumVisible, creatureVisible,
+		direction)
 end
 
 function initPlayerPodiumProtocol()

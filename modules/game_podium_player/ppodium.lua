@@ -3,6 +3,14 @@ local outfitList
 local previewGround
 local previewCreature
 local searchField
+local addon1Check
+local addon2Check
+local colorGrid
+local colorBoxGroup
+local currentColorBox
+local colorMode = 'head'
+
+local playerPodiumContext = {}
 
 local showoffOutfit = {}
 local position
@@ -15,6 +23,11 @@ local thingStackPos = 0
 local outfitEntries = {}
 local currentOutfit
 local lastChecked
+local maxUnlockedAddons = 0
+
+function getPodiumSendContext()
+	return playerPodiumContext
+end
 
 local function normalizeOutfit(outfit)
 	if not outfit or type(outfit) ~= 'table' then
@@ -71,6 +84,50 @@ local function applyPreview(spriteWidget)
 	end
 end
 
+local function getSelectedAddons()
+	local addons = 0
+	if addon1Check and addon1Check:isChecked() and addon1Check:isEnabled() then
+		addons = addons + 1
+	end
+	if addon2Check and addon2Check:isChecked() and addon2Check:isEnabled() then
+		addons = addons + 2
+	end
+	return addons
+end
+
+local function syncAddonChecks(unlockedAddons, wornAddons)
+	maxUnlockedAddons = unlockedAddons or 0
+	wornAddons = wornAddons or (currentOutfit and currentOutfit.addons) or 0
+	if not addon1Check or not addon2Check then
+		return
+	end
+
+	addon1Check:setEnabled(maxUnlockedAddons >= 1)
+	addon2Check:setEnabled(maxUnlockedAddons >= 2)
+	addon1Check:setChecked(maxUnlockedAddons >= 1 and wornAddons % 2 == 1)
+	addon2Check:setChecked(maxUnlockedAddons >= 2 and wornAddons >= 2)
+	if currentOutfit then
+		currentOutfit.addons = getSelectedAddons()
+	end
+end
+
+local function refreshPreviewCreature()
+	if not previewCreature then
+		return
+	end
+
+	if showCreature and currentOutfit and isOutfitRenderable(currentOutfit) then
+		local preview = table.copy(currentOutfit)
+		preview.addons = getSelectedAddons()
+		previewCreature:setVisible(true)
+		previewCreature:setOutfit(preview)
+		previewCreature:setDirection(podiumDirection or 2)
+		applyPreview(previewCreature)
+	else
+		previewCreature:setVisible(false)
+	end
+end
+
 local function bindOutfitWidget(widget, entry)
 	local outfit = normalizeOutfit({
 		type = entry.lookType,
@@ -89,6 +146,64 @@ local function bindOutfitWidget(widget, entry)
 	return true
 end
 
+local function selectColorBoxForMode()
+	if not colorBoxGroup or not colorGrid or not currentOutfit then
+		return
+	end
+
+	local colorId = currentOutfit[colorMode] or 0
+	local box = colorGrid:getChildById('colorBox' .. colorId)
+	if box then
+		colorBoxGroup:selectWidget(box)
+	end
+end
+
+local function setupColorPicker()
+	if not colorGrid or colorBoxGroup then
+		return
+	end
+
+	colorBoxGroup = UIRadioGroup.create()
+	colorGrid:destroyChildren()
+
+	for j = 0, 6 do
+		for i = 0, 18 do
+			local colorId = j * 19 + i
+			local colorBox = g_ui.createWidget('ColorBox', colorGrid)
+			colorBox:setId('colorBox' .. colorId)
+			colorBox.colorId = colorId
+			colorBox:setSize('11 11')
+			if getOutfitColor then
+				colorBox:setBackgroundColor(getOutfitColor(colorId))
+			end
+			colorBoxGroup:addWidget(colorBox)
+		end
+	end
+
+	colorBoxGroup.onSelectionChange = function(_, selectedWidget)
+		if not selectedWidget or not currentOutfit then
+			return
+		end
+		currentColorBox = selectedWidget
+		currentOutfit[colorMode] = selectedWidget.colorId
+		refreshPreviewCreature()
+	end
+
+	setColorMode('head')
+end
+
+function setColorMode(mode)
+	colorMode = mode or 'head'
+	selectColorBoxForMode()
+end
+
+function onAddonChange()
+	if currentOutfit then
+		currentOutfit.addons = getSelectedAddons()
+	end
+	refreshPreviewCreature()
+end
+
 function init()
 	podiumWindow = g_ui.displayUI('ppodium')
 	podiumWindow:hide()
@@ -97,9 +212,17 @@ function init()
 	applyPreview(previewCreature)
 	outfitList = podiumWindow:recursiveGetChildById('monsterList')
 	searchField = podiumWindow:recursiveGetChildById('searchfilteroutfits')
+	addon1Check = podiumWindow:recursiveGetChildById('addon1')
+	addon2Check = podiumWindow:recursiveGetChildById('addon2')
+	colorGrid = podiumWindow:recursiveGetChildById('podiumColorGrid')
+	setupColorPicker()
 end
 
 function terminate()
+	if colorBoxGroup then
+		colorBoxGroup:destroy()
+		colorBoxGroup = nil
+	end
 	if podiumWindow then
 		podiumWindow:destroy()
 		podiumWindow = nil
@@ -116,6 +239,7 @@ function hide()
 	end
 	currentOutfit = nil
 	lastChecked = nil
+	playerPodiumContext = {}
 	if podiumWindow and podiumWindow:isVisible() then
 		podiumWindow:hide()
 	end
@@ -126,6 +250,12 @@ function onParsePlayerPodium(podiumOutfit, outfits, pos, itemID, stackPos, showP
 		return
 	end
 
+	playerPodiumContext = {
+		position = pos,
+		itemClientId = itemID,
+		stackpos = stackPos,
+	}
+
 	if not podiumWindow:isVisible() then
 		podiumWindow:show()
 		podiumWindow:focus()
@@ -134,7 +264,7 @@ function onParsePlayerPodium(podiumOutfit, outfits, pos, itemID, stackPos, showP
 	showoffOutfit = podiumOutfit or {}
 	position = pos
 	thingID = itemID
-	thingStackPos = stackPos
+	thingStackPos = stackPos or 0
 	showCreature = isShowingCreature
 	podiumVisible = showPodium
 	podiumDirection = direction
@@ -152,6 +282,20 @@ function onParsePlayerPodium(podiumOutfit, outfits, pos, itemID, stackPos, showP
 		podiumShow:setChecked(podiumVisible)
 	end
 
+	local unlockedAddons = 0
+	if currentOutfit then
+		for _, entry in ipairs(outfitEntries) do
+			if entry.lookType == currentOutfit.type then
+				unlockedAddons = entry.addons or 0
+				break
+			end
+		end
+		if unlockedAddons == 0 and #outfitEntries > 0 then
+			unlockedAddons = outfitEntries[1].addons or 0
+		end
+	end
+	syncAddonChecks(unlockedAddons, currentOutfit and currentOutfit.addons or 0)
+	selectColorBoxForMode()
 	showPlayerPodium()
 end
 
@@ -160,24 +304,13 @@ function showPlayerPodium(filter)
 		return
 	end
 
-	if showoffOutfit.type ~= 128 then
-		currentOutfit = normalizeOutfit(showoffOutfit)
-	end
+	currentOutfit = normalizeOutfit(showoffOutfit) or currentOutfit
+	refreshPreviewCreature()
+	previewGround.item:setVisible(podiumVisible)
 
 	if outfitList then
 		outfitList:destroyChildren()
 	end
-
-	if showCreature and currentOutfit and isOutfitRenderable(currentOutfit) then
-		previewCreature:setVisible(true)
-		previewCreature:setOutfit(currentOutfit)
-		previewCreature:setDirection(podiumDirection or 2)
-		applyPreview(previewCreature)
-	else
-		previewCreature:setVisible(false)
-	end
-
-	previewGround.item:setVisible(podiumVisible)
 
 	for _, entry in ipairs(outfitEntries) do
 		local name = entry.name or ''
@@ -198,13 +331,7 @@ end
 
 function showCreatureOutfit(checked)
 	showCreature = checked
-	if checked and currentOutfit and isOutfitRenderable(currentOutfit) then
-		previewCreature:setVisible(true)
-		previewCreature:setOutfit(currentOutfit)
-		previewCreature:setDirection(podiumDirection or 2)
-	else
-		previewCreature:setVisible(false)
-	end
+	refreshPreviewCreature()
 end
 
 function showPodiumItem(checked)
@@ -242,21 +369,28 @@ function onCheckBox(widget, parentClick)
 		return
 	end
 
+	local preserved = currentOutfit or showoffOutfit or {}
 	currentOutfit = normalizeOutfit({
 		type = entry.lookType,
-		head = entry.head,
-		body = entry.body,
-		legs = entry.legs,
-		feet = entry.feet,
-		addons = entry.addons,
+		head = preserved.head or entry.head,
+		body = preserved.body or entry.body,
+		legs = preserved.legs or entry.legs,
+		feet = preserved.feet or entry.feet,
+		addons = preserved.addons or 0,
+		mount = preserved.mount or showoffOutfit.mount,
 	})
-	if currentOutfit and isOutfitRenderable(currentOutfit) then
-		previewCreature:setOutfit(currentOutfit)
-		previewCreature:setDirection(podiumDirection or 2)
-		if showCreature then
-			previewCreature:setVisible(true)
+
+	if not showCreature then
+		showCreature = true
+		local creatureShow = podiumWindow:recursiveGetChildById('creatureShow')
+		if creatureShow then
+			creatureShow:setChecked(true)
 		end
 	end
+
+	syncAddonChecks(entry.addons or 0, currentOutfit.addons or 0)
+	selectColorBoxForMode()
+	refreshPreviewCreature()
 end
 
 function onChangeDirection(isRight)
@@ -278,14 +412,31 @@ function onChangeDirection(isRight)
 end
 
 function onSelectOutfit()
-	local outfit = currentOutfit or {}
+	local outfit = table.copy(currentOutfit or {})
+	outfit.addons = getSelectedAddons()
+
+	if not showCreature then
+		outfit.type = 0
+	elseif not outfit.type or outfit.type <= 0 then
+		g_logger.warning('Player podium: select an outfit before confirming.')
+		return
+	end
+
+	local pos = playerPodiumContext.position or position
+	local itemId = playerPodiumContext.itemClientId or thingID
+	local stackPos = playerPodiumContext.stackpos or thingStackPos
+
+	if not pos or pos.x == 65535 then
+		g_logger.warning('Player podium: invalid podium position.')
+		return
+	end
+
 	if g_game.changeOutfitPodium then
-		g_game.changeOutfitPodium(outfit, position, thingID, thingStackPos, podiumDirection or 2, podiumVisible,
-			showCreature)
+		g_game.changeOutfitPodium(outfit, pos, itemId, stackPos, podiumDirection or 2, podiumVisible, showCreature)
 	else
 		local lookType = showCreature and (outfit.type or 0) or 0
 		g_game.sendPlayerPodiumOutfit(lookType, outfit.head or 0, outfit.body or 0, outfit.legs or 0, outfit.feet or 0,
-			outfit.addons or 0, outfit.mount or 0, position, thingID, thingStackPos, podiumDirection or 2, podiumVisible,
+			outfit.addons or 0, outfit.mount or 0, pos, itemId, stackPos, podiumDirection or 2, podiumVisible,
 			showCreature)
 	end
 	hide()
