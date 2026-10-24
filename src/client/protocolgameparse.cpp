@@ -60,6 +60,35 @@ bool shouldDrawMagicEffect(const int effectId)
     return true;
 }
 
+bool isFonticakMonsterPodiumServerId(const uint16_t serverId)
+{
+    switch (serverId) {
+        case 38707: // podium of vigour
+        case 42367: // podium of tenacity
+        case 42368:
+        case 35973: // podium of renown
+        case 35974:
+            return true;
+        default:
+            return false;
+    }
+}
+
+bool itemHasFonticakPodiumWireState(const ItemPtr& item)
+{
+    if (!item)
+        return false;
+
+#ifdef FRAMEWORK_EDITOR
+    const auto& itemType = g_things.findItemTypeByClientId(static_cast<uint16_t>(item->getId()));
+    if (itemType && !itemType->isNull())
+        return isFonticakMonsterPodiumServerId(itemType->getServerId());
+#endif
+
+    // Release client has no OTB; server id matches client id on Fonticak 8.60 item packs.
+    return isFonticakMonsterPodiumServerId(static_cast<uint16_t>(item->getId()));
+}
+
 bool tileHasLegacyLootHighlightAttachedEffects(const TilePtr& tile)
 {
     if (!tile)
@@ -4702,30 +4731,34 @@ ItemPtr ProtocolGame::getItem(const InputMessagePtr& msg, int id)
         }
     }
 
-    if (g_game.getFeature(Otc::GameThingPodium)) {
-        if (item->isPodium()) {
-            const uint16_t looktype = msg->getU16();
-            if (looktype != 0) {
-                msg->getU8(); // lookHead
-                msg->getU8(); // lookBody
-                msg->getU8(); // lookLegs
-                msg->getU8(); // lookFeet
-                msg->getU8(); // lookAddons
-            } else if (g_game.getFeature(Otc::GameThingPodiumItemType)) {
-                msg->getU16(); // LookTypeEx
-            }
-
-            const uint16_t lookmount = msg->getU16();
-            if (lookmount != 0) {
-                msg->getU8(); // lookHead
-                msg->getU8(); // lookBody
-                msg->getU8(); // lookLegs
-                msg->getU8(); // lookFeet
-            }
-
-            msg->getU8(); // direction
-            msg->getU8(); // visible (bool)
+    if (g_game.getFeature(Otc::GameThingPodium) && itemHasFonticakPodiumWireState(item)) {
+        Outfit podiumOutfit;
+        const uint16_t looktype = msg->getU16();
+        if (looktype != 0) {
+            podiumOutfit.setId(looktype);
+            podiumOutfit.setCategory(ThingCategoryCreature);
+            podiumOutfit.setHead(msg->getU8());
+            podiumOutfit.setBody(msg->getU8());
+            podiumOutfit.setLegs(msg->getU8());
+            podiumOutfit.setFeet(msg->getU8());
+            podiumOutfit.setAddons(msg->getU8());
+        } else if (g_game.getFeature(Otc::GameThingPodiumItemType)) {
+            podiumOutfit.setAuxId(msg->getU16());
+            podiumOutfit.setCategory(ThingCategoryItem);
         }
+
+        const uint16_t lookmount = msg->getU16();
+        if (lookmount != 0) {
+            msg->getU8();
+            msg->getU8();
+            msg->getU8();
+            msg->getU8();
+            podiumOutfit.setMount(lookmount);
+        }
+
+        const auto direction = static_cast<Otc::Direction>(msg->getU8());
+        const bool creatureVisible = msg->getU8() != 0;
+        item->setPodiumCreatureState(podiumOutfit, direction, creatureVisible);
     }
 
     // Tier is read earlier when GameItemTierByte is negotiated (8.60 server path).

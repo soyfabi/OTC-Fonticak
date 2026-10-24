@@ -95,6 +95,7 @@ namespace Proto
         GameServerBosstiaryData = 97,
         GameServerBosstiarySlots = 98,
         GameServerSendClientCheck = 99,
+        GameServerMonsterPodium = 194, // 0xC2
         GameServerFullMap = 100,
         GameServerMapTopRow = 101,
         GameServerMapRightRow = 102,
@@ -183,8 +184,9 @@ namespace Proto
         GameServerFloorChangeDown = 191,
         GameServerLootContainers = 192,
         GameServerMonkData = 193,
-        GameServerCyclopediaHouseAuctionMessage = 195,
+        GameServerCyclopediaHouseAuctionMessage = 195, // 0xC3
         GameServerWeaponProficiencyInfo = 196,
+        GameServerPlayerPodium = 197, // 0xC5, FS renown podium window (Lua handler)
         GameServerCyclopediaHousesInfo = 198,
         GameServerCyclopediaHouseList = 199,
         GameServerChooseOutfit = 200,
@@ -315,6 +317,8 @@ namespace Proto
         ClientCloseRuleViolation = 156,
         ClientCancelRuleViolation = 157,
         ClientCloseNpcChannel = 158,
+        ClientSetMonsterPodium = 159, // 0x9F, FS/Astra monster podium configure
+        ClientSetPlayerPodium = 241, // 0xF1, FS/Astra player renown podium configure
         ClientChangeFightModes = 160,
         ClientAttack = 161,
         ClientFollow = 162,

@@ -1009,6 +1009,43 @@ void Game::useWith(const ItemPtr& item, const ThingPtr& toThing)
     g_lua.callGlobalField("g_game", "onUseWith", pos, item->getId(), toThing, item->getStackPos());
 }
 
+void Game::sendMonsterPodiumOutfit(const int raceId, const Position& position, const int itemId, const int stackPos,
+                                   const int direction, const bool podiumVisible, const bool creatureVisible)
+{
+    if (!canPerformGameAction() || raceId < 0 || itemId < 0 || itemId > 65535 || stackPos < 0 || stackPos > 255 ||
+        direction < 0 || direction > 3) {
+        return;
+    }
+
+    m_protocolGame->sendMonsterPodiumOutfit(static_cast<uint32_t>(raceId), position, static_cast<uint16_t>(itemId),
+                                            static_cast<uint8_t>(stackPos), static_cast<uint8_t>(direction),
+                                            podiumVisible, creatureVisible);
+}
+
+void Game::sendPlayerPodiumOutfit(const int lookType, const int head, const int body, const int legs, const int feet,
+                                  const int addons, const int mount, const Position& position, const int itemId,
+                                  const int stackPos, const int direction, const bool podiumVisible,
+                                  const bool creatureVisible)
+{
+    if (!canPerformGameAction() || lookType < 0 || lookType > 65535 || itemId < 0 || itemId > 65535 || stackPos < 0 ||
+        stackPos > 255 || direction < 0 || direction > 3) {
+        return;
+    }
+
+    Outfit outfit;
+    outfit.setId(static_cast<uint16_t>(lookType));
+    outfit.setHead(static_cast<uint8_t>(head));
+    outfit.setBody(static_cast<uint8_t>(body));
+    outfit.setLegs(static_cast<uint8_t>(legs));
+    outfit.setFeet(static_cast<uint8_t>(feet));
+    outfit.setAddons(static_cast<uint8_t>(addons));
+    outfit.setMount(static_cast<uint16_t>(std::max(0, mount)));
+
+    m_protocolGame->sendPlayerPodiumOutfit(outfit, position, static_cast<uint16_t>(itemId),
+                                           static_cast<uint8_t>(stackPos), static_cast<uint8_t>(direction),
+                                           podiumVisible, creatureVisible);
+}
+
 void Game::useInventoryItemWith(const uint16_t itemId, const ThingPtr& toThing)
 {
     if (!canPerformGameAction() || !toThing)
