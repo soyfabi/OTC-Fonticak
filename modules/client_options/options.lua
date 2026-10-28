@@ -1882,10 +1882,6 @@ local function setSubCategoriesVisible(parent, isOpen, opacity)
     end
 end
 
-function onShowAdvancedOptions(widget, checked)
-    -- TODO: Implement Show Advanced Options functionality in the near future
-end
-
 local function toggleSubCategories(parent, isOpen)
     if not parent or not parent.subCategories then
         return
