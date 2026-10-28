@@ -4,6 +4,7 @@ local BUNDLED_NEWS_FILE = "/game_compendium/compendium.json"
 local CACHED_NEWS_FILE = "/compendium_cache.json"
 local IMAGES_PATH = "/game_compendium/images/"
 local BUTTON_ID = "compendiumDialog"
+local COMPENDIUM_OPENED_SETTINGS = "compendium-opened"
 local MAX_NEWS_FILE_SIZE = 10 * 1024 * 1024
 
 local OTC_CATEGORY = "OTC"
@@ -42,6 +43,91 @@ local contentLinks = {}
 local function isUiAlive()
     local ui = compendiumController.ui
     return ui ~= nil and not ui:isDestroyed()
+end
+
+local function getCompendiumOpenedSettingsKey()
+    local character = g_game.getCharacterName and g_game.getCharacterName() or ""
+    local world = g_game.getWorldName and g_game.getWorldName() or ""
+    if character == "" then
+        return nil
+    end
+    if world ~= "" then
+        return world .. "/" .. character
+    end
+    return character
+end
+
+local function hasOpenedCompendiumForCharacter()
+    local key = getCompendiumOpenedSettingsKey()
+    if not key then
+        return false
+    end
+    local settings = g_settings.getNode(COMPENDIUM_OPENED_SETTINGS) or {}
+    return settings[key] == true or settings[key] == 1
+end
+
+local function markCompendiumOpenedForCharacter()
+    local key = getCompendiumOpenedSettingsKey()
+    if not key then
+        return
+    end
+    local settings = g_settings.getNode(COMPENDIUM_OPENED_SETTINGS) or {}
+    if settings[key] == true or settings[key] == 1 then
+        return
+    end
+    settings[key] = true
+    g_settings.setNode(COMPENDIUM_OPENED_SETTINGS, settings)
+end
+
+local function shouldShowCompendiumButtonHighlight()
+    if not compendiumButton or compendiumButton:isDestroyed() then
+        return false
+    end
+    if isUiAlive() and compendiumController.ui:isVisible() then
+        return false
+    end
+    return not hasOpenedCompendiumForCharacter()
+end
+
+local function setCompendiumButtonHighlight(visible)
+    if not compendiumButton or compendiumButton:isDestroyed() then
+        return
+    end
+
+    local highlight = compendiumButton:getChildById("highlight")
+    if not highlight then
+        highlight = g_ui.createWidget("UIWidget", compendiumButton)
+        highlight:setId("highlight")
+        highlight:setSize("22 22")
+        highlight:setPhantom(true)
+        highlight:setFocusable(false)
+        highlight:setVisible(false)
+        highlight:setImageSource("/images/topbuttons/highlight")
+        highlight:addAnchor(AnchorHorizontalCenter, "parent", AnchorHorizontalCenter)
+        highlight:addAnchor(AnchorVerticalCenter, "parent", AnchorVerticalCenter)
+    end
+
+    local bright = compendiumButton:getChildById("brightButton")
+    if not bright then
+        bright = g_ui.createWidget("UIWidget", compendiumButton)
+        bright:setId("brightButton")
+        bright:setSize("20 20")
+        bright:setPhantom(true)
+        bright:setFocusable(false)
+        bright:setVisible(false)
+        bright:setImageSource("/images/ui/bright-x20")
+        bright:addAnchor(AnchorTop, "parent", AnchorTop)
+        bright:addAnchor(AnchorLeft, "parent", AnchorLeft)
+    end
+
+    highlight:setVisible(visible)
+    bright:setVisible(visible)
+    highlight:raise()
+    bright:raise()
+end
+
+local function refreshCompendiumButtonHighlight()
+    setCompendiumButtonHighlight(shouldShowCompendiumButtonHighlight())
 end
 
 local function syncCompendiumButtonTooltip()
@@ -623,6 +709,9 @@ function show()
         syncCompendiumButtonTooltip()
     end
 
+    markCompendiumOpenedForCharacter()
+    refreshCompendiumButtonHighlight()
+
     if not newsData then
         newsData = loadLocalNews()
         needsRebuild = true
@@ -643,6 +732,7 @@ function hide()
         compendiumButton:setOn(false)
         syncCompendiumButtonTooltip()
     end
+    refreshCompendiumButtonHighlight()
 end
 
 function toggle()
@@ -752,6 +842,7 @@ function compendiumController:onGameStart()
             ["$on"] = { ["image-clip"] = "0 20 20 20" }
         })
         syncCompendiumButtonTooltip()
+        refreshCompendiumButtonHighlight()
     end
 end
 
