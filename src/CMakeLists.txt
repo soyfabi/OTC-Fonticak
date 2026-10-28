@@ -628,6 +628,14 @@ target_compile_definitions(otclient_core PRIVATE ENABLE_DISCORD_RPC=${OTCLIENT_E
 # *****************************************************************************
 # Includes and librarys
 # *****************************************************************************
+find_package(Stb QUIET)
+if(NOT Stb_FOUND)
+  find_path(Stb_INCLUDE_DIR "stb_image.h")
+  if(NOT Stb_INCLUDE_DIR)
+    message(FATAL_ERROR "Stb not found: install the stb vcpkg port or make stb_image.h available")
+  endif()
+endif()
+
 if(MSVC)
 
   # Set variables to have Windows Vista Value so httplib will build 'inet_pton'
@@ -689,6 +697,7 @@ if(MSVC)
           ${PARALLEL_HASHMAP_INCLUDE_DIRS}
           ${NLOHMANN_JSON_INCLUDE_DIR}
           ${CPPCODEC_INCLUDE_DIRS}
+          ${Stb_INCLUDE_DIR}
   )
   target_link_libraries(otclient_core
           PUBLIC
@@ -742,6 +751,7 @@ elseif(ANDROID)
           ${PARALLEL_HASHMAP_INCLUDE_DIRS}
           ${NLOHMANN_JSON_INCLUDE_DIR}
           ${CPPCODEC_INCLUDE_DIRS}
+          ${Stb_INCLUDE_DIR}
   )
   target_link_libraries(otclient_core
           PUBLIC
@@ -808,6 +818,7 @@ elseif(WASM)
           ${OPENSSL_INCLUDE_DIR}
           ${BROWSER_INCLUDE_DIR}
           ${CPPCODEC_INCLUDE_DIRS}
+          ${Stb_INCLUDE_DIR}
   )
   target_link_libraries(otclient_core
           PUBLIC
@@ -931,6 +942,7 @@ else() # Linux
           ${NLOHMANN_JSON_INCLUDE_DIR}
           ${OPENSSL_INCLUDE_DIR}
           ${CPPCODEC_INCLUDE_DIRS}
+          ${Stb_INCLUDE_DIR}
   )
   target_link_libraries(otclient_core
           PUBLIC
