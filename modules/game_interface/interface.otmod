@@ -47,6 +47,7 @@ Module
     - game_stash
     - game_healthcircle
     - game_monk
+    - game_soundDebug
     - game_notifications
     - game_highscore
     - game_blessing

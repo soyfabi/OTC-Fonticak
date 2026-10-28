@@ -149,6 +149,10 @@ local mobileConfig = {
 }
 local isExtendedViewActive = false
 
+function onOptionsLoaded()
+    updateSidePanelButtons()
+end
+
 local function applyMobileMargins()
     if g_platform.isMobile() then
         gameRightPanel:setMarginBottom(mobileConfig.mobileHeightShortcuts)
@@ -2792,8 +2796,7 @@ function limitZoom()
 end
 
 function updateStatsBar(dimension, placement)
-    StatsBar.updateCurrentStats(dimension, placement)
-    StatsBar.updateStatsBarOption()
+    StatsBar.updateStatsBarOption(dimension, placement)
 end
 
 function setupOptionsMainButton()
@@ -2807,10 +2810,8 @@ function setupOptionsMainButton()
 end
 
 function checkAndOpenLeftPanel()
-    leftDecreaseSidePanels:setEnabled(true)
     if not modules.client_options.getOption('showLeftPanel') then
         modules.client_options.setOption('showLeftPanel', true)
-        return
     end
 end
 

@@ -2274,10 +2274,7 @@ void UIWidget::playUiSound(const int soundType)
         return;
 
 #ifdef FRAMEWORK_SOUND
-    const std::string fileName = g_sounds.getAudioFileNameById(soundIt->second);
-    if (!fileName.empty()) {
-        g_sounds.play(g_sounds.resolveSoundFile(fileName));
-    }
+    g_sounds.playUiSoundById(soundIt->second);
 #endif
 }
 

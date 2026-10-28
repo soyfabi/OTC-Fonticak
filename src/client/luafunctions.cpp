@@ -60,6 +60,9 @@
 #include "uisprite.h"
 #include "paperdoll.h"
 #include "paperdollmanager.h"
+#ifdef FRAMEWORK_SOUND
+#include <framework/sound/soundmanager.h>
+#endif
 
 #ifdef FRAMEWORK_EDITOR
 #include "houses.h"
@@ -1252,6 +1255,8 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMap>("getFloorViewMode", &UIMap::getFloorViewMode);
     g_lua.bindClassMemberFunction<UIMap>("getFollowingCreature", &UIMap::getFollowingCreature);
     g_lua.bindClassMemberFunction<UIMap>("getCameraPosition", &UIMap::getCameraPosition);
+    g_lua.bindClassMemberFunction<UIMap>("getTilePoint", &UIMap::getTilePoint);
+    g_lua.bindClassMemberFunction<UIMap>("getTileRect", &UIMap::getTileRect);
     g_lua.bindClassMemberFunction<UIMap>("getPosition", &UIMap::getPosition);
     g_lua.bindClassMemberFunction<UIMap>("getPositionOffset", &UIMap::getPositionOffset);
     g_lua.bindClassMemberFunction<UIMap>("getTile", &UIMap::getTile);
@@ -1270,6 +1275,10 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMap>("setDrawHarmony", &UIMap::setDrawHarmony);
     g_lua.bindClassMemberFunction<UIMap>("setDrawOwnHarmonyBar", &UIMap::setDrawOwnHarmonyBar);
     g_lua.bindClassMemberFunction<UIMap>("isDrawingOwnHarmonyBar", &UIMap::isDrawingOwnHarmonyBar);
+
+    #ifdef FRAMEWORK_SOUND
+    g_lua.bindSingletonFunction("g_sounds", "getDebugSnapshot", &SoundManager::getDebugSnapshot, &g_sounds);
+    #endif // FRAMEWORK_SOUND
 
     g_lua.registerClass<UIMinimap, UIWidget>();
     g_lua.bindClassStaticFunction<UIMinimap>("create", [] { return std::make_shared<UIMinimap>(); });

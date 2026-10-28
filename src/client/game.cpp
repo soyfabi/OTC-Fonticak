@@ -43,6 +43,9 @@
 #include "framework/net/connection.h"
 #endif
 #include "luavaluecasts_client.h"
+#ifdef FRAMEWORK_SOUND
+#include <framework/sound/soundmanager.h>
+#endif
 
 Game g_game;
 
@@ -224,6 +227,10 @@ void Game::processGameEnd()
 {
     // FPS fixed at 60 for when UI is rendering alone.
     g_app.setTargetFps(60u);
+
+    #ifdef FRAMEWORK_SOUND
+    g_sounds.stopAllChannelsExcept(SoundManager::CHANNEL_MUSIC);
+    #endif // FRAMEWORK_SOUND
 
     m_online = false;
     g_lua.callGlobalField("g_game", "onGameEnd");

@@ -285,6 +285,7 @@ end
 function UIMiniWindow.create()
     local miniwindow = UIMiniWindow.internalCreate()
     miniwindow.UIMiniWindowContainer = true
+    miniwindow:addSound(ESoundUI.SoundTypeClick, 2785)
     return miniwindow
 end
 

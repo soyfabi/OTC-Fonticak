@@ -241,7 +241,9 @@ MainWindow
 
   $on:
     image-border-bottom: 2
-  @onEnter: modules.client_options.hide()
+  @onEnter: |
+    modules.client_options.saveOptions()
+    modules.client_options.hide()
   @onEscape: modules.client_options.hide()
   $mobile:
     size: 500 380
@@ -252,7 +254,7 @@ MainWindow
     anchors.right: parent.right
     anchors.bottom: parent.bottom
     height: 2
-    margin-bottom: 15
+    margin-bottom: 25
 
   Label
     !text: tr('Options')
@@ -342,10 +344,20 @@ MainWindow
 
   OptionsQtButton
     !text: tr('Ok')
-    size: 64 20
-    anchors.right: parent.right
+    size: 42 20
+    anchors.right: next.left
     anchors.bottom: parent.bottom
-    margin-bottom: -8
+    margin-right: 8
+    margin-bottom: -4
     @onClick: |
       modules.client_options.saveOptions()
+      modules.client_options.hide()
+
+  OptionsQtButton
+    !text: tr('Cancel')
+    size: 58 20
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    margin-bottom: -4
+    @onClick: |
       modules.client_options.hide()
