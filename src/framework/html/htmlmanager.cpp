@@ -54,29 +54,8 @@ namespace {
         {"border", "image-border"},
         {"auto-resize", "image-auto-resize"},
         {"individual-animation", "image-individual-animation"},
-        {"src", "image-source"}
-    };
-
-    static const std::unordered_map<std::string, std::string> cssMap = {
-        {"active", "active"},
-        {"focus", "focus"},
-        {"hover", "hover"},
-        {"pressed", "pressed"},
-        {"checked", "checked"},
-        {"disabled", "disabled"},
-        {"first-child", "first"},
-        {"middle", "middle"},
-        {"last-child", "last"},
-        {"nth-child(even)", "alternate"},
-        {"nth-child(odd)", "alternate"},
-        {"on", "on"},
-        {"[aria-pressed='true']", "on"},
-        {"[data-on]", "on"},
-        {"dragging", "dragging"},
-        {"hidden", "hidden"},
-        {"[hidden]", "hidden"},
-        {"mobile", "mobile"},
-        {"@media", "mobile"}
+        {"src", "image-source"},
+        {"*src", "*image-source"}
     };
 
     static const std::unordered_set<std::string_view> kProps = {
@@ -110,6 +89,11 @@ namespace {
         return kProps.find(prop) != kProps.end();
     }
 
+    // Cascade precedence: !important > the node's own matched rule > inherited value > universal (*) default.
+    inline bool canInheritOver(const StyleValue& current) noexcept {
+        return !current.important && (current.universal || !current.inheritedFromId.empty());
+    }
+
     void setChildrenStyles(std::string_view htmlId, HtmlNode* n, const std::string& style, const std::string& prop, const std::string& value) {
         if (n->getType() == NodeType::Element)
             n->getInheritableStyles()[style][prop] = value;
@@ -117,17 +101,11 @@ namespace {
         for (const auto& child : n->getChildren()) {
             auto& styleMap = child->getStyles()[style];
             auto it = styleMap.find(prop);
-            if (it == styleMap.end() || !it->second.important) {
-                child->getStyles()[style][prop] = { value , std::string{htmlId} };
+            if (it == styleMap.end() || canInheritOver(it->second)) {
+                styleMap[prop] = { value , std::string{htmlId} };
                 setChildrenStyles(htmlId, child.get(), style, prop, value);
             }
         }
-    }
-
-    std::string cssToState(const std::string& css) {
-        if (auto it = cssMap.find(css); it != cssMap.end())
-            return it->second;
-        return "";
     }
 
     void parseAttrPropList(std::string_view attrsStr, std::map<std::string, std::string>& attrsMap) {
@@ -142,7 +120,142 @@ namespace {
         }
     }
 
-    void translateAttribute(std::string_view styleName, std::string_view tagName, std::string& attr, std::string& value) {
+    std::string toCssLength(std::string value) {
+        stdext::trim(value);
+        if (!value.empty() && std::ranges::all_of(value, [](const unsigned char c) { return std::isdigit(c); }))
+            value += "px";
+        return value;
+    }
+
+    HtmlNode* findAncestorTable(HtmlNode* node) {
+        for (auto parent = node->getParent(); parent; parent = parent->getParent()) {
+            if (parent->getTag() == "table")
+                return parent.get();
+        }
+        return nullptr;
+    }
+
+    bool isHeadingTag(std::string_view tag) {
+        return tag.size() == 2 && tag[0] == 'h' && tag[1] >= '1' && tag[1] <= '6';
+    }
+
+    // Legacy presentational attributes (align, valign, width, cellpadding...) are mapped to
+    // styles with the lowest author precedence: CSS rules and inline styles always win.
+    // Returns the attributes consumed, which must not be forwarded to Lua setters.
+    std::unordered_set<std::string> applyPresentationalHints(UIWidget* widget, HtmlNode* node) {
+        std::unordered_set<std::string> consumed;
+        if (node->getType() != NodeType::Element)
+            return consumed;
+
+        const auto& tag = node->getTag();
+        const bool isTable = tag == "table";
+        const bool isCell = tag == "td" || tag == "th";
+        const bool isRow = tag == "tr";
+        const bool isImg = tag == "img";
+        const bool isBlockText = tag == "p" || tag == "div" || isHeadingTag(tag);
+        if (!isTable && !isCell && !isRow && !isImg && !isBlockText)
+            return consumed;
+
+        std::vector<std::pair<std::string, std::string>> hints;
+        const auto attrValue = [&](const std::string& name) {
+            auto value = node->getAttr(name);
+            stdext::trim(value);
+            return ascii_tolower_copy(value);
+        };
+        const auto consume = [&](const std::string& name) {
+            if (!node->hasAttr(name))
+                return std::string{};
+            consumed.emplace(name);
+            return attrValue(name);
+        };
+
+        if (isTable || isCell || isRow) {
+            if (!isRow) {
+                if (const auto width = consume("width"); !width.empty())
+                    hints.emplace_back("width", toCssLength(width));
+            }
+            if (const auto height = consume("height"); !height.empty())
+                hints.emplace_back("height", toCssLength(height));
+            if (const auto bgcolor = consume("bgcolor"); !bgcolor.empty())
+                hints.emplace_back("background-color", bgcolor);
+        }
+
+        if (const auto align = consume("align"); !align.empty()) {
+            if (isImg || isTable) {
+                if (align == "left" || align == "right")
+                    hints.emplace_back("float", align);
+                else if (isTable && align == "center") {
+                    hints.emplace_back("margin-left", "auto");
+                    hints.emplace_back("margin-right", "auto");
+                } else if (isImg && (align == "middle" || align == "top" || align == "bottom"))
+                    hints.emplace_back("vertical-align", align);
+            } else if (align == "left" || align == "right" || align == "center" || align == "justify") {
+                hints.emplace_back("text-align", align);
+            }
+        }
+
+        if (isCell || isRow) {
+            if (const auto valign = consume("valign"); !valign.empty())
+                hints.emplace_back("vertical-align", valign);
+        }
+
+        if (isImg) {
+            // Not consumed: they still reach image-width/image-height. As layout hints they reserve
+            // the box before a remote image finishes downloading.
+            for (const auto* dimension : { "width", "height" }) {
+                const auto value = attrValue(dimension);
+                if (!value.empty() && stdext::to_number(value) > 0)
+                    hints.emplace_back(dimension, toCssLength(value));
+            }
+            if (const auto hspace = consume("hspace"); !hspace.empty()) {
+                hints.emplace_back("margin-left", toCssLength(hspace));
+                hints.emplace_back("margin-right", toCssLength(hspace));
+            }
+            if (const auto vspace = consume("vspace"); !vspace.empty()) {
+                hints.emplace_back("margin-top", toCssLength(vspace));
+                hints.emplace_back("margin-bottom", toCssLength(vspace));
+            }
+        }
+
+        if (isTable) {
+            consume("cellpadding");
+            consume("cellspacing");
+            if (const auto border = consume("border"); stdext::to_number(border) > 0) {
+                hints.emplace_back("border-width", toCssLength(border));
+                hints.emplace_back("border-color", "#808080");
+            }
+        }
+
+        if (isCell) {
+            if (const auto* table = findAncestorTable(node)) {
+                if (const auto padding = table->getAttr("cellpadding"); !padding.empty())
+                    hints.emplace_back("padding", toCssLength(padding));
+                if (stdext::to_number(table->getAttr("border")) > 0) {
+                    hints.emplace_back("border-width", "1px");
+                    hints.emplace_back("border-color", "#808080");
+                }
+            }
+        }
+
+        auto& attrStyles = node->getAttrStyles();
+        auto& ruleStyles = node->getStyles()["styles"];
+        for (const auto& [prop, value] : hints) {
+            if (attrStyles.contains(prop))
+                continue;
+
+            const auto it = ruleStyles.find(prop);
+            if (it != ruleStyles.end() && !canInheritOver(it->second))
+                continue;
+
+            attrStyles[prop] = value;
+            if (isInheritable(prop))
+                setChildrenStyles(widget->getHtmlId(), node, "styles", prop, value);
+        }
+
+        return consumed;
+    }
+
+    void translateAttribute(std::string_view styleName, std::string_view tagName, std::string& attr, std::string& /*value*/) {
         if (attr == "*style") {
             attr = "*mergeStyle";
         } else if (attr == "*if") {
@@ -186,6 +299,12 @@ namespace {
             return "MultilineTextEdit";
         }
 
+        // Style lookup is case-insensitive, so <table> would resolve to the OTUI "Table" (UITable)
+        // widget instead of the HTML table layout.
+        if (styleName == "table") {
+            return "UIHTML";
+        }
+
         return styleName;
     }
 
@@ -219,24 +338,33 @@ namespace {
             for (const auto& node : nodes) {
                 const auto widget = node->getWidget().get();
                 if (widget && !node->isStyleResolved()) {
+                    const auto applyDecl = [&](const std::string& style, const css::Declaration& decl) {
+                        auto& styleMap = node->getStyles()[style];
+                        const auto it = styleMap.find(decl.property);
+                        const bool canSet = it == styleMap.end() || (is_all
+                            ? (it->second.universal
+                                ? !it->second.important || decl.important
+                                : decl.important && !it->second.important)
+                            : !it->second.important || (it->second.universal && decl.important));
+                        if (!canSet)
+                            return;
+
+                        styleMap[decl.property] = { decl.value, "", decl.important, is_all };
+                        if (!is_all && isInheritable(decl.property)) {
+                            setChildrenStyles(widget->getHtmlId(), node.get(), style, decl.property, decl.value);
+                        }
+                    };
+
                     bool hasMeta = false;
                     for (const auto& metas : rule.selectorMeta) {
                         for (const auto& state : metas.pseudos) {
-                            for (const auto& decl : rule.decls) {
-                                std::string style = "$";
-                                if (state.negated)
-                                    style += "!";
-                                style += state.name;
+                            std::string style = "$";
+                            if (state.negated)
+                                style += "!";
+                            style += state.name;
 
-                                auto& styleMap = node->getStyles()[style];
-                                auto it = styleMap.find(decl.property);
-                                if (it == styleMap.end() || !it->second.important) {
-                                    styleMap[decl.property] = { decl.value , "", decl.important };
-                                    if (!is_all && isInheritable(decl.property)) {
-                                        setChildrenStyles(widget->getHtmlId(), node.get(), style, decl.property, decl.value);
-                                    }
-                                }
-                            }
+                            for (const auto& decl : rule.decls)
+                                applyDecl(style, decl);
                             hasMeta = true;
                         }
                     }
@@ -244,16 +372,8 @@ namespace {
                     if (hasMeta)
                         continue;
 
-                    for (const auto& decl : rule.decls) {
-                        auto& styleMap = node->getStyles()["styles"];
-                        auto it = styleMap.find(decl.property);
-                        if (it == styleMap.end() || !it->second.important) {
-                            styleMap[decl.property] = { decl.value , "", decl.important };
-                            if (!is_all && isInheritable(decl.property)) {
-                                setChildrenStyles(widget->getHtmlId(), node.get(), "styles", decl.property, decl.value);
-                            }
-                        }
-                    }
+                    for (const auto& decl : rule.decls)
+                        applyDecl("styles", decl);
                 }
             }
         }
@@ -266,8 +386,10 @@ bool checkSpecialCase(const HtmlNodePtr& node, const UIWidgetPtr& parent, const 
 
     if (!node->getAttr("*for").empty()) {
         const auto condition = node->getAttr("*for");
+        const auto finished = node->getAttr("*for-finished");
         node->removeAttr("*for");
-        parent->callLuaField("__childFor", moduleName, condition, node->outerHTML(), parent->getChildren().size());
+        node->removeAttr("*for-finished");
+        parent->callLuaField("__childFor", moduleName, condition, node->outerHTML(), parent->getChildren().size(), finished);
         return false;
     }
 
@@ -328,6 +450,8 @@ void applyAttributesAndStyles(UIWidget* widget, HtmlNode* node, std::unordered_m
         }
     }
 
+    const auto consumedAttributes = applyPresentationalHints(widget, node);
+
     // text node depends on style
     if (!node->getText().empty()) {
         widget->setText(node->getText());
@@ -337,19 +461,19 @@ void applyAttributesAndStyles(UIWidget* widget, HtmlNode* node, std::unordered_m
 
     std::map<std::string, StyleValue> stylesMerge;
 
-    for (const auto [key, stylesMap] : node->getStyles()) {
+    for (const auto& [key, stylesMap] : node->getStyles()) {
         if (key != "styles") {
             auto meta = std::make_shared<OTMLNode>();
             meta->setTag(key);
             styles->addChild(meta);
 
-            for (const auto [prop, value] : stylesMap) {
+            for (const auto& [prop, value] : stylesMap) {
                 auto nodeAttr = std::make_shared<OTMLNode>();
                 nodeAttr->setTag(prop);
                 nodeAttr->setValue(value.value);
                 meta->addChild(nodeAttr);
             }
-        } else for (const auto [prop, value] : stylesMap) {
+        } else for (const auto& [prop, value] : stylesMap) {
             stylesMerge[prop] = value;
         }
     }
@@ -358,25 +482,28 @@ void applyAttributesAndStyles(UIWidget* widget, HtmlNode* node, std::unordered_m
         stylesMerge[prop] = { value , "", false };
     }
 
-    for (const auto [prop, value] : stylesMerge) {
+    for (const auto& [prop, value] : stylesMerge) {
         auto nodeAttr = std::make_shared<OTMLNode>();
         nodeAttr->setTag(prop);
         nodeAttr->setValue(value.value);
         styles->addChild(nodeAttr);
     }
 
+    g_ui.resolveStyleAliases(styles);
     widget->mergeStyle(styles);
 
     if (node->getTag() == "input" && node->getAttr("type") == "radio")
         createRadioGroup(node, groups);
 
-    for (const auto [key, v] : node->getAttributesMap()) {
+    for (const auto& [key, v] : node->getAttributesMap()) {
         auto attr = key;
         auto value = v;
         translateAttribute(widget->getStyleName(), node->getTag(), attr, value);
 
         if (attr.starts_with("on") || attr.starts_with("*for")) {
             // lua call
+        } else if (consumedAttributes.contains(key)) {
+            // applied as presentational hint
         } else if (attr == "anchor") {
             // ignore
         } else if (attr == "style" || attr == "id") {
@@ -447,9 +574,17 @@ UIWidgetPtr HtmlManager::readNode(DataRoot& root, const UIWidgetPtr& parent, con
             for (const auto& n : el->getChildren()) {
                 if (isDynamic) {
                     n->getInheritableStyles() = parent->getHtmlNode()->getInheritableStyles();
-                    for (const auto& [styleName, styleMap] : n->getInheritableStyles()) {
-                        for (auto& [style, value] : styleMap)
-                            n->getStyles()[styleName][style] = { value , parent->getHtmlId() };
+                    // Inherited values must reach the whole inserted subtree, not only its root.
+                    const auto inheritable = n->getInheritableStyles();
+                    for (const auto& [styleName, styleMap] : inheritable) {
+                        for (const auto& [style, value] : styleMap) {
+                            auto& nodeStyles = n->getStyles()[styleName];
+                            const auto it = nodeStyles.find(style);
+                            if (it == nodeStyles.end() || canInheritOver(it->second)) {
+                                nodeStyles[style] = { value , parent->getHtmlId() };
+                                setChildrenStyles(parent->getHtmlId(), n.get(), styleName, style, value);
+                            }
+                        }
                     }
                 }
                 widget = createWidgetFromNode(n, parent, textNodes, htmlId, moduleName, widgets);
@@ -503,7 +638,7 @@ uint32_t HtmlManager::load(const std::string& moduleName, const std::string& htm
     auto path = "/modules/" + moduleName + "/";
     auto htmlContent = g_resources.readFileContents(path + htmlPath);
 
-    auto root = DataRoot{ parseHtml(htmlContent), nullptr, moduleName };
+    auto root = DataRoot{ parseHtml(htmlContent), nullptr, moduleName, {}, {} };
 
     if (root.node->getChildren().empty())
         return 0;

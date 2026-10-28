@@ -26,6 +26,7 @@
 
 #include <framework/core/timer.h>
 #include <framework/graphics/declarations.h>
+#include <framework/graphics/coordsbuffer.h>
 #include <framework/html/declarations.h>
 #include <framework/luaengine/luaobject.h>
 
@@ -304,6 +305,13 @@ struct UIWidgetStyle
     bool marginRightAuto{ false };
 };
 
+enum UISoundType : int
+{
+    UISoundTypeNone = 0,
+    UISoundTypeClick = 1,
+    UISoundTypeShow = 2
+};
+
 // @bindclass
 class UIWidget : public LuaObject
 {
@@ -443,6 +451,9 @@ public:
     void setAutoFocusPolicy(Fw::AutoFocusPolicy policy);
     void setAutoRepeatDelay(const int delay) { m_autoRepeatDelay = delay; }
     void setVirtualOffset(const Point& offset);
+    void setClickSound(int soundId);
+    void addSound(int soundType, int soundId);
+    void removeSound(int soundType);
     void setDisplay(DisplayType type);
     void setFloat(FloatType type) { m_floatType = type;  scheduleHtmlTask(PropApplyAnchorAlignment); }
     void setClear(ClearType type) { m_clearType = type;  scheduleHtmlTask(PropApplyAnchorAlignment); }
@@ -477,6 +488,7 @@ public:
     AlignSelf getAlignSelf() const { return m_flexItem.alignSelf; }
     void setHtmlNode(const HtmlNodePtr& node) { m_htmlNode = node; }
     void setOverflow(OverflowType type);
+    void setOverflow(std::string type);
     void setPositionType(PositionType t) {
         m_positionType = t;
 
@@ -523,6 +535,7 @@ public:
     int getChildIndex(const UIWidgetPtr& child = nullptr) { return child ? (child->getParent().get() == this ? child->m_childIndex : -1) : m_childIndex; }
     auto getDisplay() { return m_displayType; }
     auto getFloat() { return m_floatType; }
+    auto getOverflow() { return m_overflowType; }
     auto getJustifyItems() { return m_JustifyItems; }
 
     UIWidgetPtr getVirtualParent() const;
@@ -766,15 +779,16 @@ protected:
     bool m_isRootChild{ false }; // for stats
 
     DrawOrder m_textDrawOrder{ DrawOrder::FIRST };
+    std::unordered_map<int, int> m_uiSounds;
 
 public:
     void setX(const int x) { move(x, getY()); }
     void setY(const int y) { move(getX(), y); }
 
     void setTop(int v) { m_positions.top.unit = Unit::Px; m_positions.top.value = v; scheduleHtmlTask(PropUpdateSize); scheduleHtmlTask(PropApplyAnchorAlignment); updateLayout(); }
-    void setBottom(int v) { m_positions.top.unit = Unit::Px; m_positions.bottom.value = v; scheduleHtmlTask(PropUpdateSize); scheduleHtmlTask(PropApplyAnchorAlignment); updateLayout(); }
-    void setLeft(int v) { m_positions.top.unit = Unit::Px; m_positions.left.value = v;  scheduleHtmlTask(PropUpdateSize); scheduleHtmlTask(PropApplyAnchorAlignment); updateLayout(); }
-    void setRight(int v) { m_positions.top.unit = Unit::Px; m_positions.right.value = v;  scheduleHtmlTask(PropUpdateSize); scheduleHtmlTask(PropApplyAnchorAlignment); updateLayout(); }
+    void setBottom(int v) { m_positions.bottom.unit = Unit::Px; m_positions.bottom.value = v; scheduleHtmlTask(PropUpdateSize); scheduleHtmlTask(PropApplyAnchorAlignment); updateLayout(); }
+    void setLeft(int v) { m_positions.left.unit = Unit::Px; m_positions.left.value = v;  scheduleHtmlTask(PropUpdateSize); scheduleHtmlTask(PropApplyAnchorAlignment); updateLayout(); }
+    void setRight(int v) { m_positions.right.unit = Unit::Px; m_positions.right.value = v;  scheduleHtmlTask(PropUpdateSize); scheduleHtmlTask(PropApplyAnchorAlignment); updateLayout(); }
 
     void setHeight(std::string heightStr) { applyDimension(false, std::move(heightStr)); }
     void setWidth(std::string widthStr) { applyDimension(true, std::move(widthStr)); }
@@ -903,6 +917,7 @@ private:
     void applyDimension(bool isWidth, std::string valueStr);
     void applyDimension(bool isWidth, Unit unit, int32_t value);
     void refreshHtml(bool siblingsTo = false);
+    void invalidateHtmlAncestorsHeight();
 
     void updateImageCache() { if (!m_imageCachedScreenCoords.isNull()) m_imageCachedScreenCoords = {}; }
     void configureBorderImage() { setProp(PropImageBordered, true); updateImageCache(); }
@@ -978,6 +993,8 @@ private:
     Rect m_textCachedScreenCoords;
     Size m_textSize;
     Size m_realTextSize;
+    int m_textWrapWidth{ -1 };
+    void playUiSound(int soundType);
 
 protected:
     virtual void updateText();
