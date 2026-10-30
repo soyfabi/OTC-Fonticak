@@ -1837,9 +1837,10 @@ UIWidget
 
     UIWidget
       id: ListBase
-      size: 494 376
       anchors.top: listFilter.bottom
       anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.bottom: parent.bottom
       margin-top: 6
       image-source: /images/ui/1pixel-down-frame
       image-border: 1
@@ -1857,7 +1858,7 @@ UIWidget
           anchors.right: parent.right
           padding-top: 5
           padding-left: 4
-          padding-bottom: 15
+          padding-bottom: 40
           layout:
             type: grid
             cell-size: 152 110

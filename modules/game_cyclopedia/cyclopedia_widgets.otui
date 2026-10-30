@@ -245,7 +245,7 @@ CharacterAppearance < Panel
     anchors.right: parent.right
     margin-top: 5
     margin-right: 5
-    image-source: /images/icons/icon-tibiastore
+    image-source: /images/store/icon-tibiastore
     phantom: true
     visible: false
 

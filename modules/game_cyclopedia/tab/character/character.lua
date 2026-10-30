@@ -1054,6 +1054,14 @@ function Cyclopedia.reloadCharacterAppearances()
 			data.widget = widget
 		end
 	end
+
+	local scrollArea = listGrid:getParent()
+	addEvent(function()
+		if not listGrid:isDestroyed() and scrollArea and not scrollArea:isDestroyed()
+			and scrollArea.updateScrollBars then
+			scrollArea:updateScrollBars()
+		end
+	end)
 end
 
 function Cyclopedia.loadCharacterAppearances(color, outfits, mounts, familiars)
