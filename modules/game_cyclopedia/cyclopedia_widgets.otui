@@ -499,7 +499,7 @@ CharacterDeath < UIWidget
       color: #F4F4F4
     $!on:
       color: #C0C0C0
-  VerticalSeparatorFlat
+  VerticalSeparator
     id: separator
     height: 16
     fixed-size: true
@@ -543,7 +543,7 @@ CharacterKill < UIWidget
       color: #F4F4F4
     $!on:
       color: #C0C0C0
-  VerticalSeparatorFlat
+  VerticalSeparator
     id: separator
     height: 16
     fixed-size: true
@@ -565,7 +565,7 @@ CharacterKill < UIWidget
       color: #F4F4F4
     $!on:
       color: #C0C0C0
-  VerticalSeparatorFlat
+  VerticalSeparator
     id: separatorTwo
     height: 16
     fixed-size: true
@@ -1284,7 +1284,7 @@ CharacterTitleListRow < UIWidget
     visible: false
     phantom: true
 
-  VerticalSeparatorFlat
+  VerticalSeparator
     id: separator
     height: 16
     fixed-size: true
@@ -1301,7 +1301,7 @@ CharacterTitleListRow < UIWidget
     margin-left: 36
     phantom: true
 
-  VerticalSeparatorFlat
+  VerticalSeparator
     id: separatorTwo
     height: 16
     fixed-size: true

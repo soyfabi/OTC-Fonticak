@@ -1930,6 +1930,9 @@ function Cyclopedia.loadCharacterRecentKills(data)
 			local description = entry.description
 			local status = entry.status
 			local widget = g_ui.createWidget("CharacterKill", UI.RecentKills.ListBase.List)
+			if not widget then
+				break
+			end
 
 			widget:setId(i)
 			widget:setHeight(16)
@@ -1994,6 +1997,9 @@ function Cyclopedia.loadCharacterRecentDeaths(data)
 		for i = 1, #data do
 			local entry = data[i]
 			local widget = g_ui.createWidget("CharacterDeath", UI.RecentDeaths.ListBase.List)
+			if not widget then
+				break
+			end
 
 			widget:setId(i)
 			widget:setHeight(16)
