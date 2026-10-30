@@ -4131,8 +4131,8 @@ end
 local HOUSE_ITEMS_LIST_MARGIN_TOP = -3
 local HOUSE_ITEMS_PANEL_TITLE_HEIGHT = 19
 local HOUSE_ITEMS_PANEL_BOTTOM = 17
-local HOUSE_ITEMS_PANEL_HEADER = HOUSE_ITEMS_LIST_MARGIN_TOP + HOUSE_ITEMS_PANEL_TITLE_HEIGHT
-local HOUSE_ITEMS_ROW_HEIGHT = 74
+local HOUSE_ITEMS_PANEL_HEADER = HOUSE_ITEMS_LIST_MARGIN_TOP + HOUSE_ITEMS_PANEL_TITLE_HEIGHT + 6
+local HOUSE_ITEMS_ROW_HEIGHT = 60
 local HOUSE_ITEMS_GRID_SPACING = 4
 local HOUSE_ITEMS_COLUMNS = 2
 
@@ -4150,8 +4150,12 @@ local function applyHouseItemPreview(itemWidget, itemId)
 	end
 
 	itemWidget:setItemId(itemId)
-	itemWidget:setFixedItemSize(false)
-	itemWidget:setPadding(0)
+	if itemWidget.setFixedItemSize then
+		itemWidget:setFixedItemSize(false)
+	end
+	if itemWidget.setPadding then
+		itemWidget:setPadding(0)
+	end
 
 	local previewSize = g_gameConfig.getSpriteSize()
 	local itemThing = itemWidget:getItem()

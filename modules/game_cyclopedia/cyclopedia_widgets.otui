@@ -2150,13 +2150,13 @@ RowStore2 < UIWidget
     icon-offset: -2 0
 
 HouseItemCard < UIWidget
-  size: 221 74
+  size: 221 60
   image-source: /images/ui/2pixel_up_frame_borderimage
   image-border: 2
 
   UIWidget
     id: itemFrame
-    size: 65 65
+    size: 52 52
     anchors.left: parent.left
     anchors.top: parent.top
     margin-left: 4

@@ -2290,7 +2290,7 @@ UIWidget
               margin-left: 1
               layout:
                 type: grid
-                cell-size: 221 74
+                cell-size: 221 60
                 cell-spacing: 4
                 flow: true
 
