@@ -3734,6 +3734,9 @@ function Cyclopedia.refreshCharacterTitles(currentTitle)
 	if not list then
 		return
 	end
+	local listBase = UI.CharacterTitles.AvailableTitlesPanel.ListBase
+	local scrollBar = listBase and listBase.ListScrollbar
+	local scrollValue = scrollBar and scrollBar:getValue() or 0
 
 	list:destroyChildren()
 
@@ -3830,6 +3833,13 @@ function Cyclopedia.refreshCharacterTitles(currentTitle)
 
 	if selectedRow then
 		selectCharacterTitleRow(selectedRow)
+	end
+	if scrollBar and not scrollBar:isDestroyed() then
+		addEvent(function()
+			if not scrollBar:isDestroyed() then
+				scrollBar:setValue(scrollValue)
+			end
+		end)
 	end
 
 	local currentPanel = UI.CharacterTitles.CurrentTitlePanel
@@ -3951,9 +3961,15 @@ function Cyclopedia.characterTitleShowCurrentInfo()
 	end
 
 	if text and text ~= "" then
-		displayGeneralBox(tr("Character Title"), text, {
+		local infoBox
+		infoBox = displayGeneralBox(tr("Character Title"), text, {
 			{
-				text = tr("Ok")
+				text = tr("Close"),
+				callback = function()
+					if infoBox then
+						infoBox:destroy()
+					end
+				end
 			}
 		})
 	end

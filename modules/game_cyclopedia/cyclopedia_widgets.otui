@@ -1290,7 +1290,7 @@ CharacterTitleListRow < UIWidget
     fixed-size: true
     anchors.top: parent.top
     anchors.right: parent.right
-    margin-right: 160
+    margin-right: 173
     phantom: true
 
   UIWidget
@@ -1307,7 +1307,7 @@ CharacterTitleListRow < UIWidget
     fixed-size: true
     anchors.top: parent.top
     anchors.right: parent.right
-    margin-right: 80
+    margin-right: 93
     phantom: true
 
   UIWidget

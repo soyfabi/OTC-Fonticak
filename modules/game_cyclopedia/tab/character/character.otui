@@ -2342,17 +2342,20 @@ UIWidget
         anchors.right: CurrentTitleClear.left
         anchors.verticalCenter: CurrentTitleValue.verticalCenter
         margin-right: 4
-        image-source: /images/game/wheel/small_information_button
+        image-source: /images/icons/show_gui_help_grey
         change-cursor-image: true
         cursor: pointer
         @onClick: modules.game_cyclopedia.Cyclopedia.characterTitleShowCurrentInfo()
 
       UIWidget
         id: CurrentTitleClear
-        size: 14 14
+        size: 18 18
         anchors.right: parent.right
         anchors.verticalCenter: CurrentTitleValue.verticalCenter
-        image-source: /images/game/wheel/delete_button
+        margin-right: 2
+        image-source: /images/game/cyclopedia/ui/remove_button
+        image-clip: 0 0 20 20
+        image-size: 18 18
         change-cursor-image: true
         cursor: pointer
         @onClick: modules.game_cyclopedia.Cyclopedia.characterTitleClear()
