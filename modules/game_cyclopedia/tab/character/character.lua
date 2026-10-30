@@ -1437,13 +1437,14 @@ function Cyclopedia.resetCharacterAchievementsFiltersUI()
 		end
 	end
 
-	Cyclopedia.Character.Achievements.lastSort = 1
+	Cyclopedia.Character.Achievements.lastSort = Cyclopedia.Character.Achievements.lastSort or 1
 
 	if ui.sort and not ui.sort:isDestroyed() then
 		if ui.sort.setCurrentOptionByData then
-			ui.sort:setCurrentOptionByData(1, true)
+			ui.sort:setCurrentOptionByData(Cyclopedia.Character.Achievements.lastSort, true)
 		elseif ui.sort.setCurrentOption then
-			ui.sort:setCurrentOption("Alphabetically", true)
+			local sortNames = { "Alphabetically", "By Grade", "By Unlock Date" }
+			ui.sort:setCurrentOption(sortNames[Cyclopedia.Character.Achievements.lastSort] or sortNames[1], true)
 		end
 	end
 
@@ -1518,6 +1519,23 @@ local function getAchievementTotals()
 	end
 
 	return #getRegularAchievementList()
+end
+
+local function getSecretAchievementTotals()
+	if g_things.getSecretAchievementCount then
+		local count = g_things.getSecretAchievementCount()
+		if count and count > 0 then
+			return count
+		end
+	end
+
+	local count = 0
+	for _, achievement in pairs(ACHIEVEMENTS or {}) do
+		if achievement.secret then
+			count = count + 1
+		end
+	end
+	return count
 end
 
 local function isSecretAchievement(id, playerEntry)
@@ -1689,7 +1707,7 @@ function Cyclopedia.refreshCharacterAchievementsUI()
 
 	local function updateBars()
 		Cyclopedia.setAchievementProgressBar(ui.regular, regularDone, getAchievementTotals())
-		Cyclopedia.setAchievementProgressBar(ui.secret, secretDone, data.secretAchievementsMax or 0)
+		Cyclopedia.setAchievementProgressBar(ui.secret, secretDone, data.secretAchievementsMax or getSecretAchievementTotals())
 	end
 
 	updateBars()

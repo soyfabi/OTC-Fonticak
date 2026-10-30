@@ -1475,11 +1475,12 @@ UIWidget
 
     UIWidget
       id: ListBase
-      size: 494 340
+      anchors.top: secret.bottom
       anchors.bottom: parent.bottom
       anchors.left: parent.left
+      anchors.right: parent.right
       margin-bottom: 7
-      margin-top: 0
+      margin-top: 8
       margin-left: 1
       image-source: /images/ui/1pixel-down-frame
       image-border: 1
