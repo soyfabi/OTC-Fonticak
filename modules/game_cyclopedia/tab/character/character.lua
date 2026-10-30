@@ -380,6 +380,8 @@ end
 local characterCombatStatListenerConnected = false
 local characterCombatStatsSyncEvent = nil
 local CHARACTER_COMBAT_STATS_SYNC_DELAY = 250
+local characterItemSummaryRefreshEvent = nil
+local CHARACTER_ITEM_SUMMARY_REFRESH_DELAY = 150
 
 local function isCharacterCyclopediaActive()
 	if not UI or UI:isDestroyed() then
@@ -401,6 +403,25 @@ end
 
 local function isCharacterPanelActive()
 	return isCharacterCyclopediaActive()
+end
+
+function Cyclopedia.scheduleCharacterItemSummaryRefresh()
+	if not isCharacterPanelActive() or UI.selectedOption ~= "CharacterItems"
+		or not g_game.isOnline() or not g_game.requestCharacterInfo then
+		return
+	end
+
+	if characterItemSummaryRefreshEvent then
+		removeEvent(characterItemSummaryRefreshEvent)
+	end
+
+	characterItemSummaryRefreshEvent = scheduleEvent(function()
+		characterItemSummaryRefreshEvent = nil
+		if isCharacterPanelActive() and UI.selectedOption == "CharacterItems"
+			and g_game.isOnline() and g_game.requestCharacterInfo then
+			g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.ItemSummary)
+		end
+	end, CHARACTER_ITEM_SUMMARY_REFRESH_DELAY)
 end
 
 local function cancelCharacterCombatStatsServerSync()
@@ -553,6 +574,9 @@ end
 function Cyclopedia.onCharacterInventoryLiveChange()
 	if not isCharacterCyclopediaActive() then
 		return
+	end
+	if UI.selectedOption == "CharacterItems" then
+		Cyclopedia.scheduleCharacterItemSummaryRefresh()
 	end
 
 	local tab = UI.selectedOption
@@ -1128,6 +1152,8 @@ local CHARACTER_ITEMS_DEFAULT_FILTERS = {
 	stash = false,
 	depot = false
 }
+local CHARACTER_ITEMS_VIEW_SETTING = "cyclopediaCharacterItemsView"
+local CHARACTER_ITEMS_FILTER_SETTING_PREFIX = "cyclopediaCharacterItemsFilter_"
 
 function Cyclopedia.resetCharacterItemsFiltersUI()
 	if not UI or not UI.CharacterItems or UI.CharacterItems:isDestroyed() then
@@ -1138,10 +1164,11 @@ function Cyclopedia.resetCharacterItemsFiltersUI()
 
 	local filters = UI.CharacterItems.filters
 
-	for filterId, checked in pairs(CHARACTER_ITEMS_DEFAULT_FILTERS) do
+	for filterId, defaultChecked in pairs(CHARACTER_ITEMS_DEFAULT_FILTERS) do
 		local checkbox = filters[filterId]
 
 		if checkbox and not checkbox:isDestroyed() then
+			local checked = g_settings.getBoolean(CHARACTER_ITEMS_FILTER_SETTING_PREFIX .. filterId, defaultChecked)
 			checkbox:setChecked(checked)
 		end
 	end
@@ -1150,7 +1177,10 @@ function Cyclopedia.resetCharacterItemsFiltersUI()
 		filters.SearchEdit:setText("")
 	end
 
-	Cyclopedia.characterItemListFilter(UI.CharacterItems.listFilter.list)
+	local savedView = g_settings.get(CHARACTER_ITEMS_VIEW_SETTING, "list")
+	local viewWidget = savedView == "grid" and UI.CharacterItems.listFilter.grid
+		or UI.CharacterItems.listFilter.list
+	Cyclopedia.characterItemListFilter(viewWidget)
 
 	Cyclopedia.Character.ItemsFilterResetting = false
 end
@@ -1163,7 +1193,8 @@ function Cyclopedia.applyCharacterItemsDefaultFilters()
 	end
 
 	for _, item in ipairs(Cyclopedia.Character.Items) do
-		item.data.visible = CHARACTER_ITEMS_DEFAULT_FILTERS[item.data.type] == true
+		local checkbox = UI.CharacterItems.filters[item.data.type]
+		item.data.visible = checkbox and checkbox:isChecked() or false
 	end
 
 	Cyclopedia.reloadCharacterItems()
@@ -1201,13 +1232,17 @@ function Cyclopedia.characterItemsFilter(widget, force)
 	if Cyclopedia.Character.ItemsFilterResetting then
 		return
 	end
-
-	if not Cyclopedia.Character.Items then
+	if not widget or widget:isDestroyed() then
 		return
 	end
 
 	if force then
 		widget:setChecked(true)
+	end
+	g_settings.set(CHARACTER_ITEMS_FILTER_SETTING_PREFIX .. widget:getId(), widget:isChecked())
+
+	if not Cyclopedia.Character.Items then
+		return
 	end
 
 	local id = widget:getId()
@@ -1250,6 +1285,7 @@ local function populateCharacterItemSummaryWidgets(listParent, gridParent, itemI
 	local listItem = g_ui.createWidget("CharacterListItem", listParent)
 
 	applyCharacterListItemSlot(listItem, itemId, tier, showStoreIcon)
+	listItem.item:setTooltip(data.name)
 	listItem.name:setText(data.name)
 	listItem.amount:setText(data.amount)
 	listItem:setBackgroundColor(rowColor)
@@ -1257,6 +1293,7 @@ local function populateCharacterItemSummaryWidgets(listParent, gridParent, itemI
 	local gridItem = g_ui.createWidget("CharacterGridItem", gridParent)
 
 	applyCharacterListItemSlot(gridItem, itemId, tier, showStoreIcon)
+	gridItem.item:setTooltip(data.name)
 	gridItem.amount:setText(data.amount)
 end
 
@@ -1304,9 +1341,8 @@ function Cyclopedia.loadCharacterItems(data)
 		end
 
 		local thing = g_things.getThingType(data.itemId, ThingCategoryItem)
-		local name = thing:getMarketData().name:lower()
-
-		name = name ~= "" and name or "?"
+		local name = data.name and data.name ~= "" and data.name or
+			(thing and Cyclopedia.getItemDisplayName(thing) or ("Item #" .. tostring(data.itemId)))
 
 		local data_t = {
 			visible = false,
@@ -1802,6 +1838,10 @@ function Cyclopedia.onParseCyclopediaCharacterAchievements(data)
 end
 
 function Cyclopedia.characterItemListFilter(widget)
+	if not widget or widget:isDestroyed() then
+		return
+	end
+
 	local parent = widget:getParent()
 
 	for i = 1, parent:getChildCount() do
@@ -1817,9 +1857,11 @@ function Cyclopedia.characterItemListFilter(widget)
 	if widget:getId() == "list" then
 		UI.CharacterItems.ListBase:setVisible(true)
 		UI.CharacterItems.gridBase:setVisible(false)
+		g_settings.set(CHARACTER_ITEMS_VIEW_SETTING, "list")
 	else
 		UI.CharacterItems.ListBase:setVisible(false)
 		UI.CharacterItems.gridBase:setVisible(true)
+		g_settings.set(CHARACTER_ITEMS_VIEW_SETTING, "grid")
 	end
 end
 
