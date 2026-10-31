@@ -1086,6 +1086,8 @@ int push_luavalue(const ItemSummary& item) {
     g_lua.setField("tier");
     g_lua.pushInteger(item.amount);
     g_lua.setField("amount");
+    g_lua.pushString(item.name);
+    g_lua.setField("name");
     return 1;
 }
 

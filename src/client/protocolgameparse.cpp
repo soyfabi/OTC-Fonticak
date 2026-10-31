@@ -5597,17 +5597,11 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             for (auto i = 0; i < inventoryItemsCount; ++i) {
                 ItemSummary item;
                 const uint16_t itemId = msg->getU16();
-                const auto& itemCreated = Item::create(itemId);
-                const uint16_t classification = itemCreated->getClassification();
-
-                uint8_t itemTier = 0;
-                if (classification > 0) {
-                    itemTier = msg->getU8();
-                }
-
+                const uint8_t itemTier = msg->getU8();
                 item.itemId = itemId;
                 item.tier = itemTier;
                 item.amount = msg->getU32();
+                item.name = msg->getString();
                 data.inventory.emplace_back(item);
             }
 
@@ -5615,17 +5609,11 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             for (auto i = 0; i < storeItemsCount; ++i) {
                 ItemSummary item;
                 const uint16_t itemId = msg->getU16();
-                const auto& itemCreated = Item::create(itemId);
-                const uint16_t classification = itemCreated->getClassification();
-
-                uint8_t itemTier = 0;
-                if (classification > 0) {
-                    itemTier = msg->getU8();
-                }
-
+                const uint8_t itemTier = msg->getU8();
                 item.itemId = itemId;
                 item.tier = itemTier;
                 item.amount = msg->getU32();
+                item.name = msg->getString();
                 data.store.emplace_back(item);
             }
 
@@ -5633,20 +5621,17 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             for (auto i = 0; i < stashItemsCount; ++i) {
                 ItemSummary item;
                 const uint16_t itemId = msg->getU16();
+                const uint8_t itemTier = msg->getU8();
+                const uint32_t amount = msg->getU32();
+                const std::string name = msg->getString();
                 const auto& thing = g_things.getThingType(itemId, ThingCategoryItem);
                 if (!thing) {
                     continue;
                 }
-                const uint16_t classification = thing->getClassification();
-
-                uint8_t itemTier = 0;
-                if (classification > 0) {
-                    itemTier = msg->getU8();
-                }
-
                 item.itemId = itemId;
                 item.tier = itemTier;
-                item.amount = msg->getU32();
+                item.amount = amount;
+                item.name = name;
                 data.stash.emplace_back(item);
             }
 
@@ -5654,17 +5639,11 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             for (auto i = 0; i < depotItemsCount; ++i) {
                 ItemSummary item;
                 const uint16_t itemId = msg->getU16();
-                const auto& itemCreated = Item::create(itemId);
-                const uint16_t classification = itemCreated->getClassification();
-
-                uint8_t itemTier = 0;
-                if (classification > 0) {
-                    itemTier = msg->getU8();
-                }
-
+                const uint8_t itemTier = msg->getU8();
                 item.itemId = itemId;
                 item.tier = itemTier;
                 item.amount = msg->getU32();
+                item.name = msg->getString();
                 data.depot.emplace_back(item);
             }
 
@@ -5672,17 +5651,11 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             for (auto i = 0; i < inboxItemsCount; ++i) {
                 ItemSummary item;
                 const uint16_t itemId = msg->getU16();
-                const auto& itemCreated = Item::create(itemId);
-                const uint16_t classification = itemCreated->getClassification();
-
-                uint8_t itemTier = 0;
-                if (classification > 0) {
-                    itemTier = msg->getU8();
-                }
-
+                const uint8_t itemTier = msg->getU8();
                 item.itemId = itemId;
                 item.tier = itemTier;
                 item.amount = msg->getU32();
+                item.name = msg->getString();
                 data.inbox.emplace_back(item);
             }
 

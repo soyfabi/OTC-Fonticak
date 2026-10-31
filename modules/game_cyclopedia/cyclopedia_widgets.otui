@@ -245,7 +245,7 @@ CharacterAppearance < Panel
     anchors.right: parent.right
     margin-top: 5
     margin-right: 5
-    image-source: /images/icons/icon-tibiastore
+    image-source: /images/store/icon-tibiastore
     phantom: true
     visible: false
 
@@ -499,7 +499,7 @@ CharacterDeath < UIWidget
       color: #F4F4F4
     $!on:
       color: #C0C0C0
-  VerticalSeparatorFlat
+  VerticalSeparator
     id: separator
     height: 16
     fixed-size: true
@@ -543,7 +543,7 @@ CharacterKill < UIWidget
       color: #F4F4F4
     $!on:
       color: #C0C0C0
-  VerticalSeparatorFlat
+  VerticalSeparator
     id: separator
     height: 16
     fixed-size: true
@@ -565,7 +565,7 @@ CharacterKill < UIWidget
       color: #F4F4F4
     $!on:
       color: #C0C0C0
-  VerticalSeparatorFlat
+  VerticalSeparator
     id: separatorTwo
     height: 16
     fixed-size: true
@@ -1284,13 +1284,13 @@ CharacterTitleListRow < UIWidget
     visible: false
     phantom: true
 
-  VerticalSeparatorFlat
+  VerticalSeparator
     id: separator
     height: 16
     fixed-size: true
     anchors.top: parent.top
     anchors.right: parent.right
-    margin-right: 160
+    margin-right: 173
     phantom: true
 
   UIWidget
@@ -1301,13 +1301,13 @@ CharacterTitleListRow < UIWidget
     margin-left: 36
     phantom: true
 
-  VerticalSeparatorFlat
+  VerticalSeparator
     id: separatorTwo
     height: 16
     fixed-size: true
     anchors.top: parent.top
     anchors.right: parent.right
-    margin-right: 80
+    margin-right: 93
     phantom: true
 
   UIWidget
@@ -2150,13 +2150,13 @@ RowStore2 < UIWidget
     icon-offset: -2 0
 
 HouseItemCard < UIWidget
-  size: 221 74
+  size: 221 60
   image-source: /images/ui/2pixel_up_frame_borderimage
   image-border: 2
 
   UIWidget
     id: itemFrame
-    size: 65 65
+    size: 52 52
     anchors.left: parent.left
     anchors.top: parent.top
     margin-left: 4

@@ -1206,6 +1206,15 @@ void ProtocolGame::sendCyclopediaRequestCharacterInfo(const uint32_t playerId, c
     send(msg);
 }
 
+void ProtocolGame::sendSelectCharacterTitle(uint8_t titleId)
+{
+    const auto& msg = std::make_shared<OutputMessage>();
+    msg->addU8(0x81);
+    msg->addU8(0x0E);
+    msg->addU8(titleId);
+    send(msg);
+}
+
 void ProtocolGame::sendCyclopediaHouseAuction(const Otc::CyclopediaHouseAuctionType_t type, const uint32_t houseId, const uint32_t timestamp, const uint64_t bidValue, const std::string_view name)
 {
     const auto& msg = std::make_shared<OutputMessage>();

@@ -433,6 +433,7 @@ void Client::registerLuaFunctions()
     g_lua.bindSingletonFunction("g_game", "requestBestiarySearch", &Game::requestBestiarySearch, &g_game);
     g_lua.bindSingletonFunction("g_game", "BuyCharmRune", &Game::requestSendBuyCharmRune, &g_game);
     g_lua.bindSingletonFunction("g_game", "requestCharacterInfo", &Game::requestSendCharacterInfo, &g_game);
+    g_lua.bindSingletonFunction("g_game", "requestSelectCharacterTitle", &Game::requestSelectCharacterTitle, &g_game);
     g_lua.bindSingletonFunction("g_game", "requestBosstiaryInfo", &Game::requestBosstiaryInfo, &g_game);
     g_lua.bindSingletonFunction("g_game", "requestBossSlootInfo", &Game::requestBossSlootInfo, &g_game);
     g_lua.bindSingletonFunction("g_game", "requestBossSlotAction", &Game::requestBossSlotAction, &g_game);
