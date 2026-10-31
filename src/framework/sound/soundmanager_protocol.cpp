@@ -276,6 +276,10 @@ bool SoundManager::shouldPlayProtocolSound(const uint8_t soundSource, const uint
 
 bool SoundManager::shouldSkipProtocolCooldown(const uint16_t soundEffectId)
 {
+    // Item movement is driven by direct player actions; each move should be audible.
+    if (getSoundEffectType(soundEffectId) == NUMERIC_SOUND_TYPE_ITEM_MOVEMENT)
+        return false;
+
     const auto now = g_clock.millis();
 
     if (now - m_lastCooldownCleanup > PROTOCOL_COOLDOWN_CLEANUP_MS) {
@@ -341,7 +345,8 @@ bool SoundManager::playProtocolAudioFileId(const uint16_t soundEffectId, const u
         return false;
 
     source->setPosition(Point(stereoBalance, 0));
-    m_protocolLastPlayedAt[soundEffectId] = g_clock.millis();
+    if (getSoundEffectType(soundEffectId) != NUMERIC_SOUND_TYPE_ITEM_MOVEMENT)
+        m_protocolLastPlayedAt[soundEffectId] = g_clock.millis();
     return true;
 }
 
