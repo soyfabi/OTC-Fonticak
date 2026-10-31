@@ -343,6 +343,9 @@ void ProtocolGame::parseMessage(const InputMessagePtr& msg)
                 case Proto::GameServerExtendedOpcode: // otclient only
                     parseExtendedOpcode(msg);
                     break;
+                case Proto::GameServerSoundEffect:
+                    parseSoundEffect(msg);
+                    break;
                 case Proto::GameServerNewPing:
                     parseNewPing(msg);
                     break;
@@ -2239,6 +2242,24 @@ void ProtocolGame::parseMagicEffect(const InputMessagePtr& msg)
     effect->setId(effectId);
 
     g_map.addThing(effect, pos);
+}
+
+void ProtocolGame::parseSoundEffect(const InputMessagePtr& msg)
+{
+    const auto pos = getPosition(msg);
+    const uint8_t source = msg->getU8();
+    const uint16_t mainSoundId = msg->getU16();
+    const bool hasSecondary = msg->getU8() != 0;
+#ifdef FRAMEWORK_SOUND
+    g_sounds.playProtocolSoundMain(source, mainSoundId, pos);
+#endif
+    if (hasSecondary) {
+        const uint8_t secondarySource = msg->getU8();
+        const uint16_t secondarySoundId = msg->getU16();
+#ifdef FRAMEWORK_SOUND
+        g_sounds.playProtocolSoundSecondary(1, secondarySource, secondarySoundId, pos);
+#endif
+    }
 }
 
 void ProtocolGame::parseRemoveMagicEffect(const InputMessagePtr& msg)
