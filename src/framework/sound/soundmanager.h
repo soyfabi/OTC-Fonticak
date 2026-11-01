@@ -105,6 +105,8 @@ public:
     void onListenerPositionChanged(const Position& newPos, const Position& oldPos);
     void stopItemAmbience();
     void resetItemAmbience();
+    void setLocationAmbient(uint32_t id);
+    void updateLocationAmbient();
     void stopAllChannelsExcept(int excludedChannel);
     void playUiSoundById(int soundId);
 
@@ -247,6 +249,9 @@ private:
     // soundbanks for protocol 13 and newer
     std::map<uint32_t, std::string> m_clientSoundFiles;
     std::map<uint32_t, ClientSoundEffect> m_clientSoundEffects;
+    uint32_t m_locationAmbientId{ 0 };
+    SoundSourcePtr m_locationAmbientSource;
+    std::vector<std::pair<uint32_t, ticks_t>> m_locationAmbientNextPlay;
     std::map<uint32_t, ClientLocationAmbient> m_clientAmbientEffects;
     std::map<uint32_t, ClientItemAmbient> m_clientItemAmbientEffects;
     std::map<uint32_t, ClientMusic> m_clientMusic;

@@ -346,6 +346,13 @@ void ProtocolGame::parseMessage(const InputMessagePtr& msg)
                 case Proto::GameServerSoundEffect:
                     parseSoundEffect(msg);
                     break;
+                case Proto::GameServerLocationAmbient: {
+                    const uint32_t ambientId = msg->getU32();
+#ifdef FRAMEWORK_SOUND
+                    g_sounds.setLocationAmbient(ambientId);
+#endif
+                    break;
+                }
                 case Proto::GameServerNewPing:
                     parseNewPing(msg);
                     break;
