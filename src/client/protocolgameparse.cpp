@@ -2208,11 +2208,11 @@ void ProtocolGame::parseMagicEffect(const InputMessagePtr& msg)
                 }
 
                 case Otc::MAGIC_EFFECTS_CREATE_SOUND_SECONDARY_EFFECT: {
-                    const uint8_t soundEnum = msg->getU8(); // ENUM
+                    msg->getU8(); // Reserved secondary sound enum.
                     const uint8_t soundSource = msg->getU8(); // Source
                     const uint16_t soundId = msg->getU16(); // Sound ID
                     #ifdef FRAMEWORK_SOUND
-                    g_sounds.playProtocolSoundSecondary(soundEnum, soundSource, soundId, pos);
+                    g_sounds.playProtocolSoundSecondary(soundSource, soundId, pos);
                     #endif
                     break;
                 }
@@ -2264,7 +2264,7 @@ void ProtocolGame::parseSoundEffect(const InputMessagePtr& msg)
         const uint8_t secondarySource = msg->getU8();
         const uint16_t secondarySoundId = msg->getU16();
 #ifdef FRAMEWORK_SOUND
-        g_sounds.playProtocolSoundSecondary(1, secondarySource, secondarySoundId, pos);
+        g_sounds.playProtocolSoundSecondary(secondarySource, secondarySoundId, pos);
 #endif
     }
 }

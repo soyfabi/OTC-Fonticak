@@ -506,6 +506,7 @@ void SoundManager::onListenerPositionChanged(const Position& newPos, const Posit
     updateAllAmbientNearestStates();
     updateItemAmbienceSources();
 }
+
 void SoundManager::setLocationAmbient(const uint32_t id)
 {
     if (id == m_locationAmbientId) return;
@@ -531,7 +532,7 @@ void SoundManager::updateLocationAmbient()
     const auto it = m_clientAmbientEffects.find(m_locationAmbientId);
     if (it == m_clientAmbientEffects.end()) { setLocationAmbient(0); return; }
     const auto channel = getChannel(CHANNEL_AMBIENT);
-    if (!m_audioEnabled || !channel || !channel->isEnabled()) {
+    if (!m_audioEnabled || !channel || !channel->isEnabled() || channel->getGain() <= 0.0f) {
         if (m_locationAmbientSource) m_locationAmbientSource->stop();
         m_locationAmbientSource.reset();
         return;
@@ -540,11 +541,9 @@ void SoundManager::updateLocationAmbient()
     if (it->second.loopedAudioFileId != 0 && (!m_locationAmbientSource || !m_locationAmbientSource->isPlaying())) {
         const auto fileName = getAudioFileNameById(it->second.loopedAudioFileId);
         if (!fileName.empty()) {
-            m_locationAmbientSource = play(buildProtocolSoundPath(fileName), 0, gain, 1.0f);
+            m_locationAmbientSource = playChannelSound(CHANNEL_AMBIENT, buildProtocolSoundPath(fileName));
             if (m_locationAmbientSource) {
                 m_locationAmbientSource->setLooping(true);
-                m_locationAmbientSource->setRelative(true);
-                m_locationAmbientSource->setChannel(CHANNEL_AMBIENT);
             }
         }
     }
@@ -559,9 +558,6 @@ void SoundManager::updateLocationAmbient()
         if (!audioId) continue;
         const auto fileName = getAudioFileNameById(*audioId);
         if (fileName.empty()) continue;
-        if (const auto source = play(buildProtocolSoundPath(fileName), 0, gain, 1.0f)) {
-            source->setRelative(true);
-            source->setChannel(CHANNEL_AMBIENT);
-        }
+        playChannelSound(CHANNEL_AMBIENT, buildProtocolSoundPath(fileName));
     }
 }

@@ -371,38 +371,16 @@ void SoundManager::logProtocolDebug(const uint8_t soundSource, const uint16_t so
 
 void SoundManager::playProtocolSoundMain(const uint8_t soundSource, const uint16_t soundEffectId, const Position& pos)
 {
-    if (!shouldPlayProtocolSound(soundSource, soundEffectId))
-        return;
-
-    if (shouldSkipProtocolCooldown(soundEffectId))
-        return;
-
-    const auto audioFileId = chooseProtocolAudioFileId(soundEffectId);
-    if (!audioFileId)
-        return;
-
-    const auto soundType = getSoundEffectType(soundEffectId);
-    const auto volume = getProtocolVolumeSetting(soundSource, soundType);
-    const float volumeMultiplier = std::clamp(volume / 100.0f, 0.0f, 1.0f);
-
-    if (!playProtocolAudioFileId(soundEffectId, *audioFileId, pos, CHANNEL_EFFECT_MAIN, volumeMultiplier))
-        return;
-
-    const auto& localPlayer = g_game.getLocalPlayer();
-    if (localPlayer && localPlayer->getPosition().isMapPosition() && pos.isMapPosition()) {
-        const float distance = static_cast<float>(localPlayer->getPosition().distance(pos));
-        const float gain = std::max(0.001f, (1.0f - (distance / PROTOCOL_MAX_DISTANCE)) * volumeMultiplier);
-        recordProtocolDebugEvent(soundSource, soundEffectId, *audioFileId, pos, CHANNEL_EFFECT_MAIN, gain, distance, false);
-        if (m_debugProtocolSounds) {
-            logProtocolDebug(soundSource, soundEffectId, *audioFileId, pos, CHANNEL_EFFECT_MAIN, gain);
-        }
-    }
+    playProtocolSound(soundSource, soundEffectId, pos, CHANNEL_EFFECT_MAIN);
 }
 
-void SoundManager::playProtocolSoundSecondary(const uint8_t soundEnum, const uint8_t soundSource, const uint16_t soundEffectId, const Position& pos)
+void SoundManager::playProtocolSoundSecondary(const uint8_t soundSource, const uint16_t soundEffectId, const Position& pos)
 {
-    (void)soundEnum;
+    playProtocolSound(soundSource, soundEffectId, pos, CHANNEL_EFFECT_SECONDARY);
+}
 
+void SoundManager::playProtocolSound(const uint8_t soundSource, const uint16_t soundEffectId, const Position& pos, const int channelId)
+{
     if (!shouldPlayProtocolSound(soundSource, soundEffectId))
         return;
 
@@ -417,16 +395,16 @@ void SoundManager::playProtocolSoundSecondary(const uint8_t soundEnum, const uin
     const auto volume = getProtocolVolumeSetting(soundSource, soundType);
     const float volumeMultiplier = std::clamp(volume / 100.0f, 0.0f, 1.0f);
 
-    if (!playProtocolAudioFileId(soundEffectId, *audioFileId, pos, CHANNEL_EFFECT_SECONDARY, volumeMultiplier))
+    if (!playProtocolAudioFileId(soundEffectId, *audioFileId, pos, channelId, volumeMultiplier))
         return;
 
     const auto& localPlayer = g_game.getLocalPlayer();
     if (localPlayer && localPlayer->getPosition().isMapPosition() && pos.isMapPosition()) {
         const float distance = static_cast<float>(localPlayer->getPosition().distance(pos));
         const float gain = std::max(0.001f, (1.0f - (distance / PROTOCOL_MAX_DISTANCE)) * volumeMultiplier);
-        recordProtocolDebugEvent(soundSource, soundEffectId, *audioFileId, pos, CHANNEL_EFFECT_SECONDARY, gain, distance, true);
+        recordProtocolDebugEvent(soundSource, soundEffectId, *audioFileId, pos, channelId, gain, distance, channelId == CHANNEL_EFFECT_SECONDARY);
         if (m_debugProtocolSounds) {
-            logProtocolDebug(soundSource, soundEffectId, *audioFileId, pos, CHANNEL_EFFECT_SECONDARY, gain);
+            logProtocolDebug(soundSource, soundEffectId, *audioFileId, pos, channelId, gain);
         }
     }
 }

@@ -97,7 +97,7 @@ public:
     SoundDebugSnapshot getDebugSnapshot();
     void refreshProtocolSoundSettings();
     void playProtocolSoundMain(uint8_t soundSource, uint16_t soundEffectId, const Position& pos);
-    void playProtocolSoundSecondary(uint8_t soundEnum, uint8_t soundSource, uint16_t soundEffectId, const Position& pos);
+    void playProtocolSoundSecondary(uint8_t soundSource, uint16_t soundEffectId, const Position& pos);
     void toggleDebugMode() { m_debugProtocolSounds = !m_debugProtocolSounds; }
     bool isDebugMode() const { return m_debugProtocolSounds; }
     void markItemAmbienceDirty() { m_itemAmbienceDirty = true; }
@@ -106,7 +106,6 @@ public:
     void stopItemAmbience();
     void resetItemAmbience();
     void setLocationAmbient(uint32_t id);
-    void updateLocationAmbient();
     void stopAllChannelsExcept(int excludedChannel);
     void playUiSoundById(int soundId);
 
@@ -127,6 +126,8 @@ public:
     void ensureContext() const;
 
 private:
+    void updateLocationAmbient();
+    void playProtocolSound(uint8_t soundSource, uint16_t soundEffectId, const Position& pos, int channelId);
     struct ActiveItemAmbientSource
     {
         uint32_t audioFileId{ 0 };
