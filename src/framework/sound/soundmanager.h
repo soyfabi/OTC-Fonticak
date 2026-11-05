@@ -97,7 +97,7 @@ public:
     SoundDebugSnapshot getDebugSnapshot();
     void refreshProtocolSoundSettings();
     void playProtocolSoundMain(uint8_t soundSource, uint16_t soundEffectId, const Position& pos);
-    void playProtocolSoundSecondary(uint8_t soundEnum, uint8_t soundSource, uint16_t soundEffectId, const Position& pos);
+    void playProtocolSoundSecondary(uint8_t soundSource, uint16_t soundEffectId, const Position& pos);
     void toggleDebugMode() { m_debugProtocolSounds = !m_debugProtocolSounds; }
     bool isDebugMode() const { return m_debugProtocolSounds; }
     void markItemAmbienceDirty() { m_itemAmbienceDirty = true; }
@@ -105,6 +105,7 @@ public:
     void onListenerPositionChanged(const Position& newPos, const Position& oldPos);
     void stopItemAmbience();
     void resetItemAmbience();
+    void setLocationAmbient(uint32_t id);
     void stopAllChannelsExcept(int excludedChannel);
     void playUiSoundById(int soundId);
 
@@ -125,6 +126,8 @@ public:
     void ensureContext() const;
 
 private:
+    void updateLocationAmbient();
+    void playProtocolSound(uint8_t soundSource, uint16_t soundEffectId, const Position& pos, int channelId);
     struct ActiveItemAmbientSource
     {
         uint32_t audioFileId{ 0 };
@@ -247,6 +250,9 @@ private:
     // soundbanks for protocol 13 and newer
     std::map<uint32_t, std::string> m_clientSoundFiles;
     std::map<uint32_t, ClientSoundEffect> m_clientSoundEffects;
+    uint32_t m_locationAmbientId{ 0 };
+    SoundSourcePtr m_locationAmbientSource;
+    std::vector<std::pair<uint32_t, ticks_t>> m_locationAmbientNextPlay;
     std::map<uint32_t, ClientLocationAmbient> m_clientAmbientEffects;
     std::map<uint32_t, ClientItemAmbient> m_clientItemAmbientEffects;
     std::map<uint32_t, ClientMusic> m_clientMusic;

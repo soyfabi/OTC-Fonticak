@@ -21,6 +21,7 @@
  */
 
 #include "soundmanager.h"
+#include "framework/core/clock.h"
 
 #include <algorithm>
 #include <limits>
@@ -504,4 +505,59 @@ void SoundManager::onListenerPositionChanged(const Position& newPos, const Posit
 
     updateAllAmbientNearestStates();
     updateItemAmbienceSources();
+}
+
+void SoundManager::setLocationAmbient(const uint32_t id)
+{
+    if (id == m_locationAmbientId) return;
+    if (m_locationAmbientSource) m_locationAmbientSource->stop();
+    m_locationAmbientSource.reset();
+    m_locationAmbientNextPlay.clear();
+    m_locationAmbientId = 0;
+    if (id == 0) return;
+    const auto it = m_clientAmbientEffects.find(id);
+    if (it == m_clientAmbientEffects.end()) {
+        g_logger.warning("Unknown location ambient ID {}", id);
+        return;
+    }
+    m_locationAmbientId = id;
+    for (const auto& [effectId, delaySeconds] : it->second.delayedSoundEffects)
+        m_locationAmbientNextPlay.emplace_back(effectId, g_clock.millis() + std::max<uint32_t>(1, delaySeconds) * 1000ULL);
+}
+
+void SoundManager::updateLocationAmbient()
+{
+    if (m_locationAmbientId == 0) return;
+    if (!g_game.isOnline()) { setLocationAmbient(0); return; }
+    const auto it = m_clientAmbientEffects.find(m_locationAmbientId);
+    if (it == m_clientAmbientEffects.end()) { setLocationAmbient(0); return; }
+    const auto channel = getChannel(CHANNEL_AMBIENT);
+    if (!m_audioEnabled || !channel || !channel->isEnabled() || channel->getGain() <= 0.0f) {
+        if (m_locationAmbientSource) m_locationAmbientSource->stop();
+        m_locationAmbientSource.reset();
+        return;
+    }
+    const float gain = channel->getGain();
+    if (it->second.loopedAudioFileId != 0 && (!m_locationAmbientSource || !m_locationAmbientSource->isPlaying())) {
+        const auto fileName = getAudioFileNameById(it->second.loopedAudioFileId);
+        if (!fileName.empty()) {
+            m_locationAmbientSource = playChannelSound(CHANNEL_AMBIENT, buildProtocolSoundPath(fileName));
+            if (m_locationAmbientSource) {
+                m_locationAmbientSource->setLooping(true);
+            }
+        }
+    }
+    if (m_locationAmbientSource) m_locationAmbientSource->setGain(gain);
+    const auto now = g_clock.millis();
+    for (size_t i = 0; i < m_locationAmbientNextPlay.size(); ++i) {
+        auto& [effectId, nextPlay] = m_locationAmbientNextPlay[i];
+        if (now < nextPlay) continue;
+        const auto delay = std::max<uint32_t>(1, it->second.delayedSoundEffects[i].second);
+        nextPlay = now + delay * 1000ULL;
+        const auto audioId = chooseProtocolAudioFileId(effectId);
+        if (!audioId) continue;
+        const auto fileName = getAudioFileNameById(*audioId);
+        if (fileName.empty()) continue;
+        playChannelSound(CHANNEL_AMBIENT, buildProtocolSoundPath(fileName));
+    }
 }

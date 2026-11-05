@@ -93,6 +93,7 @@ void SoundManager::init()
 
 void SoundManager::terminate()
 {
+    setLocationAmbient(0);
     ensureContext();
     resetItemAmbience();
 
@@ -142,6 +143,7 @@ void SoundManager::poll()
     lastUpdate = now;
 
     ensureContext();
+    updateLocationAmbient();
 
     if (m_itemAmbienceDirty) {
         rebuildItemAmbience();
@@ -445,6 +447,7 @@ void SoundManager::stopChannelSounds(const int channelId, const SoundSource* exc
 
 void SoundManager::stopAll()
 {
+    setLocationAmbient(0);
     ensureContext();
     resetItemAmbience();
     m_protocolLastPlayedAt.clear();

@@ -73,6 +73,8 @@ namespace Proto
         // NOTE: add any custom opcodes in this range
         // 51 - 99
         GameServerChangeMapAwareRange = 51,
+        GameServerSoundEffect = 70,
+        GameServerLocationAmbient = 71,
         GameServerAttchedEffect = 52,
         GameServerDetachEffect = 53,
         GameServerCreatureShader = 54,
