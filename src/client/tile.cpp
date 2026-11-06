@@ -211,6 +211,15 @@ void Tile::drawMapTop(const Point& dest, const int flags, LightView* lightView, 
     }
 
     if (hasTopItem()) {
+        // Astra's sequential draw queue paints top items after creatures
+        // simply because they are queued later. This draw pool instead
+        // buckets by DrawOrder and defaults to FIRST (ground), which would
+        // paint top items underneath creatures. Queue them as THIRD (the
+        // bucket drawThing uses for bottom/top things) so insertion order
+        // against creatures is preserved and neighboring top items can
+        // still occlude a creature spilling onto their tile.
+        if (flags != Otc::DrawLights)
+            g_drawPool.setDrawOrder(DrawOrder::THIRD);
         for (const auto& item : m_things) {
             if (!item->isOnTop()) continue;
             if (flags == Otc::DrawLights)
@@ -218,6 +227,8 @@ void Tile::drawMapTop(const Point& dest, const int flags, LightView* lightView, 
             else
                 item->draw(dest, flags & Otc::DrawThings, lightView);
         }
+        if (flags != Otc::DrawLights)
+            g_drawPool.resetDrawOrder();
     }
 
     drawAttachedEffect(dest, dest, lightView, true);
