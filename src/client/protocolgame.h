@@ -84,6 +84,10 @@ public:
     void sendCloseRuleViolation(std::string_view reporter);
     void sendCancelRuleViolation();
     void sendCloseNpcChannel();
+    void sendMonsterPodiumOutfit(uint32_t raceId, const Position& position, uint16_t itemId, uint8_t stackPos,
+                                 uint8_t direction, bool podiumVisible, bool creatureVisible);
+    void sendPlayerPodiumOutfit(const Outfit& outfit, const Position& position, uint16_t itemId, uint8_t stackPos,
+                                  uint8_t direction, bool podiumVisible, bool creatureVisible);
     void sendChangeFightModes(Otc::FightModes fightMode, Otc::ChaseModes chaseMode, bool safeFight, Otc::PVPModes pvpMode);
     void sendAttack(uint32_t creatureId, uint32_t seq);
     void sendFollow(uint32_t creatureId, uint32_t seq);

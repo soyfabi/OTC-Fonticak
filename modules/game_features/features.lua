@@ -95,6 +95,9 @@ controller:registerEvents(g_game, {
             -- Forgotten Server bosstiary (0xAE/0xAF/0xB0, tracker raceId u32).
             g_game.enableFeature(GameBosstiary)
             g_game.enableFeature(GameBosstiaryTracker)
+            -- Fonticak FS sends OTC podium item bytes on map/containers (see networkmessage addOtcPodiumItemState).
+            g_game.enableFeature(GameThingPodium)
+            g_game.enableFeature(GameThingPodiumItemType)
         end
 
         if version >= 862 then

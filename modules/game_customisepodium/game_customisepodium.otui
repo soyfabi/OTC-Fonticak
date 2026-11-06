@@ -1,0 +1,414 @@
+&var-cip-font-new: Verdana Bold-11px
+&var-cip-font: verdana-11px-antialised
+&var-text-cip-color: #c0c0c0
+&var-text-color-disabled: #707070
+
+PodiumCreatureSlot < UIButton
+  size: 108 100
+  image-source: /images/ui/button-grey-up
+  image-border: 3
+  border: 1 alpha
+  focusable: false
+  checkable: true
+  phantom: false
+  @onClick: modules.game_customisepodium.onCreatureSlotClick(self)
+
+  $checked:
+    border: 1 white
+
+  Panel
+    id: selectionIconRow
+    height: 64
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    phantom: true
+
+  UICreature
+    id: creatureSprite
+    size: 64 64
+    anchors.bottom: parent.bottom
+    anchors.right: parent.right
+    fixed-creature-size: true
+    base-scale: true
+    margin-bottom: 31
+    margin-right: 22
+    phantom: true
+
+  Label
+    id: creatureName
+    anchors.top: selectionIconRow.bottom
+    anchors.bottom: parent.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-left: 2
+    margin-right: 2
+    margin-bottom: 5
+    text-align: bottom
+    text-wrap: true
+    font: $var-cip-font-new
+    color: #c0c0c0
+
+FloorTile < UIWidget
+  image-source: /images/ui/outfits/floor
+  size: 318 128
+  phantom: true
+
+RotateButton < UIButton
+  anchors.bottom: parent.bottom
+  size: 20 20
+  margin-bottom: 3
+  image-source: /images/ui/outfits/buttons_rotate
+
+CustomisePodiumWindow < MainWindowHigh
+  id: customisePodiumWindow
+  !text: tr('Customise Podium')
+  size: 754 323
+  text-offset: -1 1
+  anchors.centerIn: parent
+  @onEscape: modules.game_customisepodium.hide()
+
+  // ==================================================
+  // PANEL 1 ? CONFIGURE
+  // ==================================================
+  UIWindow
+    id: mainPanel1
+    !text: tr('Configure')
+    size: 135 246
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    image-border: 6
+    image-border-top: 27
+    draggable: false
+    anchors.top: parent.top
+    anchors.left: parent.left
+    margin-top: -7
+    margin-left: 0
+    color: $var-text-color-disabled
+    font: $var-cip-font-new
+    text-offset: 0 2
+
+    OnePixelDownFrame
+      id: fallbackPanel
+      size: 122 22
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 22
+      margin-left: 5
+      padding: 5
+
+      OptionCheckBox
+        id: showCreatureCheck
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.left: parent.left
+        margin-left: -1
+        margin-top: -1
+        @onCheckChange: modules.game_customisepodium.onShowCreatureChange(self:isChecked())
+
+      Label
+        id: showCreatureLabel
+        !text: tr('Show Creature')
+        font: $var-cip-font-new
+        color: $var-text-cip-color
+        anchors.top: parent.top
+        anchors.left: parent.left
+        text-offset: 15 -1
+        text-auto-resize: true
+
+    OnePixelDownFrame
+      id: showPodiumPanel
+      size: 122 22
+      anchors.top: fallbackPanel.bottom
+      anchors.left: fallbackPanel.left
+      margin-top: 6
+      padding: 5
+
+      OptionCheckBox
+        id: showPodiumCheck
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.left: parent.left
+        margin-left: -1
+        margin-top: -1
+        @onCheckChange: modules.game_customisepodium.onShowPodiumChange(self:isChecked())
+
+      Label
+        id: showPodiumLabel
+        !text: tr('Show Podium')
+        font: $var-cip-font-new
+        color: $var-text-cip-color
+        anchors.top: parent.top
+        anchors.left: parent.left
+        text-offset: 15 -1
+        text-auto-resize: true
+
+  // ==================================================
+  // PANEL 2 ? PREVIEW
+  // ==================================================
+  UIWindow
+    id: mainPanel2
+    !text: tr('Preview')
+    size: 332 246
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    image-border: 6
+    image-border-top: 27
+    draggable: false
+    anchors.top: mainPanel1.top
+    anchors.left: mainPanel1.right
+    margin-left: 6
+    color: $var-text-color-disabled
+    font: $var-cip-font-new
+    text-offset: 0 2
+
+    OnePixelDownFrame
+      id: previewPanel
+      size: 320 192
+      anchors.top: parent.top
+      anchors.left: parent.left
+      margin-top: 22
+      margin-left: 5
+      padding: 1
+      clipping: true
+
+      Panel
+        id: floor
+        anchors.top: parent.top
+        anchors.left: parent.left
+        size: 954 384
+
+        FloorTile
+          id: floorR1C1
+          anchors.top: parent.top
+          anchors.left: parent.left
+
+        FloorTile
+          id: floorR1C2
+          anchors.top: parent.top
+          anchors.left: parent.left
+
+        FloorTile
+          id: floorR1C3
+          anchors.top: parent.top
+          anchors.left: parent.left
+
+        FloorTile
+          id: floorR2C1
+          anchors.top: parent.top
+          anchors.left: parent.left
+
+        FloorTile
+          id: floorR2C2
+          anchors.top: parent.top
+          anchors.left: parent.left
+
+        FloorTile
+          id: floorR2C3
+          anchors.top: parent.top
+          anchors.left: parent.left
+
+        FloorTile
+          id: floorR3C1
+          anchors.top: parent.top
+          anchors.left: parent.left
+
+        FloorTile
+          id: floorR3C2
+          anchors.top: parent.top
+          anchors.left: parent.left
+
+        FloorTile
+          id: floorR3C3
+          anchors.top: parent.top
+          anchors.left: parent.left
+
+      Panel
+        id: previewRow
+        anchors.centerIn: parent
+        margin-top: 1
+        margin-left: 1
+        size: 262 128
+        phantom: true
+
+        UIItem
+          id: podiumPreview
+          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.verticalCenter: parent.verticalCenter
+          margin-top: 29
+          margin-left: 29
+          size: 70 70
+          virtual: true
+          fixed-item-size: false
+          item-visible: true
+          podium-preview: true
+          draggable: false
+          phantom: true
+
+        UICreature
+          id: creaturePreview
+          anchors.left: parent.left
+          anchors.verticalCenter: parent.verticalCenter
+          size: 128 128
+          phantom: true
+
+      RotateButton
+        id: rotateLeftButton
+        anchors.left: parent.left
+        margin-left: 1
+        margin-bottom: 1
+        image-clip: 0 0 20 20
+        @onClick: modules.game_customisepodium.rotate(1)
+
+        $pressed:
+          image-clip: 0 20 20 20
+
+      RotateButton
+        id: rotateRightButton
+        anchors.right: parent.right
+        margin-right: 1
+        margin-bottom: 1
+        image-clip: 20 0 20 20
+        @onClick: modules.game_customisepodium.rotate(-1)
+
+        $pressed:
+          image-clip: 20 20 20 20
+
+    OnePixelDownFrame
+      id: showFloorPanel
+      size: 118 22
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      margin-left: 106
+      margin-bottom: 5
+      padding: 5
+
+      OptionCheckBox
+        id: showFloorCheck
+        anchors.verticalCenter: parent.verticalCenter
+        anchors.left: parent.left
+        margin-left: -1
+        margin-top: -1
+        @onCheckChange: modules.game_customisepodium.onShowFloorChange(self:isChecked())
+
+      Label
+        id: showFloorLabel
+        !text: tr('Show Floor')
+        font: $var-cip-font-new
+        color: $var-text-cip-color
+        anchors.top: parent.top
+        anchors.left: parent.left
+        text-offset: 15 -1
+        text-auto-resize: true
+
+  // ==================================================
+  // PANEL 3 ? FILTER CREATURES
+  // ==================================================
+  UIWindow
+    id: mainPanel3
+    !text: tr('Filter Creatures')
+    size: 245 50
+    image-source: /images/ui/popupwindow-sem-borda-interna
+    image-border: 6
+    image-border-top: 27
+    draggable: false
+    anchors.top: mainPanel2.top
+    anchors.left: mainPanel2.right
+    margin-left: 6
+    color: $var-text-color-disabled
+    font: $var-cip-font-new
+    text-offset: 2 2
+
+    Panel
+      id: creatureSearchPanel
+      size: 225 20
+      anchors.top: parent.top
+      anchors.horizontalCenter: parent.horizontalCenter
+      margin-top: 22
+
+      TextEdit
+        id: creatureSearchEdit
+        anchors.fill: parent
+        placeholder: "Type to search"
+        placeholder-color: #707068
+        font: $var-cip-font-new
+        color: $var-text-cip-color
+        @onTextChange: modules.game_customisepodium.onCreatureSearchChange(self:getText())
+
+      Button
+        id: clearCreatureSearch
+        width: 18
+        height: 18
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 1
+        icon: /images/ui/button-erase-18x18-up
+        $pressed:
+          icon: /images/ui/button-erase-18x18-down
+        tooltip: Clear all text from the search field.
+        z-index: 1
+        @onClick: modules.game_customisepodium.clearCreatureSearch()
+
+  Panel
+    id: creatureListContainer
+    size: 244 190
+    anchors.top: mainPanel3.bottom
+    anchors.left: mainPanel3.left
+    margin-top: 6
+    margin-left: 1
+    image-source: /images/ui/1pixel-down-frame
+    image-border: 1
+
+    ScrollablePanel
+      id: creatureListPanel
+      anchors.fill: parent
+      vertical-scrollbar: creatureListScrollBar
+      auto-focus: none
+      padding-top: 6
+      padding-left: 6
+      padding-right: 1
+      padding-bottom: 1
+      clipping: true
+      layout:
+        type: grid
+        cell-size: 108 100
+        cell-spacing: 2
+        flow: true
+
+    VerticalQtScrollBar
+      id: creatureListScrollBar
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.right: parent.right
+      margin-right: 1
+      margin-bottom: 1
+      margin-top: 1
+      step: 20
+      pixel-scroll: true
+
+      // ==================================================
+  // FOOTER ? SEPARATOR AND BUTTONS
+  // ==================================================
+  HorizontalSeparator
+    id: bottomSeparator
+    anchors.top: mainPanel1.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 6
+
+  Button
+    id: cancelButton
+    !text: tr('Cancel')
+    size: 43 20
+    text-offset: 0 0
+    anchors.top: bottomSeparator.bottom
+    anchors.right: parent.right
+    margin-top: 6
+    @onClick: modules.game_customisepodium.onCancel()
+
+  Button
+    id: okButton
+    !text: tr('Ok')
+    size: 43 20
+    text-offset: 0 0
+    anchors.top: bottomSeparator.bottom
+    anchors.right: cancelButton.left
+    margin-top: 6
+    margin-right: 11
+    @onClick: modules.game_customisepodium.onOk()

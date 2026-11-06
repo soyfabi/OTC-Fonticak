@@ -124,6 +124,9 @@ public:
     void setLootHighlight(bool enabled) { m_lootHighlight = enabled; }
     bool hasLootHighlight() const { return m_lootHighlight; }
 
+    void setPodiumCreatureState(const Outfit& outfit, Otc::Direction direction, bool creatureVisible);
+    bool hasPodiumCreature() const;
+
     ItemPtr clone();
     ItemPtr asItem() { return static_self_cast<Item>(); }
     bool isItem() const override { return true; }
@@ -181,6 +184,7 @@ private:
     ThingType* getThingType() const override;
 
     void internalDraw(int animationPhase, const Point& dest, const Color& color, bool drawThings, bool replaceColorShader, LightView* lightView = nullptr);
+    void updatePodiumDisplayPatterns();
 
     uint16_t m_countOrSubType{ 0 };
     uint32_t m_duration{ 0 };
@@ -201,6 +205,11 @@ private:
     bool m_async{ true };
     bool m_lootHighlight{ false };
     std::string m_tooltip;
+
+    Outfit m_podiumOutfit;
+    Otc::Direction m_podiumDirection{ Otc::South };
+    bool m_podiumCreatureVisible{ false };
+    mutable CreaturePtr m_podiumCreature;
 
 #ifdef FRAMEWORK_EDITOR
     uint16_t m_serverId{ 0 };
