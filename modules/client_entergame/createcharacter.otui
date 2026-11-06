@@ -1,0 +1,341 @@
+CharacterCreationStatus < UIWidget
+  image-source: /images/ui/createaccount/icon-yes
+  image-size: 12 9
+  $disabled:
+    image-source: /images/ui/createaccount/icon-no
+
+CharacterSelectionRow < UIWidget
+  height: 14
+  focusable: true
+  background-color: #404040
+  $focus:
+    background-color: #575757
+
+  Label
+    id: details
+    anchors.fill: parent
+    color: #aaaaaa
+    font: verdana-11px-monochrome
+    text-offset: 2 0
+    background-color: alpha
+    $parent.focus:
+      color: #ffffff
+
+StaticMainWindow
+  id: createCharacterWindow
+  text: Create a new Character
+  size: 513 390
+  @onEscape: CreateCharacter.close(true)
+  @onEnter: CreateCharacter.submit()
+
+  MiniPanel
+    id: nameSection
+    anchors.left: parent.left
+    anchors.top: parent.top
+    margin-left: 0
+    margin-top: 0
+    size: 477 78
+    text: Choose Name and Sex
+
+    Label
+      id: nameLabel
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 8
+      margin-top: 4
+      size: 140 18
+      text: Character Name:
+      text-align: right
+
+    TextEdit
+      id: characterName
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 154
+      margin-top: 3
+      size: 180 20
+      max-length: 29
+      @onTextChange: CreateCharacter.validate()
+
+    CharacterCreationStatus
+      id: nameStatus
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 341
+      margin-top: 8
+      size: 12 9
+      enabled: false
+
+    QtButton
+      id: suggestButton
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 361
+      margin-top: 3
+      size: 116 20
+      text: Suggest Name
+      font: Verdana Bold-11px
+      @onClick: CreateCharacter.suggestName()
+
+    Label
+      id: sexLabel
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 8
+      margin-top: 27
+      size: 140 18
+      text: Character Sex:
+      text-align: right
+
+    CheckBoxCircle
+      id: male
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 154
+      margin-top: 29
+      size: 80 12
+      text: male
+      checked: true
+      @onClick: CreateCharacter.selectSex('male')
+
+    CheckBoxCircle
+      id: female
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 237
+      margin-top: 29
+      size: 80 12
+      text: female
+      checked: false
+      @onClick: CreateCharacter.selectSex('female')
+
+    CharacterCreationStatus
+      id: sexStatus
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 341
+      margin-top: 30
+      size: 12 9
+
+  MiniPanel
+    id: worldSection
+    anchors.left: parent.left
+    anchors.top: nameSection.bottom
+    margin-left: 0
+    margin-top: 7
+    size: 477 210
+    text: Select a Game World to Play on
+
+    Label
+      id: regionLabel
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 0
+      margin-top: 3
+      size: 101 20
+      text: World Location:
+
+    QtComboBox
+      id: region
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 104
+      margin-top: 1
+      size: 140 20
+
+    Label
+      id: pvpLabel
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 252
+      margin-top: 3
+      size: 70 20
+      text: PvP Type:
+
+    QtComboBox
+      id: pvp
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 326
+      margin-top: 1
+      size: 140 20
+
+    TextList
+      id: worldList
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 0
+      margin-top: 31
+      size: 140 150
+      background-color: #404040
+      vertical-scrollbar: worldScroll
+
+    VerticalQtScrollBar
+      id: worldScroll
+      anchors.top: worldList.top
+      anchors.bottom: worldList.bottom
+      anchors.right: worldList.right
+      step: 14
+      pixels-scroll: true
+
+    MiniPanel
+      id: worldInfo
+      anchors.left: parent.left
+      anchors.top: parent.top
+      margin-left: 147
+      margin-top: 31
+      size: 320 150
+      text: World Information
+      background-color: #404040
+
+      Label
+        id: PlayersOnlineLabel
+        anchors.left: parent.left
+        anchors.top: parent.top
+        margin-left: 1
+        margin-top: 0
+        size: 120 17
+        text: Players Online:
+
+      Label
+        id: PlayersOnline
+        anchors.left: parent.left
+        anchors.top: parent.top
+        margin-left: 124
+        margin-top: 0
+        size: 185 17
+
+      Label
+        id: PvPTypeLabel
+        anchors.left: parent.left
+        anchors.top: parent.top
+        margin-left: 1
+        margin-top: 18
+        size: 120 17
+        text: PvP Type:
+
+      Label
+        id: PvPType
+        anchors.left: parent.left
+        anchors.top: parent.top
+        margin-left: 124
+        margin-top: 18
+        size: 185 17
+
+      Label
+        id: RegionLabel
+        anchors.left: parent.left
+        anchors.top: parent.top
+        margin-left: 1
+        margin-top: 36
+        size: 120 17
+        text: World Location:
+
+      Label
+        id: Region
+        anchors.left: parent.left
+        anchors.top: parent.top
+        margin-left: 124
+        margin-top: 36
+        size: 185 17
+
+      Label
+        id: CreationDateLabel
+        anchors.left: parent.left
+        anchors.top: parent.top
+        margin-left: 1
+        margin-top: 54
+        size: 120 17
+        text: Creation Date:
+
+      Label
+        id: CreationDate
+        anchors.left: parent.left
+        anchors.top: parent.top
+        margin-left: 124
+        margin-top: 54
+        size: 185 17
+
+      Label
+        id: ProtectionLabel
+        anchors.left: parent.left
+        anchors.top: parent.top
+        margin-left: 1
+        margin-top: 72
+        size: 120 17
+        text: BattlEye Status:
+
+      Label
+        id: Protection
+        anchors.left: parent.left
+        anchors.top: parent.top
+        margin-left: 124
+        margin-top: 72
+        size: 185 17
+
+      Label
+        id: PremiumOnlyLabel
+        anchors.left: parent.left
+        anchors.top: parent.top
+        margin-left: 1
+        margin-top: 90
+        size: 120 17
+        text: Premium Only:
+
+      Label
+        id: PremiumOnly
+        anchors.left: parent.left
+        anchors.top: parent.top
+        margin-left: 124
+        margin-top: 90
+        size: 185 17
+
+      Label
+        id: TransferTypeLabel
+        anchors.left: parent.left
+        anchors.top: parent.top
+        margin-left: 1
+        margin-top: 108
+        size: 120 17
+        text: Transfer Type:
+
+      Label
+        id: TransferType
+        anchors.left: parent.left
+        anchors.top: parent.top
+        margin-left: 124
+        margin-top: 108
+        size: 185 17
+
+  HorizontalSeparator
+    id: separator
+    anchors.left: parent.left
+    anchors.top: parent.top
+    margin-left: 0
+    margin-top: 306
+    size: 477 2
+
+  QtButton
+    id: cancelButton
+    anchors.left: parent.left
+    anchors.top: parent.top
+    margin-left: 249
+    margin-top: 319
+    size: 108 21
+    text: Cancel
+    font: Verdana Bold-11px
+    @onClick: CreateCharacter.close(true)
+
+  QtButton
+    id: createButton
+    anchors.left: parent.left
+    anchors.top: parent.top
+    margin-left: 363
+    margin-top: 319
+    size: 125 21
+    text: Create Character
+    font: Verdana Bold-11px
+    enabled: false
+    @onClick: CreateCharacter.submit()
+
+

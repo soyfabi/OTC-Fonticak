@@ -12,9 +12,11 @@ Module
     dofile 'entergame'
     dofile 'characterlist'
     dofile 'createAccount'
+    dofile 'createcharacter'
     EnterGame.init()
     CharacterList.init()
 
   @onUnload: |
+    CreateCharacter.close(false)
     EnterGame.terminate()
     CharacterList.terminate()

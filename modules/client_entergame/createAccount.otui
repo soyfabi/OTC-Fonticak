@@ -51,7 +51,7 @@ PanelCreateYourAccount < Panel
     $disabled:
       image-source: /images/ui/createaccount/icon-no
 
-MainWindow
+StaticMainWindow
   id: mainWindow
   size: 513 390
   text: "Start Your Journey"
@@ -194,6 +194,7 @@ MainWindow
         
         Label
           id: characterTextEdit
+          text-offset: 0 3
           width: 180
         
         UIWidget
@@ -207,8 +208,10 @@ MainWindow
             image-source: /images/ui/createaccount/icon-no
 
         Button
+          id: suggestButton
+          size: 116 12
           text: "Suggest Name"
-          font: cipsoftFont
+          font: Verdana Bold-11px
           @onClick: onClickSuggestName()
       Panel
         id: panelSex
