@@ -425,6 +425,7 @@ private:
     void parseBosstiaryData(const InputMessagePtr& msg);
     void parseBosstiarySlots(const InputMessagePtr& msg);
     void parseBosstiaryCooldownTimer(const InputMessagePtr& msg);
+    void parseBossCooldown(const InputMessagePtr& msg);
     void parseBosstiaryEntryChanged(const InputMessagePtr& msg);
     void parseBestiaryRaces(const InputMessagePtr& msg);
     void parseBestiaryOverview(const InputMessagePtr& msg);

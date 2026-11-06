@@ -340,6 +340,9 @@ void ProtocolGame::parseMessage(const InputMessagePtr& msg)
                 case Proto::GameServerPartyAnalyzer:
                     parsePartyAnalyzer(msg);
                     break;
+                case Proto::GameServerBossCooldown:
+                    parseBossCooldown(msg);
+                    break;
                 case Proto::GameServerExtendedOpcode: // otclient only
                     parseExtendedOpcode(msg);
                     break;
@@ -6830,6 +6833,34 @@ void ProtocolGame::parseBosstiaryCooldownTimer(const InputMessagePtr& msg)
     for (auto i = 0; i < bossesOnTrackerSize; ++i) {
         const uint32_t bossRaceId = msg->getU32(); // bossRaceId
         const uint64_t cooldownTime = msg->getU64(); // Boss cooldown in seconds
+
+        cooldownData.emplace_back(bossRaceId, cooldownTime);
+    }
+
+    // Call the Lua callback with the cooldown data
+    g_lua.callGlobalField("g_game", "onBossCooldown", cooldownData);
+}
+
+void ProtocolGame::parseBossCooldown(const InputMessagePtr& msg)
+{
+    // Custom 8.60 server packet (forgottenserver data/scripts/network/
+    // boss_cooldown/bosscooldown.lua), also parsed by AstraClient. Its wire
+    // format differs from GameServerBosstiaryCooldownTimer: U8 count, then
+    // per boss U16 raceId, U32 cooldown expiry (unix timestamp), name and
+    // outfit. The name/outfit are redundant for Lua, which re-derives them
+    // from local race data, but they must be consumed to keep the message
+    // stream aligned.
+    const uint8_t bossCount = msg->getU8();
+    std::vector<BossCooldownData> cooldownData;
+    cooldownData.reserve(bossCount);
+
+    for (uint8_t i = 0; i < bossCount; ++i) {
+        const uint16_t bossRaceId = msg->getU16();
+        const uint32_t cooldownTime = msg->getU32(); // cooldown expiry, unix timestamp
+        msg->getString(); // boss name, derived from race data in Lua
+        msg->getU16(); // outfit lookType
+        for (int j = 0; j < 5; ++j)
+            msg->getU8(); // outfit head/body/legs/feet/addons
 
         cooldownData.emplace_back(bossRaceId, cooldownTime);
     }
