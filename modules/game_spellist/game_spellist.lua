@@ -483,7 +483,7 @@ function init()
   end
 
   t_spelllist:setFocusable(true)
-  t_spelllist:setContentMinimumHeight(205)
+  t_spelllist:setContentMinimumHeight(235)
   t_spelllist:setup()
   t_spelllist:hide()
 
@@ -789,6 +789,23 @@ function selectSpellWidget(widget)
   if name then name:setColor('#f4f4f4') end
   if words then words:setColor('#f4f4f4') end
   updateSpellDetails(widget.spellData)
+end
+
+function showMore()
+  local cyclopedia = modules.game_cyclopedia
+  if not g_game.isOnline() or not cyclopedia or not cyclopedia.show then
+    return
+  end
+
+  releaseSearchFocus()
+  local spell = selectedSpellWidget and selectedSpellWidget.spellData
+  local archives = cyclopedia.Cyclopedia
+  if spell and archives and archives.openSpellInMagicalArchives
+      and archives.openSpellInMagicalArchives(spell.id) then
+    return
+  end
+
+  cyclopedia.show('magicalArchives')
 end
 
 function updateSpellDetails(data)

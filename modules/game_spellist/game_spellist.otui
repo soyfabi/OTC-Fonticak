@@ -88,14 +88,14 @@ TibiaSpellInfoEntry < UIWidget
 MiniWindow
   id: spellListWidget
   text: ''
-  height: 380
+  height: 410
   width: 192
   focusable: true
   @onClose: modules.game_spellist.onMiniWindowClose()
   @onOpen: modules.game_spellist.onMiniWindowOpen()
   &save: true
   &autoOpen: false
-  &minimumHeight: 280
+  &minimumHeight: 310
 
   UIWidget
     id: spellListIcon
@@ -146,7 +146,7 @@ MiniWindow
     anchors.right: parent.right
     phantom: true
     focusable: true
-    height: 170
+    height: 200
     margin-left: 3
     margin-right: 3
     margin-bottom: 4
@@ -229,6 +229,17 @@ MiniWindow
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: prev.bottom
+
+    Button
+      id: showMoreButton
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.bottom: parent.bottom
+      margin-bottom: 3
+      size: 86 20
+      text: Show More
+      font: verdana-11px-antialised
+      focusable: false
+      @onClick: modules.game_spellist.showMore()
 
   TextEdit
     id: searchText
