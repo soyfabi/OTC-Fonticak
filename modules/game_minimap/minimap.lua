@@ -526,9 +526,8 @@ local function applyContainerLayout(container)
     applyLayoutMode(horizontal, container)
 end
 
--- A saved horizontal slot only exists while its columns are open. If the layout
--- came back with that side closed the minimap would be invisible, so park it in
--- the right panel without persisting, keeping the saved slot for next time.
+-- If the saved top slot is hidden, use the other visible top slot temporarily.
+-- The minimap never falls back into the lower sidebar columns.
 local function rescueMinimapFromHiddenSlot()
     local ui = mapController.ui
     if not ui or ui:isDestroyed() then
@@ -544,13 +543,15 @@ local function rescueMinimapFromHiddenSlot()
         return
     end
 
-    local mainRightPanel = modules.game_interface.getMainRightPanel()
-    if not mainRightPanel or mainRightPanel:isDestroyed() then
+    local otherId = parent:getId() == 'gameRightTopPanel' and 'gameLeftTopPanel' or 'gameRightTopPanel'
+    local otherSlot = rootWidget:recursiveGetChildById(otherId)
+    if not otherSlot or otherSlot:isDestroyed() or not otherSlot:isVisible() or otherSlot:getWidth() <= 0 then
         return
     end
 
     parent:removeChild(ui)
-        mainRightPanel:addChild(ui)
+    otherSlot:addChild(ui)
+    otherSlot:redistributeChildrenWidths()
 end
 
 local function findMinimapDropTarget(window, mousePos)
@@ -562,7 +563,8 @@ local function findMinimapDropTarget(window, mousePos)
     local children = root:recursiveGetChildrenByPos(mousePos)
     for i = 1, #children do
         local child = children[i]
-        if child ~= window and child:getClassName() == 'UIMiniWindowContainer'
+        local isMinimapSlot = child:getId() == 'gameRightTopPanel' or child:getId() == 'gameLeftTopPanel'
+        if isMinimapSlot and child ~= window and child:getClassName() == 'UIMiniWindowContainer'
             and type(child.onDrop) == 'function' and child:onDrop(window, mousePos) then
             return child
         end
@@ -802,6 +804,7 @@ function mapController:onInit()
     self.ui.allowHorizontalDrop = true
     self.ui.onContainerChanged = function(_, container)
         applyContainerLayout(container)
+        modules.game_interface.scheduleSidebarLayoutUpdate()
     end
     setupHorizontalDragHandle(getLayoutWidget(getLayoutRoot(self.ui, true), 'horizontalDragHandle'))
     -- Both layouts keep their own indicator, so each one needs the slider wiring.
@@ -852,6 +855,28 @@ function mapController:onGameStart()
         self.ui.minimapBorder.minimap:load()
     end
 
+    -- The default minimap slot is above the right sidebar, not inside the
+    -- inventory column below it. Migrate the former default once, preserving
+    -- any other explicitly saved placement.
+    local char = g_game.getCharacterName()
+    if char and char ~= '' then
+        local settings = g_settings.getNode('CharMiniWindows') or {}
+        settings[char] = settings[char] or {}
+        local saved = settings[char].mainmappanel or {}
+        if not saved.defaultTopPositionInitialized
+            or (saved.parentId ~= 'gameRightTopPanel' and saved.parentId ~= 'gameLeftTopPanel') then
+            if saved.parentId ~= 'gameRightTopPanel' and saved.parentId ~= 'gameLeftTopPanel' then
+                saved.parentId = 'gameRightTopPanel'
+                saved.index = 1
+                saved.position = nil
+            end
+            saved.closed = false
+            saved.defaultTopPositionInitialized = true
+            settings[char].mainmappanel = saved
+            g_settings.setNode('CharMiniWindows', settings)
+        end
+    end
+
     -- Controller modules never restore their mini window on their own, so the
     -- saved slot (a horizontal top panel or a sidebar column) has to be applied
     -- here or the minimap always reopens where setUI parked it.
@@ -861,6 +886,7 @@ function mapController:onGameStart()
 
     addEvent(function()
         if self.ui and not self.ui:isDestroyed() then
+            modules.game_interface.refreshSidebarLayout()
             rescueMinimapFromHiddenSlot()
             applyContainerLayout(self.ui:getParent())
         end

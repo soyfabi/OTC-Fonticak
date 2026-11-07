@@ -405,6 +405,11 @@ function UIMiniWindowContainer:fits(child, minContentHeight, maxContentHeight)
 end
 
 function UIMiniWindowContainer:onDrop(widget, mousePos)
+    local minimapSlot = self:getId() == 'gameRightTopPanel' or self:getId() == 'gameLeftTopPanel'
+    local isMinimap = widget:getId() == 'mainmappanel'
+    if minimapSlot ~= isMinimap then
+        return false
+    end
     if self.isHorizontalPanel and not widget.allowHorizontalDrop then
         return true
     end

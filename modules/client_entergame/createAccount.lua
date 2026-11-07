@@ -2,6 +2,10 @@
 
 local MainWindowsCreateAccount = nil
 
+local function hasRegistrationService()
+    return Services and type(Services.createAccount) == 'string' and Services.createAccount:match('%S') ~= nil
+end
+
 local UIwidgetImagen = {
     AccountData = nil,
     AllData = nil,
@@ -81,7 +85,7 @@ local function handleHttpResponse(requestType, callback)
         local json_part = message:match("{.*}")
         if not json_part then
             reportRequestWarning(requestType, "ERROR: JSON not found in the response", "fx handleHttpResponse")
-            return
+            return callback(nil, 'Invalid registration service response.')
         end
         local status, response = pcall(json.decode, json_part)
         if not status then
@@ -89,11 +93,11 @@ local function handleHttpResponse(requestType, callback)
                 ensableBtnCreateNewAccount()
             end
             reportRequestWarning(requestType, "[HTTP] JSON decode error: " .. response, "fx handleHttpResponse")
-            return
+            return callback(nil, 'Invalid registration service response.')
         end
         if type(response) ~= "table" then
             reportRequestWarning(requestType, "[HTTP] Invalid response format", "fx handleHttpResponse")
-            return
+            return callback(nil, 'Invalid registration service response.')
         end
         if not status then
             reportRequestWarning(requestType, response, "fx handleHttpResponse")
@@ -105,6 +109,20 @@ end
 
 -- Account creation status request
 local function getAccountCreationStatus(callback)
+    if not hasRegistrationService() then
+        local worlds = {}
+        for name in pairs(Servers_init or {}) do
+            table.insert(worlds, {
+                Name = name, Region = 'Local', PvPType = 'Open PvP',
+                PlayersOnline = 0, PremiumOnly = 0, TransferType = 'Blocked',
+                CreationDate = 0, BattlEyeActivationTimestamp = 0, BattlEyeInitiallyActive = 0
+            })
+        end
+        if #worlds == 0 then
+            worlds[1] = {Name = 'Local', Region = 'Local', PvPType = 'Open PvP'}
+        end
+        return callback({RecommendedWorld = worlds[1].Name, Worlds = worlds})
+    end
     --[[     HTTP.addCustomHeader({
         ["Date"] = "Fri, 14 Feb 2025 22:13:09 GMT",
         ["Content-Type"] = "application/json; charset=utf-8",
@@ -169,12 +187,21 @@ local function getAccountCreationStatus(callback)
 end
 
 local function generateCharacterName(callback)
+    if not hasRegistrationService() then
+        local first = {'Ar', 'Bel', 'Dar', 'El', 'Mar', 'Nor', 'Ral', 'Val'}
+        local last = {'adan', 'dor', 'ion', 'omar', 'oth', 'rian', 'van', 'wyn'}
+        return callback({GeneratedName = first[math.random(#first)] .. last[math.random(#last)]})
+    end
     HTTP.post(Services.createAccount, json.encode({
         type = "generatecharactername"
     }), handleHttpResponse("generatecharactername", callback), false)
 end
 
 local function checkCharacterName(name, callback)
+    if not hasRegistrationService() then
+        local valid = #name >= 3 and #name <= 29 and name:match('^[A-Za-z]+[A-Za-z %-]*[A-Za-z]$') ~= nil
+        return callback({IsAvailable = valid, errorMessage = valid and '' or 'Please enter a valid character name.'})
+    end
     HTTP.post(Services.createAccount, json.encode({
         type = "checkcharactername",
         CharacterName = name
@@ -189,6 +216,11 @@ local function checkCharacterName(name, callback)
 end
 
 local function checkEmail(email, callback)
+    if not hasRegistrationService() then
+        local valid = email:match('^[^%s@]+@[^%s@]+%.[^%s@]+$') ~= nil
+        return callback({IsValid = valid, errorCode = not valid and 59 or nil,
+            errorMessage = valid and '' or 'Please enter a valid email address.'})
+    end
     HTTP.post(Services.createAccount, json.encode({
         type = "checkemail",
         Email = email
@@ -203,6 +235,19 @@ local function checkEmail(email, callback)
 end
 
 local function checkPassword(password, callback)
+    if not hasRegistrationService() then
+        local requirements = {
+            HasUpperCase = password:match('%u') ~= nil,
+            HasNumber = password:match('%d') ~= nil,
+            PasswordLength = #password >= 8,
+            InvalidCharacters = password:match('%s') == nil,
+            HasLowerCase = password:match('%l') ~= nil
+        }
+        local valid = true
+        for _, passed in pairs(requirements) do valid = valid and passed end
+        return callback({PasswordValid = valid, PasswordRequirements = requirements,
+            PasswordStrength = valid and 100 or 0, PasswordStrengthColor = valid and '#76EE00' or '#EC644B'})
+    end
     HTTP.post(Services.createAccount, json.encode({
         type = "checkpassword",
         Password1 = password
@@ -228,7 +273,8 @@ local function createAccountAndCharacter(array, callback)
         EMail = array.email,
         Password = array.password,
         CharacterName = array.characterName,
-        CharacterSex = array.characterSex
+        CharacterSex = array.characterSex,
+        AcceptedTerms = array.acceptedTerms
     }), handleHttpResponse("createaccountandcharacter", callback), false)
 end
 
@@ -465,6 +511,10 @@ function toggleCreateAccount(bool)
 end
 
 function onClickStartPlaying()
+    if not hasRegistrationService() then
+        displayInfoBox(tr('Create Account'), tr('The registration service is not configured. Set Services.createAccount in init.lua to your account registration API.'))
+        return
+    end
     local uiElements = {UITextEdit.email, UITextEdit.password, UITextEdit.character, UITextEdit.repeatPassword}
     for _, element in ipairs(uiElements) do
         element:disable()
@@ -474,6 +524,7 @@ function onClickStartPlaying()
     globalInfo.password = UITextEdit.password:getText()
     globalInfo.characterName = UITextEdit.character:getText()
     globalInfo.characterSex = sexModeGroup:getSelectedWidget():getText():lower()
+    globalInfo.acceptedTerms = MainWindowsCreateAccount.createAccount.createYourAccount.panelCheckBox.checkboxPrivacy:isChecked()
     -- globalInfo.selectedWorld
 
     createAccountAndCharacter(globalInfo, function(data, err)
@@ -482,6 +533,7 @@ function onClickStartPlaying()
         end
         if err or not data then
             reportRequestWarning("createAccountAndCharacter", err, "fx onClickStartPlaying")
+            displayErrorBox(tr('Create Account'), tr('Could not contact the registration service. Please try again later.'))
             return
         end
         if data.Success then
@@ -497,6 +549,7 @@ function onClickStartPlaying()
             end
         else
             reportRequestWarning("createAccountAndCharacter", data.errorMessage, "fx onClickStartPlaying")
+            displayErrorBox(tr('Create Account'), data.errorMessage or tr('Account creation failed.'))
         end
     end)
 end
@@ -669,6 +722,11 @@ function createWidgetAccount()
             ensableBtnCreateNewAccount()
             if err or not data then
                 reportRequestWarning("getaccountcreationstatus", err, "fx createWidgetAccount")
+                displayErrorBox(tr('Create Account'), tr('Could not load the registration service. Check that Apache and MySQL are running.'))
+                return
+            end
+            if not data.RecommendedWorld or type(data.Worlds) ~= 'table' or not data.Worlds[1] then
+                displayErrorBox(tr('Create Account'), data.errorMessage or tr('No worlds available for registration.'))
                 return
             end
             MainWindowsCreateAccount = g_ui.displayUI('createAccount')

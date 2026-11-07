@@ -142,15 +142,23 @@ void ProtocolGame::sendLoginPacket(const uint32_t challengeTimestamp, const uint
             challengeTimestamp, challengeRandom
         );
         msg->addU32(signature);
-        // The marker commits this connection to the highlighted catalog layout.
-        // Enable its parser before the server can answer with a Store packet.
-        g_game.enableFeature(Otc::GameIngameStoreHighlights);
-        msg->addString(FONTICAK_STORE_HIGHLIGHTS_MARKER);
+        // This optional extension must fit in the RSA block together with the
+        // credentials. Encrypting the last 128 bytes of an oversized packet
+        // loses its leading zero and can fail before the packet is sent.
+        const int markerBytes = 2 + static_cast<int>(std::string_view(FONTICAK_STORE_HIGHLIGHTS_MARKER).size());
+        if (msg->getMessageSize() - offset + markerBytes <= g_crypt.rsaGetSize()) {
+            g_game.enableFeature(Otc::GameIngameStoreHighlights);
+            msg->addString(FONTICAK_STORE_HIGHLIGHTS_MARKER);
+        } else {
+            g_game.disableFeature(Otc::GameIngameStoreHighlights);
+        }
     }
 
     // complete the bytes for rsa encryption with zeros
     const int paddingBytes = g_crypt.rsaGetSize() - (msg->getMessageSize() - offset);
-    assert(paddingBytes >= 0);
+    if (paddingBytes < 0) {
+        throw stdext::exception("Login data exceeds the RSA block size. Use a shorter account name/password or a protocol with larger login capacity.");
+    }
     msg->addPaddingBytes(paddingBytes);
 
     // encrypt with RSA
