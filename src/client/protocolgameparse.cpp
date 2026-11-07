@@ -2230,6 +2230,7 @@ void ProtocolGame::parseMagicEffect(const InputMessagePtr& msg)
     }
 
     uint16_t effectId = g_game.getFeature(Otc::GameMagicEffectU16) ? msg->getU16() : msg->getU8();
+    const uint8_t effectSource = g_game.getFeature(Otc::GameEffectSource) ? msg->getU8() : 0;
 
     if (g_game.getClientVersion() <= 750) {
         effectId += 1; //hack to fix effects in earlier clients
@@ -2250,6 +2251,7 @@ void ProtocolGame::parseMagicEffect(const InputMessagePtr& msg)
 
     const auto& effect = std::make_shared<Effect>();
     effect->setId(effectId);
+    effect->setSource(static_cast<Otc::MagicEffectSources>(effectSource));
 
     g_map.addThing(effect, pos);
 }
@@ -2321,6 +2323,7 @@ void ProtocolGame::parseDistanceMissile(const InputMessagePtr& msg)
     const auto& toPos = getPosition(msg);
 
     const uint16_t shotId = g_game.getFeature(Otc::GameDistanceEffectU16) ? msg->getU16() : msg->getU8();
+    const uint8_t effectSource = g_game.getFeature(Otc::GameEffectSource) ? msg->getU8() : 0;
     if (!g_things.isValidDatId(shotId, ThingCategoryMissile)) {
         g_logger.traceError("invalid missile id {}", shotId);
         return;
@@ -2328,6 +2331,7 @@ void ProtocolGame::parseDistanceMissile(const InputMessagePtr& msg)
 
     const auto& missile = std::make_shared<Missile>();
     missile->setId(shotId);
+    missile->setEffectSource(static_cast<Otc::MagicEffectSources>(effectSource));
     missile->setPath(fromPos, toPos);
 
     g_map.addThing(missile, fromPos);

@@ -184,8 +184,9 @@ float Client::getSpellEffectAlpha(const Otc::MagicEffectSources source) const
         case Otc::ME_SOURCE_BOSS:
             return m_bossAreaCreatureEffectAlpha;
         case Otc::ME_SOURCE_OWN:
+            return m_ownSpellEffectAlpha;
         case Otc::ME_SOURCE_DEFAULT:
         default:
-            return m_ownSpellEffectAlpha;
+            return 1.f;
     }
 }

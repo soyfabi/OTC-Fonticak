@@ -152,6 +152,10 @@ void ProtocolGame::sendLoginPacket(const uint32_t challengeTimestamp, const uint
         } else {
             g_game.disableFeature(Otc::GameIngameStoreHighlights);
         }
+        // Negotiate caster metadata only when this optional marker fits RSA.
+        // Older servers stop at unknown markers, so keep it after store flags.
+        if (msg->getMessageSize() - offset + 4 <= g_crypt.rsaGetSize())
+            msg->addString("ES");
     }
 
     // complete the bytes for rsa encryption with zeros
