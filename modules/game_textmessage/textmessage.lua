@@ -212,6 +212,7 @@ MessageTypes = {
 }
 
 messagesPanel = nil
+local speechLayoutEvent
 
 local CENTER_LABEL_SLOTS = { 'highCenterLabel', 'middleCenterLabel', 'lowCenterLabel' }
 local LOOT_CENTER_LABEL = 'lowCenterLabel'
@@ -471,6 +472,55 @@ local function showCenterScreenMessage(modeNum, text, msgtype, isLootMsg)
     showScreenMessage(label, text, displayColor, useColoredLoot, modeNum, isLootMsg)
 end
 
+local function updateCenterMessagePosition()
+    if not messagesPanel then return end
+    local panel = messagesPanel:getChildById('centerTextMessagePanel')
+    if not panel then return end
+
+    local hasMessage = false
+    for _, id in ipairs(CENTER_LABEL_SLOTS) do
+        local label = panel:getChildById(id)
+        if label and label:isVisible() then hasMessage = true end
+    end
+    local mapPanel = modules.game_interface.getMapPanel()
+    if not hasMessage or not g_game.isOnline() or not mapPanel or not mapPanel.getSpeechTextRects then
+        panel:setMarginTop(0)
+        return
+    end
+
+    local bounds = messagesPanel:getRect()
+    local height = panel:getHeight()
+    local baseY = bounds.y + math.floor((bounds.height - height) / 2)
+    local x, width = panel:getX(), panel:getWidth()
+    local speech = mapPanel:getSpeechTextRects()
+    local gap = 4
+    local function fits(y)
+        if y < bounds.y or y + height > bounds.y + bounds.height then return false end
+        for _, rect in ipairs(speech) do
+            if x < rect.x + rect.width and x + width > rect.x
+                and y < rect.y + rect.height + gap and y + height > rect.y - gap then
+                return false
+            end
+        end
+        return true
+    end
+
+    -- Always start from the original center, so movement never accumulates.
+    local bestY = baseY
+    if not fits(baseY) then
+        local bestDistance
+        for _, rect in ipairs(speech) do
+            for _, y in ipairs({ rect.y + rect.height + gap, rect.y - height - gap }) do
+                local distance = math.abs(y - baseY)
+                if fits(y) and (not bestDistance or distance < bestDistance) then
+                    bestY, bestDistance = y, distance
+                end
+            end
+        end
+    end
+    panel:setMarginTop(bestY - baseY)
+end
+
 function init()
     for messageMode, _ in pairs(MessageTypes) do
         registerMessageMode(messageMode, displayMessage)
@@ -478,9 +528,12 @@ function init()
 
     connect(g_game, 'onGameEnd', clearMessages)
     messagesPanel = g_ui.loadUI('textmessage', modules.game_interface.getRootPanel())
+    speechLayoutEvent = cycleEvent(updateCenterMessagePosition, 100)
 end
 
 function terminate()
+    removeEvent(speechLayoutEvent)
+    speechLayoutEvent = nil
     for messageMode, _ in pairs(MessageTypes) do
         unregisterMessageMode(messageMode, displayMessage)
     end

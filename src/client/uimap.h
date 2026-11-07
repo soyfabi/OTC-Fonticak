@@ -75,6 +75,7 @@ public:
     Position getCameraPosition();
     Point getTilePoint(const Position& pos);
     Rect getTileRect(const Position& pos);
+    std::vector<Rect> getSpeechTextRects();
     Position getPosition(const Point& mousePos);
     Point getPositionOffset(const Point& mousePos);
     TilePtr getTile(const Point& mousePos);

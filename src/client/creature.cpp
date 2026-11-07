@@ -262,7 +262,15 @@ void Creature::drawInformation(const MapPosInfo& mapRect, const Point& dest, con
     const auto displacementY = g_game.getFeature(Otc::GameNegativeOffset) ? 0 : getDisplacementY();
 
     const auto& parentRect = mapRect.rect;
-    const auto& creatureOffset = Point(16 - displacementX, -displacementY - 2) + getDrawOffset();
+    // Keep the name and its bars above the outfit as one group. Apply this
+    // in map coordinates so the clearance follows the map zoom.
+    constexpr int informationClearance = 10;
+    auto creatureOffset = Point(16 - displacementX, -displacementY - informationClearance) + getDrawOffset();
+    if (m_outfit.isCreature() && m_outfit.hasMount()) {
+        // internalDraw translates the mount destination before ThingType::draw
+        // applies its displacement. Keep the information on the same anchor.
+        creatureOffset -= getMountThingType()->getDisplacement();
+    }
 
     Point p = dest - mapRect.drawOffset;
     p += (creatureOffset - Point(std::round(m_jumpOffset.x), std::round(m_jumpOffset.y))) * mapRect.scaleFactor;

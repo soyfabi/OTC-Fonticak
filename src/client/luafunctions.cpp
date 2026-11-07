@@ -1257,6 +1257,7 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMap>("getFollowingCreature", &UIMap::getFollowingCreature);
     g_lua.bindClassMemberFunction<UIMap>("getCameraPosition", &UIMap::getCameraPosition);
     g_lua.bindClassMemberFunction<UIMap>("getTilePoint", &UIMap::getTilePoint);
+    g_lua.bindClassMemberFunction<UIMap>("getSpeechTextRects", &UIMap::getSpeechTextRects);
     g_lua.bindClassMemberFunction<UIMap>("getTileRect", &UIMap::getTileRect);
     g_lua.bindClassMemberFunction<UIMap>("getPosition", &UIMap::getPosition);
     g_lua.bindClassMemberFunction<UIMap>("getPositionOffset", &UIMap::getPositionOffset);

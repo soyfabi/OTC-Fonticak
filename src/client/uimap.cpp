@@ -25,6 +25,8 @@
 #include "lightview.h"
 #include "map.h"
 #include "mapview.h"
+#include "statictext.h"
+#include "framework/core/graphicalapplication.h"
 #include "framework/graphics/drawpoolmanager.h"
 #include "framework/otml/otmlnode.h"
 #include <framework/platform/platformwindow.h>
@@ -197,6 +199,28 @@ Rect UIMap::getTileRect(const Position& pos)
 }
 
 Position UIMap::getPosition(const Point& mousePos) { return m_mapView->getPosition(mousePos); }
+
+std::vector<Rect> UIMap::getSpeechTextRects()
+{
+    std::vector<Rect> rects;
+    const float textScale = g_app.getStaticTextScale();
+    const float uiScale = textScale / g_window.getDisplayDensity();
+    for (const auto& text : g_map.getStaticTexts()) {
+        if (text->getMessageMode() == Otc::MessageNone || !text->hasText()
+            || !m_mapView->isInRange(text->getPosition()))
+            continue;
+
+        // Match MapView::drawForeground, then convert back to UI coordinates.
+        auto point = m_mapView->transformPositionTo2D(text->getPosition()) - m_mapView->m_posInfo.drawOffset;
+        point.x *= m_mapView->m_posInfo.horizontalStretchFactor;
+        point.y *= m_mapView->m_posInfo.verticalStretchFactor;
+        point += m_mapviewRect.topLeft();
+        const auto rect = text->getDrawRect(point.scale(textScale), m_mapviewRect);
+        rects.emplace_back(std::lround(rect.x() * uiScale), std::lround(rect.y() * uiScale),
+            std::ceil(rect.width() * uiScale), std::ceil(rect.height() * uiScale));
+    }
+    return rects;
+}
 
 Point UIMap::getPositionOffset(const Point& mousePos) { return m_mapView->getPositionOffset(mousePos); }
 
