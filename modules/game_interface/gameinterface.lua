@@ -542,6 +542,7 @@ function onGameStart()
 end
 
 function onGameEnd()
+    setMinimapDragging(false)
     hide()
 end
 

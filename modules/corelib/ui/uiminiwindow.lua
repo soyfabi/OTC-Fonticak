@@ -383,6 +383,7 @@ function UIMiniWindow:setFloating()
 end
 
 function UIMiniWindow:scheduleFloatingRestore()
+    if self:getId() == 'mainmappanel' then return end
     if not freePlacementEnabled() then
         return
     end
@@ -565,23 +566,30 @@ function UIMiniWindow:setupOnStart()
 
     local oldParent = self:getParent()
     local newParentSet = false
-    local settings = g_settings.getNode('CharMiniWindows')
+    local settings = g_settings.getNode('CharMiniWindows') or {}
+    settings[char] = settings[char] or {}
 
-    if not settings then
-        settings = {
-            [char] = {}
-        }
-    elseif not settings[char] then
-        -- if there are no settings for this character, we'll copy the settings from
-        -- another one, so we'll have something better than all the windows randomly positioned
-        for k, v in pairs(settings) do
-            settings[char] = v
-            g_settings.setNode('CharMiniWindows', settings)
-            break
-        end
+    -- Each character starts with its own closed auxiliary windows rather than
+    -- inheriting another character's layout. The minimap remains visible.
+    local id = self:getId()
+    settings[char][id] = settings[char][id] or {}
+    if id == 'mainmappanel' and settings[char][id].closed ~= false then
+        -- Also repair minimaps hidden by the previous closed-by-default rule.
+        settings[char][id].closed = false
+        g_settings.setNode('CharMiniWindows', settings)
+    elseif settings[char][id].closed == nil then
+        settings[char][id].closed = true
+        g_settings.setNode('CharMiniWindows', settings)
     end
 
-    local selfSettings = settings[char][self:getId()]
+    local selfSettings = settings[char][id]
+    if id ~= 'mainmappanel' and (selfSettings.parentId == 'gameRightTopPanel'
+        or selfSettings.parentId == 'gameLeftTopPanel') then
+        selfSettings.parentId = self.moveOnlyToMain and 'gameMainRightPanel' or 'gameRightPanel'
+        selfSettings.index = 1
+        selfSettings.position = nil
+        g_settings.setNode('CharMiniWindows', settings)
+    end
     if selfSettings then
         if selfSettings.parentId then
             local parent = rootWidget:recursiveGetChildById(selfSettings.parentId)
@@ -624,10 +632,6 @@ function UIMiniWindow:setupOnStart()
 
         if selfSettings.locked then
             self:lock(true)
-        end
-    else
-        if self:getId() == "battleWindow" then
-            self:open(true)
         end
     end
 
@@ -791,6 +795,10 @@ local function canDockInContainer(miniwindow, container)
     if container:getClassName() ~= 'UIMiniWindowContainer' then
         return false
     end
+    local minimapSlot = container:getId() == 'gameRightTopPanel' or container:getId() == 'gameLeftTopPanel'
+    if minimapSlot ~= (miniwindow:getId() == 'mainmappanel') then
+        return false
+    end
     if container.isHorizontalPanel and not miniwindow.allowHorizontalDrop then
         return false
     end
@@ -925,6 +933,9 @@ function UIMiniWindow:onDragEnter(mousePos)
     if not parent then
         return false
     end
+    if self:getId() == 'mainmappanel' and modules.game_interface.setMinimapDragging then
+        modules.game_interface.setMinimapDragging(true)
+    end
 
     g_effects.cancelMove(self)
     self.smoothDropActive = nil
@@ -1041,6 +1052,14 @@ function UIMiniWindow:onDragLeave(droppedWidget, mousePos)
         needsBounce = false
     end
 
+    if self:getId() == 'mainmappanel' then
+        local parentId = landedParent and landedParent:getId()
+        if parentId ~= 'gameRightTopPanel' and parentId ~= 'gameLeftTopPanel' then
+            needsBounce = true
+            landedOnSidebar = false
+        end
+    end
+
     local wantsFloat = self._fromSidebar and not landedOnSidebar and not needsBounce and
         freePlacementEnabled() and not self.locked and not (droppedWidget and droppedWidget.onlyPhantomDrop)
 
@@ -1066,6 +1085,10 @@ function UIMiniWindow:onDragLeave(droppedWidget, mousePos)
         self:setOpacity(self._origOpacity or 1.0)
         self._origOpacity = nil
         self:saveParent(self:getParent())
+    end
+
+    if self:getId() == 'mainmappanel' and modules.game_interface.setMinimapDragging then
+        modules.game_interface.setMinimapDragging(false)
     end
 
     return true
@@ -1175,7 +1198,7 @@ function UIMiniWindow:getSettings(name)
     end
 
     local settings = g_settings.getNode('CharMiniWindows')
-    if settings then
+    if settings and settings[char] then
         local selfSettings = settings[char][self:getId()]
         if selfSettings then
             return selfSettings[name]
