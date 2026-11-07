@@ -1143,7 +1143,7 @@ return {
         end
     },
     setOwnSpellEffectAlphaScroll = {
-        value = 100,
+        value = 90,
         action = function(value, options, controller, panels, extraWidgets)
             if value < 10 then value = 10 end
             if g_client and g_client.setOwnSpellEffectAlpha then
@@ -1171,7 +1171,7 @@ return {
         end
     },
     setCreatureSpellEffectAlphaScroll = {
-        value = 100,
+        value = 60,
         action = function(value, options, controller, panels, extraWidgets)
             if value < 10 then value = 10 end
             if g_client and g_client.setCreatureSpellEffectAlpha then

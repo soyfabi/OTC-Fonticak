@@ -1510,9 +1510,9 @@ function resetEffects()
     setOption('limitVisibleDimension', false, true)
     setOption('floatingEffect', false, true)
     setOption('setMissileAlphaScroll', 100, true)
-    setOption('setOwnSpellEffectAlphaScroll', 100, true)
+    setOption('setOwnSpellEffectAlphaScroll', 90, true)
     setOption('setOtherPlayerSpellEffectAlphaScroll', 100, true)
-    setOption('setCreatureSpellEffectAlphaScroll', 100, true)
+    setOption('setCreatureSpellEffectAlphaScroll', 60, true)
     setOption('setBossAreaCreatureEffectAlphaScroll', 100, true)
 end
 
