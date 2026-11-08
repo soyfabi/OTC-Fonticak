@@ -90,7 +90,41 @@ function getCombatName(effectId)
 end
 
 -- objects
+local BOSS_COOLDOWN_OPCODE = 0x2C
+
+local function onBossCooldownOpcode(_protocol, msg)
+  local count = msg:getU8()
+  local cooldowns = {}
+
+  for _ = 1, count do
+    local raceId = msg:getU16()
+    local cooldown = msg:getU32()
+    local name = msg:getString()
+    local outfit = {
+      type = msg:getU16(),
+      head = msg:getU8(),
+      body = msg:getU8(),
+      legs = msg:getU8(),
+      feet = msg:getU8(),
+      addons = msg:getU8()
+    }
+
+    cooldowns[#cooldowns + 1] = {
+      raceId = raceId,
+      cooldown = cooldown,
+      name = name,
+      outfit = outfit
+    }
+  end
+
+  onBossCooldown(cooldowns)
+  return true
+end
+
 function init()
+  if ProtocolGame and ProtocolGame.registerOpcode then
+    ProtocolGame.registerOpcode(BOSS_COOLDOWN_OPCODE, onBossCooldownOpcode)
+  end
 
   analyserButton = modules.game_mainpanel.addToggleButton('analyzerButton', 
                                                             tr('Open analytics selector window'),
@@ -234,6 +268,10 @@ end
 
 function terminate()
   saveAnalyserPersistentData()
+
+  if ProtocolGame and ProtocolGame.unregisterOpcode then
+    ProtocolGame.unregisterOpcode(BOSS_COOLDOWN_OPCODE)
+  end
 
   Keybind.delete('Windows', 'Open Analyser Window')
 
