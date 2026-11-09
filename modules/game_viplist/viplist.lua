@@ -120,6 +120,19 @@ local function saveVipWidgetConfigToSidebar()
 end
 
 local syncVipMainPanelButton
+local vipOnlineCount
+
+local function updateVipOnlineCount(vips)
+	local count = 0
+	for _, vip in pairs(vips) do
+		if vip[2] == VipState.Online then
+			count = count + 1
+		end
+	end
+
+	vipOnlineCount:setText(tostring(count))
+	vipOnlineCount:setVisible(count > 0)
+end
 
 local function vipStatusDisplayText(vipState)
 	if vipState == VipState.Online then
@@ -189,6 +202,7 @@ function controllerVip:onInit()
 
 	vipButton = modules.game_mainpanel.addToggleButton("vipListButton", tr("Open VIP List"), "/images/options/button_vip_list", toggle, false, 3)
 	vipWindow = g_ui.loadUI("viplist")
+	vipOnlineCount = g_ui.createWidget("VipOnlineCount", vipButton)
 
 	controllerVip:registerEvents(g_game, {
 		onAddVip = onAddVip,
@@ -251,6 +265,8 @@ end
 
 function controllerVip:onTerminate()
 	Keybind.delete("Windows", "Open VIP List")
+	vipOnlineCount:destroy()
+	vipOnlineCount = nil
 
 	local ArrayWidgets = {
 		addVipWindow,
@@ -302,6 +318,7 @@ function controllerVip:onGameEnd()
 	end
 
 	clear()
+	vipOnlineCount:hide()
 
 	if editVipWindow then
 		editVipWindow:destroy()
@@ -477,7 +494,10 @@ end
 function refresh()
 	clear()
 
-	for id, vip in pairs(g_game.getVips()) do
+	local vips = g_game.getVips()
+	updateVipOnlineCount(vips)
+
+	for id, vip in pairs(vips) do
 		local name = vip[1]
 		local state = vip[2]
 		local description = vip[3]
@@ -1001,6 +1021,8 @@ function compareVips(a, b)
 end
 
 function onAddVip(id, name, state, description, iconId, notify, groupID, bool)
+	updateVipOnlineCount(g_game.getVips())
+
 	if g_game.getFeature(GameAdditionalVipInfo) then
 		vipInfo[name] = {
 			playerId = id,
@@ -1166,6 +1188,7 @@ function onVipStateChange(id, state, groupID)
 		local vipList = vipWindow:getChildById("contentsPanel")
 		local label = vipList:getChildById("vip" .. id)
 		if not label then
+			updateVipOnlineCount(g_game.getVips())
 			return
 		end
 		local name = label:getText()
