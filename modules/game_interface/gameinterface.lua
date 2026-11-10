@@ -544,6 +544,9 @@ end
 function onGameEnd()
     setMinimapDragging(false)
     hide()
+    if modules.game_things and modules.game_things.recoverSpriteState then
+        modules.game_things.recoverSpriteState()
+    end
 end
 
 function show()
