@@ -76,6 +76,8 @@ public:
     void setUiBarAnimationSpeed(const int speed) { m_uiBarAnimationSpeed = speed < 1 ? 1 : speed; }
     bool isShowDeathAnimation() const { return m_showDeathAnimation; }
     void setShowDeathAnimation(const bool enable) { m_showDeathAnimation = enable; }
+    bool isShowCreatureShadows() const { return m_showCreatureShadows; }
+    void setShowCreatureShadows(const bool enable) { m_showCreatureShadows = enable; }
     int getVitalBarAnimationDuration(float percentDelta) const;
 
     uint16_t getInvisibleTicksPerFrame() const { return m_invisibleTicksPerFrame; }
@@ -145,6 +147,7 @@ private:
     bool m_animateNameplateMana{ true };
     int m_uiBarAnimationSpeed{ 100 };
     bool m_showDeathAnimation{ true };
+    bool m_showCreatureShadows{ true };
     uint16_t m_shieldBlinkTicks{ 500 };
     uint16_t m_volatileSquareDuration{ 1000 };
     double m_creatureDiagonalWalkSpeed{ 3 };
