@@ -121,6 +121,7 @@ private:
     {
         std::vector<ItemPtr> items;
         std::list<uint64_t>::iterator order;
+        size_t pickupables;
     };
 
     struct HdChunk
@@ -130,7 +131,7 @@ private:
     };
 
     void loadHdIndex();
-    void drawHdPack(const Rect& screenRect, const Position& center, const Rect& mapRect, const Point& origin, float scale);
+    std::vector<Rect> drawHdPack(const Rect& screenRect, const Position& center, const Rect& mapRect, const Point& origin, float scale);
 
     std::atomic_bool m_hdEnabled{ false };
     std::mutex m_hdMutex;

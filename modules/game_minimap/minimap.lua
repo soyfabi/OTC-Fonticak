@@ -376,7 +376,7 @@ function toggleMinimapHd()
         return
     end
 
-    local enabled = not g_settings.getBoolean('minimapHd')
+    local enabled = not g_settings.getBoolean('minimapHd', true)
     g_settings.set('minimapHd', enabled)
     applyMinimapHd(widget, enabled)
 end
@@ -906,7 +906,7 @@ function mapController:onGameStart()
     if self.ui.minimapBorder and self.ui.minimapBorder.minimap then
         self.ui.minimapBorder.minimap:load()
     end
-    applyMinimapHd(minimapWidget, g_settings.getBoolean('minimapHd'))
+    applyMinimapHd(minimapWidget, g_settings.getBoolean('minimapHd', true))
 
     -- The default minimap slot is above the right sidebar, not inside the
     -- inventory column below it. Migrate the former default once, preserving
@@ -1043,7 +1043,7 @@ function fullscreen()
         minimapWidget:setSmoothWalk(not minimapWidget.fullMapView)
     end
     positionMinimapHdButton(minimapWidget, resolveMinimapSide(mapController.ui:getParent()))
-    applyMinimapHd(minimapWidget, g_game.isOnline() and g_settings.getBoolean('minimapHd'))
+    applyMinimapHd(minimapWidget, g_game.isOnline() and g_settings.getBoolean('minimapHd', true))
 end
 
 function upLayer()

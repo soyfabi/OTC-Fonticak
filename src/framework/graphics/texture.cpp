@@ -133,10 +133,11 @@ void Texture::buildHardwareMipmaps()
     glGenerateMipmap(GL_TEXTURE_2D);
 }
 
-void Texture::enableMipmaps()
+void Texture::enableMipmaps(const bool smoothMinification)
 {
     setProp(Prop::buildMipmaps, true);
     setProp(Prop::hasMipMaps, true);
+    setProp(Prop::smoothMinify, smoothMinification);
     if (m_id) {
         bind();
         setupFilters();
@@ -233,15 +234,11 @@ void Texture::setupFilters() const
 {
     if (!m_id) return;
 
-    GLenum minFilter;
-    GLenum magFilter;
-    if (getProp(smooth)) {
-        minFilter = getProp(hasMipMaps) ? GL_LINEAR_MIPMAP_LINEAR : GL_LINEAR;
-        magFilter = GL_LINEAR;
-    } else {
-        minFilter = getProp(hasMipMaps) ? GL_NEAREST_MIPMAP_NEAREST : GL_NEAREST;
-        magFilter = GL_NEAREST;
-    }
+    const GLenum magFilter = isSmooth() ? GL_LINEAR : GL_NEAREST;
+    const bool smoothMinification = isSmooth() || getProp(smoothMinify);
+    const GLenum minFilter = hasMipmaps()
+        ? (smoothMinification ? GL_LINEAR_MIPMAP_LINEAR : GL_NEAREST_MIPMAP_NEAREST)
+        : magFilter;
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, minFilter);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, magFilter);
 }

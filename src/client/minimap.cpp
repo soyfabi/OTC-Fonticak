@@ -234,7 +234,8 @@ void Minimap::updateHdTile(const Position& pos, const TilePtr& tile)
     }
     m_hdItemCount += items.size();
     m_hdTileOrder.push_back(key);
-    m_hdTiles.emplace(key, HdTile{ std::move(items), std::prev(m_hdTileOrder.end()) });
+    const auto pickupables = std::ranges::count_if(items, [](const ItemPtr& item) { return item->isPickupable(); });
+    m_hdTiles.emplace(key, HdTile{ std::move(items), std::prev(m_hdTileOrder.end()), static_cast<size_t>(pickupables) });
 }
 
 void Minimap::loadHdIndex()
@@ -293,10 +294,11 @@ void Minimap::loadHdIndex()
     }
 }
 
-void Minimap::drawHdPack(const Rect& screenRect, const Position& center, const Rect& mapRect, const Point& origin, float scale)
+std::vector<Rect> Minimap::drawHdPack(const Rect& screenRect, const Position& center, const Rect& mapRect,
+                                    const Point& origin, float scale)
 {
     if (!g_things.isDatLoaded() || !g_sprites.isLoaded())
-        return;
+        return {};
     loadHdIndex();
 
     for (auto it = m_hdDecodes.begin(); it != m_hdDecodes.end();) {
@@ -312,14 +314,18 @@ void Minimap::drawHdPack(const Rect& screenRect, const Position& center, const R
                 m_hdTextureOrder.pop_front();
             }
             TexturePtr texture;
-            if (image && image->getSize() == Size(512, 512))
+            if (image && image->getSize() == Size(512, 512)) {
                 texture = std::make_shared<Texture>(image, false, false);
+                if (image->getBpp() == 4)
+                    texture->enableMipmaps(true);
+            }
             m_hdTextureOrder.push_back(it->first);
             m_hdTextures.emplace(it->first, HdChunk{ std::move(texture), std::prev(m_hdTextureOrder.end()) });
         }
         it = m_hdDecodes.erase(it);
     }
 
+    std::vector<Rect> coverage;
     const int left = std::max(0, mapRect.left() - 1);
     const int top = std::max(0, mapRect.top() - 1);
     const int right = std::min(65535, mapRect.right() + 1);
@@ -354,19 +360,46 @@ void Minimap::drawHdPack(const Rect& screenRect, const Position& center, const R
                 if (!rect.intersects(screenRect))
                     continue;
 
-                if (const auto it = m_hdTextures.find(key); it != m_hdTextures.end()) {
+                const auto it = m_hdTextures.find(key);
+                if (it != m_hdTextures.end() && it->second.texture) {
                     m_hdTextureOrder.splice(m_hdTextureOrder.end(), m_hdTextureOrder, it->second.order);
-                    if (it->second.texture)
-                        g_drawPool.addTexturedRect(rect, it->second.texture, Rect(0, 0, 512, 512));
-                } else if (m_hdDecodes.size() < MaxHdDecodes && !m_hdDecodes.contains(key)) {
+                    g_drawPool.addTexturedRect(rect, it->second.texture, Rect(0, 0, 512, 512));
+                    coverage.emplace_back(wx, wy, span, span);
+                    continue;
+                }
+
+                if (it == m_hdTextures.end() && m_hdDecodes.size() < MaxHdDecodes && !m_hdDecodes.contains(key)) {
                     const auto path = HdPackDir + hdChunkName(level, wx, wy, center.z);
                     m_hdDecodes.emplace(key, g_asyncDispatcher.submit_task([path] { return decodeHdChunk(path); }));
+                }
+
+                // Keep cached HD terrain visible while the requested detail loads.
+                for (size_t parentLevel = i + 1; parentLevel < m_hdLevels.size(); ++parentLevel) {
+                    const int sourceSize = 512 >> (parentLevel - i);
+                    if (sourceSize == 0)
+                        break;
+
+                    const int parentScale = 1 << parentLevel;
+                    const int parentSpan = HdChunkSize * parentScale;
+                    const int parentX = wx - wx % parentSpan;
+                    const int parentY = wy - wy % parentSpan;
+                    const auto parent = m_hdTextures.find(hdChunkKey(parentScale, parentX, parentY, center.z));
+                    if (parent == m_hdTextures.end() || !parent->second.texture)
+                        continue;
+
+                    m_hdTextureOrder.splice(m_hdTextureOrder.end(), m_hdTextureOrder, parent->second.order);
+                    const Rect source((wx - parentX) / span * sourceSize, (wy - parentY) / span * sourceSize,
+                                      sourceSize, sourceSize);
+                    g_drawPool.addTexturedRect(rect, parent->second.texture, source);
+                    coverage.emplace_back(wx, wy, span, span);
+                    break;
                 }
             }
         }
         if (hasChunks)
             break;
     }
+    return coverage;
 }
 
 void Minimap::onCameraMove() const
@@ -390,52 +423,107 @@ void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float sc
         g_drawPool.pushTransformMatrix();
         g_drawPool.translate(subpixelOffset.x, subpixelOffset.y);
     }
-    drawHdPack(screenRect, mapCenter, mapRect, origin, scale);
+    const auto packedAreas = drawHdPack(screenRect, mapCenter, mapRect, origin, scale);
 
     const int spriteSize = g_gameConfig.getSpriteSize();
     const auto view = mapRect.expanded(4);
-    if (live && scale >= 2.f && spriteSize > 0 && view.size().area() <= 4096) {
-        std::vector<std::pair<Point, std::vector<ItemPtr>>> tiles;
+    if (scale >= 2.f && spriteSize > 0) {
+        struct VisibleTile
+        {
+            Point position;
+            std::vector<ItemPtr> items;
+            bool drawTerrain;
+            bool drawPickupables;
+        };
+
+        const bool scanViewport = view.size().area() <= 4096;
+        std::vector<VisibleTile> tiles;
         size_t itemCount = 0;
         {
             std::scoped_lock lock(m_hdMutex);
-            for (int y = std::max(0, view.top()); y <= std::min(65535, view.bottom()) && itemCount <= 8192; ++y) {
-                for (int x = std::max(0, view.left()); x <= std::min(65535, view.right()); ++x) {
-                    const auto it = m_hdTiles.find(hdTileKey(x, y, mapCenter.z));
-                    if (it == m_hdTiles.end())
-                        continue;
+            const auto collect = [&](const Point& tile, const HdTile& snapshot) {
+                const bool drawTerrain = live && scanViewport &&
+                    std::ranges::none_of(packedAreas, [&](const Rect& area) { return area.contains(tile); });
+                const bool drawPickupables = snapshot.pickupables > 0 &&
+                    g_map.isAwareOfPosition(Position(tile.x, tile.y, mapCenter.z));
+                const size_t visibleItems = (drawTerrain ? snapshot.items.size() - snapshot.pickupables : 0) +
+                    (drawPickupables ? snapshot.pickupables : 0);
+                if (visibleItems == 0)
+                    return;
 
-                    itemCount += it->second.items.size();
+                itemCount += visibleItems;
+                if (itemCount > 8192)
+                    return;
+                m_hdTileOrder.splice(m_hdTileOrder.end(), m_hdTileOrder, snapshot.order);
+                tiles.push_back({ tile, snapshot.items, drawTerrain, drawPickupables });
+            };
+
+            if (scanViewport) {
+                for (int y = std::max(0, view.top()); y <= std::min(65535, view.bottom()) && itemCount <= 8192; ++y) {
+                    for (int x = std::max(0, view.left()); x <= std::min(65535, view.right()) && itemCount <= 8192; ++x) {
+                        if (const auto it = m_hdTiles.find(hdTileKey(x, y, mapCenter.z)); it != m_hdTiles.end())
+                            collect(Point(x, y), it->second);
+                    }
+                }
+            } else {
+                // Wide views still show nearby items without scanning every tile on the screen.
+                for (const auto& [key, snapshot] : m_hdTiles) {
+                    if ((key >> 32) != mapCenter.z)
+                        continue;
+                    const Point tile(key & 0xffff, (key >> 16) & 0xffff);
+                    if (view.contains(tile))
+                        collect(tile, snapshot);
                     if (itemCount > 8192)
                         break;
-                    m_hdTileOrder.splice(m_hdTileOrder.end(), m_hdTileOrder, it->second.order);
-                    tiles.emplace_back(origin + (Point(x, y) - mapRect.topLeft()) * scale, it->second.items);
                 }
             }
         }
 
         if (itemCount <= 8192) {
+            if (!scanViewport) {
+                std::ranges::sort(tiles, [](const VisibleTile& a, const VisibleTile& b) {
+                    return std::tie(a.position.y, a.position.x) < std::tie(b.position.y, b.position.x);
+                });
+            }
+
             const auto oldScale = g_drawPool.getScaleFactor();
             const float spriteScale = scale / spriteSize;
+            const float pickupSize = std::max(scale, 4.f);
+            const float pickupScale = pickupSize / spriteSize;
+            const int pickupInset = static_cast<int>((scale - pickupSize) / 2);
             g_drawPool.setScaleFactor(spriteScale);
-            for (const auto& [dest, items] : tiles) {
+            for (const auto& [position, items, drawTerrain, drawPickupables] : tiles) {
+                const auto dest = origin + (position - mapRect.topLeft()) * scale;
                 int elevation = 0;
-                const auto drawItem = [&](const ItemPtr& item) {
-                    item->drawMinimap(dest - Point(elevation, elevation) * spriteScale);
+                const auto drawItem = [&](const ItemPtr& item, int itemElevation) {
+                    const auto itemPos = dest - Point(itemElevation, itemElevation) * spriteScale;
+                    if (item->isPickupable()) {
+                        if (drawPickupables) {
+                            // Keep small loot sprites legible at normal minimap zoom.
+                            g_drawPool.setScaleFactor(pickupScale);
+                            item->drawMinimap(itemPos + Point(pickupInset, pickupInset));
+                            g_drawPool.setScaleFactor(spriteScale);
+                        }
+                    } else if (drawTerrain) {
+                        item->drawMinimap(itemPos);
+                    }
+                };
+                const auto drawStackItem = [&](const ItemPtr& item) {
+                    drawItem(item, elevation);
                     elevation = std::min<int>(elevation + item->getElevation(), g_gameConfig.getTileMaxElevation());
                 };
 
                 for (const auto& item : items) {
                     if (item->isGround() || item->isGroundBorder() || item->isOnBottom())
-                        drawItem(item);
+                        drawStackItem(item);
                 }
                 for (auto it = items.rbegin(); it != items.rend(); ++it) {
                     if ((*it)->isCommon())
-                        drawItem(*it);
+                        drawStackItem(*it);
                 }
                 for (const auto& item : items) {
                     if (item->isOnTop())
-                        item->drawMinimap(dest);
+                        drawItem(item, 0);
                 }
             }
             g_drawPool.setScaleFactor(oldScale);

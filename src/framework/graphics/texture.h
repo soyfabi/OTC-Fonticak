@@ -41,7 +41,7 @@ public:
     virtual void buildHardwareMipmaps();
 
     // Flags mipmaps for deferred upload/filter setup (safe before GL texture exists).
-    void enableMipmaps();
+    void enableMipmaps(bool smoothMinification = false);
 
     virtual void setSmooth(bool smooth);
     virtual void setRepeat(bool repeat);
@@ -111,7 +111,8 @@ protected:
         repeat = 1 << 3,
         compress = 1 << 4,
         buildMipmaps = 1 << 5,
-        _allowAtlasCache = 1 << 6
+        _allowAtlasCache = 1 << 6,
+        smoothMinify = 1 << 7
     };
 
     uint16_t m_props{ 0 };
