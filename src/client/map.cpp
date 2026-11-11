@@ -131,6 +131,7 @@ void Map::notificateTileUpdate(const Position& pos, const ThingPtr& thing, const
 
 void Map::clean()
 {
+    g_minimap.clearHdTerrain();
     cleanDynamicThings();
 
     #ifdef FRAMEWORK_SOUND
@@ -446,6 +447,7 @@ void Map::cleanTile(const Position& pos)
     if (!pos.isMapPosition())
         return;
 
+    g_minimap.updateHdTile(pos, nullptr);
     const auto it = m_floors[pos.z].tileBlocks.find(getBlockIndex(pos));
     if (it != m_floors[pos.z].tileBlocks.end()) {
         auto& block = it->second;

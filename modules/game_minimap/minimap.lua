@@ -352,6 +352,35 @@ local function findMinimapWidget(ui)
     return horizontalBorder and horizontalBorder:getChildById('minimap')
 end
 
+local function applyMinimapHd(widget, enabled)
+    if not widget then
+        return
+    end
+
+    local supported = widget.setHdMode ~= nil
+    local button = widget:getChildById('hdButton')
+    if button then
+        button:setEnabled(supported)
+        button:setOn(supported and enabled)
+        button:setTooltip(supported and tr('Toggle HD minimap') or tr('HD minimap requires the updated client'))
+        button:raise()
+    end
+    if supported then
+        widget:setHdMode(enabled, not widget.fullMapView)
+    end
+end
+
+function toggleMinimapHd()
+    local widget = fullscreenWidget or minimapWidget
+    if not widget or not widget.setHdMode or not g_game.isOnline() then
+        return
+    end
+
+    local enabled = not g_settings.getBoolean('minimapHd')
+    g_settings.set('minimapHd', enabled)
+    applyMinimapHd(widget, enabled)
+end
+
 local function syncMinimapLayoutAliases(layoutRoot)
     local ui = mapController.ui
     if not ui or ui:isDestroyed() or not layoutRoot or layoutRoot:isDestroyed() then
@@ -362,18 +391,36 @@ local function syncMinimapLayoutAliases(layoutRoot)
     ui.rosePanel = getLayoutWidget(layoutRoot, 'rosePanel')
 end
 
-local function resolveHorizontalSide(container)
+local function resolveMinimapSide(container)
     local current = container
     while current do
         local id = current.getId and current:getId() or nil
-        if id == 'gameLeftTopPanel' then
+        if id == 'gameLeftTopPanel' or id == 'gameLeftPanel' or id == 'gameLeftExtraPanel' then
             return 'left'
-        elseif id == 'gameRightTopPanel' then
+        elseif id == 'gameRightTopPanel' or id == 'gameRightPanel' or id == 'gameRightExtraPanel' then
             return 'right'
         end
         current = current.getParent and current:getParent() or nil
     end
     return 'right'
+end
+
+local function positionMinimapHdButton(widget, side)
+    local button = widget and widget:getChildById('hdButton')
+    if not button then
+        return
+    end
+
+    button:breakAnchors()
+    button:setMargin(3)
+    if side == 'right' and not widget.fullMapView then
+        button:addAnchor(AnchorLeft, 'parent', AnchorLeft)
+        button:addAnchor(AnchorBottom, 'parent', AnchorBottom)
+    else
+        button:addAnchor(AnchorRight, 'parent', AnchorRight)
+        local verticalEdge = widget.fullMapView and AnchorTop or AnchorBottom
+        button:addAnchor(verticalEdge, 'parent', verticalEdge)
+    end
 end
 
 local function applyHorizontalControlsLayout(horizontalRoot, mirror)
@@ -486,8 +533,10 @@ local function applyLayoutMode(isHorizontal, container)
     minimapWidget = mini
     refreshVirtualFloors()
 
+    local side = resolveMinimapSide(container)
+    positionMinimapHdButton(mini, side)
     if showHorizontal then
-        applyHorizontalPanelLayout(horizontalRoot, resolveHorizontalSide(container))
+        applyHorizontalPanelLayout(horizontalRoot, side)
         local drag = getLayoutWidget(horizontalRoot, 'horizontalDragHandle')
         if drag then
             drag:raise()
@@ -854,6 +903,7 @@ function mapController:onGameStart()
     if self.ui.minimapBorder and self.ui.minimapBorder.minimap then
         self.ui.minimapBorder.minimap:load()
     end
+    applyMinimapHd(minimapWidget, g_settings.getBoolean('minimapHd'))
 
     -- The default minimap slot is above the right sidebar, not inside the
     -- inventory column below it. Migrate the former default once, preserving
@@ -896,6 +946,10 @@ function mapController:onGameStart()
 end
 
 function mapController:onGameEnd()
+    if fullscreenWidget and fullscreenWidget.fullMapView then
+        fullscreen()
+    end
+    applyMinimapHd(minimapWidget, false)
     refreshMinimapPartyPins()
 
     -- Save Map
@@ -920,6 +974,7 @@ function mapController:onGameEnd()
 end
 
 function mapController:onTerminate()
+    applyMinimapHd(fullscreenWidget or minimapWidget, false)
     if iconTopMenu then
         iconTopMenu:destroy()
         iconTopMenu = nil
@@ -981,6 +1036,8 @@ function fullscreen()
     oldPos = minimapWidget:getCameraPosition()
     minimapWidget:setZoom(zoom)
     minimapWidget:setCameraPosition(pos)
+    positionMinimapHdButton(minimapWidget, resolveMinimapSide(mapController.ui:getParent()))
+    applyMinimapHd(minimapWidget, g_game.isOnline() and g_settings.getBoolean('minimapHd'))
 end
 
 function upLayer()

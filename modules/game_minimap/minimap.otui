@@ -26,6 +26,20 @@ PhantomMiniWindow
         anchors.fill: parent
         margin: 1
 
+        Button
+          id: hdButton
+          text: HD
+          size: 23 16
+          anchors.top: parent.top
+          anchors.right: parent.right
+          margin-top: 3
+          margin-right: 3
+          focusable: false
+          @onClick: toggleMinimapHd()
+
+          $on:
+            color: #8fda82
+
     UIWidget
       id: layersPanel
       size: 20 68

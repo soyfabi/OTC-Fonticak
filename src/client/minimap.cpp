@@ -23,15 +23,88 @@
 #include "minimap.h"
 
 #include "gameconfig.h"
+#include "item.h"
+#include "map.h"
+#include "spritemanager.h"
+#include "thingtypemanager.h"
 #include "tile.h"
+#include "framework/core/asyncdispatcher.h"
 #include "framework/core/filestream.h"
 #include "framework/core/resourcemanager.h"
 #include "framework/graphics/drawpoolmanager.h"
 #include "framework/graphics/image.h"
 #include "framework/graphics/texture.h"
+#include <bit>
+#include <sstream>
 
 Minimap g_minimap;
 static MinimapTile nulltile;
+
+namespace
+{
+    constexpr size_t MaxHdTiles = 8192;
+    constexpr size_t MaxHdItems = 32768;
+    constexpr size_t MaxHdTextures = 32;
+    constexpr size_t MaxHdDecodes = 4;
+    constexpr int HdChunkSize = 16;
+    constexpr char HdPackDir[] = "/data/minimap_hd/";
+
+    uint64_t hdTileKey(int x, int y, int z)
+    {
+        return (uint64_t(z) << 32) | (uint64_t(y) << 16) | uint64_t(x);
+    }
+
+    uint64_t hdChunkKey(int level, int x, int y, int z)
+    {
+        return (uint64_t(level) << 40) | hdTileKey(x, y, z);
+    }
+
+    std::string hdChunkName(int level, int x, int y, int z)
+    {
+        return fmt::format("satellite-{}-{}-{}-{}.png", level, x, y, z);
+    }
+
+    std::string readHdFile(const std::string& path, uint32_t maxSize)
+    {
+        const auto file = g_resources.openFile(path);
+        const auto size = file->size();
+        if (size == 0 || size > maxSize)
+            return {};
+
+        std::string data(size, '\0');
+        if (file->read(data.data(), 1, size) != static_cast<int>(size))
+            return {};
+        return data;
+    }
+
+    ImagePtr decodeHdChunk(const std::string& path)
+    {
+        try {
+            const auto data = readHdFile(path, 4 * 1024 * 1024);
+            if (data.size() < 33 || data.compare(0, 8, "\x89PNG\r\n\x1a\n", 8) != 0 ||
+                data.compare(12, 12, "IHDR\0\0\2\0\0\0\2\0", 12) != 0)
+                return nullptr;
+
+            // Reject animation and malformed chunk lengths before decoding.
+            for (size_t offset = 8; offset + 12 <= data.size();) {
+                const auto* bytes = reinterpret_cast<const uint8_t*>(data.data() + offset);
+                const uint32_t length = (uint32_t(bytes[0]) << 24) | (uint32_t(bytes[1]) << 16) |
+                                        (uint32_t(bytes[2]) << 8) | bytes[3];
+                const std::string_view type(data.data() + offset + 4, 4);
+                if (length > data.size() - offset - 12 || type == "acTL" || type == "fcTL" ||
+                    type == "fdAT" || (type == "IHDR" && (offset != 8 || length != 13)))
+                    return nullptr;
+
+                offset += length + 12;
+                if (type == "IEND" && length == 0 && offset == data.size())
+                    return Image::loadPNG(data.data(), data.size());
+            }
+        } catch (const std::exception&) {
+            // A missing or unreadable chunk leaves the classic map visible.
+        }
+        return nullptr;
+    }
+}
 
 void MinimapBlock::clean()
 {
@@ -86,9 +159,277 @@ void Minimap::terminate() { clean(); }
 
 void Minimap::clean()
 {
+    clearHdTerrain();
     SpinLock::Guard lock(m_lock);
     for (uint_fast8_t i = 0; i <= g_gameConfig.getMapMaxZ(); ++i)
         m_tileBlocks[i].clear();
+}
+
+void Minimap::clearHdTerrain()
+{
+    std::scoped_lock lock(m_hdMutex);
+    m_hdTiles.clear();
+    m_hdTileOrder.clear();
+    m_hdItemCount = 0;
+}
+
+void Minimap::setHdEnabled(bool enabled)
+{
+    if (m_hdEnabled.exchange(enabled) == enabled)
+        return;
+
+    if (!enabled) {
+        clearHdTerrain();
+        return;
+    }
+
+    for (const auto& tile : g_map.getTiles())
+        updateHdTile(tile->getPosition(), tile);
+}
+
+void Minimap::updateHdTile(const Position& pos, const TilePtr& tile)
+{
+    if (!m_hdEnabled || !pos.isMapPosition())
+        return;
+
+    auto items = tile ? tile->getItems() : std::vector<ItemPtr>{};
+    if (items.size() > 64)
+        items.clear();
+
+    const auto key = hdTileKey(pos.x, pos.y, pos.z);
+    std::scoped_lock lock(m_hdMutex);
+    if (!m_hdEnabled)
+        return;
+
+    if (const auto it = m_hdTiles.find(key); it != m_hdTiles.end()) {
+        const auto& old = it->second.items;
+        if (items.size() == old.size() && std::equal(items.begin(), items.end(), old.begin(),
+            [](const ItemPtr& a, const ItemPtr& b) {
+                return a->getId() == b->getId() && a->getCountOrSubType() == b->getCountOrSubType();
+            })) {
+            m_hdTileOrder.splice(m_hdTileOrder.end(), m_hdTileOrder, it->second.order);
+            return;
+        }
+        m_hdItemCount -= old.size();
+        m_hdTileOrder.erase(it->second.order);
+        m_hdTiles.erase(it);
+    }
+
+    if (items.empty())
+        return;
+
+    for (auto& item : items) {
+        auto snapshot = Item::create(item->getId());
+        snapshot->setCountOrSubType(item->getCountOrSubType());
+        snapshot->setPosition(pos);
+        item = std::move(snapshot);
+    }
+
+    while (m_hdTiles.size() >= MaxHdTiles || m_hdItemCount + items.size() > MaxHdItems) {
+        const auto oldest = m_hdTileOrder.front();
+        m_hdItemCount -= m_hdTiles.at(oldest).items.size();
+        m_hdTiles.erase(oldest);
+        m_hdTileOrder.pop_front();
+    }
+    m_hdItemCount += items.size();
+    m_hdTileOrder.push_back(key);
+    m_hdTiles.emplace(key, HdTile{ std::move(items), std::prev(m_hdTileOrder.end()) });
+}
+
+void Minimap::loadHdIndex()
+{
+    const auto signatures = std::pair{ g_things.getDatSignature(), g_sprites.getSignature() };
+    if (m_hdIndexChecked && signatures == m_hdSignatures)
+        return;
+
+    m_hdIndexChecked = true;
+    m_hdSignatures = signatures;
+    m_hdIndex.clear();
+    m_hdLevels.fill(false);
+    m_hdTextures.clear();
+    m_hdTextureOrder.clear();
+
+    const std::string path = std::string(HdPackDir) + "index.txt";
+    if (!g_resources.fileExists(path))
+        return;
+
+    try {
+        std::istringstream input(readHdFile(path, 8 * 1024 * 1024));
+        std::string magic;
+        int version, chunkSize, pixelsPerTile;
+        uint32_t datSignature, sprSignature;
+        size_t count;
+        if (!(input >> magic >> version >> chunkSize >> pixelsPerTile >> datSignature >> sprSignature >> count) ||
+            magic != "ASTRAHD" || version != 1 || chunkSize != HdChunkSize || pixelsPerTile != 32 ||
+            count == 0 || count > 100000)
+            throw std::runtime_error("invalid index header");
+
+        if (std::pair{ datSignature, sprSignature } != signatures)
+            throw std::runtime_error("the pack uses different DAT/SPR assets");
+
+        std::unordered_set<uint64_t> index;
+        std::array<bool, 11> levels{};
+        for (size_t i = 0; i < count; ++i) {
+            int level, x, y, z;
+            std::string name;
+            if (!(input >> level >> x >> y >> z >> name) || level < 1 || level > 1024 ||
+                (level & (level - 1)) || x < 0 || x >= 65536 || y < 0 || y >= 65536 ||
+                z < 0 || z > g_gameConfig.getMapMaxZ() ||
+                x % (HdChunkSize * level) || y % (HdChunkSize * level) ||
+                name != hdChunkName(level, x, y, z) || !index.insert(hdChunkKey(level, x, y, z)).second)
+                throw std::runtime_error("invalid or duplicate chunk");
+
+            levels[std::countr_zero(static_cast<unsigned>(level))] = true;
+        }
+        std::string extra;
+        if (input >> extra)
+            throw std::runtime_error("unexpected trailing index data");
+
+        m_hdIndex = std::move(index);
+        m_hdLevels = levels;
+    } catch (const std::exception& e) {
+        g_logger.warning("HD minimap: could not load {} ({})", path, e.what());
+    }
+}
+
+void Minimap::drawHdPack(const Rect& screenRect, const Position& center, const Rect& mapRect, const Point& origin, float scale)
+{
+    if (!g_things.isDatLoaded() || !g_sprites.isLoaded())
+        return;
+    loadHdIndex();
+
+    for (auto it = m_hdDecodes.begin(); it != m_hdDecodes.end();) {
+        if (it->second.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
+            ++it;
+            continue;
+        }
+
+        auto image = it->second.get();
+        if (m_hdIndex.contains(it->first)) {
+            if (m_hdTextures.size() == MaxHdTextures) {
+                m_hdTextures.erase(m_hdTextureOrder.front());
+                m_hdTextureOrder.pop_front();
+            }
+            TexturePtr texture;
+            if (image && image->getSize() == Size(512, 512))
+                texture = std::make_shared<Texture>(image, false, false);
+            m_hdTextureOrder.push_back(it->first);
+            m_hdTextures.emplace(it->first, HdChunk{ std::move(texture), std::prev(m_hdTextureOrder.end()) });
+        }
+        it = m_hdDecodes.erase(it);
+    }
+
+    const int left = std::max(0, mapRect.left() - 1);
+    const int top = std::max(0, mapRect.top() - 1);
+    const int right = std::min(65535, mapRect.right() + 1);
+    const int bottom = std::min(65535, mapRect.bottom() + 1);
+    for (size_t i = 0; i < m_hdLevels.size(); ++i) {
+        if (!m_hdLevels[i])
+            continue;
+
+        const int level = 1 << i;
+        const int span = HdChunkSize * level;
+        const int x0 = left / span;
+        const int y0 = top / span;
+        const int x1 = right / span;
+        const int y1 = bottom / span;
+        if ((x1 - x0 + 1) * (y1 - y0 + 1) > 24 || (span * scale < 64 && i + 1 < m_hdLevels.size() && m_hdLevels[i + 1]))
+            continue;
+
+        bool hasChunks = false;
+        for (int y = y0; y <= y1; ++y) {
+            for (int x = x0; x <= x1; ++x) {
+                const int wx = x * span;
+                const int wy = y * span;
+                const auto key = hdChunkKey(level, wx, wy, center.z);
+                if (!m_hdIndex.contains(key))
+                    continue;
+
+                hasChunks = true;
+                const Point offset = Point(wx, wy) - mapRect.topLeft();
+                const Point dest = origin + offset * scale;
+                const Point end = origin + (offset + Point(span, span)) * scale;
+                const Rect rect(dest, Size(end.x - dest.x, end.y - dest.y));
+                if (!rect.intersects(screenRect))
+                    continue;
+
+                if (const auto it = m_hdTextures.find(key); it != m_hdTextures.end()) {
+                    m_hdTextureOrder.splice(m_hdTextureOrder.end(), m_hdTextureOrder, it->second.order);
+                    if (it->second.texture)
+                        g_drawPool.addTexturedRect(rect, it->second.texture, Rect(0, 0, 512, 512));
+                } else if (m_hdDecodes.size() < MaxHdDecodes && !m_hdDecodes.contains(key)) {
+                    const auto path = HdPackDir + hdChunkName(level, wx, wy, center.z);
+                    m_hdDecodes.emplace(key, g_asyncDispatcher.submit_task([path] { return decodeHdChunk(path); }));
+                }
+            }
+        }
+        if (hasChunks)
+            break;
+    }
+}
+
+void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, bool live)
+{
+    draw(screenRect, mapCenter, scale, color);
+    if (screenRect.isEmpty() || !mapCenter.isMapPosition())
+        return;
+
+    const auto mapRect = calcMapRect(screenRect, mapCenter, scale);
+    const auto origin = screenRect.topLeft() - Point((mapRect.size() * scale).toPoint() - screenRect.size().toPoint()) / 2;
+    const auto oldClip = g_drawPool.getClipRect();
+    g_drawPool.setClipRect(oldClip.isValid() ? screenRect.intersection(oldClip) : screenRect);
+    drawHdPack(screenRect, mapCenter, mapRect, origin, scale);
+
+    const int spriteSize = g_gameConfig.getSpriteSize();
+    const auto view = mapRect.expanded(4);
+    if (live && scale >= 2.f && spriteSize > 0 && view.size().area() <= 4096) {
+        std::vector<std::pair<Point, std::vector<ItemPtr>>> tiles;
+        size_t itemCount = 0;
+        {
+            std::scoped_lock lock(m_hdMutex);
+            for (int y = std::max(0, view.top()); y <= std::min(65535, view.bottom()) && itemCount <= 8192; ++y) {
+                for (int x = std::max(0, view.left()); x <= std::min(65535, view.right()); ++x) {
+                    const auto it = m_hdTiles.find(hdTileKey(x, y, mapCenter.z));
+                    if (it == m_hdTiles.end())
+                        continue;
+
+                    itemCount += it->second.items.size();
+                    if (itemCount > 8192)
+                        break;
+                    m_hdTileOrder.splice(m_hdTileOrder.end(), m_hdTileOrder, it->second.order);
+                    tiles.emplace_back(origin + (Point(x, y) - mapRect.topLeft()) * scale, it->second.items);
+                }
+            }
+        }
+
+        if (itemCount <= 8192) {
+            const auto oldScale = g_drawPool.getScaleFactor();
+            const float spriteScale = scale / spriteSize;
+            g_drawPool.setScaleFactor(spriteScale);
+            for (const auto& [dest, items] : tiles) {
+                int elevation = 0;
+                const auto drawItem = [&](const ItemPtr& item) {
+                    item->drawMinimap(dest - Point(elevation, elevation) * spriteScale);
+                    elevation = std::min<int>(elevation + item->getElevation(), g_gameConfig.getTileMaxElevation());
+                };
+
+                for (const auto& item : items) {
+                    if (item->isGround() || item->isGroundBorder() || item->isOnBottom())
+                        drawItem(item);
+                }
+                for (auto it = items.rbegin(); it != items.rend(); ++it) {
+                    if ((*it)->isCommon())
+                        drawItem(*it);
+                }
+                for (const auto& item : items) {
+                    if (item->isOnTop())
+                        item->drawMinimap(dest);
+                }
+            }
+            g_drawPool.setScaleFactor(oldScale);
+        }
+    }
+    g_drawPool.setClipRect(oldClip);
 }
 
 void Minimap::draw(const Rect& screenRect, const Position& mapCenter, const float scale, const Color& color)
@@ -182,6 +523,8 @@ Rect Minimap::calcMapRect(const Rect& screenRect, const Position& mapCenter, con
 
 void Minimap::updateTile(const Position& pos, const TilePtr& tile)
 {
+    if (tile)
+        updateHdTile(pos, tile);
     MinimapTile minimapTile;
     if (tile) {
         minimapTile.color = tile->getMinimapColorByte();

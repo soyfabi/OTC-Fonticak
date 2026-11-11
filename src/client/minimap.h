@@ -25,6 +25,11 @@
 #include "declarations.h"
 #include <framework/graphics/declarations.h>
 #include <framework/util/spinlock.h>
+#include <atomic>
+#include <future>
+#include <list>
+#include <mutex>
+#include <unordered_set>
 
 constexpr uint8_t MMBLOCK_SIZE = 64;
 constexpr uint8_t OTMM_VERSION = 1;
@@ -89,6 +94,10 @@ public:
     void clean();
 
     void draw(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color);
+    void drawHd(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, bool live);
+    void setHdEnabled(bool enabled);
+    void clearHdTerrain();
+    void updateHdTile(const Position& pos, const TilePtr& tile);
     Point getTilePoint(const Position& pos, const Rect& screenRect, const Position& mapCenter, float scale);
     Position getTilePosition(const Point& point, const Rect& screenRect, const Position& mapCenter, float scale);
     Rect getTileRect(const Position& pos, const Rect& screenRect, const Position& mapCenter, float scale);
@@ -103,6 +112,36 @@ public:
     void saveOtmm(const std::string& fileName);
 
 private:
+    struct HdTile
+    {
+        std::vector<ItemPtr> items;
+        std::list<uint64_t>::iterator order;
+    };
+
+    struct HdChunk
+    {
+        TexturePtr texture;
+        std::list<uint64_t>::iterator order;
+    };
+
+    void loadHdIndex();
+    void drawHdPack(const Rect& screenRect, const Position& center, const Rect& mapRect, const Point& origin, float scale);
+
+    std::atomic_bool m_hdEnabled{ false };
+    std::mutex m_hdMutex;
+    std::unordered_map<uint64_t, HdTile> m_hdTiles;
+    std::list<uint64_t> m_hdTileOrder;
+    size_t m_hdItemCount{ 0 };
+
+    // Pack state belongs to the foreground renderer.
+    std::pair<uint32_t, uint32_t> m_hdSignatures{};
+    bool m_hdIndexChecked{ false };
+    std::unordered_set<uint64_t> m_hdIndex;
+    std::array<bool, 11> m_hdLevels{};
+    std::unordered_map<uint64_t, HdChunk> m_hdTextures;
+    std::list<uint64_t> m_hdTextureOrder;
+    std::unordered_map<uint64_t, std::future<ImagePtr>> m_hdDecodes;
+
     Rect calcMapRect(const Rect& screenRect, const Position& mapCenter, float scale) const;
     bool hasBlock(const Position& pos) { return m_tileBlocks[pos.z].contains(getBlockIndex(pos)); }
     MinimapBlock& getBlock(const Position& pos)

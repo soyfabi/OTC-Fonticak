@@ -56,6 +56,7 @@ public:
     float getFloorSeparatorOpacity() { return m_floorSeparatorOpacity; }
     void setSatelliteMode(bool enabled) { m_satelliteMode = enabled; }
     bool isSatelliteMode() { return m_satelliteMode; }
+    void setHdMode(bool enabled, bool live);
 
     void anchorPosition(const UIWidgetPtr& anchoredWidget, Fw::AnchorEdge anchoredEdge, const Position& hookedPosition, const Fw::AnchorEdge hookedEdge);
     void fillPosition(const UIWidgetPtr& anchoredWidget, const Position& hookedPosition);
@@ -74,4 +75,6 @@ private:
     int8_t m_maxZoom{ 5 };
     float m_floorSeparatorOpacity{ 1.f };
     bool m_satelliteMode{ false };
+    bool m_hdMode{ false };
+    bool m_hdLive{ true };
 };

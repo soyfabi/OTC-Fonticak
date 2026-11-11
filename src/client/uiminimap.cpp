@@ -40,8 +40,17 @@ void UIMinimap::drawSelf(const DrawPoolType drawPane)
 
     if (m_satelliteMode && g_satelliteMap.hasChunksForView(m_cameraPosition.z))
         g_satelliteMap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_floorSeparatorOpacity);
+    else if (m_hdMode)
+        g_minimap.drawHd(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_hdLive);
     else
         g_minimap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_color);
+}
+
+void UIMinimap::setHdMode(bool enabled, bool live)
+{
+    m_hdMode = enabled;
+    m_hdLive = live;
+    g_minimap.setHdEnabled(enabled);
 }
 
 bool UIMinimap::setZoom(const int8_t zoom)
