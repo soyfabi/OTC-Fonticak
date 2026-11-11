@@ -57,6 +57,9 @@ public:
     void setSatelliteMode(bool enabled) { m_satelliteMode = enabled; }
     bool isSatelliteMode() { return m_satelliteMode; }
     void setHdMode(bool enabled, bool live);
+    void setSmoothWalk(bool enabled);
+    void updateWalkOffset();
+    const Point& getWalkOffset() const { return m_walkOffset; }
 
     void anchorPosition(const UIWidgetPtr& anchoredWidget, Fw::AnchorEdge anchoredEdge, const Position& hookedPosition, const Fw::AnchorEdge hookedEdge);
     void fillPosition(const UIWidgetPtr& anchoredWidget, const Position& hookedPosition);
@@ -69,6 +72,9 @@ protected:
 
 private:
     Position m_cameraPosition;
+    Point m_walkOffset;
+    PointF m_hdWalkRemainder;
+    bool m_smoothWalk{ false };
     float m_scale{ 1.f };
     int8_t m_zoom{ 0 };
     int8_t m_minZoom{ -5 };

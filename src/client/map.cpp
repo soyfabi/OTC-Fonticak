@@ -109,6 +109,7 @@ void Map::notificateCameraMove(const Point& offset) const
 {
     g_drawPool.repaint(DrawPoolType::FOREGROUND_MAP);
     g_drawPool.repaint(DrawPoolType::CREATURE_INFORMATION);
+    g_minimap.onCameraMove();
 
     for (const auto& mapView : m_mapViews) {
         mapView->onCameraMove(offset);

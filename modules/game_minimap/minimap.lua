@@ -841,6 +841,9 @@ function mapController:onInit()
     syncMinimapLayoutAliases(getLayoutRoot(self.ui, false))
     minimapWidget = findMinimapWidget(self.ui)
     if minimapWidget then
+        if minimapWidget.setSmoothWalk then
+            minimapWidget:setSmoothWalk(true)
+        end
         for _, id in ipairs({ 'floorUpButton', 'floorDownButton', 'zoomInButton', 'zoomOutButton', 'resetButton' }) do
             local button = minimapWidget:getChildById(id)
             if button then
@@ -1036,6 +1039,9 @@ function fullscreen()
     oldPos = minimapWidget:getCameraPosition()
     minimapWidget:setZoom(zoom)
     minimapWidget:setCameraPosition(pos)
+    if minimapWidget.setSmoothWalk then
+        minimapWidget:setSmoothWalk(not minimapWidget.fullMapView)
+    end
     positionMinimapHdButton(minimapWidget, resolveMinimapSide(mapController.ui:getParent()))
     applyMinimapHd(minimapWidget, g_game.isOnline() and g_settings.getBoolean('minimapHd'))
 end

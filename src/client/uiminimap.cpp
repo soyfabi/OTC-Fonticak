@@ -23,11 +23,16 @@
 #include "luavaluecasts_client.h"
 #include "uiminimap.h"
 
+#include "game.h"
+#include "gameconfig.h"
+#include "localplayer.h"
 #include "minimap.h"
 #include "satellitemap.h"
 #include "uimapanchorlayout.h"
+#include "framework/graphics/drawpoolmanager.h"
 #include "framework/otml/otmlnode.h"
 #include "framework/ui/uilayout.h"
+#include <cmath>
 
 void UIMinimap::drawSelf(const DrawPoolType drawPane)
 {
@@ -41,9 +46,49 @@ void UIMinimap::drawSelf(const DrawPoolType drawPane)
     if (m_satelliteMode && g_satelliteMap.hasChunksForView(m_cameraPosition.z))
         g_satelliteMap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_floorSeparatorOpacity);
     else if (m_hdMode)
-        g_minimap.drawHd(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_hdLive);
+        g_minimap.drawHd(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_hdLive, m_walkOffset, m_hdWalkRemainder);
     else
-        g_minimap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_color);
+        g_minimap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_walkOffset);
+}
+
+void UIMinimap::setSmoothWalk(bool enabled)
+{
+    if (enabled == m_smoothWalk)
+        return;
+
+    m_smoothWalk = enabled;
+    g_minimap.setWalkView(enabled ? static_self_cast<UIMinimap>() : nullptr);
+    updateWalkOffset();
+}
+
+void UIMinimap::updateWalkOffset()
+{
+    Point offset;
+    PointF remainder;
+    if (m_smoothWalk && isVisible() && !isDragging()) {
+        const auto& player = g_game.getLocalPlayer();
+        const int spriteSize = g_gameConfig.getSpriteSize();
+        if (player && player->getPosition() == m_cameraPosition && spriteSize > 0) {
+            const auto walk = player->getWalkOffset();
+            const float scale = m_scale / spriteSize;
+            const PointF screenOffset(-walk.x * scale, -walk.y * scale);
+            offset = Point(std::lround(screenOffset.x), std::lround(screenOffset.y));
+            if (m_hdMode) {
+                // Keep HD terrain moving between screen pixels at low zoom.
+                remainder = PointF(screenOffset.x - offset.x, screenOffset.y - offset.y);
+            }
+        }
+    }
+
+    if (offset == m_walkOffset && remainder == m_hdWalkRemainder)
+        return;
+
+    const bool anchorsMoved = offset != m_walkOffset;
+    m_walkOffset = offset;
+    m_hdWalkRemainder = remainder;
+    if (anchorsMoved && m_layout)
+        m_layout->update();
+    repaint();
 }
 
 void UIMinimap::setHdMode(bool enabled, bool live)
@@ -51,6 +96,7 @@ void UIMinimap::setHdMode(bool enabled, bool live)
     m_hdMode = enabled;
     m_hdLive = live;
     g_minimap.setHdEnabled(enabled);
+    updateWalkOffset();
 }
 
 bool UIMinimap::setZoom(const int8_t zoom)
@@ -71,6 +117,7 @@ bool UIMinimap::setZoom(const int8_t zoom)
     else if (m_zoom > 0)
         m_scale *= 1 << std::abs(zoom);
 
+    updateWalkOffset();
     if (m_layout)
         m_layout->update();
 
@@ -86,6 +133,9 @@ void UIMinimap::setCameraPosition(const Position& pos)
     const Position oldPos = m_cameraPosition;
     m_cameraPosition = pos;
 
+    updateWalkOffset();
+    if (m_smoothWalk)
+        repaint();
     if (m_layout)
         m_layout->update();
 
@@ -113,17 +163,21 @@ bool UIMinimap::floorDown()
 
 Point UIMinimap::getTilePoint(const Position& pos)
 {
-    return g_minimap.getTilePoint(pos, getPaddingRect(), m_cameraPosition, m_scale);
+    const auto point = g_minimap.getTilePoint(pos, getPaddingRect(), m_cameraPosition, m_scale);
+    return pos.z == m_cameraPosition.z && !getPaddingRect().isEmpty() ? point + m_walkOffset : point;
 }
 
 Rect UIMinimap::getTileRect(const Position& pos)
 {
-    return g_minimap.getTileRect(pos, getPaddingRect(), m_cameraPosition, m_scale);
+    auto rect = g_minimap.getTileRect(pos, getPaddingRect(), m_cameraPosition, m_scale);
+    if (rect.isValid())
+        rect.translate(m_walkOffset);
+    return rect;
 }
 
 Position UIMinimap::getTilePosition(const Point& mousePos)
 {
-    return g_minimap.getTilePosition(mousePos, getPaddingRect(), m_cameraPosition, m_scale);
+    return g_minimap.getTilePosition(mousePos - m_walkOffset, getPaddingRect(), m_cameraPosition, m_scale);
 }
 
 void UIMinimap::anchorPosition(const UIWidgetPtr& anchoredWidget, const Fw::AnchorEdge anchoredEdge, const Position& hookedPosition, const Fw::AnchorEdge hookedEdge)

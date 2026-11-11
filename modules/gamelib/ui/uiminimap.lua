@@ -486,6 +486,7 @@ function UIMinimap:setCrossPosition(pos)
     local cross = self.cross
     if not self.cross then
         cross = g_ui.createWidget('MinimapCross', self)
+        cross:setId('minimapPlayerCross')
         cross:setImageSource('')
         cross:setIcon('/game_cyclopedia/images/icon-map-player-green')
         self.cross = cross

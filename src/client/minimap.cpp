@@ -28,6 +28,7 @@
 #include "spritemanager.h"
 #include "thingtypemanager.h"
 #include "tile.h"
+#include "uiminimap.h"
 #include "framework/core/asyncdispatcher.h"
 #include "framework/core/filestream.h"
 #include "framework/core/resourcemanager.h"
@@ -368,16 +369,27 @@ void Minimap::drawHdPack(const Rect& screenRect, const Position& center, const R
     }
 }
 
-void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, bool live)
+void Minimap::onCameraMove() const
 {
-    draw(screenRect, mapCenter, scale, color);
+    if (const auto view = m_walkView.lock())
+        view->updateWalkOffset();
+}
+
+void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, bool live,
+                     const Point& offset, const PointF& subpixelOffset)
+{
+    draw(screenRect, mapCenter, scale, color, offset);
     if (screenRect.isEmpty() || !mapCenter.isMapPosition())
         return;
 
     const auto mapRect = calcMapRect(screenRect, mapCenter, scale);
-    const auto origin = screenRect.topLeft() - Point((mapRect.size() * scale).toPoint() - screenRect.size().toPoint()) / 2;
+    const auto origin = screenRect.topLeft() - Point((mapRect.size() * scale).toPoint() - screenRect.size().toPoint()) / 2 + offset;
     const auto oldClip = g_drawPool.getClipRect();
     g_drawPool.setClipRect(oldClip.isValid() ? screenRect.intersection(oldClip) : screenRect);
+    if (!subpixelOffset.isNull()) {
+        g_drawPool.pushTransformMatrix();
+        g_drawPool.translate(subpixelOffset.x, subpixelOffset.y);
+    }
     drawHdPack(screenRect, mapCenter, mapRect, origin, scale);
 
     const int spriteSize = g_gameConfig.getSpriteSize();
@@ -429,10 +441,12 @@ void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float sc
             g_drawPool.setScaleFactor(oldScale);
         }
     }
+    if (!subpixelOffset.isNull())
+        g_drawPool.popTransformMatrix();
     g_drawPool.setClipRect(oldClip);
 }
 
-void Minimap::draw(const Rect& screenRect, const Position& mapCenter, const float scale, const Color& color)
+void Minimap::draw(const Rect& screenRect, const Position& mapCenter, const float scale, const Color& color, const Point& offset)
 {
     if (screenRect.isEmpty())
         return;
@@ -444,9 +458,11 @@ void Minimap::draw(const Rect& screenRect, const Position& mapCenter, const floa
     g_drawPool.addFilledRect(screenRect, color);
 
     if (MMBLOCK_SIZE * scale > 1 && mapCenter.isMapPosition()) {
-        const auto& blockOff = getBlockOffset(mapRect.topLeft());
+        // Include the neighboring block when the animation reveals the edge of the map.
+        const auto firstTile = mapRect.topLeft() - Point(offset.x > 0, offset.y > 0);
+        const auto& blockOff = getBlockOffset(firstTile);
         const auto& off = Point((mapRect.size() * scale).toPoint() - screenRect.size().toPoint()) / 2;
-        const auto& start = screenRect.topLeft() - (mapRect.topLeft() - blockOff) * scale - off;
+        const auto& start = screenRect.topLeft() - (mapRect.topLeft() - blockOff) * scale - off + offset;
 
         for (int_fast32_t y = blockOff.y, ys = start.y; ys < screenRect.bottom(); y += MMBLOCK_SIZE, ys += MMBLOCK_SIZE * scale) {
             if (y < 0 || y >= 65536)

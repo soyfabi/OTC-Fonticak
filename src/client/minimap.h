@@ -93,8 +93,11 @@ public:
 
     void clean();
 
-    void draw(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color);
-    void drawHd(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, bool live);
+    void draw(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, const Point& offset);
+    void drawHd(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, bool live,
+                const Point& offset, const PointF& subpixelOffset);
+    void setWalkView(const std::shared_ptr<UIMinimap>& widget) { m_walkView = widget; }
+    void onCameraMove() const;
     void setHdEnabled(bool enabled);
     void clearHdTerrain();
     void updateHdTile(const Position& pos, const TilePtr& tile);
@@ -112,6 +115,8 @@ public:
     void saveOtmm(const std::string& fileName);
 
 private:
+    std::weak_ptr<UIMinimap> m_walkView;
+
     struct HdTile
     {
         std::vector<ItemPtr> items;
