@@ -47,7 +47,23 @@ local function refreshVirtualFloors()
     end
 end
 
-local function onPositionChange()
+local function updateSidebarCameraControls(widget)
+    local freeView = widget:getChildById('freeViewButton')
+    local center = widget:getChildById('centerMapButton')
+    local player = g_game.getLocalPlayer()
+    local position = player and player:getPosition()
+    local camera = widget:getCameraPosition()
+    local show = g_game.isOnline() and not widget.fullMapView and position ~= nil
+
+    freeView:setVisible(show)
+    freeView:setOn(widget.sidebarFreeView == true)
+    center:setVisible(show and camera ~= nil and (widget.sidebarCameraHasPixelOffset == true
+        or camera.x ~= position.x or camera.y ~= position.y or camera.z ~= position.z))
+    freeView:raise()
+    center:raise()
+end
+
+local function updateSidebarCamera(forceCenter)
     local player = g_game.getLocalPlayer()
     if not player then
         return
@@ -63,19 +79,42 @@ local function onPositionChange()
         return
     end
 
-    local minimapWidget = ui.minimapBorder.minimap
-    if not (minimapWidget) or minimapWidget:isDragging() then
+    local widget = ui.minimapBorder.minimap
+    if not widget or widget:isDestroyed() then
         return
     end
 
-    if not minimapWidget.fullMapView then
-        minimapWidget:setCameraPosition(pos)
+    if forceCenter or (not widget.sidebarFreeView and not widget:isDragging() and not widget.fullMapView) then
+        widget.sidebarCameraHasPixelOffset = false
+        widget:setCameraPosition(pos)
     end
 
-    minimapWidget:setCrossPosition(pos)
-    virtualFloor = pos.z
+    widget:setCrossPosition(pos)
+    virtualFloor = widget:getCameraPosition().z
     refreshVirtualFloors()
     refreshMinimapPartyPins()
+    updateSidebarCameraControls(widget)
+end
+
+local function onPositionChange()
+    updateSidebarCamera(false)
+end
+
+function centerMinimapOnPlayer()
+    updateSidebarCamera(true)
+end
+
+function toggleMinimapFreeView()
+    local widget = minimapWidget
+    if not widget or widget:isDestroyed() or widget.fullMapView or not g_game.isOnline() then
+        return
+    end
+
+    widget.sidebarFreeView = not widget.sidebarFreeView
+    if widget.setSmoothWalk then
+        widget:setSmoothWalk(not widget.sidebarFreeView)
+    end
+    updateSidebarCamera(not widget.sidebarFreeView)
 end
 
 mapController = Controller:new()
@@ -472,7 +511,9 @@ local function positionMinimapHdButton(widget, side)
 
     button:breakAnchors()
     button:setMargin(3)
+    local horizontalEdge = AnchorRight
     if side == 'right' and not widget.fullMapView then
+        horizontalEdge = AnchorLeft
         button:addAnchor(AnchorLeft, 'parent', AnchorLeft)
         button:addAnchor(AnchorBottom, 'parent', AnchorBottom)
     else
@@ -480,6 +521,16 @@ local function positionMinimapHdButton(widget, side)
         local verticalEdge = widget.fullMapView and AnchorTop or AnchorBottom
         button:addAnchor(verticalEdge, 'parent', verticalEdge)
     end
+
+    local freeView = widget:getChildById('freeViewButton')
+    local center = widget:getChildById('centerMapButton')
+    freeView:breakAnchors()
+    freeView:addAnchor(horizontalEdge, 'hdButton', horizontalEdge)
+    freeView:addAnchor(AnchorBottom, 'hdButton', AnchorTop)
+    center:breakAnchors()
+    center:addAnchor(horizontalEdge, 'freeViewButton', horizontalEdge)
+    center:addAnchor(AnchorBottom, 'freeViewButton', AnchorTop)
+    updateSidebarCameraControls(widget)
 end
 
 local function applyHorizontalControlsLayout(horizontalRoot, mirror)
@@ -900,6 +951,28 @@ function mapController:onInit()
     syncMinimapLayoutAliases(getLayoutRoot(self.ui, false))
     minimapWidget = findMinimapWidget(self.ui)
     if minimapWidget then
+        local baseCameraChange = minimapWidget.onCameraPositionChange
+        function minimapWidget.onCameraPositionChange(widget, position, oldPosition)
+            baseCameraChange(widget, position, oldPosition)
+            if not widget:isDragging() then
+                widget.sidebarCameraHasPixelOffset = false
+            end
+            updateSidebarCameraControls(widget)
+        end
+
+        local baseDragMove = minimapWidget.onDragMove
+        function minimapWidget.onDragMove(widget, position, moved)
+            local handled = baseDragMove(widget, position, moved)
+            if handled and not widget.fullMapView then
+                local viewport = widget:getPaddingRect()
+                local center = widget:getTilePoint(widget:getCameraPosition())
+                widget.sidebarCameraHasPixelOffset = center.x ~= math.floor(viewport.x + viewport.width / 2)
+                    or center.y ~= math.floor(viewport.y + viewport.height / 2)
+                updateSidebarCameraControls(widget)
+            end
+            return handled
+        end
+
         if minimapWidget.setSmoothWalk then
             minimapWidget:setSmoothWalk(true)
         end
@@ -1012,6 +1085,14 @@ function mapController:onGameEnd()
     if fullscreenWidget and fullscreenWidget.fullMapView then
         fullscreen()
     end
+    if minimapWidget and not minimapWidget:isDestroyed() then
+        minimapWidget.sidebarFreeView = false
+        minimapWidget.sidebarCameraHasPixelOffset = false
+        if minimapWidget.setSmoothWalk then
+            minimapWidget:setSmoothWalk(true)
+        end
+        updateSidebarCameraControls(minimapWidget)
+    end
     applyMinimapHd(minimapWidget, false)
     refreshMinimapPartyPins()
 
@@ -1105,7 +1186,7 @@ function fullscreen()
     minimapWidget:setZoom(zoom)
     minimapWidget:setCameraPosition(pos)
     if minimapWidget.setSmoothWalk then
-        minimapWidget:setSmoothWalk(not minimapWidget.fullMapView)
+        minimapWidget:setSmoothWalk(not minimapWidget.fullMapView and not minimapWidget.sidebarFreeView)
     end
     positionMinimapHdButton(minimapWidget, resolveMinimapSide(mapController.ui:getParent()))
     applyMinimapHd(minimapWidget, g_game.isOnline() and g_settings.getBoolean('minimapHd', true))

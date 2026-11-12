@@ -772,6 +772,35 @@ UIWidget
       min-zoom: -2
       max-zoom: 5
 
+    UIWidget
+      id: cameraControls
+      anchors.left: parent.left
+      anchors.bottom: parent.bottom
+      margin-left: 7
+      margin-bottom: 7
+      size: 145 20
+      phantom: true
+      layout:
+        type: horizontalBox
+        spacing: 5
+
+      Button
+        id: centerMapButton
+        size: 63 20
+        !text: tr('Center')
+        !tooltip: tr('Center the map on your character.')
+        visible: false
+        focusable: false
+        @onClick: modules.game_cyclopedia.Cyclopedia.centerOnPlayer()
+
+      Button
+        id: freeViewButton
+        size: 77 20
+        !text: tr('Free View')
+        !tooltip: tr('Keep the map in place while your character moves.')
+        focusable: false
+        @onClick: modules.game_cyclopedia.Cyclopedia.toggleFreeView()
+
 MapLayerSelector < UIWidget
   UIWidget
     id: layersPanel

@@ -3,6 +3,8 @@
 local UI
 local virtualFloor = 7
 local refreshVirtualFloors
+local freeView = false
+local cameraHasPixelOffset = false
 local updatingMapFlags = false
 local loadingMapConfig = false
 local MAP_CONFIG_FILE_NAME = "cyclopediaMapConfiguration.json"
@@ -353,6 +355,24 @@ local function getCyclopediaMinimap()
 	end
 
 	return UI:recursiveGetChildById("minimap")
+end
+
+local function updateCenterButton(minimap)
+	local controls = UI and UI.MapBase and UI.MapBase.cameraControls
+	local button = controls and controls.centerMapButton
+	if not button then
+		return
+	end
+
+	local player = g_game.getLocalPlayer()
+	local position = player and player:getPosition()
+	local camera = minimap:getCameraPosition()
+	local show = false
+	if position and camera then
+		local playerFloor = isSurfaceViewSelected() and CYCLOPEDIA_GROUND_FLOOR or position.z
+		show = cameraHasPixelOffset or camera.x ~= position.x or camera.y ~= position.y or camera.z ~= playerFloor
+	end
+	button:setVisible(show)
 end
 
 local function getAreaInfoPanel()
@@ -1198,7 +1218,11 @@ local function setupCyclopediaAreas()
 				baseCameraChange(widget, position, oldPosition)
 			end
 
+			if not widget:isDragging() then
+				cameraHasPixelOffset = false
+			end
 			syncCyclopediaPartyPins(widget)
+			updateCenterButton(widget)
 
 			if position and oldPosition and position.z ~= oldPosition.z then
 				if areaLabelRefreshEvent then
@@ -1212,6 +1236,20 @@ local function setupCyclopediaAreas()
 				updateAreaLabelAppearance()
 				scheduleAreaLabelRefresh()
 			end
+		end
+
+		local baseDragMove = minimap.onDragMove
+
+		function minimap.onDragMove(widget, position, moved)
+			local handled = baseDragMove(widget, position, moved)
+			if handled then
+				local viewport = widget:getPaddingRect()
+				local center = widget:getTilePoint(widget:getCameraPosition())
+				cameraHasPixelOffset = center.x ~= math.floor(viewport.x + viewport.width / 2)
+					or center.y ~= math.floor(viewport.y + viewport.height / 2)
+				updateCenterButton(widget)
+			end
+			return handled
 		end
 
 		local baseMouseRelease = minimap.onMouseRelease
@@ -1599,7 +1637,8 @@ function Cyclopedia.applyCyclopediaRenderMode()
 	if cameraPos then
 		local player = g_game.getLocalPlayer()
 		local playerPos = player and player:getPosition()
-		local targetZ = useSurfaceFallback and 7 or (playerPos and playerPos.z or cameraPos.z)
+		local targetZ = useSurfaceFallback and CYCLOPEDIA_GROUND_FLOOR
+			or (not freeView and playerPos and playerPos.z or cameraPos.z)
 
 		if targetZ ~= cameraPos.z then
 			minimap:setCameraPosition({
@@ -1615,6 +1654,7 @@ function Cyclopedia.applyCyclopediaRenderMode()
 
 	syncCyclopediaSatelliteMode(minimap, tilesDir)
 	Cyclopedia.updateLevelSeparatorState()
+	updateCenterButton(minimap)
 end
 
 local function onMapConfigurationChanged()
@@ -1985,6 +2025,8 @@ function Cyclopedia.clearMapUI()
 	local root = UI
 
 	UI = nil
+	freeView = false
+	cameraHasPixelOffset = false
 
 	if root and not root:isDestroyed() then
 		root:destroy()
@@ -2123,7 +2165,7 @@ function refreshMapMinimapPreferences()
 	end
 end
 
-function Cyclopedia.onUpdateCameraPosition()
+local function updateCyclopediaCamera(forceCenter)
 	if not UI or not UI.MapBase then
 		return
 	end
@@ -2147,23 +2189,24 @@ function Cyclopedia.onUpdateCameraPosition()
 	end
 
 	local useSurface = isSurfaceViewSelected()
-	local targetZ = useSurface and 7 or pos.z
 
-	if not minimapWidget:isDragging() and not minimapWidget.fullMapView then
+	if forceCenter or (not freeView and not minimapWidget:isDragging() and not minimapWidget.fullMapView) then
+		cameraHasPixelOffset = false
 		minimapWidget:setCameraPosition({
 			x = pos.x,
 			y = pos.y,
-			z = targetZ
+			z = useSurface and CYCLOPEDIA_GROUND_FLOOR or pos.z
 		})
 	end
 
 	minimapWidget:setCrossPosition(pos)
 
-	virtualFloor = targetZ
+	virtualFloor = minimapWidget:getCameraPosition().z
 
 	refreshVirtualFloors()
 	syncCyclopediaSatelliteMode(minimapWidget, getCyclopediaTilesDir(useSurface))
 	Cyclopedia.updateLevelSeparatorState()
+	updateCenterButton(minimapWidget)
 
 	if modules.game_minimap and modules.game_minimap.refreshMinimapPartyPins then
 		modules.game_minimap.refreshMinimapPartyPins()
@@ -2172,23 +2215,32 @@ function Cyclopedia.onUpdateCameraPosition()
 	end
 end
 
-function Cyclopedia.resetMap()
-	local minimap = getCyclopediaMinimap()
+function Cyclopedia.onUpdateCameraPosition()
+	updateCyclopediaCamera(false)
+end
 
+function Cyclopedia.centerOnPlayer()
+	updateCyclopediaCamera(true)
+end
+
+function Cyclopedia.toggleFreeView()
+	local minimap = getCyclopediaMinimap()
 	if not minimap then
 		return
 	end
 
-	minimap:reset()
-
-	local player = g_game.getLocalPlayer()
-
-	if player and player:getPosition() then
-		virtualFloor = player:getPosition().z
-
-		refreshVirtualFloors()
-		Cyclopedia.updateLevelSeparatorState()
+	freeView = not freeView
+	UI.MapBase.cameraControls.freeViewButton:setOn(freeView)
+	if minimap.setSmoothWalk then
+		minimap:setSmoothWalk(not freeView)
 	end
+	if not freeView then
+		Cyclopedia.centerOnPlayer()
+	end
+end
+
+function Cyclopedia.resetMap()
+	Cyclopedia.centerOnPlayer()
 end
 
 function Cyclopedia.onClickRoseButton(dir)
