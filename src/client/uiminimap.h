@@ -63,6 +63,7 @@ public:
     bool isSatelliteMode() { return m_satelliteMode; }
     void setHdMode(bool enabled, bool live);
     void setHdAnimations(bool enabled);
+    void setShowFloorItems(bool enabled);
     void setSmoothWalk(bool enabled);
     void updateWalkOffset();
     const Point& getWalkOffset() const { return m_walkOffset; }
@@ -94,6 +95,7 @@ private:
     bool m_hdMode{ false };
     bool m_hdLive{ true };
     bool m_hdAnimations{ true };
+    bool m_showFloorItems{ true };
     bool m_zoomAnimating{ false };
     std::shared_ptr<MinimapHdCache> m_hdCache;
 };

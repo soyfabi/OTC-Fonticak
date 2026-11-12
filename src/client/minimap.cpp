@@ -652,7 +652,7 @@ void Minimap::onCameraMove() const
 }
 
 void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, bool live,
-                     const PointF& offset, bool zooming, bool animationsEnabled, MinimapHdCache& cache)
+                     const PointF& offset, bool zooming, bool animationsEnabled, bool showFloorItems, MinimapHdCache& cache)
 {
     if (screenRect.isEmpty() || !mapCenter.isMapPosition()) {
         draw(screenRect, mapCenter, scale, color, offset);
@@ -672,7 +672,7 @@ void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float sc
     const int spriteSize = g_gameConfig.getSpriteSize();
     const auto view = Rect(projection.screenTile(screenRect.topLeft()),
                            projection.screenTile(screenRect.bottomRight())).expanded(4);
-    if (scale >= 2.f && spriteSize > 0) {
+    if (scale >= 2.f && spriteSize > 0 && (live || showFloorItems)) {
         struct VisibleTile
         {
             Point position;
@@ -689,7 +689,7 @@ void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float sc
             const auto collect = [&](const Point& tile, const HdTile& snapshot) {
                 const bool drawTerrain = live && scanViewport &&
                     (!packedAreas || std::ranges::none_of(*packedAreas, [&](const Rect& area) { return area.contains(tile); }));
-                const bool drawPickupables = snapshot.pickupables > 0 &&
+                const bool drawPickupables = showFloorItems && snapshot.pickupables > 0 &&
                     g_map.isAwareOfPosition(Position(tile.x, tile.y, mapCenter.z));
                 const size_t visibleItems = (drawTerrain ? snapshot.items.size() - snapshot.pickupables : 0) +
                     (drawPickupables ? snapshot.pickupables : 0);

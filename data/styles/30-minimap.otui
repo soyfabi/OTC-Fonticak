@@ -12,6 +12,27 @@ MinimapCross < UIWidget
   image: /images/game/minimap/cross
   size: 16 16
 
+MinimapNearbyPlayerPin < UIWidget
+  focusable: false
+  size: 20 20
+
+  UIWidget
+    id: pulseHalo
+    anchors.fill: parent
+    phantom: true
+    focusable: false
+    opacity: 0
+    image-smooth: true
+    image-source: /images/game/minimap/nearby-player-halo
+
+  UIWidget
+    size: 8 8
+    anchors.centerIn: parent
+    phantom: true
+    focusable: false
+    image-smooth: true
+    image-source: /images/game/minimap/nearby-player-dot
+
 MinimapFloorUpButton < Button
   size: 20 20
   margin-right: 28

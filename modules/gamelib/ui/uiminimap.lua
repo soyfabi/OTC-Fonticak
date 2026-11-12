@@ -56,6 +56,7 @@ function UIMinimap:onVisibilityChange()
     if not self:isVisible() then
         self:destroyFlagWindow()
     end
+    self:updateNearbyPlayerPulse()
 end
 
 function UIMinimap:onCameraPositionChange(cameraPos)
@@ -70,6 +71,8 @@ end
 
 local PARTY_PIN_MEMBER = '/game_cyclopedia/images/icon-map-player-yellow'
 local PARTY_PIN_LEADER = '/game_cyclopedia/images/icon-map-player-red'
+local NEARBY_PLAYER_MIN_ZOOM = 2
+local PLAYER_PULSE_SIZE = 20
 
 local function positionMarkerAtTile(minimap, marker, displayPos)
     marker:breakAnchors()
@@ -183,6 +186,12 @@ local function updatePartyPinVisibility(minimap, pin)
     end
 
     local cameraPos = minimap:getCameraPosition()
+    if pin.nearbyPlayer then
+        pin:setVisible(cameraPos ~= nil and cameraPos.z == pin.pos.z
+            and minimap:getZoom() >= NEARBY_PLAYER_MIN_ZOOM)
+        return
+    end
+
     if not cameraPos then
         pin:hide()
         destroyPartyPinFloorLabel(pin)
@@ -231,6 +240,11 @@ function UIMinimap:updateCrossVisibility()
 end
 
 function UIMinimap:clearPartyPins()
+    if self.nearbyPlayerPulseEvent then
+        removeEvent(self.nearbyPlayerPulseEvent)
+        self.nearbyPlayerPulseEvent = nil
+    end
+
     if not self.partyPins then
         self.partyPins = {}
         return
@@ -244,6 +258,49 @@ function UIMinimap:clearPartyPins()
     self.partyPins = {}
 end
 
+function UIMinimap:updateNearbyPlayerPulse()
+    local options = modules.client_options
+    local animate = not options or not options.getOption('disableMinimapAnimations')
+    local visible = not self:isDestroyed() and self:isVisible()
+    local haloOpacity = 0
+    local haloSize = PLAYER_PULSE_SIZE
+    if visible and animate then
+        local progress = (g_clock.millis() % 1200) / 1200
+        haloSize = 12 + 2 * math.floor(progress * 4 + 0.5)
+        haloOpacity = math.sin(math.pi * progress) ^ 0.65
+    end
+
+    local hasVisiblePins = false
+    if visible and self.partyPins then
+        for _, pin in pairs(self.partyPins) do
+            if pin.nearbyPlayer and pin:isVisible() then
+                hasVisiblePins = true
+                local halo = pin.pulseHalo
+                if haloOpacity > 0 and halo.pulseSize ~= haloSize then
+                    local offset = (PLAYER_PULSE_SIZE - haloSize) / 2
+                    halo:setImageRect({ x = offset, y = offset, width = haloSize, height = haloSize })
+                    halo.pulseSize = haloSize
+                end
+                if math.abs(halo:getOpacity() - haloOpacity) > 0.01 then
+                    halo:setOpacity(haloOpacity)
+                end
+            end
+        end
+    end
+
+    if animate and hasVisiblePins then
+        if not self.nearbyPlayerPulseEvent then
+            self.nearbyPlayerPulseEvent = scheduleEvent(function()
+                self.nearbyPlayerPulseEvent = nil
+                self:updateNearbyPlayerPulse()
+            end, 50)
+        end
+    elseif self.nearbyPlayerPulseEvent then
+        removeEvent(self.nearbyPlayerPulseEvent)
+        self.nearbyPlayerPulseEvent = nil
+    end
+end
+
 function UIMinimap:updateAllPartyPinsVisibility()
     if not self.partyPins then
         return
@@ -252,6 +309,7 @@ function UIMinimap:updateAllPartyPinsVisibility()
     for _, pin in pairs(self.partyPins) do
         updatePartyPinVisibility(self, pin)
     end
+    self:updateNearbyPlayerPulse()
 end
 
 function UIMinimap:updatePartyPins(memberById)
@@ -274,25 +332,41 @@ function UIMinimap:updatePartyPins(memberById)
 
         local pinIcon = data.pinIcon or PARTY_PIN_MEMBER
         local pin = self.partyPins[id]
+        if pin and pin.nearbyPlayer ~= data.nearbyPlayer then
+            destroyPartyPinFloorLabel(pin)
+            pin:destroy()
+            pin = nil
+        end
+
         if not pin then
-            pin = g_ui.createWidget('MinimapCross', self)
+            pin = g_ui.createWidget(data.nearbyPlayer and 'MinimapNearbyPlayerPin' or 'MinimapCross', self)
             pin:setId('partyPin_' .. id)
-            pin:setImageSource('')
-            pin:setClipping(false)
-            pin:setPhantom(false)
-            pin:setFocusable(false)
+            pin.nearbyPlayer = data.nearbyPlayer
+            if not data.nearbyPlayer then
+                pin:setImageSource('')
+                pin:setClipping(false)
+                pin:setPhantom(false)
+                pin:setFocusable(false)
+            end
             self.partyPins[id] = pin
         end
 
-        pin:setIcon(pinIcon)
-        pin:setIconColor('#ffffff')
+        if data.nearbyPlayer then
+            local old = pin.pos
+            if not old or old.x ~= pos.x or old.y ~= pos.y or old.z ~= pos.z then
+                self:centerInPosition(pin, pos)
+            end
+        else
+            pin:setIcon(pinIcon)
+            pin:setIconColor('#ffffff')
+        end
 
         pin.pos = {
             x = pos.x,
             y = pos.y,
             z = pos.z
         }
-        pin:setTooltip(data.tooltip or data.name or tr('Party member'))
+        pin:setTooltip(data.tooltip or data.name or (data.nearbyPlayer and tr('Player') or tr('Party member')))
         ::continue::
     end
 
@@ -380,6 +454,10 @@ function UIMinimap:applyMinimapPreferences()
     if self.setHdAnimations then
         self:setHdAnimations(not options.getOption('disableMinimapAnimations'))
     end
+    if self.setShowFloorItems then
+        self:setShowFloorItems(not options.getOption('disableMinimapFloorItems'))
+    end
+    self:updateNearbyPlayerPulse()
     if options.getOption('disableMinimapSmoothZoom') then
         self:finishSmoothZoom()
     end

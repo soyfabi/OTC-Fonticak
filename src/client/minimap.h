@@ -136,7 +136,7 @@ public:
 
     void draw(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, const PointF& offset);
     void drawHd(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, bool live,
-                const PointF& offset, bool zooming, bool animationsEnabled, MinimapHdCache& cache);
+                const PointF& offset, bool zooming, bool animationsEnabled, bool showFloorItems, MinimapHdCache& cache);
     void setWalkView(const UIMinimapPtr& widget, bool enabled);
     void onCameraMove() const;
     void addHdView();

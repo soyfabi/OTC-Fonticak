@@ -56,7 +56,7 @@ void UIMinimap::drawSelf(const DrawPoolType drawPane)
         if (!m_hdCache)
             m_hdCache = std::make_shared<MinimapHdCache>();
         g_minimap.drawHd(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_hdLive, offset, m_zoomAnimating,
-                         m_hdAnimations, *m_hdCache);
+                         m_hdAnimations, m_showFloorItems, *m_hdCache);
     } else
         g_minimap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_color, offset);
 }
@@ -124,6 +124,15 @@ void UIMinimap::setHdAnimations(bool enabled)
         return;
 
     m_hdAnimations = enabled;
+    repaint();
+}
+
+void UIMinimap::setShowFloorItems(bool enabled)
+{
+    if (m_showFloorItems == enabled)
+        return;
+
+    m_showFloorItems = enabled;
     repaint();
 }
 

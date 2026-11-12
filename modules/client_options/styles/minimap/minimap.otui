@@ -11,7 +11,7 @@ UIWidget
     OptionCheckBoxMarked
       id: disableMinimapAnimations
       !text: tr('Disable Animations')
-      !tooltip: tr('Keep water and animated objects still in the HD minimap and Cyclopedia map.')
+      !tooltip: tr('Pause water, animated objects, and pulsing player markers in the minimap and Cyclopedia.')
 
   SmallReversedQtPanel
     anchors.left: parent.left
@@ -33,6 +33,54 @@ UIWidget
     height: 22
 
     OptionCheckBoxMarked
+      id: disableMinimapFloorItems
+      !text: tr('Disable Items Floor')
+      !tooltip: tr('Hide items that can be picked up from the floor on the HD minimap and Cyclopedia.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBoxMarked
       id: disableMinimapSmoothZoom
       !text: tr('Disable Smooth Zoom')
       !tooltip: tr('Switch zoom levels instantly in the minimap and Cyclopedia.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBoxMarked
+      id: showNearbyMinimapPlayers
+      !text: tr('Show Nearby Players')
+      !tooltip: tr('Mark nearby players when the minimap or Cyclopedia is zoomed in. Hover over a marker to see the player name.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionsLabel
+      id: nearbyMinimapPlayerLimit
+      anchors.fill: parent
+      text-align: left
+      text-offset: 18 0
+
+      HorizontalQtScrollBar
+        id: valueBar
+        minimum: 2
+        maximum: 40
+        step: 1
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 3
+        width: 174
+        @onValueChange: modules.client_options.setOption(self:getParent():getId(), self:getValue())

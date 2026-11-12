@@ -4,6 +4,7 @@ minimapWidget = nil
 local otmm = true
 local oldPos = nil
 local fullscreenWidget
+local pendingCreaturePinRefresh
 local virtualFloor = 7
 local currentDayTime = {
     h = 12,
@@ -246,19 +247,56 @@ local function foreachMinimapWidget(callback)
     end
 end
 
-function refreshMinimapPartyPins()
-    if not g_game.isOnline() then
-        foreachMinimapWidget(function(mini)
-            mini:updatePartyPins({})
-        end)
+local function showNearbyPlayers()
+    local options = modules.client_options
+    return not options or options.getOption('showNearbyMinimapPlayers')
+end
+
+local function collectNearbyPlayerPins(pins)
+    local localPlayer = g_game.getLocalPlayer()
+    local mapPanel = modules.game_interface.getMapPanel()
+    local playerPos = localPlayer and localPlayer:getPosition()
+    if not showNearbyPlayers() or not playerPos or not mapPanel then
         return
     end
 
-    local members = collectMinimapPartyMembers()
+    local options = modules.client_options
+    local limit = options and options.getOption('nearbyMinimapPlayerLimit') or 8
+    limit = math.max(2, math.min(40, math.floor(limit)))
+    local candidates = {}
+    for _, creature in ipairs(mapPanel:getSightSpectators(false)) do
+        if creature:isPlayer() and not creature:isLocalPlayer() and not creature:isRemoved()
+            and not creature:isInvisible() then
+            local id = creature:getId()
+            local pos = creature:getPosition()
+            if not pins[id] and pos and pos.z == playerPos.z then
+                local dx, dy = pos.x - playerPos.x, pos.y - playerPos.y
+                candidates[#candidates + 1] = { id = id, creature = creature, pos = pos, distance = dx * dx + dy * dy }
+            end
+        end
+    end
+
+    if #candidates > limit then
+        table.sort(candidates, function(a, b)
+            return a.distance < b.distance or (a.distance == b.distance and a.id < b.id)
+        end)
+    end
+    for i = 1, math.min(limit, #candidates) do
+        local candidate = candidates[i]
+        pins[candidate.id] = { nearbyPlayer = true, name = candidate.creature:getName(), pos = candidate.pos }
+    end
+end
+
+function refreshMinimapPartyPins()
+    local pins = {}
+    if g_game.isOnline() then
+        pins = collectMinimapPartyMembers()
+        collectNearbyPlayerPins(pins)
+    end
 
     local function applyPins(mini)
         if mini and not mini:isDestroyed() and mini.updatePartyPins then
-            mini:updatePartyPins(members)
+            mini:updatePartyPins(pins)
         end
     end
 
@@ -293,17 +331,22 @@ local function creatureHasPartyPin(creatureId)
     return found
 end
 
-local function onPartyMinimapCreatureEvent(creature)
+local function onMinimapCreatureEvent(creature)
     if not creature or creature:isLocalPlayer() or not creature:isPlayer() then
         return
     end
 
-    if CreatureList and not CreatureList.isRemotePartyMember(creature)
+    if not showNearbyPlayers() and CreatureList and not CreatureList.isRemotePartyMember(creature)
         and not creatureHasPartyPin(creature:getId()) then
         return
     end
 
-    refreshMinimapPartyPins()
+    if not pendingCreaturePinRefresh then
+        pendingCreaturePinRefresh = addEvent(function()
+            pendingCreaturePinRefresh = nil
+            refreshMinimapPartyPins()
+        end)
+    end
 end
 
 local function onPartyMinimapShieldEvent(creature)
@@ -893,9 +936,10 @@ function mapController:onGameStart()
     }):execute()
 
     mapController:registerEvents(Creature, {
-        onPositionChange = onPartyMinimapCreatureEvent,
-        onAppear = onPartyMinimapCreatureEvent,
-        onDisappear = onPartyMinimapCreatureEvent,
+        onPositionChange = onMinimapCreatureEvent,
+        onAppear = onMinimapCreatureEvent,
+        onDisappear = onMinimapCreatureEvent,
+        onOutfitChange = onMinimapCreatureEvent,
         onShieldChange = onPartyMinimapShieldEvent
     }):execute()
 
@@ -993,6 +1037,10 @@ function mapController:onGameEnd()
 end
 
 function mapController:onTerminate()
+    if pendingCreaturePinRefresh then
+        removeEvent(pendingCreaturePinRefresh)
+        pendingCreaturePinRefresh = nil
+    end
     applyMinimapHd(fullscreenWidget or minimapWidget, false)
     if iconTopMenu then
         iconTopMenu:destroy()
