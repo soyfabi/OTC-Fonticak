@@ -356,8 +356,20 @@ function UIMinimap:setLevelSeparatorIntensity(value)
     self:setFloorSeparatorOpacity(value)
 end
 
-function UIMinimap:smoothZoomBy(step, mousePos)
-    if not self.setScale or step == 0 then
+function UIMinimap:finishSmoothZoom()
+    if self._smoothZoomEvent then
+        removeEvent(self._smoothZoomEvent)
+        self._smoothZoomEvent = nil
+        self:setScale(self._smoothZoomTargetScale)
+        self._smoothZoomTargetScale = nil
+    end
+end
+
+function UIMinimap:smoothZoomBy(step)
+    if step == 0 then
+        return false
+    end
+    if not self.setScale then
         return step > 0 and self:zoomIn() or self:zoomOut()
     end
 
@@ -366,52 +378,52 @@ function UIMinimap:smoothZoomBy(step, mousePos)
         return false
     end
 
-    if self._smoothZoomEvent then
-        removeEvent(self._smoothZoomEvent)
-        self._smoothZoomEvent = nil
-    end
-
     local startScale = self:getScale()
     if not self:setZoom(targetZoom) then
         return false
     end
 
-    local targetScale = self:getScale()
+    self._smoothZoomTargetScale = self:getScale()
     self:setScale(startScale)
 
     if self.onSmoothZoomScaleChange then
         self:onSmoothZoomScaleChange(self:getScale())
     end
 
-    local startedAt = g_clock.millis()
-    local duration = 300
+    if self._smoothZoomEvent then
+        return true
+    end
+
+    local lastUpdate = g_clock.millis()
+    local frameInterval = 10
+    local responseTime = 52
 
     local function animate()
         if self:isDestroyed() then
             return
         end
 
-        local progress = math.min(1, (g_clock.millis() - startedAt) / duration)
-        local eased = progress * progress * progress * (progress * (progress * 6 - 15) + 10)
-
-        self:setScale(startScale * math.pow(targetScale / startScale, eased))
+        local now = g_clock.millis()
+        local remaining = math.exp(-(now - lastUpdate) / responseTime)
+        lastUpdate = now
+        local currentScale = self:getScale()
+        local targetScale = self._smoothZoomTargetScale
+        local delta = math.log(targetScale / currentScale)
+        if math.abs(delta * remaining) > 0.003 then
+            self:setScale(targetScale * math.exp(-delta * remaining))
+            self._smoothZoomEvent = scheduleEvent(animate, frameInterval)
+        else
+            self:setScale(targetScale)
+            self._smoothZoomEvent = nil
+            self._smoothZoomTargetScale = nil
+        end
 
         if self.onSmoothZoomScaleChange then
             self:onSmoothZoomScaleChange(self:getScale())
         end
-
-        if progress < 1 then
-            self._smoothZoomEvent = scheduleEvent(animate, 16)
-        else
-            self:setScale(targetScale)
-            if self.onSmoothZoomScaleChange then
-                self:onSmoothZoomScaleChange(self:getScale())
-            end
-            self._smoothZoomEvent = nil
-        end
     end
 
-    self._smoothZoomEvent = scheduleEvent(animate, 16)
+    self._smoothZoomEvent = scheduleEvent(animate, frameInterval)
     return true
 end
 
@@ -430,6 +442,7 @@ function UIMinimap:disableAutoWalk()
 end
 
 function UIMinimap:load()
+    self:finishSmoothZoom()
     local settings = g_settings.getNode('Minimap')
     if settings then
         if settings.flags then
@@ -636,17 +649,11 @@ end
 function UIMinimap:onMouseWheel(mousePos, direction)
     local keyboardModifiers = g_keyboard.getModifiers()
     if direction == MouseWheelUp and keyboardModifiers == KeyboardNoModifier then
-        if self:isCyclopediaMap() then
-            self:smoothZoomBy(1, mousePos)
-            return true
-        end
-        self:zoomIn()
+        self:smoothZoomBy(1)
+        return true
     elseif direction == MouseWheelDown and keyboardModifiers == KeyboardNoModifier then
-        if self:isCyclopediaMap() then
-            self:smoothZoomBy(-1, mousePos)
-            return true
-        end
-        self:zoomOut()
+        self:smoothZoomBy(-1)
+        return true
     elseif direction == MouseWheelDown and keyboardModifiers == KeyboardCtrlModifier then
         self:floorUp(1)
     elseif direction == MouseWheelUp and keyboardModifiers == KeyboardCtrlModifier then

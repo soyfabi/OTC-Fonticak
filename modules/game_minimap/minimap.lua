@@ -987,14 +987,14 @@ end
 function zoomIn()
     local mini = mapController.ui and mapController.ui.minimapBorder and mapController.ui.minimapBorder.minimap
     if mini then
-        mini:zoomIn()
+        mini:smoothZoomBy(1)
     end
 end
 
 function zoomOut()
     local mini = mapController.ui and mapController.ui.minimapBorder and mapController.ui.minimapBorder.minimap
     if mini then
-        mini:zoomOut()
+        mini:smoothZoomBy(-1)
     end
 end
 
@@ -1017,6 +1017,7 @@ function fullscreen()
         return
     end
 
+    minimapWidget:finishSmoothZoom()
     if minimapWidget.fullMapView then
         fullscreenWidget = nil
         minimapWidget:setParent(mapController.ui.minimapBorder)

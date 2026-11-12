@@ -79,11 +79,11 @@ Minimap < UIMinimap
 
   MinimapZoomInButton
     id: zoomInButton
-    @onClick: self:getParent():zoomIn()
+    @onClick: self:getParent():smoothZoomBy(1)
 
   MinimapZoomOutButton
     id: zoomOutButton
-    @onClick: self:getParent():zoomOut()
+    @onClick: self:getParent():smoothZoomBy(-1)
 
   MinimapResetButton
     id: resetButton

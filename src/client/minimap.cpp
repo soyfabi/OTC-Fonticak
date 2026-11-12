@@ -598,15 +598,20 @@ void Minimap::draw(const Rect& screenRect, const Position& mapCenter, const floa
         const auto firstTile = mapRect.topLeft() - Point(offset.x > 0, offset.y > 0);
         const auto& blockOff = getBlockOffset(firstTile);
         const auto& off = Point((mapRect.size() * scale).toPoint() - screenRect.size().toPoint()) / 2;
-        const auto& start = screenRect.topLeft() - (mapRect.topLeft() - blockOff) * scale - off + offset;
+        const auto origin = screenRect.topLeft() - off + offset;
 
-        for (int_fast32_t y = blockOff.y, ys = start.y; ys < screenRect.bottom(); y += MMBLOCK_SIZE, ys += MMBLOCK_SIZE * scale) {
-            if (y < 0 || y >= 65536)
-                continue;
+        // Project each shared edge once, avoiding accumulated rounding gaps at fractional zoom.
+        for (int y = std::max(0, blockOff.y); y < 65536; y += MMBLOCK_SIZE) {
+            const int top = origin.y + int((y - mapRect.top()) * scale);
+            if (top > screenRect.bottom())
+                break;
+            const int bottom = origin.y + int((y + MMBLOCK_SIZE - mapRect.top()) * scale);
 
-            for (int_fast32_t x = blockOff.x, xs = start.x; xs < screenRect.right(); x += MMBLOCK_SIZE, xs += MMBLOCK_SIZE * scale) {
-                if (x < 0 || x >= 65536)
-                    continue;
+            for (int x = std::max(0, blockOff.x); x < 65536; x += MMBLOCK_SIZE) {
+                const int left = origin.x + int((x - mapRect.left()) * scale);
+                if (left > screenRect.right())
+                    break;
+                const int right = origin.x + int((x + MMBLOCK_SIZE - mapRect.left()) * scale);
 
                 const auto& pos = Position(x, y, mapCenter.z);
 
@@ -619,7 +624,7 @@ void Minimap::draw(const Rect& screenRect, const Position& mapCenter, const floa
                 const auto& tex = block.getTexture();
                 if (tex) {
                     const Rect src(0, 0, MMBLOCK_SIZE, MMBLOCK_SIZE);
-                    const Rect dest(Point(xs, ys), src.size() * scale);
+                    const Rect dest(left, top, right - left, bottom - top);
                     g_drawPool.addTexturedRect(dest, tex, src);
                 }
             }

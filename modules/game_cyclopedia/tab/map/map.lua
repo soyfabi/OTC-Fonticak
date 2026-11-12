@@ -1938,6 +1938,7 @@ function Cyclopedia.centerMapAtPosition(pos, zoomDelta)
 	end, 100)
 
 	if zoomDelta and minimapWidget.getZoom and minimapWidget.setZoom then
+		minimapWidget:finishSmoothZoom()
 		local maxZoom = minimapWidget.getMaxZoom and minimapWidget:getMaxZoom() or minimapWidget:getZoom()
 		local targetZoom = math.min(maxZoom, minimapWidget:getZoom() + zoomDelta)
 		local savedSettingZoom = minimapWidget.zoomMinimap
