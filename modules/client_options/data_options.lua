@@ -2,7 +2,22 @@ local ownBattleSubChannelsSaved = nil
 local otherPlayersSubChannelsSaved = nil
 local consoleMessagesSubChannelsSaved = nil
 
+local function refreshMinimapPreferences()
+    local minimap = modules.game_minimap
+    if minimap and minimap.refreshMinimapPreferences then
+        minimap.refreshMinimapPreferences()
+    end
+
+    local cyclopedia = modules.game_cyclopedia
+    if cyclopedia and cyclopedia.refreshMapMinimapPreferences then
+        cyclopedia.refreshMapMinimapPreferences()
+    end
+end
+
 return {
+    disableMinimapAnimations = { value = false, action = refreshMinimapPreferences },
+    disableMinimapHd = { value = false, action = refreshMinimapPreferences },
+    disableMinimapSmoothZoom = { value = false, action = refreshMinimapPreferences },
     vsync                             = {
         value = true,
         action = function(value, options, controller, panels, extraWidgets)

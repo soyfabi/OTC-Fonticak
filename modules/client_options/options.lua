@@ -21,6 +21,7 @@ panels = {
     miscGameplay = nil,
     miscScreenshot = nil,
     miscHelp = nil,
+    minimapPanel = nil,
     keybindsPanel = nil,
     customHotkeys = nil,
     battleSoundsPanel = nil,
@@ -167,6 +168,10 @@ local buttons = { {
         text = "UI Sounds",
         open = "iuSoundPanel"
     }} 
+}, {
+    text = "Minimap",
+    icon = "/images/topbuttons/minimap",
+    open = "minimapPanel"
 }, {
     text = "Misc.",
     icon = "/images/icons/icon_misc",
@@ -596,6 +601,7 @@ function controller:onInit()
     panels.misc = g_ui.loadUI('styles/misc/misc', controller.ui.optionsTabContent)
     panels.miscGameplay = g_ui.loadUI('styles/misc/gameplay', controller.ui.optionsTabContent)
     panels.miscHelp = g_ui.loadUI('styles/misc/help', controller.ui.optionsTabContent)
+    panels.minimapPanel = g_ui.loadUI('styles/minimap/minimap', controller.ui.optionsTabContent)
 
     self.ui:hide()
 

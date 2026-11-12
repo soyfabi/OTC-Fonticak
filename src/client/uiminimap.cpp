@@ -55,7 +55,8 @@ void UIMinimap::drawSelf(const DrawPoolType drawPane)
     else if (m_hdMode) {
         if (!m_hdCache)
             m_hdCache = std::make_shared<MinimapHdCache>();
-        g_minimap.drawHd(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_hdLive, offset, m_zoomAnimating, *m_hdCache);
+        g_minimap.drawHd(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_hdLive, offset, m_zoomAnimating,
+                         m_hdAnimations, *m_hdCache);
     } else
         g_minimap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_color, offset);
 }
@@ -114,6 +115,15 @@ void UIMinimap::setHdMode(bool enabled, bool live)
     }
     m_hdLive = live;
     updateWalkOffset();
+    repaint();
+}
+
+void UIMinimap::setHdAnimations(bool enabled)
+{
+    if (m_hdAnimations == enabled)
+        return;
+
+    m_hdAnimations = enabled;
     repaint();
 }
 

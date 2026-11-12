@@ -112,11 +112,18 @@ struct MinimapHdCache
         std::list<uint64_t>::iterator order;
     };
 
+    struct Animation
+    {
+        std::future<ImagePtr> decode;
+        TexturePtr texture;
+    };
+
     uint64_t revision{ 0 };
     int displayedLevel{ 0 };
     std::unordered_map<uint64_t, Chunk> textures;
     std::list<uint64_t> order;
     std::unordered_map<uint64_t, std::future<ImagePtr>> decodes;
+    std::unordered_map<uint64_t, Animation> animations;
 };
 
 class Minimap
@@ -129,7 +136,7 @@ public:
 
     void draw(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, const PointF& offset);
     void drawHd(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, bool live,
-                const PointF& offset, bool zooming, MinimapHdCache& cache);
+                const PointF& offset, bool zooming, bool animationsEnabled, MinimapHdCache& cache);
     void setWalkView(const UIMinimapPtr& widget, bool enabled);
     void onCameraMove() const;
     void addHdView();
@@ -160,8 +167,10 @@ private:
     };
 
     void loadHdIndex();
+    void loadHdAnimationIndex();
+    bool drawHdAnimation(uint64_t key, const RectF& dest, uint64_t tick, MinimapHdCache& cache);
     std::optional<std::vector<Rect>> drawHdPack(const Rect& screenRect, int floor, const MinimapProjection& projection,
-                                               float scale, bool zooming, MinimapHdCache& cache);
+                                               float scale, bool zooming, bool animateItems, MinimapHdCache& cache);
 
     std::atomic_uint m_hdViewCount{ 0 };
     std::mutex m_hdMutex;
@@ -175,6 +184,15 @@ private:
     std::unordered_set<uint64_t> m_hdIndex;
     std::array<bool, 11> m_hdLevels{};
     uint64_t m_hdIndexRevision{ 0 };
+    struct HdAnimation
+    {
+        Rect crop;
+        int frames;
+        bool replace;
+        Size atlasSize() const;
+    };
+    bool m_hdAnimationIndexChecked{ false };
+    std::unordered_map<uint64_t, HdAnimation> m_hdAnimations;
 
     bool hasBlock(const Position& pos) { return m_tileBlocks[pos.z].contains(getBlockIndex(pos)); }
     MinimapBlock& getBlock(const Position& pos)

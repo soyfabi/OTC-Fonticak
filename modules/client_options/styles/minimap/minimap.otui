@@ -1,0 +1,38 @@
+UIWidget
+  anchors.fill: parent
+  visible: false
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: parent.top
+    height: 22
+
+    OptionCheckBoxMarked
+      id: disableMinimapAnimations
+      !text: tr('Disable Animations')
+      !tooltip: tr('Keep water and animated objects still in the HD minimap and Cyclopedia map.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBoxMarked
+      id: disableMinimapHd
+      !text: tr('Disable HD 3D Map')
+      !tooltip: tr('Use the classic map in the minimap and Cyclopedia.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBoxMarked
+      id: disableMinimapSmoothZoom
+      !text: tr('Disable Smooth Zoom')
+      !tooltip: tr('Switch zoom levels instantly in the minimap and Cyclopedia.')

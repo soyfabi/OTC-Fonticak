@@ -65,9 +65,10 @@ void Item::draw(const Point& dest, const bool drawThings, LightView* lightView)
         internalDraw(animationPhase, dest, getHighlightColor(), drawThings, true);
 }
 
-void Item::drawMinimap(const Point& dest)
+void Item::drawMinimap(const Point& dest, bool animate)
 {
-    getThingType()->draw(dest, 0, m_numPatternX, m_numPatternY, m_numPatternZ, 0, Color::white, true, nullptr);
+    const int phase = animate ? calculateAnimationPhase() : 0;
+    getThingType()->draw(dest, 0, m_numPatternX, m_numPatternY, m_numPatternZ, phase, Color::white, true, nullptr);
 }
 
 void Item::internalDraw(const int animationPhase, const Point& dest, const Color& color, const bool drawThings, const bool replaceColorShader, LightView* lightView)

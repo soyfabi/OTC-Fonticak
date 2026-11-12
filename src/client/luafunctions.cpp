@@ -1295,6 +1295,7 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMinimap>("setSatelliteMode", &UIMinimap::setSatelliteMode);
     g_lua.bindClassMemberFunction<UIMinimap>("isSatelliteMode", &UIMinimap::isSatelliteMode);
     g_lua.bindClassMemberFunction<UIMinimap>("setHdMode", &UIMinimap::setHdMode);
+    g_lua.bindClassMemberFunction<UIMinimap>("setHdAnimations", &UIMinimap::setHdAnimations);
     g_lua.bindClassMemberFunction<UIMinimap>("setSmoothWalk", &UIMinimap::setSmoothWalk);
     g_lua.bindClassMemberFunction<UIMinimap>("floorUp", &UIMinimap::floorUp);
     g_lua.bindClassMemberFunction<UIMinimap>("floorDown", &UIMinimap::floorDown);

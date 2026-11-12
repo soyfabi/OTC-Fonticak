@@ -365,6 +365,23 @@ function UIMinimap:finishSmoothZoom()
         if self.setZoomAnimating then
             self:setZoomAnimating(false)
         end
+        if self.onSmoothZoomScaleChange then
+            self:onSmoothZoomScaleChange(self:getScale())
+        end
+    end
+end
+
+function UIMinimap:applyMinimapPreferences()
+    local options = modules.client_options
+    if not options then
+        return
+    end
+
+    if self.setHdAnimations then
+        self:setHdAnimations(not options.getOption('disableMinimapAnimations'))
+    end
+    if options.getOption('disableMinimapSmoothZoom') then
+        self:finishSmoothZoom()
     end
 end
 
@@ -379,6 +396,18 @@ function UIMinimap:smoothZoomBy(step)
     local targetZoom = self:getZoom() + step
     if targetZoom < self:getMinZoom() or targetZoom > self:getMaxZoom() then
         return false
+    end
+
+    local options = modules.client_options
+    if options and options.getOption('disableMinimapSmoothZoom') then
+        self:finishSmoothZoom()
+        if not self:setZoom(targetZoom) then
+            return false
+        end
+        if self.onSmoothZoomScaleChange then
+            self:onSmoothZoomScaleChange(self:getScale())
+        end
+        return true
     end
 
     local startScale = self:getScale()

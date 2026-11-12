@@ -41,14 +41,17 @@ local function syncCyclopediaSatelliteMode(minimap, tilesDir)
 		return false
 	end
 
-	local useHd = minimap.setHdMode ~= nil and not isSurfaceViewSelected()
+	minimap:applyMinimapPreferences()
+	local options = modules.client_options
+	local hdDisabled = options and options.getOption("disableMinimapHd")
+	local useHd = not hdDisabled and minimap.setHdMode ~= nil and not isSurfaceViewSelected()
 		and g_resources.fileExists("/data/minimap_hd/index.txt")
 
 	if minimap.setHdMode then
 		minimap:setHdMode(useHd, false)
 	end
 
-	if useHd then
+	if useHd or hdDisabled then
 		minimap:setSatelliteMode(false)
 		cyclopediaSatelliteReady = false
 
@@ -2110,6 +2113,14 @@ end
 -- Exported for game_minimap (other sandboxes call modules.game_cyclopedia.getMapMinimapWidget)
 function getMapMinimapWidget()
 	return Cyclopedia.getMapMinimapWidget()
+end
+
+function refreshMapMinimapPreferences()
+	local minimap = getCyclopediaMinimap()
+	if minimap then
+		syncCyclopediaSatelliteMode(minimap, getCyclopediaTilesDir(isSurfaceViewSelected()))
+		Cyclopedia.updateLevelSeparatorState()
+	end
 end
 
 function Cyclopedia.onUpdateCameraPosition()

@@ -30,10 +30,12 @@
 #include "tile.h"
 #include "uiminimap.h"
 #include "framework/core/asyncdispatcher.h"
+#include "framework/core/clock.h"
 #include "framework/core/filestream.h"
 #include "framework/core/resourcemanager.h"
 #include "framework/graphics/drawpoolmanager.h"
 #include "framework/graphics/coordsbuffer.h"
+#include "framework/graphics/graphics.h"
 #include "framework/graphics/image.h"
 #include "framework/graphics/texture.h"
 #include <bit>
@@ -50,7 +52,13 @@ namespace
     constexpr int MaxHdDetailChunks = 32;
     constexpr size_t MaxHdDecodes = 4;
     constexpr int HdChunkSize = 16;
+    constexpr int HdChunkPixels = 512;
+    constexpr float HdAnimationScale = 8.f;
+    constexpr int MaxHdAnimationFrames = 16;
+    constexpr int MaxHdAnimationPixels = 16 * 1024 * 1024;
+    constexpr size_t MaxHdAnimationDecodes = 2;
     constexpr char HdPackDir[] = "/data/minimap_hd/";
+    constexpr char HdAnimationDir[] = "/data/minimap_hd/animation/";
 
     uint64_t hdTileKey(int x, int y, int z)
     {
@@ -80,19 +88,24 @@ namespace
         return data;
     }
 
-    ImagePtr decodeHdChunk(const std::string& path)
+    ImagePtr decodeHdPng(const std::string& path, const Size& expected, uint32_t maxSize)
     {
         try {
-            const auto data = readHdFile(path, 4 * 1024 * 1024);
+            const auto data = readHdFile(path, maxSize);
+            const auto readBigEndian = [](const char* p) {
+                const auto* bytes = reinterpret_cast<const uint8_t*>(p);
+                return (uint32_t(bytes[0]) << 24) | (uint32_t(bytes[1]) << 16) |
+                    (uint32_t(bytes[2]) << 8) | bytes[3];
+            };
             if (data.size() < 33 || data.compare(0, 8, "\x89PNG\r\n\x1a\n", 8) != 0 ||
-                data.compare(12, 12, "IHDR\0\0\2\0\0\0\2\0", 12) != 0)
+                data.compare(12, 4, "IHDR") != 0 ||
+                readBigEndian(data.data() + 16) != static_cast<uint32_t>(expected.width()) ||
+                readBigEndian(data.data() + 20) != static_cast<uint32_t>(expected.height()))
                 return nullptr;
 
             // Reject animation and malformed chunk lengths before decoding.
             for (size_t offset = 8; offset + 12 <= data.size();) {
-                const auto* bytes = reinterpret_cast<const uint8_t*>(data.data() + offset);
-                const uint32_t length = (uint32_t(bytes[0]) << 24) | (uint32_t(bytes[1]) << 16) |
-                                        (uint32_t(bytes[2]) << 8) | bytes[3];
+                const uint32_t length = readBigEndian(data.data() + offset);
                 const std::string_view type(data.data() + offset + 4, 4);
                 if (length > data.size() - offset - 12 || type == "acTL" || type == "fcTL" ||
                     type == "fdAT" || (type == "IHDR" && (offset != 8 || length != 13)))
@@ -251,6 +264,8 @@ void Minimap::loadHdIndex()
     m_hdSignatures = signatures;
     m_hdIndex.clear();
     m_hdLevels.fill(false);
+    m_hdAnimations.clear();
+    m_hdAnimationIndexChecked = false;
     ++m_hdIndexRevision;
 
     const std::string path = std::string(HdPackDir) + "index.txt";
@@ -294,6 +309,115 @@ void Minimap::loadHdIndex()
     } catch (const std::exception& e) {
         g_logger.warning("HD minimap: could not load {} ({})", path, e.what());
     }
+}
+
+Size Minimap::HdAnimation::atlasSize() const
+{
+    const int columns = std::min(4, frames);
+    const int rows = (frames + columns - 1) / columns;
+    return { columns * (crop.width() + 2), rows * (crop.height() + 2) };
+}
+
+void Minimap::loadHdAnimationIndex()
+{
+    if (m_hdAnimationIndexChecked)
+        return;
+    m_hdAnimationIndexChecked = true;
+    const auto path = std::string(HdAnimationDir) + "index.txt";
+    if (!g_resources.fileExists(path))
+        return;
+
+    try {
+        std::istringstream input(readHdFile(path, 4 * 1024 * 1024));
+        std::string magic;
+        int version;
+        uint32_t dat, spr;
+        size_t count;
+        if (!(input >> magic >> version >> dat >> spr >> count) ||
+            magic != "FONTICAKHDANIM" || version != 2 || std::pair{ dat, spr } != m_hdSignatures ||
+            count > m_hdIndex.size())
+            throw std::runtime_error("invalid animation index header");
+
+        std::unordered_map<uint64_t, HdAnimation> animations;
+        for (size_t i = 0; i < count; ++i) {
+            int x, y, z, frames, left, top, width, height, replace;
+            if (!(input >> x >> y >> z >> frames >> left >> top >> width >> height >> replace) ||
+                x < 0 || x >= 65536 || y < 0 || y >= 65536 || z < 0 || z > g_gameConfig.getMapMaxZ() ||
+                frames < 2 || frames > MaxHdAnimationFrames || left < 0 || left >= HdChunkPixels ||
+                top < 0 || top >= HdChunkPixels || width < 1 || width > HdChunkPixels - left ||
+                height < 1 || height > HdChunkPixels - top || (replace != 0 && replace != 1) ||
+                (replace && (left != 0 || top != 0 || width != HdChunkPixels || height != HdChunkPixels)))
+                throw std::runtime_error("invalid animation chunk");
+
+            const auto key = hdChunkKey(1, x, y, z);
+            if (!m_hdIndex.contains(key) ||
+                !animations.emplace(key, HdAnimation{ Rect(left, top, width, height), frames, replace != 0 }).second)
+                throw std::runtime_error("unknown or duplicate animation chunk");
+        }
+        std::string extra;
+        if (input >> extra)
+            throw std::runtime_error("unexpected trailing animation data");
+        m_hdAnimations = std::move(animations);
+    } catch (const std::exception& e) {
+        g_logger.warning("HD minimap: could not load {} ({})", path, e.what());
+    }
+}
+
+bool Minimap::drawHdAnimation(uint64_t key, const RectF& dest, uint64_t tick, MinimapHdCache& cache)
+{
+    const auto metadata = m_hdAnimations.find(key);
+    if (metadata == m_hdAnimations.end())
+        return false;
+
+    const auto& [crop, frames, replace] = metadata->second;
+    auto it = cache.animations.find(key);
+    if (it == cache.animations.end()) {
+        int pixels = 0;
+        size_t pending = 0;
+        for (const auto& [cachedKey, entry] : cache.animations) {
+            pending += entry.decode.valid();
+            if (entry.decode.valid() || entry.texture)
+                pixels += m_hdAnimations.at(cachedKey).atlasSize().area();
+        }
+        const auto size = metadata->second.atlasSize();
+        const int maxTextureSize = g_graphics.getMaxTextureSize();
+        if (pending >= MaxHdAnimationDecodes || pixels + size.area() > MaxHdAnimationPixels ||
+            size.width() > maxTextureSize || size.height() > maxTextureSize)
+            return false;
+
+        const auto path = fmt::format("{}animation-{}-{}-{}.png", HdAnimationDir, key & 0xffff,
+                                      (key >> 16) & 0xffff, (key >> 32) & 0xff);
+        cache.animations[key].decode = g_asyncDispatcher.submit_task([path, size] {
+            return decodeHdPng(path, size, 20 * 1024 * 1024);
+        });
+        return false;
+    }
+
+    auto& [decode, texture] = it->second;
+    if (decode.valid() && decode.wait_for(std::chrono::seconds(0)) == std::future_status::ready) {
+        if (const auto image = decode.get()) {
+            texture = std::make_shared<Texture>(image);
+            texture->setSmooth(true);
+        }
+    }
+    if (!texture)
+        return false;
+
+    if (!replace)
+        drawMinimapTexture(dest, cache.textures.at(key).texture, Color::white);
+
+    const float sx = dest.width() / HdChunkPixels;
+    const float sy = dest.height() / HdChunkPixels;
+    const RectF target(dest.left() + crop.left() * sx, dest.top() + crop.top() * sy,
+                       crop.width() * sx, crop.height() * sy);
+    const int phase = tick % frames;
+    const int columns = std::min(4, frames);
+    const RectF source((phase % columns) * (crop.width() + 2) + 1.f,
+                       (phase / columns) * (crop.height() + 2) + 1.f, crop.width(), crop.height());
+    const auto coords = std::make_shared<CoordsBuffer>(12);
+    coords->addRect(target, source);
+    g_drawPool.addTexturedCoordsBuffer(texture, coords, Color::white);
+    return true;
 }
 
 MinimapProjection::MinimapProjection(const Rect& viewport, const Position& center, float scale, const PointF& offset) :
@@ -343,7 +467,7 @@ Point MinimapProjection::screenTile(const Point& screen) const
 }
 
 std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, int floor, const MinimapProjection& projection,
-                                                  float scale, bool zooming, MinimapHdCache& cache)
+                                                  float scale, bool zooming, bool animateItems, MinimapHdCache& cache)
 {
     if (!g_things.isDatLoaded() || !g_sprites.isLoaded())
         return std::nullopt;
@@ -415,7 +539,9 @@ std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, int
                 cache.order.splice(cache.order.end(), cache.order, it->second.order);
             } else if (cache.decodes.size() < MaxHdDecodes && !cache.decodes.contains(chunk.key)) {
                 const auto path = HdPackDir + hdChunkName(level, chunk.world.left(), chunk.world.top(), floor);
-                cache.decodes.emplace(chunk.key, g_asyncDispatcher.submit_task([path] { return decodeHdChunk(path); }));
+                cache.decodes.emplace(chunk.key, g_asyncDispatcher.submit_task([path] {
+                    return decodeHdPng(path, Size(HdChunkPixels, HdChunkPixels), 4 * 1024 * 1024);
+                }));
             }
         }
     };
@@ -482,13 +608,24 @@ std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, int
     const bool keepHeld = !held.empty() && (ready.empty() || cache.displayedLevel <= readyLevel);
     const auto& displayed = keepHeld ? held : !ready.empty() ? ready : !overview.empty() ? overview : detail;
     const int displayedLevel = keepHeld ? cache.displayedLevel : readyLevel ? readyLevel : overviewLevel ? overviewLevel : detailLevel;
+    const bool animate = animateItems && displayedLevel == 1;
+    if (animate)
+        loadHdAnimationIndex();
+    std::erase_if(cache.animations, [&](const auto& entry) {
+        if (entry.second.decode.valid() &&
+            entry.second.decode.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+            return false;
+        return !animate || std::ranges::none_of(displayed, [&](const auto& chunk) { return chunk.key == entry.first; });
+    });
+    const auto animationTick = animate ? g_clock.millis() / std::max<int>(1, g_gameConfig.getItemTicksPerFrame()) : 0;
     std::vector<Rect> coverage;
     for (const auto& chunk : displayed) {
         const auto it = cache.textures.find(chunk.key);
         if (it == cache.textures.end() || !it->second.texture)
             continue;
         cache.order.splice(cache.order.end(), cache.order, it->second.order);
-        drawMinimapTexture(chunk.screen, it->second.texture, Color::white);
+        if (!animate || !drawHdAnimation(chunk.key, chunk.screen, animationTick, cache))
+            drawMinimapTexture(chunk.screen, it->second.texture, Color::white);
         coverage.push_back(chunk.world);
     }
     if (!coverage.empty())
@@ -515,7 +652,7 @@ void Minimap::onCameraMove() const
 }
 
 void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, bool live,
-                     const PointF& offset, bool zooming, MinimapHdCache& cache)
+                     const PointF& offset, bool zooming, bool animationsEnabled, MinimapHdCache& cache)
 {
     if (screenRect.isEmpty() || !mapCenter.isMapPosition()) {
         draw(screenRect, mapCenter, scale, color, offset);
@@ -526,7 +663,8 @@ void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float sc
     const auto oldClip = g_drawPool.getClipRect();
     g_drawPool.setClipRect(oldClip.isValid() ? screenRect.intersection(oldClip) : screenRect);
     g_drawPool.addFilledRect(screenRect, color);
-    const auto packedAreas = drawHdPack(screenRect, mapCenter.z, projection, scale, zooming, cache);
+    const bool animateItems = animationsEnabled && scale >= HdAnimationScale;
+    const auto packedAreas = drawHdPack(screenRect, mapCenter.z, projection, scale, zooming, animateItems, cache);
     if (!packedAreas)
         draw(screenRect, mapCenter, scale, color, offset);
 
@@ -608,11 +746,11 @@ void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float sc
                         if (drawPickupables) {
                             // Keep small loot sprites legible at normal minimap zoom.
                             g_drawPool.setScaleFactor(pickupScale);
-                            item->drawMinimap(itemPos + Point(pickupInset, pickupInset));
+                            item->drawMinimap(itemPos + Point(pickupInset, pickupInset), animateItems);
                             g_drawPool.setScaleFactor(spriteScale);
                         }
                     } else if (drawTerrain) {
-                        item->drawMinimap(itemPos);
+                        item->drawMinimap(itemPos, animateItems);
                     }
                 };
                 const auto drawStackItem = [&](const ItemPtr& item) {

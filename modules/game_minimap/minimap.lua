@@ -353,16 +353,24 @@ local function findMinimapWidget(ui)
 end
 
 local function applyMinimapHd(widget, enabled)
-    if not widget then
+    if not widget or widget:isDestroyed() then
         return
     end
 
+    widget:applyMinimapPreferences()
+    local options = modules.client_options
+    local hdDisabled = options and options.getOption('disableMinimapHd')
+    enabled = enabled and not hdDisabled
     local supported = widget.setHdMode ~= nil
     local button = widget:getChildById('hdButton')
     if button then
-        button:setEnabled(supported)
+        button:setEnabled(supported and not hdDisabled)
         button:setOn(supported and enabled)
-        button:setTooltip(supported and tr('Toggle HD minimap') or tr('HD minimap requires the updated client'))
+        if hdDisabled then
+            button:setTooltip(tr('HD map is disabled in Minimap settings'))
+        else
+            button:setTooltip(supported and tr('Toggle HD minimap') or tr('HD minimap requires the updated client'))
+        end
         button:raise()
     end
     if supported then
@@ -370,9 +378,17 @@ local function applyMinimapHd(widget, enabled)
     end
 end
 
+function refreshMinimapPreferences()
+    applyMinimapHd(fullscreenWidget or minimapWidget, g_game.isOnline() and g_settings.getBoolean('minimapHd', true))
+end
+
 function toggleMinimapHd()
     local widget = fullscreenWidget or minimapWidget
     if not widget or not widget.setHdMode or not g_game.isOnline() then
+        return
+    end
+    local options = modules.client_options
+    if options and options.getOption('disableMinimapHd') then
         return
     end
 
