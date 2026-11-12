@@ -768,15 +768,9 @@ UIWidget
       autowalk: true
       cross: true
       color: black
-      // Zoom bounds chosen from the data, not by eye (scale = 2^zoom, 1 tile = scale px,
-      // drawing window ~491x413 px):
-      //   -2 = scale 0.25 -> ~1964x1652 tiles, i.e. the whole main continent. Below this
-      //        the engine drops to the worst LOD (threshold 0.15 in satellitemap.cpp) and stops
-      //        drawing city names and markers, and the world shrinks to an unreadable speck.
-      //    2 = scale 4 -> ~123x103 tiles. Above that blur begins: the satellite has 2 px per tile,
-      //        and Map View tiles only 1 px, so zoom 3-4 is already a 4-8x magnification of the source.
+      // Overview at 0.25 px per tile; HD close-up at 32 px per tile.
       min-zoom: -2
-      max-zoom: 2
+      max-zoom: 5
 
 MapLayerSelector < UIWidget
   UIWidget

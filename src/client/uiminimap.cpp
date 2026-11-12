@@ -49,12 +49,15 @@ void UIMinimap::drawSelf(const DrawPoolType drawPane)
     if (!m_layout)
         m_layout = std::make_shared<UIMapAnchorLayout>(static_self_cast<UIWidget>());
 
+    const auto offset = getProjectionOffset();
     if (m_satelliteMode && g_satelliteMap.hasChunksForView(m_cameraPosition.z))
-        g_satelliteMap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_floorSeparatorOpacity, m_walkOffset, m_walkRemainder);
-    else if (m_hdMode)
-        g_minimap.drawHd(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_hdLive, m_walkOffset, m_walkRemainder);
-    else
-        g_minimap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_walkOffset);
+        g_satelliteMap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_floorSeparatorOpacity, offset);
+    else if (m_hdMode) {
+        if (!m_hdCache)
+            m_hdCache = std::make_shared<MinimapHdCache>();
+        g_minimap.drawHd(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_hdLive, offset, m_zoomAnimating, *m_hdCache);
+    } else
+        g_minimap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_color, offset);
 }
 
 void UIMinimap::setSmoothWalk(bool enabled)
@@ -144,21 +147,53 @@ bool UIMinimap::setZoom(const int8_t zoom)
     return true;
 }
 
+void UIMinimap::setZoomAnimating(bool animating)
+{
+    if (m_zoomAnimating != animating) {
+        m_zoomAnimating = animating;
+        repaint();
+    }
+}
+
+PointF UIMinimap::getProjectionOffset() const
+{
+    return PointF(m_walkOffset.x, m_walkOffset.y) + m_walkRemainder - m_cameraFraction * m_scale;
+}
+
+void UIMinimap::panByPixels(int dx, int dy)
+{
+    if (!m_cameraPosition.isMapPosition())
+        return;
+
+    constexpr double lastTile = 65534.0;
+    const double x = std::clamp(m_cameraPosition.x + double(m_cameraFraction.x) - dx / double(m_scale), 0.0, lastTile);
+    const double y = std::clamp(m_cameraPosition.y + double(m_cameraFraction.y) - dy / double(m_scale), 0.0, lastTile);
+    const int tileX = std::lround(x);
+    const int tileY = std::lround(y);
+    applyCameraPosition(Position(tileX, tileY, m_cameraPosition.z), PointF(x - tileX, y - tileY));
+}
+
 void UIMinimap::setCameraPosition(const Position& pos)
 {
-    if (m_cameraPosition == pos)
+    applyCameraPosition(pos, {});
+}
+
+void UIMinimap::applyCameraPosition(const Position& pos, const PointF& fraction)
+{
+    if (m_cameraPosition == pos && m_cameraFraction == fraction)
         return;
 
     const Position oldPos = m_cameraPosition;
     m_cameraPosition = pos;
+    m_cameraFraction = fraction;
 
     updateWalkOffset();
-    if (m_smoothWalk)
-        repaint();
+    repaint();
     if (m_layout)
         m_layout->update();
 
-    onCameraPositionChange(pos, oldPos);
+    if (pos != oldPos)
+        onCameraPositionChange(pos, oldPos);
 }
 
 bool UIMinimap::floorUp()
@@ -182,21 +217,17 @@ bool UIMinimap::floorDown()
 
 Point UIMinimap::getTilePoint(const Position& pos)
 {
-    const auto point = g_minimap.getTilePoint(pos, getPaddingRect(), m_cameraPosition, m_scale);
-    return pos.z == m_cameraPosition.z && !getPaddingRect().isEmpty() ? point + m_walkOffset : point;
+    return g_minimap.getTilePoint(pos, getPaddingRect(), m_cameraPosition, m_scale, getProjectionOffset());
 }
 
 Rect UIMinimap::getTileRect(const Position& pos)
 {
-    auto rect = g_minimap.getTileRect(pos, getPaddingRect(), m_cameraPosition, m_scale);
-    if (rect.isValid())
-        rect.translate(m_walkOffset);
-    return rect;
+    return g_minimap.getTileRect(pos, getPaddingRect(), m_cameraPosition, m_scale, getProjectionOffset() - m_walkRemainder);
 }
 
 Position UIMinimap::getTilePosition(const Point& mousePos)
 {
-    return g_minimap.getTilePosition(mousePos - m_walkOffset, getPaddingRect(), m_cameraPosition, m_scale);
+    return g_minimap.getTilePosition(mousePos, getPaddingRect(), m_cameraPosition, m_scale, getProjectionOffset());
 }
 
 void UIMinimap::anchorPosition(const UIWidgetPtr& anchoredWidget, const Fw::AnchorEdge anchoredEdge, const Position& hookedPosition, const Fw::AnchorEdge hookedEdge)

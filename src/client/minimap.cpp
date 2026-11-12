@@ -33,6 +33,7 @@
 #include "framework/core/filestream.h"
 #include "framework/core/resourcemanager.h"
 #include "framework/graphics/drawpoolmanager.h"
+#include "framework/graphics/coordsbuffer.h"
 #include "framework/graphics/image.h"
 #include "framework/graphics/texture.h"
 #include <bit>
@@ -45,7 +46,8 @@ namespace
 {
     constexpr size_t MaxHdTiles = 8192;
     constexpr size_t MaxHdItems = 32768;
-    constexpr size_t MaxHdTextures = 32;
+    constexpr size_t MaxHdTextures = 48;
+    constexpr int MaxHdDetailChunks = 32;
     constexpr size_t MaxHdDecodes = 4;
     constexpr int HdChunkSize = 16;
     constexpr char HdPackDir[] = "/data/minimap_hd/";
@@ -249,8 +251,7 @@ void Minimap::loadHdIndex()
     m_hdSignatures = signatures;
     m_hdIndex.clear();
     m_hdLevels.fill(false);
-    m_hdTextures.clear();
-    m_hdTextureOrder.clear();
+    ++m_hdIndexRevision;
 
     const std::string path = std::string(HdPackDir) + "index.txt";
     if (!g_resources.fileExists(path))
@@ -295,14 +296,64 @@ void Minimap::loadHdIndex()
     }
 }
 
-std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, const Position& center, const Rect& mapRect,
-                                                  const Point& origin, float scale, const PointF& subpixelOffset)
+MinimapProjection::MinimapProjection(const Rect& viewport, const Position& center, float scale, const PointF& offset) :
+    m_center(center.x, center.y),
+    m_origin(viewport.left() + (viewport.width() - scale) * 0.5f + offset.x,
+             viewport.top() + (viewport.height() - scale) * 0.5f + offset.y),
+    m_scale(scale)
+{
+}
+
+PointF MinimapProjection::tileEdgeFloat(const Point& world) const
+{
+    return PointF(m_origin.x + (world.x - m_center.x) * m_scale,
+                  m_origin.y + (world.y - m_center.y) * m_scale);
+}
+
+Point MinimapProjection::tileEdge(const Point& world) const
+{
+    const auto edge = tileEdgeFloat(world);
+    return Point(std::lround(edge.x), std::lround(edge.y));
+}
+
+RectF MinimapProjection::tileRect(const Point& world, const Size& size) const
+{
+    const auto edge = tileEdgeFloat(world);
+    const auto end = tileEdgeFloat(world + size.toPoint());
+    return RectF(edge.x, edge.y, end.x - edge.x, end.y - edge.y);
+}
+
+void drawMinimapTexture(const RectF& dest, const TexturePtr& texture, const Color& tint)
+{
+    const auto coords = std::make_shared<CoordsBuffer>(12);
+    coords->addRect(dest, RectF(0.f, 0.f, texture->getWidth(), texture->getHeight()));
+    g_drawPool.addTexturedCoordsBuffer(texture, coords, tint);
+}
+
+Point MinimapProjection::tileCenter(const Point& world) const
+{
+    return Point(std::floor(m_origin.x + (world.x - m_center.x + 0.5f) * m_scale),
+                 std::floor(m_origin.y + (world.y - m_center.y + 0.5f) * m_scale));
+}
+
+Point MinimapProjection::screenTile(const Point& screen) const
+{
+    return m_center + Point(std::floor((screen.x + 0.5f - m_origin.x) / m_scale),
+                            std::floor((screen.y + 0.5f - m_origin.y) / m_scale));
+}
+
+std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, int floor, const MinimapProjection& projection,
+                                                  float scale, bool zooming, MinimapHdCache& cache)
 {
     if (!g_things.isDatLoaded() || !g_sprites.isLoaded())
         return std::nullopt;
     loadHdIndex();
+    if (cache.revision != m_hdIndexRevision) {
+        cache = {};
+        cache.revision = m_hdIndexRevision;
+    }
 
-    for (auto it = m_hdDecodes.begin(); it != m_hdDecodes.end();) {
+    for (auto it = cache.decodes.begin(); it != cache.decodes.end();) {
         if (it->second.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
             ++it;
             continue;
@@ -310,9 +361,9 @@ std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, con
 
         auto image = it->second.get();
         if (m_hdIndex.contains(it->first)) {
-            if (m_hdTextures.size() == MaxHdTextures) {
-                m_hdTextures.erase(m_hdTextureOrder.front());
-                m_hdTextureOrder.pop_front();
+            if (cache.textures.size() == MaxHdTextures) {
+                cache.textures.erase(cache.order.front());
+                cache.order.pop_front();
             }
             TexturePtr texture;
             if (image && image->getSize() == Size(512, 512)) {
@@ -320,38 +371,38 @@ std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, con
                 if (image->getBpp() == 4)
                     texture->enableMipmaps(true);
             }
-            m_hdTextureOrder.push_back(it->first);
-            m_hdTextures.emplace(it->first, HdChunk{ std::move(texture), std::prev(m_hdTextureOrder.end()) });
+            cache.order.push_back(it->first);
+            cache.textures.emplace(it->first, MinimapHdCache::Chunk{ std::move(texture), std::prev(cache.order.end()) });
         }
-        it = m_hdDecodes.erase(it);
+        it = cache.decodes.erase(it);
     }
 
     struct VisibleChunk
     {
         uint64_t key;
-        Rect screen;
+        RectF screen;
         Rect world;
     };
     // Invert the same projection used to draw the chunks, including camera motion.
     const Rect bounds = screenRect.expanded(1);
-    const int left = std::max(0, mapRect.left() + int(std::floor((bounds.left() - origin.x) / scale)));
-    const int top = std::max(0, mapRect.top() + int(std::floor((bounds.top() - origin.y) / scale)));
-    const int right = std::min(65535, mapRect.left() + int(std::ceil((bounds.right() - origin.x) / scale)));
-    const int bottom = std::min(65535, mapRect.top() + int(std::ceil((bounds.bottom() - origin.y) / scale)));
+    const RectF floatBounds(bounds.x(), bounds.y(), bounds.width(), bounds.height());
+    const Point first = projection.screenTile(bounds.topLeft());
+    const Point last = projection.screenTile(bounds.bottomRight());
+    const int left = std::max(0, first.x);
+    const int top = std::max(0, first.y);
+    const int right = std::min(65535, last.x);
+    const int bottom = std::min(65535, last.y);
     const auto visibleChunks = [&](int level) {
         std::vector<VisibleChunk> chunks;
         const int span = HdChunkSize * level;
         for (int y = top / span * span; y <= bottom; y += span) {
             for (int x = left / span * span; x <= right; x += span) {
-                const auto key = hdChunkKey(level, x, y, center.z);
+                const auto key = hdChunkKey(level, x, y, floor);
                 if (!m_hdIndex.contains(key))
                     continue;
 
-                const Point offset = Point(x, y) - mapRect.topLeft();
-                const Point dest = origin + offset * scale;
-                const Point end = origin + (offset + Point(span, span)) * scale;
-                const Rect rect(dest, Size(end.x - dest.x, end.y - dest.y));
-                if (rect.isValid() && rect.intersects(bounds))
+                const auto rect = projection.tileRect(Point(x, y), Size(span, span));
+                if (rect.intersects(floatBounds))
                     chunks.push_back({ key, rect, Rect(x, y, span, span) });
             }
         }
@@ -360,11 +411,11 @@ std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, con
 
     const auto requestChunks = [&](const std::vector<VisibleChunk>& chunks, int level) {
         for (const auto& chunk : chunks) {
-            if (const auto it = m_hdTextures.find(chunk.key); it != m_hdTextures.end()) {
-                m_hdTextureOrder.splice(m_hdTextureOrder.end(), m_hdTextureOrder, it->second.order);
-            } else if (m_hdDecodes.size() < MaxHdDecodes && !m_hdDecodes.contains(chunk.key)) {
-                const auto path = HdPackDir + hdChunkName(level, chunk.world.left(), chunk.world.top(), center.z);
-                m_hdDecodes.emplace(chunk.key, g_asyncDispatcher.submit_task([path] { return decodeHdChunk(path); }));
+            if (const auto it = cache.textures.find(chunk.key); it != cache.textures.end()) {
+                cache.order.splice(cache.order.end(), cache.order, it->second.order);
+            } else if (cache.decodes.size() < MaxHdDecodes && !cache.decodes.contains(chunk.key)) {
+                const auto path = HdPackDir + hdChunkName(level, chunk.world.left(), chunk.world.top(), floor);
+                cache.decodes.emplace(chunk.key, g_asyncDispatcher.submit_task([path] { return decodeHdChunk(path); }));
             }
         }
     };
@@ -372,8 +423,10 @@ std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, con
     std::vector<VisibleChunk> detail;
     std::vector<VisibleChunk> overview;
     std::vector<VisibleChunk> ready;
+    std::vector<VisibleChunk> held;
     int detailLevel = 0;
     int overviewLevel = 0;
+    int readyLevel = 0;
     for (size_t i = 0; i < m_hdLevels.size(); ++i) {
         if (!m_hdLevels[i])
             continue;
@@ -383,53 +436,63 @@ std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, con
         // Base detail on the viewport size, so dragging across a chunk boundary cannot switch it.
         const int columns = int(std::ceil(bounds.width() / chunkPixels)) + 1;
         const int rows = int(std::ceil(bounds.height() / chunkPixels)) + 1;
-        if (columns * rows > 24 || (chunkPixels < 64 && i + 1 < m_hdLevels.size() && m_hdLevels[i + 1]))
+        const bool preferred = columns * rows <= MaxHdDetailChunks &&
+            (chunkPixels >= 64 || i + 1 == m_hdLevels.size() || !m_hdLevels[i + 1]);
+        const bool holdLevel = zooming && level == cache.displayedLevel && columns * rows <= 64;
+        if (!preferred && !holdLevel)
             continue;
 
         auto chunks = visibleChunks(level);
         if (chunks.empty())
             continue;
 
+        const bool complete = (holdLevel || ready.empty()) && std::ranges::all_of(chunks, [&](const VisibleChunk& chunk) {
+                const auto it = cache.textures.find(chunk.key);
+                return it != cache.textures.end() && it->second.texture != nullptr;
+            });
+        if (holdLevel && complete)
+            held = chunks;
+        if (!preferred)
+            continue;
+
         if (detail.empty()) {
             detailLevel = level;
             detail = chunks;
         }
-        if (ready.empty() && std::ranges::all_of(chunks, [&](const VisibleChunk& chunk) {
-                const auto it = m_hdTextures.find(chunk.key);
-                return it != m_hdTextures.end() && it->second.texture != nullptr;
-            })) {
+        if (ready.empty() && complete) {
             ready = chunks;
+            readyLevel = level;
         }
-        if (chunkPixels >= std::max(bounds.width(), bounds.height())) {
+        if (overview.empty() && chunkPixels >= std::max(bounds.width(), bounds.height())) {
             overviewLevel = level;
             overview = std::move(chunks);
-            break;
         }
+        if (!zooming && !overview.empty() && !ready.empty())
+            break;
     }
-    if (detail.empty())
+    if (detail.empty() && held.empty())
         return std::nullopt;
 
     if (!overview.empty() && overviewLevel != detailLevel)
         requestChunks(overview, overviewLevel);
+    // Load sharper chunks during the animation instead of waiting for the zoom to finish.
     requestChunks(detail, detailLevel);
 
-    // Switch the whole visible map together once the requested detail is ready.
-    const auto& displayed = !ready.empty() ? ready : (!overview.empty() ? overview : detail);
-    if (!subpixelOffset.isNull()) {
-        g_drawPool.pushTransformMatrix();
-        g_drawPool.translate(subpixelOffset.x, subpixelOffset.y);
-    }
+    // Keep the current image until a sharper level is ready across the entire viewport.
+    const bool keepHeld = !held.empty() && (ready.empty() || cache.displayedLevel <= readyLevel);
+    const auto& displayed = keepHeld ? held : !ready.empty() ? ready : !overview.empty() ? overview : detail;
+    const int displayedLevel = keepHeld ? cache.displayedLevel : readyLevel ? readyLevel : overviewLevel ? overviewLevel : detailLevel;
     std::vector<Rect> coverage;
     for (const auto& chunk : displayed) {
-        const auto it = m_hdTextures.find(chunk.key);
-        if (it == m_hdTextures.end() || !it->second.texture)
+        const auto it = cache.textures.find(chunk.key);
+        if (it == cache.textures.end() || !it->second.texture)
             continue;
-        m_hdTextureOrder.splice(m_hdTextureOrder.end(), m_hdTextureOrder, it->second.order);
-        g_drawPool.addTexturedRect(chunk.screen, it->second.texture, Rect(0, 0, 512, 512));
+        cache.order.splice(cache.order.end(), cache.order, it->second.order);
+        drawMinimapTexture(chunk.screen, it->second.texture, Color::white);
         coverage.push_back(chunk.world);
     }
-    if (!subpixelOffset.isNull())
-        g_drawPool.popTransformMatrix();
+    if (!coverage.empty())
+        cache.displayedLevel = displayedLevel;
     return coverage;
 }
 
@@ -452,29 +515,25 @@ void Minimap::onCameraMove() const
 }
 
 void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, bool live,
-                     const Point& offset, const PointF& subpixelOffset)
+                     const PointF& offset, bool zooming, MinimapHdCache& cache)
 {
     if (screenRect.isEmpty() || !mapCenter.isMapPosition()) {
         draw(screenRect, mapCenter, scale, color, offset);
         return;
     }
 
-    const auto mapRect = calcMapRect(screenRect, mapCenter, scale);
-    const auto origin = screenRect.topLeft() - Point((mapRect.size() * scale).toPoint() - screenRect.size().toPoint()) / 2 + offset;
+    const MinimapProjection projection(screenRect, mapCenter, scale, offset);
     const auto oldClip = g_drawPool.getClipRect();
     g_drawPool.setClipRect(oldClip.isValid() ? screenRect.intersection(oldClip) : screenRect);
     g_drawPool.addFilledRect(screenRect, color);
-    const auto packedAreas = drawHdPack(screenRect, mapCenter, mapRect, origin, scale, subpixelOffset);
+    const auto packedAreas = drawHdPack(screenRect, mapCenter.z, projection, scale, zooming, cache);
     if (!packedAreas)
         draw(screenRect, mapCenter, scale, color, offset);
 
-    if (!subpixelOffset.isNull()) {
-        g_drawPool.pushTransformMatrix();
-        g_drawPool.translate(subpixelOffset.x, subpixelOffset.y);
-    }
 
     const int spriteSize = g_gameConfig.getSpriteSize();
-    const auto view = mapRect.expanded(4);
+    const auto view = Rect(projection.screenTile(screenRect.topLeft()),
+                           projection.screenTile(screenRect.bottomRight())).expanded(4);
     if (scale >= 2.f && spriteSize > 0) {
         struct VisibleTile
         {
@@ -541,7 +600,7 @@ void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float sc
             const int pickupInset = static_cast<int>((scale - pickupSize) / 2);
             g_drawPool.setScaleFactor(spriteScale);
             for (const auto& [position, items, drawTerrain, drawPickupables] : tiles) {
-                const auto dest = origin + (position - mapRect.topLeft()) * scale;
+                const auto dest = projection.tileEdge(position);
                 int elevation = 0;
                 const auto drawItem = [&](const ItemPtr& item, int itemElevation) {
                     const auto itemPos = dest - Point(itemElevation, itemElevation) * spriteScale;
@@ -577,12 +636,10 @@ void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float sc
             g_drawPool.setScaleFactor(oldScale);
         }
     }
-    if (!subpixelOffset.isNull())
-        g_drawPool.popTransformMatrix();
     g_drawPool.setClipRect(oldClip);
 }
 
-void Minimap::draw(const Rect& screenRect, const Position& mapCenter, const float scale, const Color& color, const Point& offset)
+void Minimap::draw(const Rect& screenRect, const Position& mapCenter, const float scale, const Color& color, const PointF& offset)
 {
     if (screenRect.isEmpty())
         return;
@@ -590,28 +647,24 @@ void Minimap::draw(const Rect& screenRect, const Position& mapCenter, const floa
     const auto& oldClipRect = g_drawPool.getClipRect();
     g_drawPool.setClipRect(screenRect);
 
-    const auto& mapRect = calcMapRect(screenRect, mapCenter, scale);
     g_drawPool.addFilledRect(screenRect, color);
 
     if (MMBLOCK_SIZE * scale > 1 && mapCenter.isMapPosition()) {
-        // Include the neighboring block when the animation reveals the edge of the map.
-        const auto firstTile = mapRect.topLeft() - Point(offset.x > 0, offset.y > 0);
-        const auto& blockOff = getBlockOffset(firstTile);
-        const auto& off = Point((mapRect.size() * scale).toPoint() - screenRect.size().toPoint()) / 2;
-        const auto origin = screenRect.topLeft() - off + offset;
+        const MinimapProjection projection(screenRect, mapCenter, scale, offset);
+        const auto blockOff = getBlockOffset(projection.screenTile(screenRect.topLeft()));
 
         // Project each shared edge once, avoiding accumulated rounding gaps at fractional zoom.
         for (int y = std::max(0, blockOff.y); y < 65536; y += MMBLOCK_SIZE) {
-            const int top = origin.y + int((y - mapRect.top()) * scale);
+            const int top = projection.tileEdge(Point(mapCenter.x, y)).y;
             if (top > screenRect.bottom())
                 break;
-            const int bottom = origin.y + int((y + MMBLOCK_SIZE - mapRect.top()) * scale);
+            const int bottom = projection.tileEdge(Point(mapCenter.x, y + MMBLOCK_SIZE)).y;
 
             for (int x = std::max(0, blockOff.x); x < 65536; x += MMBLOCK_SIZE) {
-                const int left = origin.x + int((x - mapRect.left()) * scale);
+                const int left = projection.tileEdge(Point(x, mapCenter.y)).x;
                 if (left > screenRect.right())
                     break;
-                const int right = origin.x + int((x + MMBLOCK_SIZE - mapRect.left()) * scale);
+                const int right = projection.tileEdge(Point(x + MMBLOCK_SIZE, mapCenter.y)).x;
 
                 const auto& pos = Position(x, y, mapCenter.z);
 
@@ -634,29 +687,24 @@ void Minimap::draw(const Rect& screenRect, const Position& mapCenter, const floa
     g_drawPool.setClipRect(oldClipRect);
 }
 
-Point Minimap::getTilePoint(const Position& pos, const Rect& screenRect, const Position& mapCenter, const float scale)
+Point Minimap::getTilePoint(const Position& pos, const Rect& screenRect, const Position& mapCenter, const float scale, const PointF& offset)
 {
     if (screenRect.isEmpty() || pos.z != mapCenter.z)
         return { -1 };
 
-    const auto& mapRect = calcMapRect(screenRect, mapCenter, scale);
-    const auto& off = Point((mapRect.size() * scale).toPoint() - screenRect.size().toPoint()) / 2;
-    const auto& posoff = (Point(pos.x, pos.y) - mapRect.topLeft()) * scale;
-    return posoff + screenRect.topLeft() - off + (Point(1) * scale) / 2;
+    return MinimapProjection(screenRect, mapCenter, scale, offset).tileCenter(Point(pos.x, pos.y));
 }
 
-Position Minimap::getTilePosition(const Point& point, const Rect& screenRect, const Position& mapCenter, const float scale)
+Position Minimap::getTilePosition(const Point& point, const Rect& screenRect, const Position& mapCenter, const float scale, const PointF& offset)
 {
     if (screenRect.isEmpty())
         return {};
 
-    const auto& mapRect = calcMapRect(screenRect, mapCenter, scale);
-    const auto& off = Point((mapRect.size() * scale).toPoint() - screenRect.size().toPoint()) / 2;
-    const auto& pos2d = (point - screenRect.topLeft() + off) / scale + mapRect.topLeft();
+    const auto pos2d = MinimapProjection(screenRect, mapCenter, scale, offset).screenTile(point);
     return { pos2d.x, pos2d.y, mapCenter.z };
 }
 
-Rect Minimap::getTileRect(const Position& pos, const Rect& screenRect, const Position& mapCenter, const float scale)
+Rect Minimap::getTileRect(const Position& pos, const Rect& screenRect, const Position& mapCenter, const float scale, const PointF& offset)
 {
     if (screenRect.isEmpty() || pos.z != mapCenter.z)
         return {};
@@ -664,18 +712,8 @@ Rect Minimap::getTileRect(const Position& pos, const Rect& screenRect, const Pos
     const int tileSize = g_gameConfig.getSpriteSize() * scale;
 
     Rect tileRect(0, 0, tileSize, tileSize);
-    tileRect.moveCenter(getTilePoint(pos, screenRect, mapCenter, scale));
+    tileRect.moveCenter(getTilePoint(pos, screenRect, mapCenter, scale, offset));
     return tileRect;
-}
-
-Rect Minimap::calcMapRect(const Rect& screenRect, const Position& mapCenter, const float scale) const
-{
-    const int w = screenRect.width() / scale;
-    const int h = std::ceil(screenRect.height() / scale);
-
-    Rect mapRect(0, 0, w, h);
-    mapRect.moveCenter(Point(mapCenter.x, mapCenter.y));
-    return mapRect;
 }
 
 void Minimap::updateTile(const Position& pos, const TilePtr& tile)

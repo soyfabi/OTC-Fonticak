@@ -1307,6 +1307,8 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMinimap>("getZoom", &UIMinimap::getZoom);
     g_lua.bindClassMemberFunction<UIMinimap>("getScale", &UIMinimap::getScale);
     g_lua.bindClassMemberFunction<UIMinimap>("setScale", &UIMinimap::setScale);
+    g_lua.bindClassMemberFunction<UIMinimap>("setZoomAnimating", &UIMinimap::setZoomAnimating);
+    g_lua.bindClassMemberFunction<UIMinimap>("panByPixels", &UIMinimap::panByPixels);
     g_lua.bindClassMemberFunction<UIMinimap>("anchorPosition", &UIMinimap::anchorPosition);
     g_lua.bindClassMemberFunction<UIMinimap>("fillPosition", &UIMinimap::fillPosition);
     g_lua.bindClassMemberFunction<UIMinimap>("centerInPosition", &UIMinimap::centerInPosition);

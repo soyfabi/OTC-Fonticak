@@ -86,6 +86,39 @@ private:
 
 using MinimapBlock_ptr = std::shared_ptr<MinimapBlock>;
 
+class MinimapProjection
+{
+public:
+    MinimapProjection(const Rect& viewport, const Position& center, float scale, const PointF& offset = {});
+    Point tileEdge(const Point& world) const;
+    Point tileCenter(const Point& world) const;
+    Point screenTile(const Point& screen) const;
+    RectF tileRect(const Point& world, const Size& size) const;
+
+private:
+    PointF tileEdgeFloat(const Point& world) const;
+    Point m_center;
+    PointF m_origin;
+    float m_scale;
+};
+
+void drawMinimapTexture(const RectF& dest, const TexturePtr& texture, const Color& tint);
+
+struct MinimapHdCache
+{
+    struct Chunk
+    {
+        TexturePtr texture;
+        std::list<uint64_t>::iterator order;
+    };
+
+    uint64_t revision{ 0 };
+    int displayedLevel{ 0 };
+    std::unordered_map<uint64_t, Chunk> textures;
+    std::list<uint64_t> order;
+    std::unordered_map<uint64_t, std::future<ImagePtr>> decodes;
+};
+
 class Minimap
 {
 public:
@@ -94,18 +127,18 @@ public:
 
     void clean();
 
-    void draw(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, const Point& offset);
+    void draw(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, const PointF& offset);
     void drawHd(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, bool live,
-                const Point& offset, const PointF& subpixelOffset);
+                const PointF& offset, bool zooming, MinimapHdCache& cache);
     void setWalkView(const UIMinimapPtr& widget, bool enabled);
     void onCameraMove() const;
     void addHdView();
     void removeHdView();
     void clearHdTerrain();
     void updateHdTile(const Position& pos, const TilePtr& tile);
-    Point getTilePoint(const Position& pos, const Rect& screenRect, const Position& mapCenter, float scale);
-    Position getTilePosition(const Point& point, const Rect& screenRect, const Position& mapCenter, float scale);
-    Rect getTileRect(const Position& pos, const Rect& screenRect, const Position& mapCenter, float scale);
+    Point getTilePoint(const Position& pos, const Rect& screenRect, const Position& mapCenter, float scale, const PointF& offset);
+    Position getTilePosition(const Point& point, const Rect& screenRect, const Position& mapCenter, float scale, const PointF& offset);
+    Rect getTileRect(const Position& pos, const Rect& screenRect, const Position& mapCenter, float scale, const PointF& offset);
 
     void updateTile(const Position& pos, const TilePtr& tile);
     const MinimapTile& getTile(const Position& pos);
@@ -126,15 +159,9 @@ private:
         size_t pickupables;
     };
 
-    struct HdChunk
-    {
-        TexturePtr texture;
-        std::list<uint64_t>::iterator order;
-    };
-
     void loadHdIndex();
-    std::optional<std::vector<Rect>> drawHdPack(const Rect& screenRect, const Position& center, const Rect& mapRect,
-                                               const Point& origin, float scale, const PointF& subpixelOffset);
+    std::optional<std::vector<Rect>> drawHdPack(const Rect& screenRect, int floor, const MinimapProjection& projection,
+                                               float scale, bool zooming, MinimapHdCache& cache);
 
     std::atomic_uint m_hdViewCount{ 0 };
     std::mutex m_hdMutex;
@@ -147,11 +174,8 @@ private:
     bool m_hdIndexChecked{ false };
     std::unordered_set<uint64_t> m_hdIndex;
     std::array<bool, 11> m_hdLevels{};
-    std::unordered_map<uint64_t, HdChunk> m_hdTextures;
-    std::list<uint64_t> m_hdTextureOrder;
-    std::unordered_map<uint64_t, std::future<ImagePtr>> m_hdDecodes;
+    uint64_t m_hdIndexRevision{ 0 };
 
-    Rect calcMapRect(const Rect& screenRect, const Position& mapCenter, float scale) const;
     bool hasBlock(const Position& pos) { return m_tileBlocks[pos.z].contains(getBlockIndex(pos)); }
     MinimapBlock& getBlock(const Position& pos)
     {

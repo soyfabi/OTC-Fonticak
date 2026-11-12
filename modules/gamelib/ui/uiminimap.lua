@@ -362,6 +362,9 @@ function UIMinimap:finishSmoothZoom()
         self._smoothZoomEvent = nil
         self:setScale(self._smoothZoomTargetScale)
         self._smoothZoomTargetScale = nil
+        if self.setZoomAnimating then
+            self:setZoomAnimating(false)
+        end
     end
 end
 
@@ -394,6 +397,9 @@ function UIMinimap:smoothZoomBy(step)
         return true
     end
 
+    if self.setZoomAnimating then
+        self:setZoomAnimating(true)
+    end
     local lastUpdate = g_clock.millis()
     local frameInterval = 10
     local responseTime = 52
@@ -416,6 +422,9 @@ function UIMinimap:smoothZoomBy(step)
             self:setScale(targetScale)
             self._smoothZoomEvent = nil
             self._smoothZoomTargetScale = nil
+            if self.setZoomAnimating then
+                self:setZoomAnimating(false)
+            end
         end
 
         if self.onSmoothZoomScaleChange then
@@ -711,6 +720,12 @@ function UIMinimap:onDragEnter(pos)
 end
 
 function UIMinimap:onDragMove(pos, moved)
+    if self.panByPixels then
+        self:panByPixels(pos.x - self.dragReference.x, pos.y - self.dragReference.y)
+        self.dragReference = pos
+        return true
+    end
+
     local scale = self:getScale()
     local dx = (self.dragReference.x - pos.x) / scale
     local dy = (self.dragReference.y - pos.y) / scale

@@ -26,6 +26,8 @@
 #include <framework/ui/uiwidget.h>
 #include <algorithm>
 
+struct MinimapHdCache;
+
 class UIMinimap final : public UIWidget
 {
 public:
@@ -39,6 +41,7 @@ public:
     void setMinZoom(const int8_t minZoom) { m_minZoom = minZoom; }
     void setMaxZoom(const int8_t maxZoom) { m_maxZoom = maxZoom; }
     void setCameraPosition(const Position& pos);
+    void panByPixels(int dx, int dy);
     bool floorUp();
     bool floorDown();
 
@@ -52,6 +55,7 @@ public:
     int8_t getMaxZoom() { return m_maxZoom; }
     float getScale() { return m_scale; }
     void setScale(float scale);
+    void setZoomAnimating(bool animating);
 
     void setFloorSeparatorOpacity(float opacity) { m_floorSeparatorOpacity = std::clamp<float>(opacity, 0.f, 1.f); }
     float getFloorSeparatorOpacity() { return m_floorSeparatorOpacity; }
@@ -72,7 +76,11 @@ protected:
     void onStyleApply(std::string_view styleName, const OTMLNodePtr& styleNode) override;
 
 private:
+    void applyCameraPosition(const Position& pos, const PointF& fraction);
+    PointF getProjectionOffset() const;
+
     Position m_cameraPosition;
+    PointF m_cameraFraction;
     Point m_walkOffset;
     PointF m_walkRemainder;
     bool m_smoothWalk{ false };
@@ -84,4 +92,6 @@ private:
     bool m_satelliteMode{ false };
     bool m_hdMode{ false };
     bool m_hdLive{ true };
+    bool m_zoomAnimating{ false };
+    std::shared_ptr<MinimapHdCache> m_hdCache;
 };
