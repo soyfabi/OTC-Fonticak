@@ -219,7 +219,8 @@ const TexturePtr& SatelliteMap::getMask(const int maskId)
     return m_maskTextures.emplace(maskId, tex).first->second;
 }
 
-void SatelliteMap::draw(const Rect& screenRect, const Position& mapCenter, const float scale, const float opacity)
+void SatelliteMap::draw(const Rect& screenRect, const Position& mapCenter, const float scale, const float opacity,
+                        const Point& walkOffset, const PointF& subpixelOffset)
 {
     if (screenRect.isEmpty() || scale <= 0.f)
         return;
@@ -233,6 +234,10 @@ void SatelliteMap::draw(const Rect& screenRect, const Position& mapCenter, const
 
     // Ocean/background fill (satellite tiles are cut around land, water is transparent).
     g_drawPool.addFilledRect(screenRect, m_ocean);
+    if (!subpixelOffset.isNull()) {
+        g_drawPool.pushTransformMatrix();
+        g_drawPool.translate(subpixelOffset.x, subpixelOffset.y);
+    }
 
     // World -> screen transform, mirrored from Minimap::draw / getTilePoint so that
     // satellite tiles line up 1:1 with the classic minimap. 1 world tile = scale px.
@@ -240,7 +245,15 @@ void SatelliteMap::draw(const Rect& screenRect, const Position& mapCenter, const
                  static_cast<int>(std::ceil(screenRect.height() / scale)));
     mapRect.moveCenter(Point(mapCenter.x, mapCenter.y));
     const Point off = Point((mapRect.size() * scale).toPoint() - screenRect.size().toPoint()) / 2;
-    const Point base = screenRect.topLeft() - off - (mapRect.topLeft() * scale);
+    const Point origin = screenRect.topLeft() - off + walkOffset;
+    const auto project = [&](const Point& world) {
+        return origin + (world - mapRect.topLeft()) * scale;
+    };
+    const auto projectRect = [&](const Point& world, const Size& size) {
+        const Point start = project(world);
+        const Point end = project(world + size.toPoint());
+        return Rect(start, Size(end.x - start.x, end.y - start.y));
+    };
 
     const float separatorOpacity = std::clamp(opacity, 0.f, 1.f);
 
@@ -260,10 +273,7 @@ void SatelliteMap::draw(const Rect& screenRect, const Position& mapCenter, const
         for (const auto& p : m_placements[curZ]) {
             if (p.layer != targetLevel)
                 continue;
-            const Point tl = base + Point(p.x, p.y) * scale;
-            const int dw = std::max(1, static_cast<int>(std::ceil(p.w * scale)));
-            const int dh = std::max(1, static_cast<int>(std::ceil(p.h * scale)));
-            const Rect dest(tl, Size(dw, dh));
+            const Rect dest = projectRect(Point(p.x, p.y), Size(p.w, p.h));
 
             if (dest.right() < screenRect.left() || dest.left() > screenRect.right() ||
                 dest.bottom() < screenRect.top() || dest.top() > screenRect.bottom())
@@ -288,10 +298,7 @@ void SatelliteMap::draw(const Rect& screenRect, const Position& mapCenter, const
             for (const auto& p : m_placements[f]) {
                 if (p.layer != targetLevel)
                     continue;
-                const Point tl = base + Point(p.x, p.y) * scale;
-                const int dw = std::max(1, static_cast<int>(std::ceil(p.w * scale)));
-                const int dh = std::max(1, static_cast<int>(std::ceil(p.h * scale)));
-                const Rect dest(tl, Size(dw, dh));
+                const Rect dest = projectRect(Point(p.x, p.y), Size(p.w, p.h));
 
                 // Cull tiles outside the visible area (also avoids decoding their PNGs).
                 if (dest.right() < screenRect.left() || dest.left() > screenRect.right() ||
@@ -316,9 +323,7 @@ void SatelliteMap::draw(const Rect& screenRect, const Position& mapCenter, const
         const float pulse = 0.5f - 0.5f * std::cos(pulseT * 6.2831853f);
         const Color pulseColor(m_highlightColor, 0.20f + 0.45f * pulse);
         for (const auto& hm : m_highlightMasks) {
-            const Point tl = base + Point(hm.rect.x(), hm.rect.y()) * scale;
-            const Rect dest(tl, Size(std::max(1, static_cast<int>(std::ceil(hm.rect.width() * scale))),
-                                     std::max(1, static_cast<int>(std::ceil(hm.rect.height() * scale)))));
+            const Rect dest = projectRect(hm.rect.topLeft(), hm.rect.size());
             if (dest.right() < screenRect.left() || dest.left() > screenRect.right() ||
                 dest.bottom() < screenRect.top() || dest.top() > screenRect.bottom())
                 continue;
@@ -335,7 +340,7 @@ void SatelliteMap::draw(const Rect& screenRect, const Position& mapCenter, const
         const auto& font = g_fonts.getDefaultFont();
         if (font) {
             for (const auto& c : m_cityLabels) {
-                const Point sp = base + c.pos * scale;
+                const Point sp = project(c.pos);
                 if (sp.x < screenRect.left() || sp.x > screenRect.right() ||
                     sp.y < screenRect.top() || sp.y > screenRect.bottom())
                     continue;
@@ -353,7 +358,7 @@ void SatelliteMap::draw(const Rect& screenRect, const Position& mapCenter, const
         const TexturePtr& todoTex = loadNamed(m_poiTodoTex, "poi_todo");
         const int sz = 18;
         for (const auto& m : m_poiMarkers) {
-            const Point sp = base + m.pos * scale;
+            const Point sp = project(m.pos);
             if (sp.x < screenRect.left() - sz || sp.x > screenRect.right() + sz ||
                 sp.y < screenRect.top() - sz || sp.y > screenRect.bottom() + sz)
                 continue;
@@ -366,5 +371,7 @@ void SatelliteMap::draw(const Rect& screenRect, const Position& mapCenter, const
         }
     }
 
+    if (!subpixelOffset.isNull())
+        g_drawPool.popTransformMatrix();
     g_drawPool.setClipRect(oldClip);
 }

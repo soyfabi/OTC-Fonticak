@@ -29,6 +29,7 @@
 class UIMinimap final : public UIWidget
 {
 public:
+    ~UIMinimap() override;
     void drawSelf(DrawPoolType drawPane) override;
 
     bool zoomIn() { return setZoom(m_zoom + 1); }
@@ -50,7 +51,7 @@ public:
     int8_t getMinZoom() { return m_minZoom; }
     int8_t getMaxZoom() { return m_maxZoom; }
     float getScale() { return m_scale; }
-    void setScale(const float scale) { m_scale = std::max<float>(scale, 0.01f); }
+    void setScale(float scale);
 
     void setFloorSeparatorOpacity(float opacity) { m_floorSeparatorOpacity = std::clamp<float>(opacity, 0.f, 1.f); }
     float getFloorSeparatorOpacity() { return m_floorSeparatorOpacity; }
@@ -73,7 +74,7 @@ protected:
 private:
     Position m_cameraPosition;
     Point m_walkOffset;
-    PointF m_hdWalkRemainder;
+    PointF m_walkRemainder;
     bool m_smoothWalk{ false };
     float m_scale{ 1.f };
     int8_t m_zoom{ 0 };

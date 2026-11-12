@@ -34,6 +34,12 @@
 #include "framework/ui/uilayout.h"
 #include <cmath>
 
+UIMinimap::~UIMinimap()
+{
+    if (m_hdMode)
+        g_minimap.removeHdView();
+}
+
 void UIMinimap::drawSelf(const DrawPoolType drawPane)
 {
     UIWidget::drawSelf(drawPane);
@@ -44,9 +50,9 @@ void UIMinimap::drawSelf(const DrawPoolType drawPane)
         m_layout = std::make_shared<UIMapAnchorLayout>(static_self_cast<UIWidget>());
 
     if (m_satelliteMode && g_satelliteMap.hasChunksForView(m_cameraPosition.z))
-        g_satelliteMap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_floorSeparatorOpacity);
+        g_satelliteMap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_floorSeparatorOpacity, m_walkOffset, m_walkRemainder);
     else if (m_hdMode)
-        g_minimap.drawHd(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_hdLive, m_walkOffset, m_hdWalkRemainder);
+        g_minimap.drawHd(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_hdLive, m_walkOffset, m_walkRemainder);
     else
         g_minimap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_walkOffset);
 }
@@ -57,7 +63,7 @@ void UIMinimap::setSmoothWalk(bool enabled)
         return;
 
     m_smoothWalk = enabled;
-    g_minimap.setWalkView(enabled ? static_self_cast<UIMinimap>() : nullptr);
+    g_minimap.setWalkView(static_self_cast<UIMinimap>(), enabled);
     updateWalkOffset();
 }
 
@@ -73,19 +79,19 @@ void UIMinimap::updateWalkOffset()
             const float scale = m_scale / spriteSize;
             const PointF screenOffset(-walk.x * scale, -walk.y * scale);
             offset = Point(std::lround(screenOffset.x), std::lround(screenOffset.y));
-            if (m_hdMode) {
-                // Keep HD terrain moving between screen pixels at low zoom.
+            if (m_hdMode || m_satelliteMode) {
+                // Keep terrain moving between screen pixels at low zoom.
                 remainder = PointF(screenOffset.x - offset.x, screenOffset.y - offset.y);
             }
         }
     }
 
-    if (offset == m_walkOffset && remainder == m_hdWalkRemainder)
+    if (offset == m_walkOffset && remainder == m_walkRemainder)
         return;
 
     const bool anchorsMoved = offset != m_walkOffset;
     m_walkOffset = offset;
-    m_hdWalkRemainder = remainder;
+    m_walkRemainder = remainder;
     if (anchorsMoved && m_layout)
         m_layout->update();
     repaint();
@@ -93,10 +99,32 @@ void UIMinimap::updateWalkOffset()
 
 void UIMinimap::setHdMode(bool enabled, bool live)
 {
-    m_hdMode = enabled;
+    if (m_hdMode == enabled && m_hdLive == live)
+        return;
+
+    if (m_hdMode != enabled) {
+        m_hdMode = enabled;
+        if (enabled)
+            g_minimap.addHdView();
+        else
+            g_minimap.removeHdView();
+    }
     m_hdLive = live;
-    g_minimap.setHdEnabled(enabled);
     updateWalkOffset();
+    repaint();
+}
+
+void UIMinimap::setScale(float scale)
+{
+    scale = std::max(scale, 0.01f);
+    if (scale == m_scale)
+        return;
+
+    m_scale = scale;
+    updateWalkOffset();
+    if (m_layout)
+        m_layout->update();
+    repaint();
 }
 
 bool UIMinimap::setZoom(const int8_t zoom)
@@ -110,16 +138,7 @@ bool UIMinimap::setZoom(const int8_t zoom)
     const int oldZoom = m_zoom;
     m_zoom = zoom;
 
-    m_scale = 1.f;
-
-    if (m_zoom < 0)
-        m_scale /= 1 << std::abs(zoom);
-    else if (m_zoom > 0)
-        m_scale *= 1 << std::abs(zoom);
-
-    updateWalkOffset();
-    if (m_layout)
-        m_layout->update();
+    setScale(std::ldexp(1.f, zoom));
 
     onZoomChange(zoom, oldZoom);
     return true;

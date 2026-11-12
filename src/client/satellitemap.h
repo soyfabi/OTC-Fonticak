@@ -57,7 +57,8 @@ public:
     bool hasChunksForView(int floor);
 
     // Called from UIMinimap::drawSelf when satellite mode is active.
-    void draw(const Rect& screenRect, const Position& mapCenter, float scale, float opacity);
+    void draw(const Rect& screenRect, const Position& mapCenter, float scale, float opacity,
+              const Point& walkOffset, const PointF& subpixelOffset);
 
     // Discovery-zone highlight: the map module fills these with a region's world rects.
     void clearHighlight() { m_highlightMasks.clear(); }

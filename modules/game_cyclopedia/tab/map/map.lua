@@ -41,6 +41,20 @@ local function syncCyclopediaSatelliteMode(minimap, tilesDir)
 		return false
 	end
 
+	local useHd = minimap.setHdMode ~= nil and not isSurfaceViewSelected()
+		and g_resources.fileExists("/data/minimap_hd/index.txt")
+
+	if minimap.setHdMode then
+		minimap:setHdMode(useHd, false)
+	end
+
+	if useHd then
+		minimap:setSatelliteMode(false)
+		cyclopediaSatelliteReady = false
+
+		return false
+	end
+
 	if not tilesDir or not hasCyclopediaSatelliteData(tilesDir) then
 		minimap:setSatelliteMode(false)
 		cyclopediaSatelliteReady = false
@@ -1171,7 +1185,6 @@ local function setupCyclopediaAreas()
 				baseSmoothZoomScaleChange(widget, scale)
 			end
 
-			syncCyclopediaPartyPins(widget)
 			updateAreaLabelAppearance()
 		end
 
@@ -2042,6 +2055,9 @@ function Cyclopedia.loadMap()
 
 	local minimapWidget = UI.MapBase.minimap
 
+	if minimapWidget.setSmoothWalk then
+		minimapWidget:setSmoothWalk(true)
+	end
 	minimapWidget:load()
 
 	if modules.game_minimap and modules.game_minimap.applyBundledMarkers then

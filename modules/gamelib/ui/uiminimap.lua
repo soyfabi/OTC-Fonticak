@@ -28,6 +28,12 @@ function UIMinimap:onSetup()
 end
 
 function UIMinimap:onDestroy()
+    if self.setSmoothWalk then
+        self:setSmoothWalk(false)
+    end
+    if self.setHdMode then
+        self:setHdMode(false, false)
+    end
     if self._smoothZoomEvent then
         removeEvent(self._smoothZoomEvent)
         self._smoothZoomEvent = nil

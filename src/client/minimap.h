@@ -29,6 +29,7 @@
 #include <future>
 #include <list>
 #include <mutex>
+#include <optional>
 #include <unordered_set>
 
 constexpr uint8_t MMBLOCK_SIZE = 64;
@@ -96,9 +97,10 @@ public:
     void draw(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, const Point& offset);
     void drawHd(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, bool live,
                 const Point& offset, const PointF& subpixelOffset);
-    void setWalkView(const std::shared_ptr<UIMinimap>& widget) { m_walkView = widget; }
+    void setWalkView(const UIMinimapPtr& widget, bool enabled);
     void onCameraMove() const;
-    void setHdEnabled(bool enabled);
+    void addHdView();
+    void removeHdView();
     void clearHdTerrain();
     void updateHdTile(const Position& pos, const TilePtr& tile);
     Point getTilePoint(const Position& pos, const Rect& screenRect, const Position& mapCenter, float scale);
@@ -115,7 +117,7 @@ public:
     void saveOtmm(const std::string& fileName);
 
 private:
-    std::weak_ptr<UIMinimap> m_walkView;
+    std::vector<std::weak_ptr<UIMinimap>> m_walkViews;
 
     struct HdTile
     {
@@ -131,9 +133,10 @@ private:
     };
 
     void loadHdIndex();
-    std::vector<Rect> drawHdPack(const Rect& screenRect, const Position& center, const Rect& mapRect, const Point& origin, float scale);
+    std::optional<std::vector<Rect>> drawHdPack(const Rect& screenRect, const Position& center, const Rect& mapRect,
+                                               const Point& origin, float scale, const PointF& subpixelOffset);
 
-    std::atomic_bool m_hdEnabled{ false };
+    std::atomic_uint m_hdViewCount{ 0 };
     std::mutex m_hdMutex;
     std::unordered_map<uint64_t, HdTile> m_hdTiles;
     std::list<uint64_t> m_hdTileOrder;

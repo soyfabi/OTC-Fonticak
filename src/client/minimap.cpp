@@ -174,23 +174,24 @@ void Minimap::clearHdTerrain()
     m_hdItemCount = 0;
 }
 
-void Minimap::setHdEnabled(bool enabled)
+void Minimap::addHdView()
 {
-    if (m_hdEnabled.exchange(enabled) == enabled)
+    if (m_hdViewCount.fetch_add(1) != 0)
         return;
-
-    if (!enabled) {
-        clearHdTerrain();
-        return;
-    }
 
     for (const auto& tile : g_map.getTiles())
         updateHdTile(tile->getPosition(), tile);
 }
 
+void Minimap::removeHdView()
+{
+    if (m_hdViewCount.fetch_sub(1) == 1)
+        clearHdTerrain();
+}
+
 void Minimap::updateHdTile(const Position& pos, const TilePtr& tile)
 {
-    if (!m_hdEnabled || !pos.isMapPosition())
+    if (m_hdViewCount == 0 || !pos.isMapPosition())
         return;
 
     auto items = tile ? tile->getItems() : std::vector<ItemPtr>{};
@@ -199,7 +200,7 @@ void Minimap::updateHdTile(const Position& pos, const TilePtr& tile)
 
     const auto key = hdTileKey(pos.x, pos.y, pos.z);
     std::scoped_lock lock(m_hdMutex);
-    if (!m_hdEnabled)
+    if (m_hdViewCount == 0)
         return;
 
     if (const auto it = m_hdTiles.find(key); it != m_hdTiles.end()) {
@@ -294,11 +295,11 @@ void Minimap::loadHdIndex()
     }
 }
 
-std::vector<Rect> Minimap::drawHdPack(const Rect& screenRect, const Position& center, const Rect& mapRect,
-                                    const Point& origin, float scale)
+std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, const Position& center, const Rect& mapRect,
+                                                  const Point& origin, float scale, const PointF& subpixelOffset)
 {
     if (!g_things.isDatLoaded() || !g_sprites.isLoaded())
-        return {};
+        return std::nullopt;
     loadHdIndex();
 
     for (auto it = m_hdDecodes.begin(); it != m_hdDecodes.end();) {
@@ -325,105 +326,152 @@ std::vector<Rect> Minimap::drawHdPack(const Rect& screenRect, const Position& ce
         it = m_hdDecodes.erase(it);
     }
 
-    std::vector<Rect> coverage;
-    const int left = std::max(0, mapRect.left() - 1);
-    const int top = std::max(0, mapRect.top() - 1);
-    const int right = std::min(65535, mapRect.right() + 1);
-    const int bottom = std::min(65535, mapRect.bottom() + 1);
+    struct VisibleChunk
+    {
+        uint64_t key;
+        Rect screen;
+        Rect world;
+    };
+    // Invert the same projection used to draw the chunks, including camera motion.
+    const Rect bounds = screenRect.expanded(1);
+    const int left = std::max(0, mapRect.left() + int(std::floor((bounds.left() - origin.x) / scale)));
+    const int top = std::max(0, mapRect.top() + int(std::floor((bounds.top() - origin.y) / scale)));
+    const int right = std::min(65535, mapRect.left() + int(std::ceil((bounds.right() - origin.x) / scale)));
+    const int bottom = std::min(65535, mapRect.top() + int(std::ceil((bounds.bottom() - origin.y) / scale)));
+    const auto visibleChunks = [&](int level) {
+        std::vector<VisibleChunk> chunks;
+        const int span = HdChunkSize * level;
+        for (int y = top / span * span; y <= bottom; y += span) {
+            for (int x = left / span * span; x <= right; x += span) {
+                const auto key = hdChunkKey(level, x, y, center.z);
+                if (!m_hdIndex.contains(key))
+                    continue;
+
+                const Point offset = Point(x, y) - mapRect.topLeft();
+                const Point dest = origin + offset * scale;
+                const Point end = origin + (offset + Point(span, span)) * scale;
+                const Rect rect(dest, Size(end.x - dest.x, end.y - dest.y));
+                if (rect.isValid() && rect.intersects(bounds))
+                    chunks.push_back({ key, rect, Rect(x, y, span, span) });
+            }
+        }
+        return chunks;
+    };
+
+    const auto requestChunks = [&](const std::vector<VisibleChunk>& chunks, int level) {
+        for (const auto& chunk : chunks) {
+            if (const auto it = m_hdTextures.find(chunk.key); it != m_hdTextures.end()) {
+                m_hdTextureOrder.splice(m_hdTextureOrder.end(), m_hdTextureOrder, it->second.order);
+            } else if (m_hdDecodes.size() < MaxHdDecodes && !m_hdDecodes.contains(chunk.key)) {
+                const auto path = HdPackDir + hdChunkName(level, chunk.world.left(), chunk.world.top(), center.z);
+                m_hdDecodes.emplace(chunk.key, g_asyncDispatcher.submit_task([path] { return decodeHdChunk(path); }));
+            }
+        }
+    };
+
+    std::vector<VisibleChunk> detail;
+    std::vector<VisibleChunk> overview;
+    std::vector<VisibleChunk> ready;
+    int detailLevel = 0;
+    int overviewLevel = 0;
     for (size_t i = 0; i < m_hdLevels.size(); ++i) {
         if (!m_hdLevels[i])
             continue;
 
         const int level = 1 << i;
-        const int span = HdChunkSize * level;
-        const int x0 = left / span;
-        const int y0 = top / span;
-        const int x1 = right / span;
-        const int y1 = bottom / span;
-        if ((x1 - x0 + 1) * (y1 - y0 + 1) > 24 || (span * scale < 64 && i + 1 < m_hdLevels.size() && m_hdLevels[i + 1]))
+        const float chunkPixels = HdChunkSize * level * scale;
+        // Base detail on the viewport size, so dragging across a chunk boundary cannot switch it.
+        const int columns = int(std::ceil(bounds.width() / chunkPixels)) + 1;
+        const int rows = int(std::ceil(bounds.height() / chunkPixels)) + 1;
+        if (columns * rows > 24 || (chunkPixels < 64 && i + 1 < m_hdLevels.size() && m_hdLevels[i + 1]))
             continue;
 
-        bool hasChunks = false;
-        for (int y = y0; y <= y1; ++y) {
-            for (int x = x0; x <= x1; ++x) {
-                const int wx = x * span;
-                const int wy = y * span;
-                const auto key = hdChunkKey(level, wx, wy, center.z);
-                if (!m_hdIndex.contains(key))
-                    continue;
+        auto chunks = visibleChunks(level);
+        if (chunks.empty())
+            continue;
 
-                hasChunks = true;
-                const Point offset = Point(wx, wy) - mapRect.topLeft();
-                const Point dest = origin + offset * scale;
-                const Point end = origin + (offset + Point(span, span)) * scale;
-                const Rect rect(dest, Size(end.x - dest.x, end.y - dest.y));
-                if (!rect.intersects(screenRect))
-                    continue;
-
-                const auto it = m_hdTextures.find(key);
-                if (it != m_hdTextures.end() && it->second.texture) {
-                    m_hdTextureOrder.splice(m_hdTextureOrder.end(), m_hdTextureOrder, it->second.order);
-                    g_drawPool.addTexturedRect(rect, it->second.texture, Rect(0, 0, 512, 512));
-                    coverage.emplace_back(wx, wy, span, span);
-                    continue;
-                }
-
-                if (it == m_hdTextures.end() && m_hdDecodes.size() < MaxHdDecodes && !m_hdDecodes.contains(key)) {
-                    const auto path = HdPackDir + hdChunkName(level, wx, wy, center.z);
-                    m_hdDecodes.emplace(key, g_asyncDispatcher.submit_task([path] { return decodeHdChunk(path); }));
-                }
-
-                // Keep cached HD terrain visible while the requested detail loads.
-                for (size_t parentLevel = i + 1; parentLevel < m_hdLevels.size(); ++parentLevel) {
-                    const int sourceSize = 512 >> (parentLevel - i);
-                    if (sourceSize == 0)
-                        break;
-
-                    const int parentScale = 1 << parentLevel;
-                    const int parentSpan = HdChunkSize * parentScale;
-                    const int parentX = wx - wx % parentSpan;
-                    const int parentY = wy - wy % parentSpan;
-                    const auto parent = m_hdTextures.find(hdChunkKey(parentScale, parentX, parentY, center.z));
-                    if (parent == m_hdTextures.end() || !parent->second.texture)
-                        continue;
-
-                    m_hdTextureOrder.splice(m_hdTextureOrder.end(), m_hdTextureOrder, parent->second.order);
-                    const Rect source((wx - parentX) / span * sourceSize, (wy - parentY) / span * sourceSize,
-                                      sourceSize, sourceSize);
-                    g_drawPool.addTexturedRect(rect, parent->second.texture, source);
-                    coverage.emplace_back(wx, wy, span, span);
-                    break;
-                }
-            }
+        if (detail.empty()) {
+            detailLevel = level;
+            detail = chunks;
         }
-        if (hasChunks)
+        if (ready.empty() && std::ranges::all_of(chunks, [&](const VisibleChunk& chunk) {
+                const auto it = m_hdTextures.find(chunk.key);
+                return it != m_hdTextures.end() && it->second.texture != nullptr;
+            })) {
+            ready = chunks;
+        }
+        if (chunkPixels >= std::max(bounds.width(), bounds.height())) {
+            overviewLevel = level;
+            overview = std::move(chunks);
             break;
+        }
     }
+    if (detail.empty())
+        return std::nullopt;
+
+    if (!overview.empty() && overviewLevel != detailLevel)
+        requestChunks(overview, overviewLevel);
+    requestChunks(detail, detailLevel);
+
+    // Switch the whole visible map together once the requested detail is ready.
+    const auto& displayed = !ready.empty() ? ready : (!overview.empty() ? overview : detail);
+    if (!subpixelOffset.isNull()) {
+        g_drawPool.pushTransformMatrix();
+        g_drawPool.translate(subpixelOffset.x, subpixelOffset.y);
+    }
+    std::vector<Rect> coverage;
+    for (const auto& chunk : displayed) {
+        const auto it = m_hdTextures.find(chunk.key);
+        if (it == m_hdTextures.end() || !it->second.texture)
+            continue;
+        m_hdTextureOrder.splice(m_hdTextureOrder.end(), m_hdTextureOrder, it->second.order);
+        g_drawPool.addTexturedRect(chunk.screen, it->second.texture, Rect(0, 0, 512, 512));
+        coverage.push_back(chunk.world);
+    }
+    if (!subpixelOffset.isNull())
+        g_drawPool.popTransformMatrix();
     return coverage;
+}
+
+void Minimap::setWalkView(const UIMinimapPtr& widget, bool enabled)
+{
+    std::erase_if(m_walkViews, [&](const auto& entry) {
+        const auto view = entry.lock();
+        return !view || view == widget;
+    });
+    if (enabled)
+        m_walkViews.emplace_back(widget);
 }
 
 void Minimap::onCameraMove() const
 {
-    if (const auto view = m_walkView.lock())
-        view->updateWalkOffset();
+    for (const auto& entry : m_walkViews) {
+        if (const auto view = entry.lock())
+            view->updateWalkOffset();
+    }
 }
 
 void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, bool live,
                      const Point& offset, const PointF& subpixelOffset)
 {
-    draw(screenRect, mapCenter, scale, color, offset);
-    if (screenRect.isEmpty() || !mapCenter.isMapPosition())
+    if (screenRect.isEmpty() || !mapCenter.isMapPosition()) {
+        draw(screenRect, mapCenter, scale, color, offset);
         return;
+    }
 
     const auto mapRect = calcMapRect(screenRect, mapCenter, scale);
     const auto origin = screenRect.topLeft() - Point((mapRect.size() * scale).toPoint() - screenRect.size().toPoint()) / 2 + offset;
     const auto oldClip = g_drawPool.getClipRect();
     g_drawPool.setClipRect(oldClip.isValid() ? screenRect.intersection(oldClip) : screenRect);
+    g_drawPool.addFilledRect(screenRect, color);
+    const auto packedAreas = drawHdPack(screenRect, mapCenter, mapRect, origin, scale, subpixelOffset);
+    if (!packedAreas)
+        draw(screenRect, mapCenter, scale, color, offset);
+
     if (!subpixelOffset.isNull()) {
         g_drawPool.pushTransformMatrix();
         g_drawPool.translate(subpixelOffset.x, subpixelOffset.y);
     }
-    const auto packedAreas = drawHdPack(screenRect, mapCenter, mapRect, origin, scale);
 
     const int spriteSize = g_gameConfig.getSpriteSize();
     const auto view = mapRect.expanded(4);
@@ -443,7 +491,7 @@ void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float sc
             std::scoped_lock lock(m_hdMutex);
             const auto collect = [&](const Point& tile, const HdTile& snapshot) {
                 const bool drawTerrain = live && scanViewport &&
-                    std::ranges::none_of(packedAreas, [&](const Rect& area) { return area.contains(tile); });
+                    (!packedAreas || std::ranges::none_of(*packedAreas, [&](const Rect& area) { return area.contains(tile); }));
                 const bool drawPickupables = snapshot.pickupables > 0 &&
                     g_map.isAwareOfPosition(Position(tile.x, tile.y, mapCenter.z));
                 const size_t visibleItems = (drawTerrain ? snapshot.items.size() - snapshot.pickupables : 0) +
