@@ -1,6 +1,18 @@
 local rows
 local refreshEvent
 local activeRow
+local uninstallBox
+
+local function refreshMapPreferences()
+    local minimap = modules.game_minimap
+    local cyclopedia = modules.game_cyclopedia
+    if minimap and minimap.refreshMinimapPreferences then
+        minimap.refreshMinimapPreferences()
+    end
+    if cyclopedia and cyclopedia.refreshMapMinimapPreferences then
+        cyclopedia.refreshMapMinimapPreferences()
+    end
+end
 
 local function refresh()
     refreshEvent = nil
@@ -18,6 +30,10 @@ local function refresh()
         row.button:setText(active and tr('Cancel Download') or row.title)
         row.button:setEnabled(status ~= 'installed' and status ~= 'canceling'
             and (not downloading or active))
+        local removable = status == 'installed' and g_minimap.canUninstallPack
+            and g_minimap.canUninstallPack(row.animations)
+        row.uninstall:setVisible(removable == true)
+        row.uninstall:setEnabled(not downloading)
         if status == 'downloading' then
             row.label:setText(tr('Downloading... %d%%', g_minimap.getPackDownloadProgress()))
         elseif status == 'canceling' then
@@ -29,6 +45,11 @@ local function refresh()
         end
     end
 
+    local minimap = modules.game_minimap
+    if minimap and minimap.refreshMinimapDownloadOverlay then
+        minimap.refreshMinimapDownloadOverlay()
+    end
+
     if downloading then
         refreshEvent = scheduleEvent(refresh, 250)
     elseif activeRow then
@@ -36,14 +57,7 @@ local function refresh()
         activeRow = nil
         local status = row.status
         if status == 'installed' and not row.animations then
-            local minimap = modules.game_minimap
-            local cyclopedia = modules.game_cyclopedia
-            if minimap and minimap.refreshMinimapPreferences then
-                minimap.refreshMinimapPreferences()
-            end
-            if cyclopedia and cyclopedia.refreshMapMinimapPreferences then
-                cyclopedia.refreshMapMinimapPreferences()
-            end
+            refreshMapPreferences()
         elseif status ~= 'installed' and status ~= '' and status ~= 'Download canceled.' then
             displayErrorBox(row.title, status)
         end
@@ -55,8 +69,10 @@ function initMinimapAnimationDownload(panel)
         return
     end
     rows = {
-        { animations = false, title = tr('Download Map HD'), button = panel.downloadHdMap, label = panel.hdDownloadStatus },
-        { animations = true, title = tr('Download Animation Map'), button = panel.downloadAnimationMap, label = panel.animationDownloadStatus }
+        { animations = false, title = tr('Download Map HD'), button = panel.downloadHdMap,
+            label = panel.hdDownloadStatus, uninstall = panel.uninstallHdMap },
+        { animations = true, title = tr('Download Animation Map'), button = panel.downloadAnimationMap,
+            label = panel.animationDownloadStatus, uninstall = panel.uninstallAnimationMap }
     }
     for _, row in ipairs(rows) do
         row.button:show()
@@ -70,7 +86,17 @@ function initMinimapAnimationDownload(panel)
     refresh()
 end
 
+function getMinimapPackDownloadState()
+    if not rows then
+        return
+    end
+    return rows[1].status, rows[2].status
+end
+
 function toggleMinimapPackDownload(animations)
+    if not rows then
+        return
+    end
     if refreshEvent then
         g_minimap.cancelPackDownload()
         return
@@ -81,6 +107,10 @@ function toggleMinimapPackDownload(animations)
 end
 
 function terminateMinimapAnimationDownload()
+    if uninstallBox then
+        uninstallBox:destroy()
+        uninstallBox = nil
+    end
     if refreshEvent then
         removeEvent(refreshEvent)
         refreshEvent = nil
@@ -88,4 +118,33 @@ function terminateMinimapAnimationDownload()
     end
     activeRow = nil
     rows = nil
+end
+
+function confirmMinimapPackUninstall(animations)
+    if uninstallBox or refreshEvent or not g_minimap.canUninstallPack(animations) then
+        return
+    end
+
+    local title = animations and tr('Uninstall Map Animations') or tr('Uninstall HD Map')
+    local message = animations and tr('Remove the downloaded map animations?')
+        or tr('Remove the downloaded HD map? Map animations require the HD map to play.')
+    local function close()
+        uninstallBox:destroy()
+        uninstallBox = nil
+    end
+    local function accept()
+        close()
+        local error = g_minimap.uninstallPack(animations)
+        refresh()
+        if error ~= '' then
+            displayErrorBox(title, error)
+        elseif not animations then
+            refreshMapPreferences()
+        end
+    end
+    uninstallBox = displayGeneralBox(title, message, {
+        { text = tr('Cancel'), callback = close },
+        { text = tr('Uninstall'), callback = accept },
+        anchor = AnchorHorizontalCenter
+    }, nil, close)
 end

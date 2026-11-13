@@ -495,6 +495,100 @@ end
 
 function refreshMinimapPreferences()
     applyMinimapHd(fullscreenWidget or minimapWidget, g_game.isOnline() and g_settings.getBoolean('minimapHd', true))
+    refreshMinimapDownloadOverlay()
+end
+
+local function stopDownloadHourglass(panel)
+    if panel.hourglassEvent then
+        removeEvent(panel.hourglassEvent)
+        panel.hourglassEvent = nil
+    end
+    if not panel:isDestroyed() then
+        panel.hourglass:setRotation(0)
+    end
+end
+
+local function animateDownloadHourglass(panel)
+    if panel.hourglassEvent then
+        return
+    end
+
+    local startedAt = g_clock.millis()
+    panel.hourglassEvent = cycleEvent(function()
+        if panel:isDestroyed() or not panel:isVisible() then
+            stopDownloadHourglass(panel)
+            return
+        end
+        local elapsed = g_clock.millis() - startedAt
+        local cycle = math.floor(elapsed / 1600)
+        local turn = math.min(math.max((elapsed % 1600 - 1200) / 400, 0), 1)
+        local eased = turn * turn * (3 - 2 * turn)
+        local angle = (cycle % 2 + eased) * 180 % 360
+        if panel.hourglass:getRotation() ~= angle then
+            panel.hourglass:setRotation(angle)
+        end
+    end, 25)
+end
+
+function refreshMinimapDownloadOverlay(offline)
+    local widget = minimapWidget
+    if not widget or widget:isDestroyed() then
+        return
+    end
+    local button = widget:getChildById('downloadPackButton')
+    local panel = widget:getChildById('downloadPackProgress')
+    if not button or not panel then
+        return
+    end
+
+    local options = modules.client_options
+    local hd, animations
+    if options and options.getMinimapPackDownloadState then
+        hd, animations = options.getMinimapPackDownloadState()
+    end
+    local active = hd == 'downloading' or hd == 'canceling'
+        or animations == 'downloading' or animations == 'canceling'
+    local showOverlay = not offline and hd ~= nil and animations ~= nil and g_game.isOnline()
+        and not widget.fullMapView and not options.getOption('disableMinimapHd')
+    panel:setVisible(showOverlay and active)
+    button:setVisible(showOverlay and not active and (hd ~= 'installed' or animations ~= 'installed'))
+    if showOverlay and active then
+        animateDownloadHourglass(panel)
+    elseif panel.hourglassEvent then
+        stopDownloadHourglass(panel)
+    end
+    if not showOverlay then
+        return
+    end
+
+    if active then
+        local percent = g_minimap.getPackDownloadProgress()
+        local canceling = hd == 'canceling' or animations == 'canceling'
+        panel.progressBar:setPercent(percent)
+        panel.progressText:setText(canceling and tr('Canceling...') or tr('%d%%', percent))
+        panel:raise()
+    elseif hd ~= 'installed' or animations ~= 'installed' then
+        local downloadAnimations = hd == 'installed'
+        button:setHeight(downloadAnimations and 32 or 23)
+        button:setTextWrap(downloadAnimations)
+        button:setText(downloadAnimations and tr('Download Map Animation') or tr('Download Map HD'))
+        button:raise()
+    end
+end
+
+function downloadMinimapPack()
+    local options = modules.client_options
+    if not options or not options.getMinimapPackDownloadState then
+        return
+    end
+    local hd, animations = options.getMinimapPackDownloadState()
+    if hd == nil or animations == nil then
+        return
+    end
+    local status = hd ~= 'installed' and hd or animations
+    if status ~= 'installed' and status ~= 'downloading' and status ~= 'canceling' then
+        options.toggleMinimapPackDownload(hd == 'installed')
+    end
 end
 
 function toggleMinimapHd()
@@ -1084,6 +1178,7 @@ function mapController:onGameStart()
         self.ui.minimapBorder.minimap:load()
     end
     applyMinimapHd(minimapWidget, g_settings.getBoolean('minimapHd', true))
+    refreshMinimapDownloadOverlay()
 
     -- The default minimap slot is above the right sidebar, not inside the
     -- inventory column below it. Migrate the former default once, preserving
@@ -1141,6 +1236,7 @@ function mapController:onGameEnd()
         updateSidebarCameraControls(minimapWidget)
     end
     applyMinimapHd(minimapWidget, false)
+    refreshMinimapDownloadOverlay(true)
     refreshMinimapPartyPins()
 
     -- Save Map
@@ -1162,6 +1258,7 @@ function mapController:onGameEnd()
 end
 
 function mapController:onTerminate()
+    refreshMinimapDownloadOverlay(true)
     if pendingCreaturePinRefresh then
         removeEvent(pendingCreaturePinRefresh)
         pendingCreaturePinRefresh = nil
@@ -1234,6 +1331,7 @@ function fullscreen()
     end
     positionMinimapHdButton(minimapWidget, resolveMinimapSide(mapController.ui:getParent()))
     applyMinimapHd(minimapWidget, g_game.isOnline() and g_settings.getBoolean('minimapHd', true))
+    refreshMinimapDownloadOverlay()
 end
 
 function upLayer()

@@ -210,6 +210,8 @@ void Client::registerLuaFunctions()
     g_lua.bindSingletonFunction("g_minimap", "startPackDownload", &Minimap::startPackDownload, &g_minimap);
     g_lua.bindSingletonFunction("g_minimap", "cancelPackDownload", &Minimap::cancelPackDownload, &g_minimap);
     g_lua.bindSingletonFunction("g_minimap", "getPackDownloadStatus", &Minimap::getPackDownloadStatus, &g_minimap);
+    g_lua.bindSingletonFunction("g_minimap", "canUninstallPack", &Minimap::canUninstallPack, &g_minimap);
+    g_lua.bindSingletonFunction("g_minimap", "uninstallPack", &Minimap::uninstallPack, &g_minimap);
     g_lua.bindSingletonFunction("g_minimap", "getPackDownloadProgress", &Minimap::getPackDownloadProgress, &g_minimap);
     g_lua.bindSingletonFunction("g_minimap", "getPackDownloadSizeMb", &Minimap::getPackDownloadSizeMb, &g_minimap);
     g_lua.bindSingletonFunction("g_minimap", "clean", &Minimap::clean, &g_minimap);

@@ -437,8 +437,8 @@ void Minimap::terminate()
 
 bool Minimap::mountDownloadedPack(bool animations)
 {
-    auto& mounted = m_packMounted[animations];
-    if (mounted)
+    auto& mountedPath = m_mountedPackPaths[animations];
+    if (!mountedPath.empty())
         return true;
     if (g_resources.getWriteDir().empty())
         return false;
@@ -461,10 +461,44 @@ bool Minimap::mountDownloadedPack(bool animations)
             path = legacyPath;
     }
     const auto utf8Path = path.generic_u8string();
-    mounted = PHYSFS_mount(reinterpret_cast<const char*>(utf8Path.c_str()), pack.mountPoint, 0) != 0;
-    if (mounted)
-        m_reloadHdIndex = true;
-    return mounted;
+    const std::string mountPath(utf8Path.begin(), utf8Path.end());
+    if (!PHYSFS_mount(mountPath.c_str(), pack.mountPoint, 0))
+        return false;
+    mountedPath = mountPath;
+    m_reloadHdIndex = true;
+    return true;
+}
+
+bool Minimap::canUninstallPack(bool animations) const
+{
+    return !m_mountedPackPaths[animations].empty();
+}
+
+std::string Minimap::uninstallPack(bool animations)
+{
+    if (m_packDownload.valid())
+        return "Wait for the current download to finish.";
+
+    auto& mountedPath = m_mountedPackPaths[animations];
+    if (mountedPath.empty())
+        return "This pack was not installed by the downloader.";
+
+    const auto path = std::filesystem::u8path(mountedPath);
+    if (!PHYSFS_unmount(mountedPath.c_str()))
+        return "The map pack is in use. Try again in a moment.";
+
+    mountedPath.clear();
+    m_reloadHdIndex = true;
+    std::error_code error;
+    std::filesystem::remove(path, error);
+    if (error) {
+        mountDownloadedPack(animations);
+        return "Unable to delete the map pack from disk.";
+    }
+
+    if (m_downloadingAnimations == animations)
+        m_packDownloadError.clear();
+    return {};
 }
 
 int Minimap::getPackDownloadSizeMb(bool animations) const
@@ -486,7 +520,7 @@ std::string Minimap::getPackDownloadStatus(bool animations)
         if (m_packDownloadError.empty() && !mountDownloadedPack(animations))
             m_packDownloadError = "Unable to open the downloaded map pack.";
     }
-    if (m_packMounted[animations] || hasManualPack(animations))
+    if (canUninstallPack(animations) || hasManualPack(animations))
         return "installed";
     return m_downloadingAnimations == animations ? m_packDownloadError : std::string{};
 }

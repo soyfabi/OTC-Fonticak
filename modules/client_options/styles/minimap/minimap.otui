@@ -106,6 +106,15 @@ UIWidget
     visible: false
 
   OptionsQtButton
+    id: uninstallHdMap
+    anchors.right: parent.right
+    anchors.verticalCenter: downloadHdMap.verticalCenter
+    width: 88
+    visible: false
+    !text: tr('Uninstall')
+    @onClick: modules.client_options.confirmMinimapPackUninstall(false)
+
+  OptionsQtButton
     id: downloadAnimationMap
     anchors.left: parent.left
     anchors.top: downloadHdMap.bottom
@@ -118,9 +127,18 @@ UIWidget
 
   OptionsLabel
     id: animationDownloadStatus
-    anchors.left: prev.right
-    anchors.verticalCenter: prev.verticalCenter
+    anchors.left: downloadAnimationMap.right
+    anchors.verticalCenter: downloadAnimationMap.verticalCenter
     margin-left: 8
     width: 155
     text-align: left
     visible: false
+
+  OptionsQtButton
+    id: uninstallAnimationMap
+    anchors.right: parent.right
+    anchors.verticalCenter: downloadAnimationMap.verticalCenter
+    width: 88
+    visible: false
+    !text: tr('Uninstall')
+    @onClick: modules.client_options.confirmMinimapPackUninstall(true)

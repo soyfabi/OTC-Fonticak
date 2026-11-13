@@ -131,6 +131,8 @@ public:
     bool startPackDownload(bool animations);
     void cancelPackDownload();
     std::string getPackDownloadStatus(bool animations);
+    bool canUninstallPack(bool animations) const;
+    std::string uninstallPack(bool animations);
     int getPackDownloadProgress() const { return m_packDownloadProgress.load(); }
     int getPackDownloadSizeMb(bool animations) const;
 
@@ -166,7 +168,7 @@ private:
     std::atomic_bool m_cancelPackDownload{ false };
     std::atomic_int m_packDownloadProgress{ 0 };
     std::atomic_bool m_reloadHdIndex{ false };
-    std::array<bool, 2> m_packMounted{};
+    std::array<std::string, 2> m_mountedPackPaths{};
     std::array<bool, 2> m_packChecked{};
     bool m_downloadingAnimations{ false };
     std::string m_packDownloadError;

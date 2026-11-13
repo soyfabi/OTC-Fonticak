@@ -108,6 +108,23 @@ MinimapHdControl < MinimapMapControl
 MinimapFreeViewControl < MinimapMapControl
   icon-source: /images/game/minimap/free-view
 
+MinimapDownloadButton < QtButton
+  size: 110 23
+  padding: 2 4 2 4
+  font: Verdana Bold-10px
+  color: #ffffff
+  image-smooth: false
+  text-wrap: false
+  focusable: false
+
+  UIWidget
+    id: highlight
+    anchors.fill: parent
+    border-width: 1
+    border-color: #55aaff
+    phantom: true
+    focusable: false
+
 MinimapFogControl < MinimapMapControl
   icon-source: /images/game/minimap/fog-of-war
 
