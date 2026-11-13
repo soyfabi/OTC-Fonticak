@@ -125,6 +125,47 @@ MinimapDownloadButton < QtButton
     phantom: true
     focusable: false
 
+MinimapDownloadProgress < UIWidget
+  anchors.horizontalCenter: parent.horizontalCenter
+  anchors.bottom: parent.bottom
+  margin-bottom: 4
+  size: 108 32
+  image-source: /images/ui/1pixel_down_frame
+  image-border: 4
+  background-color: #222222ee
+  phantom: true
+  visible: false
+
+  UIWidget
+    id: hourglass
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 4
+    size: 16 20
+    image-source: /images/game/minimap/download-hourglass
+    phantom: true
+
+  Label
+    id: progressText
+    anchors.left: hourglass.right
+    anchors.right: parent.right
+    anchors.top: parent.top
+    margin-top: 3
+    text-align: center
+    phantom: true
+
+  ProgressBar
+    id: progressBar
+    anchors.left: hourglass.right
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    margin-left: 4
+    margin-right: 5
+    margin-bottom: 4
+    height: 7
+    background-color: #89c361
+    phantom: true
+
 MinimapFogControl < MinimapMapControl
   icon-source: /images/game/minimap/fog-of-war
 

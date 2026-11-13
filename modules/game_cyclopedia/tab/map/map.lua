@@ -39,8 +39,14 @@ local function syncCyclopediaSatelliteMode(minimap, tilesDir)
 
 	local options = modules.client_options
 	local hdDisabled = options and options.getOption("disableMinimapHd")
+	local hasHdMap
+	if options and options.isMinimapHdMapInstalled then
+		hasHdMap = options.isMinimapHdMapInstalled()
+	else
+		hasHdMap = g_resources.fileExists("/data/minimap_hd/index.txt")
+	end
 	local useHd = not hdDisabled and minimap.setHdMode ~= nil and not isSurfaceViewSelected()
-		and g_resources.fileExists("/data/minimap_hd/index.txt")
+		and hasHdMap
 
 	if minimap.setHdMode then
 		minimap:setHdMode(useHd, false)
@@ -2079,6 +2085,7 @@ function initMap(contentContainer)
 	setupLayersPanelInteraction()
 
 	Cyclopedia.onUpdateCameraPosition()
+	refreshCyclopediaMapDownloadOverlay()
 
 end
 
@@ -2139,6 +2146,13 @@ function getMapMinimapWidget()
 	return Cyclopedia.getMapMinimapWidget()
 end
 
+function refreshCyclopediaMapDownloadOverlay()
+	local minimap = modules.game_minimap
+	if minimap and minimap.refreshMapDownloadOverlay then
+		minimap.refreshMapDownloadOverlay(Cyclopedia.getMapMinimapWidget())
+	end
+end
+
 function refreshMapMinimapPreferences()
 	local minimap = getCyclopediaMinimap()
 	if minimap then
@@ -2146,6 +2160,7 @@ function refreshMapMinimapPreferences()
 		syncCyclopediaSatelliteMode(minimap, getCyclopediaTilesDir(isSurfaceViewSelected()))
 		Cyclopedia.updateLevelSeparatorState()
 	end
+	refreshCyclopediaMapDownloadOverlay()
 end
 
 local function updateCyclopediaCamera(forceCenter)

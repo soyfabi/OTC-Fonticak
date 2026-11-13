@@ -786,6 +786,17 @@ UIWidget
       min-zoom: -2
       max-zoom: 5
 
+      MinimapDownloadButton
+        id: downloadPackButton
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        margin-bottom: 4
+        visible: false
+        @onClick: modules.game_minimap.downloadMinimapPack()
+
+      MinimapDownloadProgress
+        id: downloadPackProgress
+
     UIWidget
       id: cameraControls
       anchors.left: parent.left

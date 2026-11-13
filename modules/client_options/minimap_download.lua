@@ -49,6 +49,10 @@ local function refresh()
     if minimap and minimap.refreshMinimapDownloadOverlay then
         minimap.refreshMinimapDownloadOverlay()
     end
+    local cyclopedia = modules.game_cyclopedia
+    if cyclopedia and cyclopedia.refreshCyclopediaMapDownloadOverlay then
+        cyclopedia.refreshCyclopediaMapDownloadOverlay()
+    end
 
     if downloading then
         refreshEvent = scheduleEvent(refresh, 250)
@@ -91,6 +95,13 @@ function getMinimapPackDownloadState()
         return
     end
     return rows[1].status, rows[2].status
+end
+
+function isMinimapHdMapInstalled()
+    if rows then
+        return rows[1].status == 'installed'
+    end
+    return g_resources.fileExists('/data/minimap_hd/index.txt')
 end
 
 function toggleMinimapPackDownload(animations)

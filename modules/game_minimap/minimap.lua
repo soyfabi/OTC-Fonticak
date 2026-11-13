@@ -466,6 +466,13 @@ function toggleMinimapFogOfWar()
     end
 end
 
+local function isHdMapInstalled(options)
+    if options and options.isMinimapHdMapInstalled then
+        return options.isMinimapHdMapInstalled()
+    end
+    return g_resources.fileExists('/data/minimap_hd/index.txt')
+end
+
 local function applyMinimapHd(widget, enabled)
     if not widget or widget:isDestroyed() then
         return
@@ -475,7 +482,7 @@ local function applyMinimapHd(widget, enabled)
     refreshMinimapFogOfWar()
     local options = modules.client_options
     local hdDisabled = options and options.getOption('disableMinimapHd')
-    enabled = enabled and not hdDisabled
+    enabled = enabled and not hdDisabled and isHdMapInstalled(options)
     local supported = widget.setHdMode ~= nil
     local button = widget:getChildById('hdButton')
     if button then
@@ -530,8 +537,7 @@ local function animateDownloadHourglass(panel)
     end, 25)
 end
 
-function refreshMinimapDownloadOverlay(offline)
-    local widget = minimapWidget
+function refreshMapDownloadOverlay(widget, offline)
     if not widget or widget:isDestroyed() then
         return
     end
@@ -569,11 +575,14 @@ function refreshMinimapDownloadOverlay(offline)
         panel:raise()
     elseif hd ~= 'installed' or animations ~= 'installed' then
         local downloadAnimations = hd == 'installed'
-        button:setHeight(downloadAnimations and 32 or 23)
-        button:setTextWrap(downloadAnimations)
+        button:setFont(downloadAnimations and 'Verdana-8px' or 'Verdana Bold-10px')
         button:setText(downloadAnimations and tr('Download Map Animation') or tr('Download Map HD'))
         button:raise()
     end
+end
+
+function refreshMinimapDownloadOverlay(offline)
+    refreshMapDownloadOverlay(minimapWidget, offline)
 end
 
 function downloadMinimapPack()
@@ -601,13 +610,7 @@ function toggleMinimapHd()
         return
     end
 
-    local hasHdMap
-    if g_minimap.getPackDownloadStatus then
-        hasHdMap = g_minimap.getPackDownloadStatus(false) == 'installed'
-    else
-        hasHdMap = g_resources.fileExists('/data/minimap_hd/index.txt')
-    end
-    if not hasHdMap then
+    if not isHdMapInstalled(options) then
         if options and options.showMinimapOptions then
             options.showMinimapOptions()
         end
