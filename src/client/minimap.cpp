@@ -124,20 +124,12 @@ namespace
     }
 }
 
-void MinimapBlock::clean()
-{
-    m_tiles.fill({});
-    m_texture.reset();
-    ++m_fogRevision;
-    m_mustUpdate = false;
-}
-
 void MinimapBlock::update()
 {
     if (!m_mustUpdate)
         return;
 
-    m_image = std::make_shared<Image>(m_size);
+    auto image = std::make_shared<Image>(Size(MMBLOCK_SIZE, MMBLOCK_SIZE));
 
     bool shouldDraw = false;
     for (uint_fast8_t x = 0; x < MMBLOCK_SIZE; ++x) {
@@ -150,12 +142,12 @@ void MinimapBlock::update()
                 shouldDraw = true;
             }
 
-            m_image->setPixel(x, y, col);
+            image->setPixel(x, y, col);
         }
     }
 
     if (shouldDraw)
-        m_texture = std::make_shared<Texture>(m_image, true, false);
+        m_texture = std::make_shared<Texture>(image, true, false);
     else
         m_texture.reset();
 
@@ -191,8 +183,12 @@ TexturePtr Minimap::getFogTexture(const Position& pos)
         return nullptr;
 
     const auto key = hdTileKey(pos.x, pos.y, pos.z);
-    if (const auto it = m_fogChunks.find(key); it != m_fogChunks.end() && it->second.revisions == revisions)
-        return it->second.texture;
+    const auto cached = m_fogChunks.find(key);
+    if (cached != m_fogChunks.end()) {
+        m_fogChunkOrder.splice(m_fogChunkOrder.end(), m_fogChunkOrder, cached->second.order);
+        if (cached->second.revisions == revisions)
+            return cached->second.texture;
+    }
 
     // Sample across chunk boundaries so the gradient continues without seams.
     constexpr int radius = 3;
@@ -227,9 +223,17 @@ TexturePtr Minimap::getFogTexture(const Position& pos)
     }
     auto texture = std::make_shared<Texture>(mask);
     texture->setSmooth(true);
-    if (m_fogChunks.size() >= 1024)
-        m_fogChunks.clear();
-    m_fogChunks.insert_or_assign(key, FogChunk{ revisions, texture });
+    if (cached != m_fogChunks.end()) {
+        cached->second.revisions = revisions;
+        cached->second.texture = texture;
+    } else {
+        if (m_fogChunks.size() >= 1024) {
+            m_fogChunks.erase(m_fogChunkOrder.front());
+            m_fogChunkOrder.pop_front();
+        }
+        m_fogChunkOrder.push_back(key);
+        m_fogChunks.emplace(key, FogChunk{ revisions, texture, std::prev(m_fogChunkOrder.end()) });
+    }
     return texture;
 }
 
@@ -243,6 +247,7 @@ void Minimap::clean()
 {
     clearHdTerrain();
     m_fogChunks.clear();
+    m_fogChunkOrder.clear();
     SpinLock::Guard lock(m_lock);
     for (uint_fast8_t i = 0; i <= g_gameConfig.getMapMaxZ(); ++i)
         m_tileBlocks[i].clear();
@@ -631,7 +636,8 @@ std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, int
         const int rows = int(std::ceil(bounds.height() / chunkPixels)) + 1;
         const bool preferred = columns * rows <= MaxHdDetailChunks &&
             (chunkPixels >= 64 || i + 1 == m_hdLevels.size() || !m_hdLevels[i + 1]);
-        const bool holdLevel = zooming && level == cache.displayedLevel && columns * rows <= 64;
+        const bool holdLevel = zooming && level == cache.displayedLevel &&
+            static_cast<size_t>(columns * rows) <= MaxHdTextures;
         if (!preferred && !holdLevel)
             continue;
 
@@ -663,8 +669,10 @@ std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, int
         if (!zooming && !overview.empty() && !ready.empty())
             break;
     }
-    if (detail.empty() && held.empty())
+    if (detail.empty() && held.empty()) {
+        cache.animations.clear();
         return std::nullopt;
+    }
 
     if (!overview.empty() && overviewLevel != detailLevel)
         requestChunks(overview, overviewLevel);
@@ -728,7 +736,10 @@ void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float sc
 
     const MinimapProjection projection(screenRect, mapCenter, scale, offset);
     const auto oldClip = g_drawPool.getClipRect();
-    g_drawPool.setClipRect(oldClip.isValid() ? screenRect.intersection(oldClip) : screenRect);
+    const auto clip = oldClip.isValid() ? screenRect.intersection(oldClip) : screenRect;
+    if (clip.isEmpty())
+        return;
+    g_drawPool.setClipRect(clip);
     g_drawPool.addFilledRect(screenRect, color);
     const bool animateItems = animationsEnabled && scale >= HdAnimationScale;
     const auto packedAreas = drawHdPack(screenRect, mapCenter.z, projection, scale, zooming, animateItems, cache);
@@ -849,8 +860,11 @@ void Minimap::draw(const Rect& screenRect, const Position& mapCenter, const floa
     if (screenRect.isEmpty())
         return;
 
-    const auto& oldClipRect = g_drawPool.getClipRect();
-    g_drawPool.setClipRect(screenRect);
+    const auto oldClipRect = g_drawPool.getClipRect();
+    const auto clip = oldClipRect.isValid() ? screenRect.intersection(oldClipRect) : screenRect;
+    if (clip.isEmpty())
+        return;
+    g_drawPool.setClipRect(clip);
 
     g_drawPool.addFilledRect(screenRect, color);
 
@@ -909,10 +923,6 @@ void Minimap::drawFog(const Rect& screenRect, const Position& mapCenter, float s
         const auto end = projection.tileEdge(origin + size.toPoint());
         return Rect(topLeft, Size(end.x - topLeft.x, end.y - topLeft.y));
     };
-    const auto fill = [&](const Rect& rect, const Color& color) {
-        if (rect.isValid())
-            g_drawPool.addFilledRect(rect, color);
-    };
 
     // The mask follows world tiles through pan and zoom. Only changed blocks rebuild it.
     // Include the adjacent tile at either edge to account for pixel rounding.
@@ -931,7 +941,7 @@ void Minimap::drawFog(const Rect& screenRect, const Position& mapCenter, float s
                     continue;
                 }
             }
-            fill(dest, UnexploredFogShade);
+            g_drawPool.addFilledRect(dest, UnexploredFogShade);
         }
     }
 
@@ -1151,7 +1161,7 @@ bool Minimap::loadOtmm(const std::string& fileName)
 
         constexpr uint32_t blockSize = MMBLOCK_SIZE * MMBLOCK_SIZE * sizeof(MinimapTile);
         std::vector<uint8_t> compressBuffer(compressBound(blockSize));
-        std::vector<uint8_t> decompressBuffer(blockSize);
+        std::array<MinimapTile, MMBLOCK_SIZE * MMBLOCK_SIZE> saved;
 
         while (true) {
             Position pos;
@@ -1163,22 +1173,28 @@ bool Minimap::loadOtmm(const std::string& fileName)
             if (!pos.isValid() || pos.z >= g_gameConfig.getMapMaxZ() + 1)
                 break;
 
-            MinimapBlock& block = getBlock(pos);
             const uint16_t len = fin->getU16();
-            fin->read(compressBuffer.data(), len);
+            if (len == 0 || len > compressBuffer.size() || fin->read(compressBuffer.data(), 1, len) != len)
+                throw Exception("invalid OTMM block length");
 
             unsigned long destLen = blockSize;
-            const int ret = uncompress(decompressBuffer.data(), &destLen, compressBuffer.data(), len);
+            const int ret = uncompress(reinterpret_cast<uint8_t*>(saved.data()), &destLen, compressBuffer.data(), len);
 
             if (ret != Z_OK || destLen != blockSize)
-                break;
+                throw Exception("invalid OTMM block data");
 
-            memcpy(&block.getTiles(), decompressBuffer.data(), blockSize);
-            if (!(flags & OtmmCircularFog)) {
-                for (auto& tile : block.getTiles()) {
-                    if (tile.hasFlag(MinimapTileWasSeen))
-                        tile.flags |= MinimapTileFogExplored;
-                }
+            MinimapBlock& block = getBlock(pos);
+            auto& tiles = block.getTiles();
+            for (size_t i = 0; i < tiles.size(); ++i) {
+                auto& tile = tiles[i];
+                const bool explored = tile.hasFlag(MinimapTileFogExplored) ||
+                    saved[i].hasFlag(MinimapTileFogExplored) ||
+                    (!(flags & OtmmCircularFog) && saved[i].hasFlag(MinimapTileWasSeen));
+                // A map packet may arrive before the Lua login handler loads the file.
+                if (!tile.hasFlag(MinimapTileWasSeen))
+                    tile = saved[i];
+                if (explored)
+                    tile.flags |= MinimapTileFogExplored;
             }
             block.mustUpdate();
             block.justSaw();

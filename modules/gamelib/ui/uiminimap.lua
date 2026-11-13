@@ -14,7 +14,6 @@ function UIMinimap:onSetup()
     -- CrystalOTC default: render the compact minimap one level closer.
     self.zoomMinimap = 1
     self.zoomFullmap = 0
-    self.alternatives = {}
     self.onAddAutomapFlag = function(pos, icon, description)
         self:addFlag(pos, icon, description)
     end
@@ -38,11 +37,8 @@ function UIMinimap:onDestroy()
         removeEvent(self._smoothZoomEvent)
         self._smoothZoomEvent = nil
     end
+    self._smoothZoomTargetScale = nil
 
-    for _, widget in pairs(self.alternatives) do
-        widget:destroy()
-    end
-    self.alternatives = {}
     disconnect(g_game, {
         onAddAutomapFlag = self.onAddAutomapFlag,
         onRemoveAutomapFlag = self.onRemoveAutomapFlag
@@ -54,6 +50,7 @@ end
 
 function UIMinimap:onVisibilityChange()
     if not self:isVisible() then
+        self:finishSmoothZoom()
         self:destroyFlagWindow()
     end
     self:updateNearbyPlayerPulse()
@@ -75,6 +72,11 @@ local NEARBY_PLAYER_MIN_ZOOM = 2
 local PLAYER_PULSE_SIZE = 20
 
 local function positionMarkerAtTile(minimap, marker, displayPos)
+    local previous = marker.anchoredMapPosition
+    if previous and previous.x == displayPos.x and previous.y == displayPos.y and previous.z == displayPos.z then
+        return
+    end
+    marker.anchoredMapPosition = displayPos
     marker:breakAnchors()
     minimap:anchorPosition(marker, AnchorRight, displayPos, AnchorHorizontalCenter)
     minimap:anchorPosition(marker, AnchorBottom, displayPos, AnchorVerticalCenter)
@@ -224,10 +226,9 @@ local function updatePartyPinVisibility(minimap, pin)
     local sameFloorAsView = viewZ == markerZ
     local sameFloorAsPlayer = playerZ == markerZ
 
-    if minimap:isCyclopediaMap() then
-        pin:setOpacity(sameFloorAsView and 1 or 0.25)
-    else
-        pin:setOpacity(sameFloorAsView and 1 or 0.55)
+    local opacity = sameFloorAsView and 1 or (minimap:isCyclopediaMap() and 0.25 or 0.55)
+    if pin:getOpacity() ~= opacity then
+        pin:setOpacity(opacity)
     end
 
     pin:show()
@@ -251,8 +252,10 @@ function UIMinimap:clearPartyPins()
     end
 
     for _, pin in pairs(self.partyPins) do
-        destroyPartyPinFloorLabel(pin)
-        pin:destroy()
+        if not pin:isDestroyed() then
+            destroyPartyPinFloorLabel(pin)
+            pin:destroy()
+        end
     end
 
     self.partyPins = {}
@@ -261,7 +264,7 @@ end
 function UIMinimap:updateNearbyPlayerPulse()
     local options = modules.client_options
     local animate = not options or not options.getOption('disableMinimapAnimations')
-    local visible = not self:isDestroyed() and self:isVisible()
+    local visible = g_game.isOnline() and not self:isDestroyed() and self:isVisible()
     local haloOpacity = 0
     local haloSize = PLAYER_PULSE_SIZE
     if visible and animate then
@@ -508,11 +511,12 @@ function UIMinimap:smoothZoomBy(step)
         self:setZoomAnimating(true)
     end
     local lastUpdate = g_clock.millis()
-    local frameInterval = 10
+    local frameInterval = 16
     local responseTime = 52
 
     local function animate()
-        if self:isDestroyed() then
+        if self:isDestroyed() or not self._smoothZoomTargetScale then
+            self._smoothZoomEvent = nil
             return
         end
 
@@ -690,34 +694,11 @@ function UIMinimap:updateFlag(flag, icon, description)
     flag:setTooltip(description)
 end
 
-function UIMinimap:setAlternativeWidgetsVisible(show)
-    local layout = self:getLayout()
-    layout:disableUpdates()
-    for _, widget in pairs(self.alternatives) do
-        if show then
-            self:insertChild(1, widget)
-            self:centerInPosition(widget, widget.pos)
-        else
-            self:removeChild(widget)
-        end
-    end
-    layout:enableUpdates()
-    layout:update()
-end
-
 function UIMinimap:onZoomChange(zoom)
     if self.fullMapView then
         self.zoomFullmap = zoom
     else
         self.zoomMinimap = zoom
-    end
-
-    for _, widget in pairs(self.alternatives) do
-        if (not widget.minZoom or widget.minZoom >= zoom) and widget.maxZoom <= zoom then
-            widget:show()
-        else
-            widget:hide()
-        end
     end
 
     self:updateAllPartyPinsVisibility()

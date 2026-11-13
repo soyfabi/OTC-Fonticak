@@ -60,11 +60,9 @@ struct MinimapTile
 class MinimapBlock
 {
 public:
-    void clean();
     void update();
     void updateTile(int x, int y, const MinimapTile& tile);
     MinimapTile& getTile(const int x, const int y) { return m_tiles[getTileIndex(x, y)]; }
-    void resetTile(const int x, const int y) { m_tiles[getTileIndex(x, y)] = MinimapTile(); }
     uint32_t getTileIndex(const int x, const int y) { return ((y % MMBLOCK_SIZE) * MMBLOCK_SIZE) + (x % MMBLOCK_SIZE); }
     const TexturePtr& getTexture() { return m_texture; }
     std::array<MinimapTile, MMBLOCK_SIZE* MMBLOCK_SIZE>& getTiles() { return m_tiles; }
@@ -74,10 +72,6 @@ public:
     bool wasSeen() const { return m_wasSeen; }
 private:
     TexturePtr m_texture;
-    ImagePtr m_image;
-
-    Size m_size{ MMBLOCK_SIZE, MMBLOCK_SIZE };
-
     std::array<MinimapTile, MMBLOCK_SIZE* MMBLOCK_SIZE> m_tiles;
 
     bool m_mustUpdate{ true };
@@ -167,8 +161,10 @@ private:
     {
         std::array<uint64_t, 9> revisions{};
         TexturePtr texture;
+        std::list<uint64_t>::iterator order;
     };
     std::unordered_map<uint64_t, FogChunk> m_fogChunks;
+    std::list<uint64_t> m_fogChunkOrder;
     TexturePtr getFogTexture(const Position& pos);
 
     struct HdTile

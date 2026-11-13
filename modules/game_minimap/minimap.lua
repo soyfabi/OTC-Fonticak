@@ -1,7 +1,7 @@
 local iconTopMenu = nil
 -- Exported for OTCv8/vBot cavebot (modules.game_minimap.minimapWidget)
 minimapWidget = nil
-local otmm = true
+local MINIMAP_FILE = '/minimap.otmm'
 local oldPos = nil
 local fullscreenWidget
 local pendingCreaturePinRefresh
@@ -92,7 +92,7 @@ local function updateSidebarCamera(forceCenter)
     widget:setCrossPosition(pos)
     virtualFloor = widget:getCameraPosition().z
     refreshVirtualFloors()
-    refreshMinimapPartyPins()
+    queueMinimapPartyPinsRefresh()
     updateSidebarCameraControls(widget)
 end
 
@@ -370,6 +370,15 @@ local function creatureHasPartyPin(creatureId)
     return found
 end
 
+function queueMinimapPartyPinsRefresh()
+    if not pendingCreaturePinRefresh and g_game.isOnline() then
+        pendingCreaturePinRefresh = addEvent(function()
+            pendingCreaturePinRefresh = nil
+            refreshMinimapPartyPins()
+        end)
+    end
+end
+
 local function onMinimapCreatureEvent(creature)
     if not creature or creature:isLocalPlayer() or not creature:isPlayer() then
         return
@@ -380,12 +389,7 @@ local function onMinimapCreatureEvent(creature)
         return
     end
 
-    if not pendingCreaturePinRefresh then
-        pendingCreaturePinRefresh = addEvent(function()
-            pendingCreaturePinRefresh = nil
-            refreshMinimapPartyPins()
-        end)
-    end
+    queueMinimapPartyPinsRefresh()
 end
 
 local function onPartyMinimapShieldEvent(creature)
@@ -393,7 +397,7 @@ local function onPartyMinimapShieldEvent(creature)
         return
     end
 
-    refreshMinimapPartyPins()
+    queueMinimapPartyPinsRefresh()
 end
 
 local function prepareDefaultLayout(ui)
@@ -1054,22 +1058,12 @@ function mapController:onGameStart()
 
     minimapWidget = findMinimapWidget(self.ui)
 
-    -- Load Map
-    g_minimap.clean()
-
-    local minimapFile = '/minimap'
-    local loadFnc = nil
-
-    if otmm then
-        minimapFile = minimapFile .. '.otmm'
-        loadFnc = g_minimap.loadOtmm
-    else
-        minimapFile = minimapFile .. '_' .. g_game.getClientVersion() .. '.otcm'
-        loadFnc = g_map.loadOtcm
+    if minimapWidget and minimapWidget.setSmoothWalk then
+        minimapWidget:setSmoothWalk(true)
     end
 
-    if g_resources.fileExists(minimapFile) then
-        loadFnc(minimapFile)
+    if g_resources.fileExists(MINIMAP_FILE) then
+        g_minimap.loadOtmm(MINIMAP_FILE)
     end
 
     if self.ui.minimapBorder and self.ui.minimapBorder.minimap then
@@ -1114,18 +1108,21 @@ function mapController:onGameStart()
         end
     end)
 
-    addEvent(refreshMinimapPartyPins)
+    queueMinimapPartyPinsRefresh()
 end
 
 function mapController:onGameEnd()
+    removeEvent(pendingCreaturePinRefresh)
+    pendingCreaturePinRefresh = nil
     if fullscreenWidget and fullscreenWidget.fullMapView then
         fullscreen()
     end
     if minimapWidget and not minimapWidget:isDestroyed() then
+        minimapWidget:finishSmoothZoom()
         minimapWidget.sidebarFreeView = false
         minimapWidget.sidebarCameraHasPixelOffset = false
         if minimapWidget.setSmoothWalk then
-            minimapWidget:setSmoothWalk(true)
+            minimapWidget:setSmoothWalk(false)
         end
         updateSidebarCameraControls(minimapWidget)
     end
@@ -1133,11 +1130,8 @@ function mapController:onGameEnd()
     refreshMinimapPartyPins()
 
     -- Save Map
-    if otmm then
-        g_minimap.saveOtmm('/minimap.otmm')
-    else
-        g_map.saveOtcm('/minimap_' .. g_game.getClientVersion() .. '.otcm')
-    end
+    g_minimap.saveOtmm(MINIMAP_FILE)
+    g_minimap.clean()
 
     if self.ui and self.ui.minimapBorder and self.ui.minimapBorder.minimap then
         self.ui.minimapBorder.minimap:save()

@@ -58,6 +58,7 @@ void SatelliteMap::clear()
     for (auto& v : m_placements)
         v.clear();
     m_textures.clear();
+    m_textureOrder.clear();
     m_maskTextures.clear();
     m_maskImages.clear();
     m_poiDoneTex.reset();
@@ -109,11 +110,8 @@ bool SatelliteMap::ensureIndex(const std::string& assetsDir)
     if (m_indexLoaded && m_dir == assetsDir)
         return true;
 
-    // Different data set: drop everything and reload.
-    for (auto& v : m_placements)
-        v.clear();
-    m_textures.clear();
-    m_indexLoaded = false;
+    // Masks and icons also depend on the asset directory.
+    clear();
     m_dir = assetsDir;
 
     const std::string path = assetsDir + "/satellite/index.dat";
@@ -190,8 +188,10 @@ bool SatelliteMap::hasChunksForView(const int floor)
 const TexturePtr& SatelliteMap::getTile(const uint16_t pngId)
 {
     const auto it = m_textures.find(pngId);
-    if (it != m_textures.end())
-        return it->second;
+    if (it != m_textures.end()) {
+        m_textureOrder.splice(m_textureOrder.end(), m_textureOrder, it->second.order);
+        return it->second.texture;
+    }
 
     TexturePtr tex;
     const std::string file = m_dir + "/satellite/" + std::to_string(pngId); // guessFilePath appends .png
@@ -201,7 +201,13 @@ const TexturePtr& SatelliteMap::getTile(const uint16_t pngId)
         tex->enableMipmaps(); // clean minification when zoomed out (no downscale aliasing/blur)
         tex->setSmooth(false); // keep nearest for crisp magnification -> GL_NEAREST_MIPMAP_NEAREST
     }
-    return m_textures.emplace(pngId, tex).first->second;
+    constexpr size_t MaxSatelliteTextures = 128;
+    if (m_textures.size() >= MaxSatelliteTextures) {
+        m_textures.erase(m_textureOrder.front());
+        m_textureOrder.pop_front();
+    }
+    m_textureOrder.push_back(pngId);
+    return m_textures.emplace(pngId, CachedTile{ std::move(tex), std::prev(m_textureOrder.end()) }).first->second.texture;
 }
 
 const TexturePtr& SatelliteMap::getMask(const int maskId)
@@ -230,8 +236,11 @@ void SatelliteMap::draw(const Rect& screenRect, const Position& mapCenter, const
     if (curZ < 0 || curZ >= static_cast<int>(m_placements.size()))
         return;
 
-    const auto& oldClip = g_drawPool.getClipRect();
-    g_drawPool.setClipRect(screenRect);
+    const auto oldClip = g_drawPool.getClipRect();
+    const auto clip = oldClip.isValid() ? screenRect.intersection(oldClip) : screenRect;
+    if (clip.isEmpty())
+        return;
+    g_drawPool.setClipRect(clip);
 
     // Ocean/background fill (satellite tiles are cut around land, water is transparent).
     g_drawPool.addFilledRect(screenRect, m_ocean);

@@ -28,6 +28,7 @@
 #include <framework/util/color.h>
 #include <framework/util/rect.h>
 #include <array>
+#include <list>
 #include <vector>
 #include <unordered_map>
 
@@ -85,7 +86,13 @@ private:
     bool m_indexLoaded{ false };
     Color m_ocean{ Color::black };
     std::array<std::vector<SatellitePlacement>, 16> m_placements;  // indexed by floor (z)
-    std::unordered_map<uint16_t, TexturePtr> m_textures;          // cached by pngId
+    struct CachedTile
+    {
+        TexturePtr texture;
+        std::list<uint16_t>::iterator order;
+    };
+    std::unordered_map<uint16_t, CachedTile> m_textures;
+    std::list<uint16_t> m_textureOrder;
     struct HighlightMask { Rect rect; int maskId; };
     const TexturePtr& getMask(int maskId);
     const ImagePtr& getMaskImage(int maskId);                     // CPU-side mask (for hit-testing)

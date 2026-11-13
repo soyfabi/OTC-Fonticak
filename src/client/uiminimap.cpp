@@ -121,8 +121,10 @@ void UIMinimap::setHdMode(bool enabled, bool live)
         m_hdMode = enabled;
         if (enabled)
             g_minimap.addHdView();
-        else
+        else {
+            m_hdCache.reset();
             g_minimap.removeHdView();
+        }
     }
     m_hdLive = live;
     updateWalkOffset();
