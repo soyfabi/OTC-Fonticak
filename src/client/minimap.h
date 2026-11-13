@@ -29,7 +29,6 @@
 #include <future>
 #include <list>
 #include <mutex>
-#include <optional>
 #include <unordered_set>
 
 constexpr uint8_t MMBLOCK_SIZE = 64;
@@ -194,8 +193,8 @@ private:
     void loadHdIndex();
     void loadHdAnimationIndex();
     bool drawHdAnimation(uint64_t key, const RectF& dest, uint64_t tick, MinimapHdCache& cache);
-    std::optional<std::vector<Rect>> drawHdPack(const Rect& screenRect, int floor, const MinimapProjection& projection,
-                                               float scale, bool zooming, bool animateItems, MinimapHdCache& cache);
+    std::vector<Rect> drawHdPack(const Rect& screenRect, int floor, const MinimapProjection& projection,
+                                 float scale, bool zooming, bool animateItems, MinimapHdCache& cache);
 
     std::atomic_uint m_hdViewCount{ 0 };
     std::mutex m_hdMutex;

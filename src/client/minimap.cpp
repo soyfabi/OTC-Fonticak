@@ -71,9 +71,17 @@ namespace
     constexpr int MaxHdAnimationFrames = 16;
     constexpr int MaxHdAnimationPixels = 16 * 1024 * 1024;
     constexpr size_t MaxHdAnimationDecodes = 2;
+    constexpr size_t MaxQueuedHdDecodes = 12;
     constexpr char HdPackDir[] = "/data/minimap_hd/";
     constexpr char HdAnimationDir[] = "/data/minimap_hd/animation/";
     constexpr char DownloadedAnimationDir[] = "/data/minimap_hd/animation-download/";
+    // A discarded view can leave decode jobs running. Keep their queue bounded
+    // and drain it before the resource manager closes the archives.
+    BS::thread_pool& hdDecodePool()
+    {
+        static BS::thread_pool pool{ 2 };
+        return pool;
+    }
     struct HdDownloadPack
     {
         const char* filename;
@@ -432,6 +440,7 @@ void Minimap::terminate()
     cancelPackDownload();
     if (m_packDownload.valid())
         m_packDownload.wait();
+    hdDecodePool().wait();
     clean();
 }
 
@@ -786,13 +795,14 @@ bool Minimap::drawHdAnimation(uint64_t key, const RectF& dest, uint64_t tick, Mi
         }
         const auto size = metadata->second.atlasSize();
         const int maxTextureSize = g_graphics.getMaxTextureSize();
-        if (pending >= MaxHdAnimationDecodes || pixels + size.area() > MaxHdAnimationPixels ||
+        auto& decoder = hdDecodePool();
+        if (pending >= MaxHdAnimationDecodes || decoder.get_tasks_total() >= MaxQueuedHdDecodes ||
+            pixels + size.area() > MaxHdAnimationPixels ||
             size.width() > maxTextureSize || size.height() > maxTextureSize)
             return false;
 
-        const auto path = fmt::format("{}animation-{}-{}-{}.png", m_hdAnimationDirectory, key & 0xffff,
-                                      (key >> 16) & 0xffff, (key >> 32) & 0xff);
-        cache.animations[key].decode = g_asyncDispatcher.submit_task([path, size] {
+        const auto path = m_hdAnimationDirectory + hdAnimationName(key & 0xffff, (key >> 16) & 0xffff, (key >> 32) & 0xff);
+        cache.animations[key].decode = decoder.submit_task([path, size] {
             return decodeHdPng(path, size, 20 * 1024 * 1024);
         });
         return false;
@@ -871,11 +881,11 @@ Point MinimapProjection::screenTile(const Point& screen) const
                             std::floor((screen.y + 0.5f - m_origin.y) / m_scale));
 }
 
-std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, int floor, const MinimapProjection& projection,
-                                                  float scale, bool zooming, bool animateItems, MinimapHdCache& cache)
+std::vector<Rect> Minimap::drawHdPack(const Rect& screenRect, int floor, const MinimapProjection& projection,
+                                     float scale, bool zooming, bool animateItems, MinimapHdCache& cache)
 {
     if (!g_things.isDatLoaded() || !g_sprites.isLoaded())
-        return std::nullopt;
+        return {};
     if (m_reloadHdIndex.exchange(false))
         m_hdIndexChecked = false;
     loadHdIndex();
@@ -883,6 +893,8 @@ std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, int
         cache = {};
         cache.revision = m_hdIndexRevision;
     }
+    if (m_hdIndex.empty())
+        return {};
 
     for (auto it = cache.decodes.begin(); it != cache.decodes.end();) {
         if (it->second.wait_for(std::chrono::seconds(0)) != std::future_status::ready) {
@@ -941,12 +953,14 @@ std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, int
     };
 
     const auto requestChunks = [&](const std::vector<VisibleChunk>& chunks, int level) {
+        auto& decoder = hdDecodePool();
         for (const auto& chunk : chunks) {
             if (const auto it = cache.textures.find(chunk.key); it != cache.textures.end()) {
                 cache.order.splice(cache.order.end(), cache.order, it->second.order);
-            } else if (cache.decodes.size() < MaxHdDecodes && !cache.decodes.contains(chunk.key)) {
+            } else if (cache.decodes.size() < MaxHdDecodes && !cache.decodes.contains(chunk.key) &&
+                       decoder.get_tasks_total() < MaxQueuedHdDecodes) {
                 const auto path = HdPackDir + hdChunkName(level, chunk.world.left(), chunk.world.top(), floor);
-                cache.decodes.emplace(chunk.key, g_asyncDispatcher.submit_task([path] {
+                cache.decodes.emplace(chunk.key, decoder.submit_task([path] {
                     return decodeHdPng(path, Size(HdChunkPixels, HdChunkPixels), 4 * 1024 * 1024);
                 }));
             }
@@ -1006,7 +1020,7 @@ std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, int
     }
     if (detail.empty() && held.empty()) {
         cache.animations.clear();
-        return std::nullopt;
+        return {};
     }
 
     if (!overview.empty() && overviewLevel != detailLevel)
@@ -1075,12 +1089,9 @@ void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float sc
     if (clip.isEmpty())
         return;
     g_drawPool.setClipRect(clip);
-    g_drawPool.addFilledRect(screenRect, color);
+    draw(screenRect, mapCenter, scale, color, offset);
     const bool animateItems = animationsEnabled && scale >= HdAnimationScale;
     const auto packedAreas = drawHdPack(screenRect, mapCenter.z, projection, scale, zooming, animateItems, cache);
-    if (!packedAreas)
-        draw(screenRect, mapCenter, scale, color, offset);
-
 
     const int spriteSize = g_gameConfig.getSpriteSize();
     const auto view = Rect(projection.screenTile(screenRect.topLeft()),
@@ -1101,7 +1112,7 @@ void Minimap::drawHd(const Rect& screenRect, const Position& mapCenter, float sc
             std::scoped_lock lock(m_hdMutex);
             const auto collect = [&](const Point& tile, const HdTile& snapshot) {
                 const bool drawTerrain = live && scanViewport &&
-                    (!packedAreas || std::ranges::none_of(*packedAreas, [&](const Rect& area) { return area.contains(tile); }));
+                    std::ranges::none_of(packedAreas, [&](const Rect& area) { return area.contains(tile); });
                 const bool drawPickupables = showFloorItems && snapshot.pickupables > 0 &&
                     g_map.isAwareOfPosition(Position(tile.x, tile.y, mapCenter.z));
                 const size_t visibleItems = (drawTerrain ? snapshot.items.size() - snapshot.pickupables : 0) +
@@ -1205,34 +1216,36 @@ void Minimap::draw(const Rect& screenRect, const Position& mapCenter, const floa
 
     if (MMBLOCK_SIZE * scale > 1 && mapCenter.isMapPosition()) {
         const MinimapProjection projection(screenRect, mapCenter, scale, offset);
-        const auto blockOff = getBlockOffset(projection.screenTile(screenRect.topLeft()));
+        const auto blockOff = getBlockOffset(projection.screenTile(clip.topLeft()));
+        const auto lastBlock = getBlockOffset(projection.screenTile(clip.bottomRight()));
+
+        const auto drawBlock = [&](const Position& pos, MinimapBlock& block) {
+            block.update();
+            if (const auto& texture = block.getTexture()) {
+                const auto topLeft = projection.tileEdge(Point(pos.x, pos.y));
+                const auto bottomRight = projection.tileEdge(Point(pos.x + MMBLOCK_SIZE, pos.y + MMBLOCK_SIZE));
+                const Rect dest(topLeft, Size(bottomRight.x - topLeft.x, bottomRight.y - topLeft.y));
+                g_drawPool.addTexturedRect(dest, texture, Rect(0, 0, MMBLOCK_SIZE, MMBLOCK_SIZE));
+            }
+        };
 
         // Project each shared edge once, avoiding accumulated rounding gaps at fractional zoom.
-        for (int y = std::max(0, blockOff.y); y < 65536; y += MMBLOCK_SIZE) {
-            const int top = projection.tileEdge(Point(mapCenter.x, y)).y;
-            if (top > screenRect.bottom())
-                break;
-            const int bottom = projection.tileEdge(Point(mapCenter.x, y + MMBLOCK_SIZE)).y;
-
-            for (int x = std::max(0, blockOff.x); x < 65536; x += MMBLOCK_SIZE) {
-                const int left = projection.tileEdge(Point(x, mapCenter.y)).x;
-                if (left > screenRect.right())
-                    break;
-                const int right = projection.tileEdge(Point(x + MMBLOCK_SIZE, mapCenter.y)).x;
-
-                const auto& pos = Position(x, y, mapCenter.z);
-
-                if (!hasBlock(pos))
-                    continue;
-
-                auto& block = getBlock(pos);
-                block.update();
-
-                const auto& tex = block.getTexture();
-                if (tex) {
-                    const Rect src(0, 0, MMBLOCK_SIZE, MMBLOCK_SIZE);
-                    const Rect dest(left, top, right - left, bottom - top);
-                    g_drawPool.addTexturedRect(dest, tex, src);
+        const auto columns = (lastBlock.x - blockOff.x) / MMBLOCK_SIZE + 1;
+        const auto rows = (lastBlock.y - blockOff.y) / MMBLOCK_SIZE + 1;
+        SpinLock::Guard lock(m_lock);
+        const auto& blocks = m_tileBlocks[mapCenter.z];
+        if (static_cast<uint64_t>(columns) * rows > blocks.size()) {
+            for (const auto& [index, block] : blocks) {
+                const auto pos = getIndexPosition(index, mapCenter.z);
+                if (pos.x >= blockOff.x && pos.x <= lastBlock.x && pos.y >= blockOff.y && pos.y <= lastBlock.y)
+                    drawBlock(pos, *block);
+            }
+        } else {
+            for (int y = std::max(0, blockOff.y); y <= std::min(65535, lastBlock.y); y += MMBLOCK_SIZE) {
+                for (int x = std::max(0, blockOff.x); x <= std::min(65535, lastBlock.x); x += MMBLOCK_SIZE) {
+                    const Position pos(x, y, mapCenter.z);
+                    if (const auto it = blocks.find(getBlockIndex(pos)); it != blocks.end())
+                        drawBlock(pos, *it->second);
                 }
             }
         }
@@ -1264,6 +1277,14 @@ void Minimap::drawFog(const Rect& screenRect, const Position& mapCenter, float s
     const Point pixel(1, 1);
     const auto first = getBlockOffset(projection.screenTile(clip.topLeft() - pixel));
     const auto last = projection.screenTile(clip.bottomRight() + pixel);
+    constexpr int maxFogBlocks = 4096;
+    const auto columns = (last.x - first.x) / MMBLOCK_SIZE + 1;
+    const auto rows = (last.y - first.y) / MMBLOCK_SIZE + 1;
+    if (int64_t(columns) * rows > maxFogBlocks) {
+        g_drawPool.addFilledRect(clip, UnexploredFogShade);
+        g_drawPool.setClipRect(oldClip);
+        return;
+    }
     for (int y = first.y; y <= last.y; y += MMBLOCK_SIZE) {
         for (int x = first.x; x <= last.x; x += MMBLOCK_SIZE) {
             const auto dest = project(Point(x, y), Size(MMBLOCK_SIZE, MMBLOCK_SIZE));
@@ -1339,8 +1360,7 @@ void Minimap::revealFog(const Position& center)
 
 void Minimap::updateTile(const Position& pos, const TilePtr& tile)
 {
-    if (tile)
-        updateHdTile(pos, tile);
+    updateHdTile(pos, tile);
     MinimapTile minimapTile;
     minimapTile.flags = MinimapTileWasSeen;
     if (tile) {

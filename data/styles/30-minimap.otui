@@ -135,6 +135,11 @@ MinimapDownloadProgress < UIWidget
   background-color: #222222ee
   phantom: true
   visible: false
+  @onDestroy: |
+    if self.hourglassEvent then
+      removeEvent(self.hourglassEvent)
+      self.hourglassEvent = nil
+    end
 
   UIWidget
     id: hourglass

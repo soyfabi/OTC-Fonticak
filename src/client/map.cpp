@@ -448,7 +448,6 @@ void Map::cleanTile(const Position& pos)
     if (!pos.isMapPosition())
         return;
 
-    g_minimap.updateHdTile(pos, nullptr);
     const auto it = m_floors[pos.z].tileBlocks.find(getBlockIndex(pos));
     if (it != m_floors[pos.z].tileBlocks.end()) {
         auto& block = it->second;

@@ -280,9 +280,12 @@ local function foreachMinimapWidget(callback)
     for _, useHorizontal in ipairs({ false, true }) do
         local border = getLayoutWidget(getLayoutRoot(ui, useHorizontal), 'minimapBorder')
         local mini = border and border:getChildById('minimap')
-        if mini and not mini:isDestroyed() then
+        if mini and mini ~= fullscreenWidget and not mini:isDestroyed() then
             callback(mini)
         end
+    end
+    if fullscreenWidget and not fullscreenWidget:isDestroyed() then
+        callback(fullscreenWidget)
     end
 end
 
