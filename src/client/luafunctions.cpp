@@ -207,6 +207,11 @@ void Client::registerLuaFunctions()
     g_lua.bindSingletonFunction("g_map", "getSpectatorsByPattern", &Map::getSpectatorsByPattern, &g_map);
 
     g_lua.registerSingletonClass("g_minimap");
+    g_lua.bindSingletonFunction("g_minimap", "startPackDownload", &Minimap::startPackDownload, &g_minimap);
+    g_lua.bindSingletonFunction("g_minimap", "cancelPackDownload", &Minimap::cancelPackDownload, &g_minimap);
+    g_lua.bindSingletonFunction("g_minimap", "getPackDownloadStatus", &Minimap::getPackDownloadStatus, &g_minimap);
+    g_lua.bindSingletonFunction("g_minimap", "getPackDownloadProgress", &Minimap::getPackDownloadProgress, &g_minimap);
+    g_lua.bindSingletonFunction("g_minimap", "getPackDownloadSizeMb", &Minimap::getPackDownloadSizeMb, &g_minimap);
     g_lua.bindSingletonFunction("g_minimap", "clean", &Minimap::clean, &g_minimap);
     g_lua.bindSingletonFunction("g_minimap", "loadImage", &Minimap::loadImage, &g_minimap);
     g_lua.bindSingletonFunction("g_minimap", "saveImage", &Minimap::saveImage, &g_minimap);

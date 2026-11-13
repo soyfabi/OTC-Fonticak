@@ -507,6 +507,20 @@ function toggleMinimapHd()
         return
     end
 
+    local hasHdMap
+    if g_minimap.getPackDownloadStatus then
+        hasHdMap = g_minimap.getPackDownloadStatus(false) == 'installed'
+    else
+        hasHdMap = g_resources.fileExists('/data/minimap_hd/index.txt')
+    end
+    if not hasHdMap then
+        if options and options.showMinimapOptions then
+            options.showMinimapOptions()
+        end
+        displayInfoBox(tr('HD Map'), tr('You need to download the HD map to use this feature.'))
+        return
+    end
+
     local enabled = not g_settings.getBoolean('minimapHd', true)
     g_settings.set('minimapHd', enabled)
     applyMinimapHd(widget, enabled)

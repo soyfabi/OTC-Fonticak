@@ -602,6 +602,7 @@ function controller:onInit()
     panels.miscGameplay = g_ui.loadUI('styles/misc/gameplay', controller.ui.optionsTabContent)
     panels.miscHelp = g_ui.loadUI('styles/misc/help', controller.ui.optionsTabContent)
     panels.minimapPanel = g_ui.loadUI('styles/minimap/minimap', controller.ui.optionsTabContent)
+    initMinimapAnimationDownload(panels.minimapPanel)
 
     self.ui:hide()
 
@@ -740,6 +741,7 @@ function controller:onInit()
 end
 
 function controller:onTerminate()
+    terminateMinimapAnimationDownload()
     if autoSwitchPresetEvent then
         removeEvent(autoSwitchPresetEvent)
         autoSwitchPresetEvent = nil
@@ -1678,6 +1680,20 @@ function show()
     controller.ui:show()
     controller.ui:raise()
     controller.ui:focus()
+end
+
+function showMinimapOptions()
+    if not controller.ui then
+        return
+    end
+
+    show()
+    for _, category in ipairs(controller.ui.optionsTabBar:getChildren()) do
+        if category.open == 'minimapPanel' and category.Button then
+            category.Button:onClick()
+            return
+        end
+    end
 end
 
 function showCustomHotkeys()

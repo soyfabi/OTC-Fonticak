@@ -84,3 +84,43 @@ UIWidget
         margin-right: 3
         width: 174
         @onValueChange: modules.client_options.setOption(self:getParent():getId(), self:getValue())
+
+  OptionsQtButton
+    id: downloadHdMap
+    anchors.left: parent.left
+    anchors.top: prev.bottom
+    margin-top: 9
+    width: 160
+    visible: false
+    !text: tr('Download Map HD')
+    !tooltip: tr('Download the static HD map for the minimap and Cyclopedia.')
+    @onClick: modules.client_options.toggleMinimapPackDownload(false)
+
+  OptionsLabel
+    id: hdDownloadStatus
+    anchors.left: downloadHdMap.right
+    anchors.verticalCenter: downloadHdMap.verticalCenter
+    margin-left: 8
+    width: 155
+    text-align: left
+    visible: false
+
+  OptionsQtButton
+    id: downloadAnimationMap
+    anchors.left: parent.left
+    anchors.top: downloadHdMap.bottom
+    margin-top: 5
+    width: 160
+    visible: false
+    !text: tr('Download Animation Map')
+    !tooltip: tr('Download animations for the static HD map. The same pack is used by the minimap and Cyclopedia.')
+    @onClick: modules.client_options.toggleMinimapPackDownload(true)
+
+  OptionsLabel
+    id: animationDownloadStatus
+    anchors.left: prev.right
+    anchors.verticalCenter: prev.verticalCenter
+    margin-left: 8
+    width: 155
+    text-align: left
+    visible: false

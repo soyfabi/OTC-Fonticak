@@ -22,5 +22,17 @@ signatures alone do not establish that two asset files have the same contents.
 The exporter uses the extended 32-bit 8.60 SPR format with 32-pixel RGB sprites.
 The generator leaves a chunk static if the pixels it would animate differ
 between the reconstructed first frame and the existing HD pack.
-The generated directory is a separate client asset and follows the same
-distribution process as the static HD pack.
+Windows players can install the static HD pack from **Options → Minimap →
+Download Map HD**, then use **Download Animation Map** for the optional
+animations. The client saves the verified ZIPs in its user data directory under
+`data/minimap_hd/map_hd` and `data/minimap_hd/animations`, respectively, and reads them
+directly. Manual installations also work.
+
+When packaging the client, leave out `data/minimap_hd`. Players can download the
+packs from Minimap options when they want to use them.
+
+To publish a new pack, ZIP the contents of its directory with `index.txt` and
+the PNGs at the archive root. Exclude the animation subdirectory from the static
+ZIP. Publish under a new release tag and update the download path, byte count,
+SHA-256 and, if needed, the compatible static index header in
+`src/client/minimap.cpp`.

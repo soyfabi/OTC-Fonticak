@@ -39,7 +39,19 @@
 #include "framework/graphics/image.h"
 #include "framework/graphics/texture.h"
 #include <bit>
+#include <filesystem>
+#include <fstream>
 #include <sstream>
+#include <physfs.h>
+
+#ifdef WIN32
+#include <windows.h>
+#include <winhttp.h>
+#include <openssl/evp.h>
+#ifdef _MSC_VER
+#pragma comment(lib, "winhttp.lib")
+#endif
+#endif
 
 Minimap g_minimap;
 static MinimapTile nulltile;
@@ -61,6 +73,118 @@ namespace
     constexpr size_t MaxHdAnimationDecodes = 2;
     constexpr char HdPackDir[] = "/data/minimap_hd/";
     constexpr char HdAnimationDir[] = "/data/minimap_hd/animation/";
+    constexpr char DownloadedAnimationDir[] = "/data/minimap_hd/animation-download/";
+    struct HdDownloadPack
+    {
+        const char* filename;
+        const wchar_t* urlPath;
+        const char* mountPoint;
+        uint64_t size;
+        std::string_view sha256;
+    };
+
+    constexpr HdDownloadPack HdPacks[] = {
+        { "minimap-hd-v1.zip", L"/soyfabi/OTC-Fonticak/releases/download/minimap-hd-v1/minimap-hd-v1.zip",
+          HdPackDir, 639915537, "382052458e4ef3dbd0e43cd64507ffa931620b3da489f1793efde65e43982cbb" },
+        { "minimap-animation-v1.zip", L"/soyfabi/OTC-Fonticak/releases/download/minimap-animation-v1/minimap-animation-v1.zip",
+          DownloadedAnimationDir, 589071865, "9fdfd064965d463b68a8b5f22026f949764dd744bb01f315ba50c87f3ad7b791" }
+    };
+
+    std::filesystem::path archivePath(bool animations)
+    {
+        return std::filesystem::u8path(g_resources.getWriteDir()) / "data" / "minimap_hd" /
+            (animations ? "animations" : "map_hd") / HdPacks[animations].filename;
+    }
+
+#ifdef WIN32
+    std::string downloadHdPack(const HdDownloadPack& pack, const std::filesystem::path& archive,
+                               const std::atomic_bool& canceled, std::atomic_int& progress)
+    {
+        using Handle = std::unique_ptr<void, decltype(&WinHttpCloseHandle)>;
+        auto partial = archive;
+        partial += ".part";
+
+        try {
+            const Handle session(WinHttpOpen(L"OTC-Fonticak", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY,
+                                             WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0), WinHttpCloseHandle);
+            if (!session || !WinHttpSetTimeouts(session.get(), 10000, 10000, 10000, 10000))
+                throw std::runtime_error("Unable to start the HTTPS download.");
+
+            const Handle connection(WinHttpConnect(session.get(), L"github.com", INTERNET_DEFAULT_HTTPS_PORT, 0),
+                                    WinHttpCloseHandle);
+            if (!connection)
+                throw std::runtime_error("Unable to connect to GitHub.");
+
+            const Handle request(WinHttpOpenRequest(connection.get(), L"GET", pack.urlPath,
+                nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, WINHTTP_FLAG_SECURE), WinHttpCloseHandle);
+            if (canceled)
+                return "Download canceled.";
+            if (!request || !WinHttpSendRequest(request.get(), WINHTTP_NO_ADDITIONAL_HEADERS, 0,
+                                                WINHTTP_NO_REQUEST_DATA, 0, 0, 0) ||
+                !WinHttpReceiveResponse(request.get(), nullptr))
+                throw std::runtime_error("Unable to download the map pack. Check your connection and try again.");
+
+            DWORD status = 0;
+            DWORD statusSize = sizeof(status);
+            if (!WinHttpQueryHeaders(request.get(), WINHTTP_QUERY_STATUS_CODE | WINHTTP_QUERY_FLAG_NUMBER,
+                                     WINHTTP_HEADER_NAME_BY_INDEX, &status, &statusSize, WINHTTP_NO_HEADER_INDEX) ||
+                status != 200)
+                throw std::runtime_error("The map pack is unavailable on GitHub.");
+
+            std::filesystem::create_directories(archive.parent_path());
+            std::ofstream file(partial, std::ios::binary | std::ios::trunc);
+            if (!file)
+                throw std::runtime_error("Unable to write the map pack to disk.");
+
+            const std::unique_ptr<EVP_MD_CTX, decltype(&EVP_MD_CTX_free)> hash(EVP_MD_CTX_new(), EVP_MD_CTX_free);
+            if (!hash || EVP_DigestInit_ex(hash.get(), EVP_sha256(), nullptr) != 1)
+                throw std::runtime_error("Unable to initialize SHA-256 verification.");
+
+            std::array<char, 64 * 1024> buffer;
+            uint64_t received = 0;
+            while (!canceled) {
+                DWORD size = 0;
+                if (!WinHttpReadData(request.get(), buffer.data(), static_cast<DWORD>(buffer.size()), &size))
+                    throw std::runtime_error("The download was interrupted. Try again.");
+                if (size == 0)
+                    break;
+                received += size;
+                if (received > pack.size)
+                    throw std::runtime_error("The map pack has an unexpected size.");
+                if (!file.write(buffer.data(), size))
+                    throw std::runtime_error("Unable to save the map pack. Check the available disk space.");
+                if (EVP_DigestUpdate(hash.get(), buffer.data(), size) != 1)
+                    throw std::runtime_error("Unable to verify the map pack.");
+                progress = static_cast<int>(std::min<uint64_t>(99, received * 100 / pack.size));
+            }
+            file.close();
+            if (canceled)
+                throw std::runtime_error("Download canceled.");
+            if (!file || received != pack.size)
+                throw std::runtime_error("The map pack download is incomplete.");
+
+            std::array<unsigned char, 32> digest;
+            unsigned int digestSize = 0;
+            if (EVP_DigestFinal_ex(hash.get(), digest.data(), &digestSize) != 1 || digestSize != digest.size())
+                throw std::runtime_error("Unable to verify the map pack.");
+            std::string checksum;
+            for (const auto byte : digest)
+                checksum += fmt::format("{:02x}", byte);
+            if (checksum != pack.sha256)
+                throw std::runtime_error("The map pack failed SHA-256 verification.");
+            if (canceled)
+                throw std::runtime_error("Download canceled.");
+
+            if (!MoveFileExW(partial.c_str(), archive.c_str(), MOVEFILE_REPLACE_EXISTING))
+                throw std::runtime_error("Unable to install the map pack.");
+            return {};
+        } catch (const std::exception& error) {
+            std::error_code ignored;
+            std::filesystem::remove(partial, ignored);
+            return canceled ? "Download canceled." : error.what();
+        }
+    }
+#endif
 
     uint64_t hdTileKey(int x, int y, int z)
     {
@@ -75,6 +199,68 @@ namespace
     std::string hdChunkName(int level, int x, int y, int z)
     {
         return fmt::format("satellite-{}-{}-{}-{}.png", level, x, y, z);
+    }
+
+    std::string hdAnimationName(int x, int y, int z)
+    {
+        return fmt::format("animation-{}-{}-{}.png", x, y, z);
+    }
+
+    bool hasManualPack(bool animations)
+    {
+        const std::string directory = animations ? HdAnimationDir : HdPackDir;
+        const auto index = directory + "index.txt";
+        if (!g_resources.fileExists(index))
+            return false;
+
+        try {
+            const auto file = g_resources.openFile(index);
+            if (file->size() == 0 || file->size() > 8 * 1024 * 1024)
+                return false;
+            std::string contents(file->size(), '\0');
+            if (file->read(contents.data(), 1, contents.size()) != contents.size())
+                return false;
+            std::istringstream input(std::move(contents));
+            std::string magic;
+            int version, chunkSize, pixelsPerTile;
+            uint32_t dat, spr;
+            size_t count;
+            if (!(input >> magic >> version))
+                return false;
+            if (animations) {
+                if (magic != "FONTICAKHDANIM" || version != 2)
+                    return false;
+            } else if (magic != "ASTRAHD" || version != 1 ||
+                       !(input >> chunkSize >> pixelsPerTile) || chunkSize != HdChunkSize || pixelsPerTile != 32) {
+                return false;
+            }
+            if (!(input >> dat >> spr >> count) || count == 0 || count > 100000)
+                return false;
+
+            const auto files = g_resources.listDirectoryFiles(directory);
+            if (files.size() < count + 1)
+                return false;
+            const std::unordered_set<std::string> names(files.begin(), files.end());
+            for (size_t i = 0; i < count; ++i) {
+                int x, y, z;
+                if (animations) {
+                    int frames, left, top, width, height, replace;
+                    if (!(input >> x >> y >> z >> frames >> left >> top >> width >> height >> replace) ||
+                        !names.contains(hdAnimationName(x, y, z)))
+                        return false;
+                } else {
+                    int level;
+                    std::string name;
+                    if (!(input >> level >> x >> y >> z >> name) ||
+                        name != hdChunkName(level, x, y, z) || !names.contains(name))
+                        return false;
+                }
+            }
+            std::string extra;
+            return !(input >> extra);
+        } catch (const std::exception&) {
+            return false;
+        }
     }
 
     std::string readHdFile(const std::string& path, uint32_t maxSize)
@@ -241,7 +427,117 @@ void Minimap::init() {
     m_tileBlocks.resize(g_gameConfig.getMapMaxZ() + 1);
 }
 
-void Minimap::terminate() { clean(); }
+void Minimap::terminate()
+{
+    cancelPackDownload();
+    if (m_packDownload.valid())
+        m_packDownload.wait();
+    clean();
+}
+
+bool Minimap::mountDownloadedPack(bool animations)
+{
+    auto& mounted = m_packMounted[animations];
+    if (mounted)
+        return true;
+    if (g_resources.getWriteDir().empty())
+        return false;
+
+    std::error_code error;
+    const auto& pack = HdPacks[animations];
+    auto path = archivePath(animations);
+    if (std::filesystem::file_size(path, error) != pack.size) {
+        auto legacyDir = path.parent_path().parent_path();
+        if (animations)
+            legacyDir /= "animation";
+        const auto legacyPath = legacyDir / pack.filename;
+        if (std::filesystem::file_size(legacyPath, error) != pack.size)
+            return false;
+
+        std::filesystem::create_directories(path.parent_path(), error);
+        if (!error)
+            std::filesystem::rename(legacyPath, path, error);
+        if (error)
+            path = legacyPath;
+    }
+    const auto utf8Path = path.generic_u8string();
+    mounted = PHYSFS_mount(reinterpret_cast<const char*>(utf8Path.c_str()), pack.mountPoint, 0) != 0;
+    if (mounted)
+        m_reloadHdIndex = true;
+    return mounted;
+}
+
+int Minimap::getPackDownloadSizeMb(bool animations) const
+{
+    return static_cast<int>((HdPacks[animations].size + 500000) / 1000000);
+}
+
+std::string Minimap::getPackDownloadStatus(bool animations)
+{
+    if (!m_packChecked[animations] && !g_resources.getWriteDir().empty()) {
+        m_packChecked[animations] = true;
+        mountDownloadedPack(animations);
+    }
+    if (m_packDownload.valid() && m_downloadingAnimations == animations) {
+        if (m_packDownload.wait_for(std::chrono::seconds(0)) != std::future_status::ready)
+            return m_cancelPackDownload ? "canceling" : "downloading";
+
+        m_packDownloadError = m_packDownload.get();
+        if (m_packDownloadError.empty() && !mountDownloadedPack(animations))
+            m_packDownloadError = "Unable to open the downloaded map pack.";
+    }
+    if (m_packMounted[animations] || hasManualPack(animations))
+        return "installed";
+    return m_downloadingAnimations == animations ? m_packDownloadError : std::string{};
+}
+
+bool Minimap::startPackDownload(bool animations)
+{
+    if (m_packDownload.valid() || getPackDownloadStatus(animations) == "installed")
+        return false;
+    m_downloadingAnimations = animations;
+#ifdef WIN32
+    if (animations) {
+        if (getPackDownloadStatus(false) != "installed") {
+            m_packDownloadError = "Install the static HD map before downloading its animations.";
+            return false;
+        }
+        try {
+            const auto path = std::string(HdPackDir) + "index.txt";
+            const auto file = g_resources.openFile(path);
+            constexpr std::string_view expectedHeader = "ASTRAHD 1 16 32 1277983123 1277298068 ";
+            std::array<char, expectedHeader.size()> header{};
+            if (file->size() < header.size() || file->read(header.data(), 1, header.size()) != header.size() ||
+                std::string_view(header.data(), header.size()) != expectedHeader) {
+                m_packDownloadError = "This animation pack requires a compatible static HD map.";
+                return false;
+            }
+        } catch (const std::exception&) {
+            m_packDownloadError = "Unable to read the static HD map index.";
+            return false;
+        }
+    }
+    if (g_resources.getWriteDir().empty()) {
+        m_packDownloadError = "The client data directory is unavailable.";
+        return false;
+    }
+    m_cancelPackDownload = false;
+    m_packDownloadProgress = 0;
+    m_packDownloadError.clear();
+    m_packDownload = g_asyncDispatcher.submit_task([this, animations, archive = archivePath(animations)] {
+        return downloadHdPack(HdPacks[animations], archive, m_cancelPackDownload, m_packDownloadProgress);
+    });
+    return true;
+#else
+    m_packDownloadError = "In-client map downloads are available on Windows.";
+    return false;
+#endif
+}
+
+void Minimap::cancelPackDownload()
+{
+    m_cancelPackDownload = true;
+}
 
 void Minimap::clean()
 {
@@ -395,7 +691,10 @@ void Minimap::loadHdAnimationIndex()
     if (m_hdAnimationIndexChecked)
         return;
     m_hdAnimationIndexChecked = true;
-    const auto path = std::string(HdAnimationDir) + "index.txt";
+    m_hdAnimationDirectory = DownloadedAnimationDir;
+    if (!g_resources.fileExists(m_hdAnimationDirectory + "index.txt"))
+        m_hdAnimationDirectory = HdAnimationDir;
+    const auto path = m_hdAnimationDirectory + "index.txt";
     if (!g_resources.fileExists(path))
         return;
 
@@ -457,7 +756,7 @@ bool Minimap::drawHdAnimation(uint64_t key, const RectF& dest, uint64_t tick, Mi
             size.width() > maxTextureSize || size.height() > maxTextureSize)
             return false;
 
-        const auto path = fmt::format("{}animation-{}-{}-{}.png", HdAnimationDir, key & 0xffff,
+        const auto path = fmt::format("{}animation-{}-{}-{}.png", m_hdAnimationDirectory, key & 0xffff,
                                       (key >> 16) & 0xffff, (key >> 32) & 0xff);
         cache.animations[key].decode = g_asyncDispatcher.submit_task([path, size] {
             return decodeHdPng(path, size, 20 * 1024 * 1024);
@@ -543,6 +842,8 @@ std::optional<std::vector<Rect>> Minimap::drawHdPack(const Rect& screenRect, int
 {
     if (!g_things.isDatLoaded() || !g_sprites.isLoaded())
         return std::nullopt;
+    if (m_reloadHdIndex.exchange(false))
+        m_hdIndexChecked = false;
     loadHdIndex();
     if (cache.revision != m_hdIndexRevision) {
         cache = {};

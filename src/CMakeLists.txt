@@ -579,6 +579,9 @@ else()
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE otclient_core)
+if(WIN32)
+  target_link_libraries(otclient_core PRIVATE winhttp)
+endif()
 
 # *****************************************************************************
 # Build flags

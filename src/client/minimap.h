@@ -128,6 +128,11 @@ class Minimap
 public:
     void init();
     void terminate();
+    bool startPackDownload(bool animations);
+    void cancelPackDownload();
+    std::string getPackDownloadStatus(bool animations);
+    int getPackDownloadProgress() const { return m_packDownloadProgress.load(); }
+    int getPackDownloadSizeMb(bool animations) const;
 
     void clean();
 
@@ -156,6 +161,16 @@ public:
     void saveOtmm(const std::string& fileName);
 
 private:
+    bool mountDownloadedPack(bool animations);
+    std::future<std::string> m_packDownload;
+    std::atomic_bool m_cancelPackDownload{ false };
+    std::atomic_int m_packDownloadProgress{ 0 };
+    std::atomic_bool m_reloadHdIndex{ false };
+    std::array<bool, 2> m_packMounted{};
+    std::array<bool, 2> m_packChecked{};
+    bool m_downloadingAnimations{ false };
+    std::string m_packDownloadError;
+
     std::vector<std::weak_ptr<UIMinimap>> m_walkViews;
     struct FogChunk
     {
@@ -200,6 +215,7 @@ private:
         Size atlasSize() const;
     };
     bool m_hdAnimationIndexChecked{ false };
+    std::string m_hdAnimationDirectory;
     std::unordered_map<uint64_t, HdAnimation> m_hdAnimations;
 
     bool hasBlock(const Position& pos) { return m_tileBlocks[pos.z].contains(getBlockIndex(pos)); }
