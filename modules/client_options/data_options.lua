@@ -2,7 +2,39 @@ local ownBattleSubChannelsSaved = nil
 local otherPlayersSubChannelsSaved = nil
 local consoleMessagesSubChannelsSaved = nil
 
+local function refreshMinimapPreferences()
+    local minimap = modules.game_minimap
+    if minimap and minimap.refreshMinimapPreferences then
+        minimap.refreshMinimapPreferences()
+    end
+
+    local cyclopedia = modules.game_cyclopedia
+    if cyclopedia and cyclopedia.refreshMapMinimapPreferences then
+        cyclopedia.refreshMapMinimapPreferences()
+    end
+end
+
+local function refreshNearbyMinimapPlayers(_value, options, _controller, panels)
+    local panel = panels.minimapPanel
+    local limit = panel and panel:recursiveGetChildById('nearbyMinimapPlayerLimit')
+    if limit then
+        limit:setText(tr('Nearby Player Limit: %s', options.nearbyMinimapPlayerLimit.value))
+        limit:setEnabled(options.showNearbyMinimapPlayers.value)
+    end
+
+    local minimap = modules.game_minimap
+    if minimap and minimap.refreshMinimapPartyPins then
+        minimap.refreshMinimapPartyPins()
+    end
+end
+
 return {
+    disableMinimapAnimations = { value = false, action = refreshMinimapPreferences },
+    disableMinimapFloorItems = { value = false, action = refreshMinimapPreferences },
+    disableMinimapHd = { value = false, action = refreshMinimapPreferences },
+    disableMinimapSmoothZoom = { value = false, action = refreshMinimapPreferences },
+    showNearbyMinimapPlayers = { value = true, action = refreshNearbyMinimapPlayers },
+    nearbyMinimapPlayerLimit = { value = 8, action = refreshNearbyMinimapPlayers },
     vsync                             = {
         value = true,
         action = function(value, options, controller, panels, extraWidgets)

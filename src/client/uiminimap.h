@@ -26,9 +26,12 @@
 #include <framework/ui/uiwidget.h>
 #include <algorithm>
 
+struct MinimapHdCache;
+
 class UIMinimap final : public UIWidget
 {
 public:
+    ~UIMinimap() override;
     void drawSelf(DrawPoolType drawPane) override;
 
     bool zoomIn() { return setZoom(m_zoom + 1); }
@@ -38,6 +41,7 @@ public:
     void setMinZoom(const int8_t minZoom) { m_minZoom = minZoom; }
     void setMaxZoom(const int8_t maxZoom) { m_maxZoom = maxZoom; }
     void setCameraPosition(const Position& pos);
+    void panByPixels(int dx, int dy);
     bool floorUp();
     bool floorDown();
 
@@ -50,12 +54,20 @@ public:
     int8_t getMinZoom() { return m_minZoom; }
     int8_t getMaxZoom() { return m_maxZoom; }
     float getScale() { return m_scale; }
-    void setScale(const float scale) { m_scale = std::max<float>(scale, 0.01f); }
+    void setScale(float scale);
+    void setZoomAnimating(bool animating);
 
     void setFloorSeparatorOpacity(float opacity) { m_floorSeparatorOpacity = std::clamp<float>(opacity, 0.f, 1.f); }
     float getFloorSeparatorOpacity() { return m_floorSeparatorOpacity; }
     void setSatelliteMode(bool enabled) { m_satelliteMode = enabled; }
     bool isSatelliteMode() { return m_satelliteMode; }
+    void setHdMode(bool enabled, bool live);
+    void setHdAnimations(bool enabled);
+    void setShowFloorItems(bool enabled);
+    void setFogOfWar(bool enabled);
+    void setSmoothWalk(bool enabled);
+    void updateWalkOffset();
+    const Point& getWalkOffset() const { return m_walkOffset; }
 
     void anchorPosition(const UIWidgetPtr& anchoredWidget, Fw::AnchorEdge anchoredEdge, const Position& hookedPosition, const Fw::AnchorEdge hookedEdge);
     void fillPosition(const UIWidgetPtr& anchoredWidget, const Position& hookedPosition);
@@ -67,11 +79,25 @@ protected:
     void onStyleApply(std::string_view styleName, const OTMLNodePtr& styleNode) override;
 
 private:
+    void applyCameraPosition(const Position& pos, const PointF& fraction);
+    PointF getProjectionOffset() const;
+
     Position m_cameraPosition;
+    PointF m_cameraFraction;
+    Point m_walkOffset;
+    PointF m_walkRemainder;
+    bool m_smoothWalk{ false };
     float m_scale{ 1.f };
     int8_t m_zoom{ 0 };
     int8_t m_minZoom{ -5 };
     int8_t m_maxZoom{ 5 };
     float m_floorSeparatorOpacity{ 1.f };
     bool m_satelliteMode{ false };
+    bool m_hdMode{ false };
+    bool m_hdLive{ true };
+    bool m_hdAnimations{ true };
+    bool m_showFloorItems{ true };
+    bool m_fogOfWar{ false };
+    bool m_zoomAnimating{ false };
+    std::shared_ptr<MinimapHdCache> m_hdCache;
 };

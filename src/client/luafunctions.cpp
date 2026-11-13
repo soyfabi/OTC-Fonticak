@@ -207,6 +207,13 @@ void Client::registerLuaFunctions()
     g_lua.bindSingletonFunction("g_map", "getSpectatorsByPattern", &Map::getSpectatorsByPattern, &g_map);
 
     g_lua.registerSingletonClass("g_minimap");
+    g_lua.bindSingletonFunction("g_minimap", "startPackDownload", &Minimap::startPackDownload, &g_minimap);
+    g_lua.bindSingletonFunction("g_minimap", "cancelPackDownload", &Minimap::cancelPackDownload, &g_minimap);
+    g_lua.bindSingletonFunction("g_minimap", "getPackDownloadStatus", &Minimap::getPackDownloadStatus, &g_minimap);
+    g_lua.bindSingletonFunction("g_minimap", "canUninstallPack", &Minimap::canUninstallPack, &g_minimap);
+    g_lua.bindSingletonFunction("g_minimap", "uninstallPack", &Minimap::uninstallPack, &g_minimap);
+    g_lua.bindSingletonFunction("g_minimap", "getPackDownloadProgress", &Minimap::getPackDownloadProgress, &g_minimap);
+    g_lua.bindSingletonFunction("g_minimap", "getPackDownloadSizeMb", &Minimap::getPackDownloadSizeMb, &g_minimap);
     g_lua.bindSingletonFunction("g_minimap", "clean", &Minimap::clean, &g_minimap);
     g_lua.bindSingletonFunction("g_minimap", "loadImage", &Minimap::loadImage, &g_minimap);
     g_lua.bindSingletonFunction("g_minimap", "saveImage", &Minimap::saveImage, &g_minimap);
@@ -1294,6 +1301,11 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMinimap>("getFloorSeparatorOpacity", &UIMinimap::getFloorSeparatorOpacity);
     g_lua.bindClassMemberFunction<UIMinimap>("setSatelliteMode", &UIMinimap::setSatelliteMode);
     g_lua.bindClassMemberFunction<UIMinimap>("isSatelliteMode", &UIMinimap::isSatelliteMode);
+    g_lua.bindClassMemberFunction<UIMinimap>("setHdMode", &UIMinimap::setHdMode);
+    g_lua.bindClassMemberFunction<UIMinimap>("setHdAnimations", &UIMinimap::setHdAnimations);
+    g_lua.bindClassMemberFunction<UIMinimap>("setShowFloorItems", &UIMinimap::setShowFloorItems);
+    g_lua.bindClassMemberFunction<UIMinimap>("setFogOfWar", &UIMinimap::setFogOfWar);
+    g_lua.bindClassMemberFunction<UIMinimap>("setSmoothWalk", &UIMinimap::setSmoothWalk);
     g_lua.bindClassMemberFunction<UIMinimap>("floorUp", &UIMinimap::floorUp);
     g_lua.bindClassMemberFunction<UIMinimap>("floorDown", &UIMinimap::floorDown);
     g_lua.bindClassMemberFunction<UIMinimap>("getTilePoint", &UIMinimap::getTilePoint);
@@ -1305,6 +1317,8 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMinimap>("getZoom", &UIMinimap::getZoom);
     g_lua.bindClassMemberFunction<UIMinimap>("getScale", &UIMinimap::getScale);
     g_lua.bindClassMemberFunction<UIMinimap>("setScale", &UIMinimap::setScale);
+    g_lua.bindClassMemberFunction<UIMinimap>("setZoomAnimating", &UIMinimap::setZoomAnimating);
+    g_lua.bindClassMemberFunction<UIMinimap>("panByPixels", &UIMinimap::panByPixels);
     g_lua.bindClassMemberFunction<UIMinimap>("anchorPosition", &UIMinimap::anchorPosition);
     g_lua.bindClassMemberFunction<UIMinimap>("fillPosition", &UIMinimap::fillPosition);
     g_lua.bindClassMemberFunction<UIMinimap>("centerInPosition", &UIMinimap::centerInPosition);

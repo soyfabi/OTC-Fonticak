@@ -14,7 +14,6 @@ function UIMinimap:onSetup()
     -- CrystalOTC default: render the compact minimap one level closer.
     self.zoomMinimap = 1
     self.zoomFullmap = 0
-    self.alternatives = {}
     self.onAddAutomapFlag = function(pos, icon, description)
         self:addFlag(pos, icon, description)
     end
@@ -28,15 +27,18 @@ function UIMinimap:onSetup()
 end
 
 function UIMinimap:onDestroy()
+    if self.setSmoothWalk then
+        self:setSmoothWalk(false)
+    end
+    if self.setHdMode then
+        self:setHdMode(false, false)
+    end
     if self._smoothZoomEvent then
         removeEvent(self._smoothZoomEvent)
         self._smoothZoomEvent = nil
     end
+    self._smoothZoomTargetScale = nil
 
-    for _, widget in pairs(self.alternatives) do
-        widget:destroy()
-    end
-    self.alternatives = {}
     disconnect(g_game, {
         onAddAutomapFlag = self.onAddAutomapFlag,
         onRemoveAutomapFlag = self.onRemoveAutomapFlag
@@ -48,8 +50,10 @@ end
 
 function UIMinimap:onVisibilityChange()
     if not self:isVisible() then
+        self:finishSmoothZoom()
         self:destroyFlagWindow()
     end
+    self:updateNearbyPlayerPulse()
 end
 
 function UIMinimap:onCameraPositionChange(cameraPos)
@@ -64,8 +68,15 @@ end
 
 local PARTY_PIN_MEMBER = '/game_cyclopedia/images/icon-map-player-yellow'
 local PARTY_PIN_LEADER = '/game_cyclopedia/images/icon-map-player-red'
+local NEARBY_PLAYER_MIN_ZOOM = 2
+local PLAYER_PULSE_SIZE = 20
 
 local function positionMarkerAtTile(minimap, marker, displayPos)
+    local previous = marker.anchoredMapPosition
+    if previous and previous.x == displayPos.x and previous.y == displayPos.y and previous.z == displayPos.z then
+        return
+    end
+    marker.anchoredMapPosition = displayPos
     marker:breakAnchors()
     minimap:anchorPosition(marker, AnchorRight, displayPos, AnchorHorizontalCenter)
     minimap:anchorPosition(marker, AnchorBottom, displayPos, AnchorVerticalCenter)
@@ -177,6 +188,12 @@ local function updatePartyPinVisibility(minimap, pin)
     end
 
     local cameraPos = minimap:getCameraPosition()
+    if pin.nearbyPlayer then
+        pin:setVisible(cameraPos ~= nil and cameraPos.z == pin.pos.z
+            and minimap:getZoom() >= NEARBY_PLAYER_MIN_ZOOM)
+        return
+    end
+
     if not cameraPos then
         pin:hide()
         destroyPartyPinFloorLabel(pin)
@@ -209,10 +226,9 @@ local function updatePartyPinVisibility(minimap, pin)
     local sameFloorAsView = viewZ == markerZ
     local sameFloorAsPlayer = playerZ == markerZ
 
-    if minimap:isCyclopediaMap() then
-        pin:setOpacity(sameFloorAsView and 1 or 0.25)
-    else
-        pin:setOpacity(sameFloorAsView and 1 or 0.55)
+    local opacity = sameFloorAsView and 1 or (minimap:isCyclopediaMap() and 0.25 or 0.55)
+    if pin:getOpacity() ~= opacity then
+        pin:setOpacity(opacity)
     end
 
     pin:show()
@@ -225,17 +241,67 @@ function UIMinimap:updateCrossVisibility()
 end
 
 function UIMinimap:clearPartyPins()
+    if self.nearbyPlayerPulseEvent then
+        removeEvent(self.nearbyPlayerPulseEvent)
+        self.nearbyPlayerPulseEvent = nil
+    end
+
     if not self.partyPins then
         self.partyPins = {}
         return
     end
 
     for _, pin in pairs(self.partyPins) do
-        destroyPartyPinFloorLabel(pin)
-        pin:destroy()
+        if not pin:isDestroyed() then
+            destroyPartyPinFloorLabel(pin)
+            pin:destroy()
+        end
     end
 
     self.partyPins = {}
+end
+
+function UIMinimap:updateNearbyPlayerPulse()
+    local options = modules.client_options
+    local animate = not options or not options.getOption('disableMinimapAnimations')
+    local visible = g_game.isOnline() and not self:isDestroyed() and self:isVisible()
+    local haloOpacity = 0
+    local haloSize = PLAYER_PULSE_SIZE
+    if visible and animate then
+        local progress = (g_clock.millis() % 1200) / 1200
+        haloSize = 12 + 2 * math.floor(progress * 4 + 0.5)
+        haloOpacity = math.sin(math.pi * progress) ^ 0.65
+    end
+
+    local hasVisiblePins = false
+    if visible and self.partyPins then
+        for _, pin in pairs(self.partyPins) do
+            if pin.nearbyPlayer and pin:isVisible() then
+                hasVisiblePins = true
+                local halo = pin.pulseHalo
+                if haloOpacity > 0 and halo.pulseSize ~= haloSize then
+                    local offset = (PLAYER_PULSE_SIZE - haloSize) / 2
+                    halo:setImageRect({ x = offset, y = offset, width = haloSize, height = haloSize })
+                    halo.pulseSize = haloSize
+                end
+                if math.abs(halo:getOpacity() - haloOpacity) > 0.01 then
+                    halo:setOpacity(haloOpacity)
+                end
+            end
+        end
+    end
+
+    if animate and hasVisiblePins then
+        if not self.nearbyPlayerPulseEvent then
+            self.nearbyPlayerPulseEvent = scheduleEvent(function()
+                self.nearbyPlayerPulseEvent = nil
+                self:updateNearbyPlayerPulse()
+            end, 50)
+        end
+    elseif self.nearbyPlayerPulseEvent then
+        removeEvent(self.nearbyPlayerPulseEvent)
+        self.nearbyPlayerPulseEvent = nil
+    end
 end
 
 function UIMinimap:updateAllPartyPinsVisibility()
@@ -246,6 +312,7 @@ function UIMinimap:updateAllPartyPinsVisibility()
     for _, pin in pairs(self.partyPins) do
         updatePartyPinVisibility(self, pin)
     end
+    self:updateNearbyPlayerPulse()
 end
 
 function UIMinimap:updatePartyPins(memberById)
@@ -268,25 +335,41 @@ function UIMinimap:updatePartyPins(memberById)
 
         local pinIcon = data.pinIcon or PARTY_PIN_MEMBER
         local pin = self.partyPins[id]
+        if pin and pin.nearbyPlayer ~= data.nearbyPlayer then
+            destroyPartyPinFloorLabel(pin)
+            pin:destroy()
+            pin = nil
+        end
+
         if not pin then
-            pin = g_ui.createWidget('MinimapCross', self)
+            pin = g_ui.createWidget(data.nearbyPlayer and 'MinimapNearbyPlayerPin' or 'MinimapCross', self)
             pin:setId('partyPin_' .. id)
-            pin:setImageSource('')
-            pin:setClipping(false)
-            pin:setPhantom(false)
-            pin:setFocusable(false)
+            pin.nearbyPlayer = data.nearbyPlayer
+            if not data.nearbyPlayer then
+                pin:setImageSource('')
+                pin:setClipping(false)
+                pin:setPhantom(false)
+                pin:setFocusable(false)
+            end
             self.partyPins[id] = pin
         end
 
-        pin:setIcon(pinIcon)
-        pin:setIconColor('#ffffff')
+        if data.nearbyPlayer then
+            local old = pin.pos
+            if not old or old.x ~= pos.x or old.y ~= pos.y or old.z ~= pos.z then
+                self:centerInPosition(pin, pos)
+            end
+        else
+            pin:setIcon(pinIcon)
+            pin:setIconColor('#ffffff')
+        end
 
         pin.pos = {
             x = pos.x,
             y = pos.y,
             z = pos.z
         }
-        pin:setTooltip(data.tooltip or data.name or tr('Party member'))
+        pin:setTooltip(data.tooltip or data.name or (data.nearbyPlayer and tr('Player') or tr('Party member')))
         ::continue::
     end
 
@@ -350,8 +433,44 @@ function UIMinimap:setLevelSeparatorIntensity(value)
     self:setFloorSeparatorOpacity(value)
 end
 
-function UIMinimap:smoothZoomBy(step, mousePos)
-    if not self.setScale or step == 0 then
+function UIMinimap:finishSmoothZoom()
+    if self._smoothZoomEvent then
+        removeEvent(self._smoothZoomEvent)
+        self._smoothZoomEvent = nil
+        self:setScale(self._smoothZoomTargetScale)
+        self._smoothZoomTargetScale = nil
+        if self.setZoomAnimating then
+            self:setZoomAnimating(false)
+        end
+        if self.onSmoothZoomScaleChange then
+            self:onSmoothZoomScaleChange(self:getScale())
+        end
+    end
+end
+
+function UIMinimap:applyMinimapPreferences()
+    local options = modules.client_options
+    if not options then
+        return
+    end
+
+    if self.setHdAnimations then
+        self:setHdAnimations(not options.getOption('disableMinimapAnimations'))
+    end
+    if self.setShowFloorItems then
+        self:setShowFloorItems(not options.getOption('disableMinimapFloorItems'))
+    end
+    self:updateNearbyPlayerPulse()
+    if options.getOption('disableMinimapSmoothZoom') then
+        self:finishSmoothZoom()
+    end
+end
+
+function UIMinimap:smoothZoomBy(step)
+    if step == 0 then
+        return false
+    end
+    if not self.setScale then
         return step > 0 and self:zoomIn() or self:zoomOut()
     end
 
@@ -360,9 +479,16 @@ function UIMinimap:smoothZoomBy(step, mousePos)
         return false
     end
 
-    if self._smoothZoomEvent then
-        removeEvent(self._smoothZoomEvent)
-        self._smoothZoomEvent = nil
+    local options = modules.client_options
+    if options and options.getOption('disableMinimapSmoothZoom') then
+        self:finishSmoothZoom()
+        if not self:setZoom(targetZoom) then
+            return false
+        end
+        if self.onSmoothZoomScaleChange then
+            self:onSmoothZoomScaleChange(self:getScale())
+        end
+        return true
     end
 
     local startScale = self:getScale()
@@ -370,42 +496,54 @@ function UIMinimap:smoothZoomBy(step, mousePos)
         return false
     end
 
-    local targetScale = self:getScale()
+    self._smoothZoomTargetScale = self:getScale()
     self:setScale(startScale)
 
     if self.onSmoothZoomScaleChange then
         self:onSmoothZoomScaleChange(self:getScale())
     end
 
-    local startedAt = g_clock.millis()
-    local duration = 300
+    if self._smoothZoomEvent then
+        return true
+    end
+
+    if self.setZoomAnimating then
+        self:setZoomAnimating(true)
+    end
+    local lastUpdate = g_clock.millis()
+    local frameInterval = 16
+    local responseTime = 52
 
     local function animate()
-        if self:isDestroyed() then
+        if self:isDestroyed() or not self._smoothZoomTargetScale then
+            self._smoothZoomEvent = nil
             return
         end
 
-        local progress = math.min(1, (g_clock.millis() - startedAt) / duration)
-        local eased = progress * progress * progress * (progress * (progress * 6 - 15) + 10)
-
-        self:setScale(startScale * math.pow(targetScale / startScale, eased))
+        local now = g_clock.millis()
+        local remaining = math.exp(-(now - lastUpdate) / responseTime)
+        lastUpdate = now
+        local currentScale = self:getScale()
+        local targetScale = self._smoothZoomTargetScale
+        local delta = math.log(targetScale / currentScale)
+        if math.abs(delta * remaining) > 0.003 then
+            self:setScale(targetScale * math.exp(-delta * remaining))
+            self._smoothZoomEvent = scheduleEvent(animate, frameInterval)
+        else
+            self:setScale(targetScale)
+            self._smoothZoomEvent = nil
+            self._smoothZoomTargetScale = nil
+            if self.setZoomAnimating then
+                self:setZoomAnimating(false)
+            end
+        end
 
         if self.onSmoothZoomScaleChange then
             self:onSmoothZoomScaleChange(self:getScale())
         end
-
-        if progress < 1 then
-            self._smoothZoomEvent = scheduleEvent(animate, 16)
-        else
-            self:setScale(targetScale)
-            if self.onSmoothZoomScaleChange then
-                self:onSmoothZoomScaleChange(self:getScale())
-            end
-            self._smoothZoomEvent = nil
-        end
     end
 
-    self._smoothZoomEvent = scheduleEvent(animate, 16)
+    self._smoothZoomEvent = scheduleEvent(animate, frameInterval)
     return true
 end
 
@@ -424,6 +562,7 @@ function UIMinimap:disableAutoWalk()
 end
 
 function UIMinimap:load()
+    self:finishSmoothZoom()
     local settings = g_settings.getNode('Minimap')
     if settings then
         if settings.flags then
@@ -486,6 +625,7 @@ function UIMinimap:setCrossPosition(pos)
     local cross = self.cross
     if not self.cross then
         cross = g_ui.createWidget('MinimapCross', self)
+        cross:setId('minimapPlayerCross')
         cross:setImageSource('')
         cross:setIcon('/game_cyclopedia/images/icon-map-player-green')
         self.cross = cross
@@ -554,34 +694,11 @@ function UIMinimap:updateFlag(flag, icon, description)
     flag:setTooltip(description)
 end
 
-function UIMinimap:setAlternativeWidgetsVisible(show)
-    local layout = self:getLayout()
-    layout:disableUpdates()
-    for _, widget in pairs(self.alternatives) do
-        if show then
-            self:insertChild(1, widget)
-            self:centerInPosition(widget, widget.pos)
-        else
-            self:removeChild(widget)
-        end
-    end
-    layout:enableUpdates()
-    layout:update()
-end
-
 function UIMinimap:onZoomChange(zoom)
     if self.fullMapView then
         self.zoomFullmap = zoom
     else
         self.zoomMinimap = zoom
-    end
-
-    for _, widget in pairs(self.alternatives) do
-        if (not widget.minZoom or widget.minZoom >= zoom) and widget.maxZoom <= zoom then
-            widget:show()
-        else
-            widget:hide()
-        end
     end
 
     self:updateAllPartyPinsVisibility()
@@ -629,17 +746,11 @@ end
 function UIMinimap:onMouseWheel(mousePos, direction)
     local keyboardModifiers = g_keyboard.getModifiers()
     if direction == MouseWheelUp and keyboardModifiers == KeyboardNoModifier then
-        if self:isCyclopediaMap() then
-            self:smoothZoomBy(1, mousePos)
-            return true
-        end
-        self:zoomIn()
+        self:smoothZoomBy(1)
+        return true
     elseif direction == MouseWheelDown and keyboardModifiers == KeyboardNoModifier then
-        if self:isCyclopediaMap() then
-            self:smoothZoomBy(-1, mousePos)
-            return true
-        end
-        self:zoomOut()
+        self:smoothZoomBy(-1)
+        return true
     elseif direction == MouseWheelDown and keyboardModifiers == KeyboardCtrlModifier then
         self:floorUp(1)
     elseif direction == MouseWheelUp and keyboardModifiers == KeyboardCtrlModifier then
@@ -697,6 +808,12 @@ function UIMinimap:onDragEnter(pos)
 end
 
 function UIMinimap:onDragMove(pos, moved)
+    if self.panByPixels then
+        self:panByPixels(pos.x - self.dragReference.x, pos.y - self.dragReference.y)
+        self.dragReference = pos
+        return true
+    end
+
     local scale = self:getScale()
     local dx = (self.dragReference.x - pos.x) / scale
     local dy = (self.dragReference.y - pos.y) / scale

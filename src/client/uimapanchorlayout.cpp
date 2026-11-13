@@ -26,8 +26,10 @@
 int UIPositionAnchor::getHookedPoint(const UIWidgetPtr& hookedWidget, const UIWidgetPtr&)
 {
     const auto& minimap = hookedWidget->static_self_cast<UIMinimap>();
-    const auto& hookedRect = minimap->getTileRect(m_hookedPosition);
+    auto hookedRect = minimap->getTileRect(m_hookedPosition);
     if (hookedRect.isValid()) {
+        if (m_playerMarker)
+            hookedRect.translate(Point() - minimap->getWalkOffset());
         switch (m_hookedEdge) {
             case Fw::AnchorTop: return hookedRect.top();
             case Fw::AnchorLeft: return hookedRect.left();
@@ -49,7 +51,8 @@ void UIMapAnchorLayout::addPositionAnchor(const UIWidgetPtr& anchoredWidget, Fw:
 
     assert(anchoredWidget != getParentWidget());
 
-    const auto& anchor = std::make_shared<UIPositionAnchor>(anchoredEdge, hookedPosition, hookedEdge);
+    const auto& anchor = std::make_shared<UIPositionAnchor>(anchoredEdge, hookedPosition, hookedEdge,
+        anchoredWidget->getId() == "minimapPlayerCross");
     auto& anchorGroup = m_anchorsGroups[anchoredWidget];
     if (!anchorGroup)
         anchorGroup = std::make_shared<UIAnchorGroup>();

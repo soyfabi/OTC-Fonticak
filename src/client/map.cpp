@@ -109,6 +109,7 @@ void Map::notificateCameraMove(const Point& offset) const
 {
     g_drawPool.repaint(DrawPoolType::FOREGROUND_MAP);
     g_drawPool.repaint(DrawPoolType::CREATURE_INFORMATION);
+    g_minimap.onCameraMove();
 
     for (const auto& mapView : m_mapViews) {
         mapView->onCameraMove(offset);
@@ -131,6 +132,7 @@ void Map::notificateTileUpdate(const Position& pos, const ThingPtr& thing, const
 
 void Map::clean()
 {
+    g_minimap.clearHdTerrain();
     cleanDynamicThings();
 
     #ifdef FRAMEWORK_SOUND
@@ -455,10 +457,10 @@ void Map::cleanTile(const Position& pos)
                 block.remove(pos);
 
             notificateTileUpdate(pos, nullptr, Otc::OPERATION_CLEAN);
-        } else {
-            g_minimap.updateTile(pos, nullptr);
         }
     }
+    // A skipped tile in a map description is known empty terrain.
+    g_minimap.updateTile(pos, nullptr);
 
     g_textDispatcher.addEvent([=, this] {
         for (auto itt = m_staticTexts.begin(); itt != m_staticTexts.end();) {

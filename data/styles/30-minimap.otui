@@ -12,6 +12,27 @@ MinimapCross < UIWidget
   image: /images/game/minimap/cross
   size: 16 16
 
+MinimapNearbyPlayerPin < UIWidget
+  focusable: false
+  size: 20 20
+
+  UIWidget
+    id: pulseHalo
+    anchors.fill: parent
+    phantom: true
+    focusable: false
+    opacity: 0
+    image-smooth: true
+    image-source: /images/game/minimap/nearby-player-halo
+
+  UIWidget
+    size: 8 8
+    anchors.centerIn: parent
+    phantom: true
+    focusable: false
+    image-smooth: true
+    image-source: /images/game/minimap/nearby-player-dot
+
 MinimapFloorUpButton < Button
   size: 20 20
   margin-right: 28
@@ -56,9 +77,108 @@ MinimapZoomOutButton < Button
   anchors.bottom: parent.bottom
   //icon-source: /images/game/minimap/zoom_out
 
-MinimapResetButton < Button
-  !text: tr('Center')
-  size: 44 20
+MinimapMapControl < Button
+  size: 20 20
+  padding: 0
+  focusable: false
+  icon-rect: 2 2 16 16
+  icon-color: #ffffff
+
+  $on:
+    icon-color: #8fda82
+
+MinimapHdControl < MinimapMapControl
+  icon-source: /images/topbuttons/minimap
+
+  UIWidget
+    id: highlight
+    anchors.centerIn: parent
+    size: 22 22
+    image-source: /images/topbuttons/highlight
+    phantom: true
+    focusable: false
+
+  UIWidget
+    id: brightButton
+    anchors.fill: parent
+    image-source: /images/ui/bright-x20
+    phantom: true
+    focusable: false
+
+MinimapFreeViewControl < MinimapMapControl
+  icon-source: /images/game/minimap/free-view
+
+MinimapDownloadButton < QtButton
+  size: 110 23
+  padding: 2 4 2 4
+  font: Verdana Bold-10px
+  color: #ffffff
+  image-smooth: false
+  text-wrap: false
+  focusable: false
+
+  UIWidget
+    id: highlight
+    anchors.fill: parent
+    border-width: 1
+    border-color: #55aaff
+    phantom: true
+    focusable: false
+
+MinimapDownloadProgress < UIWidget
+  anchors.horizontalCenter: parent.horizontalCenter
+  anchors.bottom: parent.bottom
+  margin-bottom: 4
+  size: 108 32
+  image-source: /images/ui/1pixel_down_frame
+  image-border: 4
+  background-color: #222222ee
+  phantom: true
+  visible: false
+  @onDestroy: |
+    if self.hourglassEvent then
+      removeEvent(self.hourglassEvent)
+      self.hourglassEvent = nil
+    end
+
+  UIWidget
+    id: hourglass
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 4
+    size: 16 20
+    image-source: /images/game/minimap/download-hourglass
+    phantom: true
+
+  Label
+    id: progressText
+    anchors.left: hourglass.right
+    anchors.right: parent.right
+    anchors.top: parent.top
+    margin-top: 3
+    text-align: center
+    phantom: true
+
+  ProgressBar
+    id: progressBar
+    anchors.left: hourglass.right
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    margin-left: 4
+    margin-right: 5
+    margin-bottom: 4
+    height: 7
+    background-color: #89c361
+    phantom: true
+
+MinimapFogControl < MinimapMapControl
+  icon-source: /images/game/minimap/fog-of-war
+
+MinimapCenterControl < MinimapMapControl
+  icon-source: /images/game/minimap/cross
+
+MinimapResetButton < MinimapCenterControl
+  !tooltip: tr('Center the minimap on your character.')
   anchors.left: parent.left
   anchors.top: parent.top
   margin: 4
@@ -79,11 +199,11 @@ Minimap < UIMinimap
 
   MinimapZoomInButton
     id: zoomInButton
-    @onClick: self:getParent():zoomIn()
+    @onClick: self:getParent():smoothZoomBy(1)
 
   MinimapZoomOutButton
     id: zoomOutButton
-    @onClick: self:getParent():zoomOut()
+    @onClick: self:getParent():smoothZoomBy(-1)
 
   MinimapResetButton
     id: resetButton

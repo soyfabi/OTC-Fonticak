@@ -1,9 +1,10 @@
 local iconTopMenu = nil
 -- Exported for OTCv8/vBot cavebot (modules.game_minimap.minimapWidget)
 minimapWidget = nil
-local otmm = true
+local MINIMAP_FILE = '/minimap.otmm'
 local oldPos = nil
 local fullscreenWidget
+local pendingCreaturePinRefresh
 local virtualFloor = 7
 local currentDayTime = {
     h = 12,
@@ -46,7 +47,23 @@ local function refreshVirtualFloors()
     end
 end
 
-local function onPositionChange()
+local function updateSidebarCameraControls(widget)
+    local freeView = widget:getChildById('freeViewButton')
+    local center = widget:getChildById('centerMapButton')
+    local player = g_game.getLocalPlayer()
+    local position = player and player:getPosition()
+    local camera = widget:getCameraPosition()
+    local show = g_game.isOnline() and not widget.fullMapView and position ~= nil
+
+    freeView:setVisible(show)
+    freeView:setOn(widget.sidebarFreeView == true)
+    center:setVisible(show and camera ~= nil and (widget.sidebarCameraHasPixelOffset == true
+        or camera.x ~= position.x or camera.y ~= position.y or camera.z ~= position.z))
+    freeView:raise()
+    center:raise()
+end
+
+local function updateSidebarCamera(forceCenter)
     local player = g_game.getLocalPlayer()
     if not player then
         return
@@ -62,19 +79,42 @@ local function onPositionChange()
         return
     end
 
-    local minimapWidget = ui.minimapBorder.minimap
-    if not (minimapWidget) or minimapWidget:isDragging() then
+    local widget = ui.minimapBorder.minimap
+    if not widget or widget:isDestroyed() then
         return
     end
 
-    if not minimapWidget.fullMapView then
-        minimapWidget:setCameraPosition(pos)
+    if forceCenter or (not widget.sidebarFreeView and not widget:isDragging() and not widget.fullMapView) then
+        widget.sidebarCameraHasPixelOffset = false
+        widget:setCameraPosition(pos)
     end
 
-    minimapWidget:setCrossPosition(pos)
-    virtualFloor = pos.z
+    widget:setCrossPosition(pos)
+    virtualFloor = widget:getCameraPosition().z
     refreshVirtualFloors()
-    refreshMinimapPartyPins()
+    queueMinimapPartyPinsRefresh()
+    updateSidebarCameraControls(widget)
+end
+
+local function onPositionChange()
+    updateSidebarCamera(false)
+end
+
+function centerMinimapOnPlayer()
+    updateSidebarCamera(true)
+end
+
+function toggleMinimapFreeView()
+    local widget = minimapWidget
+    if not widget or widget:isDestroyed() or widget.fullMapView or not g_game.isOnline() then
+        return
+    end
+
+    widget.sidebarFreeView = not widget.sidebarFreeView
+    if widget.setSmoothWalk then
+        widget:setSmoothWalk(not widget.sidebarFreeView)
+    end
+    updateSidebarCamera(not widget.sidebarFreeView)
 end
 
 mapController = Controller:new()
@@ -240,25 +280,65 @@ local function foreachMinimapWidget(callback)
     for _, useHorizontal in ipairs({ false, true }) do
         local border = getLayoutWidget(getLayoutRoot(ui, useHorizontal), 'minimapBorder')
         local mini = border and border:getChildById('minimap')
-        if mini and not mini:isDestroyed() then
+        if mini and mini ~= fullscreenWidget and not mini:isDestroyed() then
             callback(mini)
         end
+    end
+    if fullscreenWidget and not fullscreenWidget:isDestroyed() then
+        callback(fullscreenWidget)
+    end
+end
+
+local function showNearbyPlayers()
+    local options = modules.client_options
+    return not options or options.getOption('showNearbyMinimapPlayers')
+end
+
+local function collectNearbyPlayerPins(pins)
+    local localPlayer = g_game.getLocalPlayer()
+    local mapPanel = modules.game_interface.getMapPanel()
+    local playerPos = localPlayer and localPlayer:getPosition()
+    if not showNearbyPlayers() or not playerPos or not mapPanel then
+        return
+    end
+
+    local options = modules.client_options
+    local limit = options and options.getOption('nearbyMinimapPlayerLimit') or 8
+    limit = math.max(2, math.min(40, math.floor(limit)))
+    local candidates = {}
+    for _, creature in ipairs(mapPanel:getSightSpectators(false)) do
+        if creature:isPlayer() and not creature:isLocalPlayer() and not creature:isRemoved()
+            and not creature:isInvisible() then
+            local id = creature:getId()
+            local pos = creature:getPosition()
+            if not pins[id] and pos and pos.z == playerPos.z then
+                local dx, dy = pos.x - playerPos.x, pos.y - playerPos.y
+                candidates[#candidates + 1] = { id = id, creature = creature, pos = pos, distance = dx * dx + dy * dy }
+            end
+        end
+    end
+
+    if #candidates > limit then
+        table.sort(candidates, function(a, b)
+            return a.distance < b.distance or (a.distance == b.distance and a.id < b.id)
+        end)
+    end
+    for i = 1, math.min(limit, #candidates) do
+        local candidate = candidates[i]
+        pins[candidate.id] = { nearbyPlayer = true, name = candidate.creature:getName(), pos = candidate.pos }
     end
 end
 
 function refreshMinimapPartyPins()
-    if not g_game.isOnline() then
-        foreachMinimapWidget(function(mini)
-            mini:updatePartyPins({})
-        end)
-        return
+    local pins = {}
+    if g_game.isOnline() then
+        pins = collectMinimapPartyMembers()
+        collectNearbyPlayerPins(pins)
     end
-
-    local members = collectMinimapPartyMembers()
 
     local function applyPins(mini)
         if mini and not mini:isDestroyed() and mini.updatePartyPins then
-            mini:updatePartyPins(members)
+            mini:updatePartyPins(pins)
         end
     end
 
@@ -293,17 +373,26 @@ local function creatureHasPartyPin(creatureId)
     return found
 end
 
-local function onPartyMinimapCreatureEvent(creature)
+function queueMinimapPartyPinsRefresh()
+    if not pendingCreaturePinRefresh and g_game.isOnline() then
+        pendingCreaturePinRefresh = addEvent(function()
+            pendingCreaturePinRefresh = nil
+            refreshMinimapPartyPins()
+        end)
+    end
+end
+
+local function onMinimapCreatureEvent(creature)
     if not creature or creature:isLocalPlayer() or not creature:isPlayer() then
         return
     end
 
-    if CreatureList and not CreatureList.isRemotePartyMember(creature)
+    if not showNearbyPlayers() and CreatureList and not CreatureList.isRemotePartyMember(creature)
         and not creatureHasPartyPin(creature:getId()) then
         return
     end
 
-    refreshMinimapPartyPins()
+    queueMinimapPartyPinsRefresh()
 end
 
 local function onPartyMinimapShieldEvent(creature)
@@ -311,7 +400,7 @@ local function onPartyMinimapShieldEvent(creature)
         return
     end
 
-    refreshMinimapPartyPins()
+    queueMinimapPartyPinsRefresh()
 end
 
 local function prepareDefaultLayout(ui)
@@ -352,6 +441,191 @@ local function findMinimapWidget(ui)
     return horizontalBorder and horizontalBorder:getChildById('minimap')
 end
 
+function refreshMinimapFogOfWar()
+    local widget = fullscreenWidget or minimapWidget
+    if not widget or widget:isDestroyed() then
+        return
+    end
+
+    local enabled = g_settings.getBoolean('minimapFogOfWar', true)
+    local supported = widget.setFogOfWar ~= nil
+    local button = widget:getChildById('fogOfWarButton')
+    if button then
+        button:setVisible(supported and not widget.fullMapView)
+        button:setOn(supported and enabled)
+        button:raise()
+    end
+    if supported then
+        widget:setFogOfWar(enabled)
+    end
+end
+
+function toggleMinimapFogOfWar()
+    g_settings.set('minimapFogOfWar', not g_settings.getBoolean('minimapFogOfWar', true))
+    refreshMinimapFogOfWar()
+    local cyclopedia = modules.game_cyclopedia
+    if cyclopedia and cyclopedia.refreshMapFogOfWar then
+        cyclopedia.refreshMapFogOfWar()
+    end
+end
+
+local function isHdMapInstalled(options)
+    if options and options.isMinimapHdMapInstalled then
+        return options.isMinimapHdMapInstalled()
+    end
+    return g_resources.fileExists('/data/minimap_hd/index.txt')
+end
+
+local function applyMinimapHd(widget, enabled)
+    if not widget or widget:isDestroyed() then
+        return
+    end
+
+    widget:applyMinimapPreferences()
+    refreshMinimapFogOfWar()
+    local options = modules.client_options
+    local hdDisabled = options and options.getOption('disableMinimapHd')
+    enabled = enabled and not hdDisabled and isHdMapInstalled(options)
+    local supported = widget.setHdMode ~= nil
+    local button = widget:getChildById('hdButton')
+    if button then
+        button:setEnabled(supported and not hdDisabled)
+        button:setOn(supported and enabled)
+        if hdDisabled then
+            button:setTooltip(tr('HD map is disabled in Minimap settings'))
+        else
+            button:setTooltip(supported and tr('Toggle HD minimap') or tr('HD minimap requires the updated client'))
+        end
+        button:raise()
+    end
+    if supported then
+        widget:setHdMode(enabled, not widget.fullMapView)
+    end
+end
+
+function refreshMinimapPreferences()
+    applyMinimapHd(fullscreenWidget or minimapWidget, g_game.isOnline() and g_settings.getBoolean('minimapHd', true))
+    refreshMinimapDownloadOverlay()
+end
+
+local function stopDownloadHourglass(panel)
+    if panel.hourglassEvent then
+        removeEvent(panel.hourglassEvent)
+        panel.hourglassEvent = nil
+    end
+    if not panel:isDestroyed() then
+        panel.hourglass:setRotation(0)
+    end
+end
+
+local function animateDownloadHourglass(panel)
+    if panel.hourglassEvent then
+        return
+    end
+
+    local startedAt = g_clock.millis()
+    panel.hourglassEvent = cycleEvent(function()
+        if panel:isDestroyed() or not panel:isVisible() then
+            stopDownloadHourglass(panel)
+            return
+        end
+        local elapsed = g_clock.millis() - startedAt
+        local cycle = math.floor(elapsed / 1600)
+        local turn = math.min(math.max((elapsed % 1600 - 1200) / 400, 0), 1)
+        local eased = turn * turn * (3 - 2 * turn)
+        local angle = (cycle % 2 + eased) * 180 % 360
+        if panel.hourglass:getRotation() ~= angle then
+            panel.hourglass:setRotation(angle)
+        end
+    end, 25)
+end
+
+function refreshMapDownloadOverlay(widget, offline)
+    if not widget or widget:isDestroyed() then
+        return
+    end
+    local button = widget:getChildById('downloadPackButton')
+    local panel = widget:getChildById('downloadPackProgress')
+    if not button or not panel then
+        return
+    end
+
+    local options = modules.client_options
+    local hd, animations
+    if options and options.getMinimapPackDownloadState then
+        hd, animations = options.getMinimapPackDownloadState()
+    end
+    local active = hd == 'downloading' or hd == 'canceling'
+        or animations == 'downloading' or animations == 'canceling'
+    local showOverlay = not offline and hd ~= nil and animations ~= nil and g_game.isOnline()
+        and not widget.fullMapView and not options.getOption('disableMinimapHd')
+    panel:setVisible(showOverlay and active)
+    button:setVisible(showOverlay and not active and (hd ~= 'installed' or animations ~= 'installed'))
+    if showOverlay and active then
+        animateDownloadHourglass(panel)
+    elseif panel.hourglassEvent then
+        stopDownloadHourglass(panel)
+    end
+    if not showOverlay then
+        return
+    end
+
+    if active then
+        local percent = g_minimap.getPackDownloadProgress()
+        local canceling = hd == 'canceling' or animations == 'canceling'
+        panel.progressBar:setPercent(percent)
+        panel.progressText:setText(canceling and tr('Canceling...') or tr('%d%%', percent))
+        panel:raise()
+    elseif hd ~= 'installed' or animations ~= 'installed' then
+        local downloadAnimations = hd == 'installed'
+        button:setFont(downloadAnimations and 'Verdana-8px' or 'Verdana Bold-10px')
+        button:setText(downloadAnimations and tr('Download Map Animation') or tr('Download Map HD'))
+        button:raise()
+    end
+end
+
+function refreshMinimapDownloadOverlay(offline)
+    refreshMapDownloadOverlay(minimapWidget, offline)
+end
+
+function downloadMinimapPack()
+    local options = modules.client_options
+    if not options or not options.getMinimapPackDownloadState then
+        return
+    end
+    local hd, animations = options.getMinimapPackDownloadState()
+    if hd == nil or animations == nil then
+        return
+    end
+    local status = hd ~= 'installed' and hd or animations
+    if status ~= 'installed' and status ~= 'downloading' and status ~= 'canceling' then
+        options.toggleMinimapPackDownload(hd == 'installed')
+    end
+end
+
+function toggleMinimapHd()
+    local widget = fullscreenWidget or minimapWidget
+    if not widget or not widget.setHdMode or not g_game.isOnline() then
+        return
+    end
+    local options = modules.client_options
+    if options and options.getOption('disableMinimapHd') then
+        return
+    end
+
+    if not isHdMapInstalled(options) then
+        if options and options.showMinimapOptions then
+            options.showMinimapOptions()
+        end
+        displayInfoBox(tr('HD Map'), tr('You need to download the HD map to use this feature.'))
+        return
+    end
+
+    local enabled = not g_settings.getBoolean('minimapHd', true)
+    g_settings.set('minimapHd', enabled)
+    applyMinimapHd(widget, enabled)
+end
+
 local function syncMinimapLayoutAliases(layoutRoot)
     local ui = mapController.ui
     if not ui or ui:isDestroyed() or not layoutRoot or layoutRoot:isDestroyed() then
@@ -362,18 +636,55 @@ local function syncMinimapLayoutAliases(layoutRoot)
     ui.rosePanel = getLayoutWidget(layoutRoot, 'rosePanel')
 end
 
-local function resolveHorizontalSide(container)
+local function resolveMinimapSide(container)
     local current = container
     while current do
         local id = current.getId and current:getId() or nil
-        if id == 'gameLeftTopPanel' then
+        if id == 'gameLeftTopPanel' or id == 'gameLeftPanel' or id == 'gameLeftExtraPanel' then
             return 'left'
-        elseif id == 'gameRightTopPanel' then
+        elseif id == 'gameRightTopPanel' or id == 'gameRightPanel' or id == 'gameRightExtraPanel' then
             return 'right'
         end
         current = current.getParent and current:getParent() or nil
     end
     return 'right'
+end
+
+local function positionMinimapHdButton(widget, side)
+    local button = widget and widget:getChildById('hdButton')
+    if not button then
+        return
+    end
+
+    button:breakAnchors()
+    button:setMargin(3)
+    local horizontalEdge = AnchorRight
+    if side == 'right' and not widget.fullMapView then
+        horizontalEdge = AnchorLeft
+        button:addAnchor(AnchorLeft, 'parent', AnchorLeft)
+        button:addAnchor(AnchorBottom, 'parent', AnchorBottom)
+    else
+        button:addAnchor(AnchorRight, 'parent', AnchorRight)
+        local verticalEdge = widget.fullMapView and AnchorTop or AnchorBottom
+        button:addAnchor(verticalEdge, 'parent', verticalEdge)
+    end
+
+    local freeView = widget:getChildById('freeViewButton')
+    local center = widget:getChildById('centerMapButton')
+    local fog = widget:getChildById('fogOfWarButton')
+    if fog then
+        fog:breakAnchors()
+        fog:addAnchor(horizontalEdge, 'hdButton', horizontalEdge)
+        fog:addAnchor(AnchorBottom, 'hdButton', AnchorTop)
+    end
+    freeView:breakAnchors()
+    freeView:addAnchor(horizontalEdge, 'hdButton', horizontalEdge)
+    local belowFreeView = fog and widget.setFogOfWar and 'fogOfWarButton' or 'hdButton'
+    freeView:addAnchor(AnchorBottom, belowFreeView, AnchorTop)
+    center:breakAnchors()
+    center:addAnchor(horizontalEdge, 'freeViewButton', horizontalEdge)
+    center:addAnchor(AnchorBottom, 'freeViewButton', AnchorTop)
+    updateSidebarCameraControls(widget)
 end
 
 local function applyHorizontalControlsLayout(horizontalRoot, mirror)
@@ -486,8 +797,10 @@ local function applyLayoutMode(isHorizontal, container)
     minimapWidget = mini
     refreshVirtualFloors()
 
+    local side = resolveMinimapSide(container)
+    positionMinimapHdButton(mini, side)
     if showHorizontal then
-        applyHorizontalPanelLayout(horizontalRoot, resolveHorizontalSide(container))
+        applyHorizontalPanelLayout(horizontalRoot, side)
         local drag = getLayoutWidget(horizontalRoot, 'horizontalDragHandle')
         if drag then
             drag:raise()
@@ -792,6 +1105,31 @@ function mapController:onInit()
     syncMinimapLayoutAliases(getLayoutRoot(self.ui, false))
     minimapWidget = findMinimapWidget(self.ui)
     if minimapWidget then
+        local baseCameraChange = minimapWidget.onCameraPositionChange
+        function minimapWidget.onCameraPositionChange(widget, position, oldPosition)
+            baseCameraChange(widget, position, oldPosition)
+            if not widget:isDragging() then
+                widget.sidebarCameraHasPixelOffset = false
+            end
+            updateSidebarCameraControls(widget)
+        end
+
+        local baseDragMove = minimapWidget.onDragMove
+        function minimapWidget.onDragMove(widget, position, moved)
+            local handled = baseDragMove(widget, position, moved)
+            if handled and not widget.fullMapView then
+                local viewport = widget:getPaddingRect()
+                local center = widget:getTilePoint(widget:getCameraPosition())
+                widget.sidebarCameraHasPixelOffset = center.x ~= math.floor(viewport.x + viewport.width / 2)
+                    or center.y ~= math.floor(viewport.y + viewport.height / 2)
+                updateSidebarCameraControls(widget)
+            end
+            return handled
+        end
+
+        if minimapWidget.setSmoothWalk then
+            minimapWidget:setSmoothWalk(true)
+        end
         for _, id in ipairs({ 'floorUpButton', 'floorDownButton', 'zoomInButton', 'zoomOutButton', 'resetButton' }) do
             local button = minimapWidget:getChildById(id)
             if button then
@@ -825,35 +1163,28 @@ function mapController:onGameStart()
     }):execute()
 
     mapController:registerEvents(Creature, {
-        onPositionChange = onPartyMinimapCreatureEvent,
-        onAppear = onPartyMinimapCreatureEvent,
-        onDisappear = onPartyMinimapCreatureEvent,
+        onPositionChange = onMinimapCreatureEvent,
+        onAppear = onMinimapCreatureEvent,
+        onDisappear = onMinimapCreatureEvent,
+        onOutfitChange = onMinimapCreatureEvent,
         onShieldChange = onPartyMinimapShieldEvent
     }):execute()
 
     minimapWidget = findMinimapWidget(self.ui)
 
-    -- Load Map
-    g_minimap.clean()
-
-    local minimapFile = '/minimap'
-    local loadFnc = nil
-
-    if otmm then
-        minimapFile = minimapFile .. '.otmm'
-        loadFnc = g_minimap.loadOtmm
-    else
-        minimapFile = minimapFile .. '_' .. g_game.getClientVersion() .. '.otcm'
-        loadFnc = g_map.loadOtcm
+    if minimapWidget and minimapWidget.setSmoothWalk then
+        minimapWidget:setSmoothWalk(true)
     end
 
-    if g_resources.fileExists(minimapFile) then
-        loadFnc(minimapFile)
+    if g_resources.fileExists(MINIMAP_FILE) then
+        g_minimap.loadOtmm(MINIMAP_FILE)
     end
 
     if self.ui.minimapBorder and self.ui.minimapBorder.minimap then
         self.ui.minimapBorder.minimap:load()
     end
+    applyMinimapHd(minimapWidget, g_settings.getBoolean('minimapHd', true))
+    refreshMinimapDownloadOverlay()
 
     -- The default minimap slot is above the right sidebar, not inside the
     -- inventory column below it. Migrate the former default once, preserving
@@ -892,18 +1223,31 @@ function mapController:onGameStart()
         end
     end)
 
-    addEvent(refreshMinimapPartyPins)
+    queueMinimapPartyPinsRefresh()
 end
 
 function mapController:onGameEnd()
+    removeEvent(pendingCreaturePinRefresh)
+    pendingCreaturePinRefresh = nil
+    if fullscreenWidget and fullscreenWidget.fullMapView then
+        fullscreen()
+    end
+    if minimapWidget and not minimapWidget:isDestroyed() then
+        minimapWidget:finishSmoothZoom()
+        minimapWidget.sidebarFreeView = false
+        minimapWidget.sidebarCameraHasPixelOffset = false
+        if minimapWidget.setSmoothWalk then
+            minimapWidget:setSmoothWalk(false)
+        end
+        updateSidebarCameraControls(minimapWidget)
+    end
+    applyMinimapHd(minimapWidget, false)
+    refreshMinimapDownloadOverlay(true)
     refreshMinimapPartyPins()
 
     -- Save Map
-    if otmm then
-        g_minimap.saveOtmm('/minimap.otmm')
-    else
-        g_map.saveOtcm('/minimap_' .. g_game.getClientVersion() .. '.otcm')
-    end
+    g_minimap.saveOtmm(MINIMAP_FILE)
+    g_minimap.clean()
 
     if self.ui and self.ui.minimapBorder and self.ui.minimapBorder.minimap then
         self.ui.minimapBorder.minimap:save()
@@ -920,6 +1264,12 @@ function mapController:onGameEnd()
 end
 
 function mapController:onTerminate()
+    refreshMinimapDownloadOverlay(true)
+    if pendingCreaturePinRefresh then
+        removeEvent(pendingCreaturePinRefresh)
+        pendingCreaturePinRefresh = nil
+    end
+    applyMinimapHd(fullscreenWidget or minimapWidget, false)
     if iconTopMenu then
         iconTopMenu:destroy()
         iconTopMenu = nil
@@ -929,14 +1279,14 @@ end
 function zoomIn()
     local mini = mapController.ui and mapController.ui.minimapBorder and mapController.ui.minimapBorder.minimap
     if mini then
-        mini:zoomIn()
+        mini:smoothZoomBy(1)
     end
 end
 
 function zoomOut()
     local mini = mapController.ui and mapController.ui.minimapBorder and mapController.ui.minimapBorder.minimap
     if mini then
-        mini:zoomOut()
+        mini:smoothZoomBy(-1)
     end
 end
 
@@ -959,6 +1309,7 @@ function fullscreen()
         return
     end
 
+    minimapWidget:finishSmoothZoom()
     if minimapWidget.fullMapView then
         fullscreenWidget = nil
         minimapWidget:setParent(mapController.ui.minimapBorder)
@@ -981,6 +1332,12 @@ function fullscreen()
     oldPos = minimapWidget:getCameraPosition()
     minimapWidget:setZoom(zoom)
     minimapWidget:setCameraPosition(pos)
+    if minimapWidget.setSmoothWalk then
+        minimapWidget:setSmoothWalk(not minimapWidget.fullMapView and not minimapWidget.sidebarFreeView)
+    end
+    positionMinimapHdButton(minimapWidget, resolveMinimapSide(mapController.ui:getParent()))
+    applyMinimapHd(minimapWidget, g_game.isOnline() and g_settings.getBoolean('minimapHd', true))
+    refreshMinimapDownloadOverlay()
 end
 
 function upLayer()

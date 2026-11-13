@@ -28,8 +28,8 @@
 class UIPositionAnchor final : public UIAnchor
 {
 public:
-    UIPositionAnchor(const Fw::AnchorEdge anchoredEdge, const Position& hookedPosition, const Fw::AnchorEdge hookedEdge) :
-        UIAnchor(anchoredEdge, {}, hookedEdge), m_hookedPosition(hookedPosition)
+    UIPositionAnchor(const Fw::AnchorEdge anchoredEdge, const Position& hookedPosition, const Fw::AnchorEdge hookedEdge, bool playerMarker) :
+        UIAnchor(anchoredEdge, {}, hookedEdge), m_hookedPosition(hookedPosition), m_playerMarker(playerMarker)
     {
     }
 
@@ -38,6 +38,7 @@ public:
 
 private:
     Position m_hookedPosition;
+    bool m_playerMarker;
 };
 
 class UIMapAnchorLayout final : public UIAnchorLayout
