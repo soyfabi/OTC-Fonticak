@@ -434,12 +434,41 @@ local function findMinimapWidget(ui)
     return horizontalBorder and horizontalBorder:getChildById('minimap')
 end
 
+function refreshMinimapFogOfWar()
+    local widget = fullscreenWidget or minimapWidget
+    if not widget or widget:isDestroyed() then
+        return
+    end
+
+    local enabled = g_settings.getBoolean('minimapFogOfWar', true)
+    local supported = widget.setFogOfWar ~= nil
+    local button = widget:getChildById('fogOfWarButton')
+    if button then
+        button:setVisible(supported and not widget.fullMapView)
+        button:setOn(supported and enabled)
+        button:raise()
+    end
+    if supported then
+        widget:setFogOfWar(enabled)
+    end
+end
+
+function toggleMinimapFogOfWar()
+    g_settings.set('minimapFogOfWar', not g_settings.getBoolean('minimapFogOfWar', true))
+    refreshMinimapFogOfWar()
+    local cyclopedia = modules.game_cyclopedia
+    if cyclopedia and cyclopedia.refreshMapFogOfWar then
+        cyclopedia.refreshMapFogOfWar()
+    end
+end
+
 local function applyMinimapHd(widget, enabled)
     if not widget or widget:isDestroyed() then
         return
     end
 
     widget:applyMinimapPreferences()
+    refreshMinimapFogOfWar()
     local options = modules.client_options
     local hdDisabled = options and options.getOption('disableMinimapHd')
     enabled = enabled and not hdDisabled
@@ -524,9 +553,16 @@ local function positionMinimapHdButton(widget, side)
 
     local freeView = widget:getChildById('freeViewButton')
     local center = widget:getChildById('centerMapButton')
+    local fog = widget:getChildById('fogOfWarButton')
+    if fog then
+        fog:breakAnchors()
+        fog:addAnchor(horizontalEdge, 'hdButton', horizontalEdge)
+        fog:addAnchor(AnchorBottom, 'hdButton', AnchorTop)
+    end
     freeView:breakAnchors()
     freeView:addAnchor(horizontalEdge, 'hdButton', horizontalEdge)
-    freeView:addAnchor(AnchorBottom, 'hdButton', AnchorTop)
+    local belowFreeView = fog and widget.setFogOfWar and 'fogOfWarButton' or 'hdButton'
+    freeView:addAnchor(AnchorBottom, belowFreeView, AnchorTop)
     center:breakAnchors()
     center:addAnchor(horizontalEdge, 'freeViewButton', horizontalEdge)
     center:addAnchor(AnchorBottom, 'freeViewButton', AnchorTop)

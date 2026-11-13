@@ -46,6 +46,8 @@ static MinimapTile nulltile;
 
 namespace
 {
+    constexpr Color UnexploredFogShade(0, 0, 0, 96);
+    constexpr uint32_t OtmmCircularFog = 1u;
     constexpr size_t MaxHdTiles = 8192;
     constexpr size_t MaxHdItems = 32768;
     constexpr size_t MaxHdTextures = 48;
@@ -126,6 +128,7 @@ void MinimapBlock::clean()
 {
     m_tiles.fill({});
     m_texture.reset();
+    ++m_fogRevision;
     m_mustUpdate = false;
 }
 
@@ -161,10 +164,73 @@ void MinimapBlock::update()
 
 void MinimapBlock::updateTile(const int x, const int y, const MinimapTile& tile)
 {
-    if (m_tiles[getTileIndex(x, y)].color != tile.color)
+    auto& current = getTile(x, y);
+    if (current.color != tile.color)
         m_mustUpdate = true;
+    if (current.hasFlag(MinimapTileFogExplored) != tile.hasFlag(MinimapTileFogExplored))
+        ++m_fogRevision;
+    current = tile;
+}
 
-    m_tiles[getTileIndex(x, y)] = tile;
+TexturePtr Minimap::getFogTexture(const Position& pos)
+{
+    std::array<MinimapBlock*, 9> neighbors{};
+    std::array<uint64_t, 9> revisions{};
+    for (int dy = -1; dy <= 1; ++dy) {
+        for (int dx = -1; dx <= 1; ++dx) {
+            const Position neighbor(pos.x + dx * MMBLOCK_SIZE, pos.y + dy * MMBLOCK_SIZE, pos.z);
+            if (!neighbor.isMapPosition() || !hasBlock(neighbor))
+                continue;
+
+            const int index = (dy + 1) * 3 + dx + 1;
+            neighbors[index] = &getBlock(neighbor);
+            revisions[index] = neighbors[index]->getFogRevision() + 1;
+        }
+    }
+    if (std::ranges::none_of(neighbors, [](const auto* block) { return block != nullptr; }))
+        return nullptr;
+
+    const auto key = hdTileKey(pos.x, pos.y, pos.z);
+    if (const auto it = m_fogChunks.find(key); it != m_fogChunks.end() && it->second.revisions == revisions)
+        return it->second.texture;
+
+    // Sample across chunk boundaries so the gradient continues without seams.
+    constexpr int radius = 3;
+    constexpr int size = MMBLOCK_SIZE + 2;
+    constexpr int stride = size + 2 * radius;
+    std::array<bool, stride * stride> explored{};
+    for (int y = 0; y < stride; ++y) {
+        for (int x = 0; x < stride; ++x) {
+            const int localX = x + MMBLOCK_SIZE - radius - 1;
+            const int localY = y + MMBLOCK_SIZE - radius - 1;
+            auto* block = neighbors[(localY / MMBLOCK_SIZE) * 3 + localX / MMBLOCK_SIZE];
+            explored[y * stride + x] = block && block->getTile(localX, localY).hasFlag(MinimapTileFogExplored);
+        }
+    }
+
+    auto mask = std::make_shared<Image>(Size(size, size));
+    for (int y = 0; y < size; ++y) {
+        for (int x = 0; x < size; ++x) {
+            const int center = (y + radius) * stride + x + radius;
+            int distanceSquared = explored[center] ? 0 : radius * radius;
+            for (int dy = -radius + 1; dy < radius && distanceSquared > 1; ++dy) {
+                for (int dx = -radius + 1; dx < radius; ++dx) {
+                    const int distance = dx * dx + dy * dy;
+                    if (distance < distanceSquared && explored[center + dy * stride + dx])
+                        distanceSquared = distance;
+                }
+            }
+            const float t = std::sqrt(static_cast<float>(distanceSquared)) / radius;
+            const int alpha = std::lround(UnexploredFogShade.a() * t * t * (3.f - 2.f * t));
+            mask->setPixel(x, y, Color(0, 0, 0, alpha));
+        }
+    }
+    auto texture = std::make_shared<Texture>(mask);
+    texture->setSmooth(true);
+    if (m_fogChunks.size() >= 1024)
+        m_fogChunks.clear();
+    m_fogChunks.insert_or_assign(key, FogChunk{ revisions, texture });
+    return texture;
 }
 
 void Minimap::init() {
@@ -176,6 +242,7 @@ void Minimap::terminate() { clean(); }
 void Minimap::clean()
 {
     clearHdTerrain();
+    m_fogChunks.clear();
     SpinLock::Guard lock(m_lock);
     for (uint_fast8_t i = 0; i <= g_gameConfig.getMapMaxZ(); ++i)
         m_tileBlocks[i].clear();
@@ -825,6 +892,52 @@ void Minimap::draw(const Rect& screenRect, const Position& mapCenter, const floa
     g_drawPool.setClipRect(oldClipRect);
 }
 
+void Minimap::drawFog(const Rect& screenRect, const Position& mapCenter, float scale, const PointF& offset)
+{
+    if (screenRect.isEmpty() || !mapCenter.isMapPosition() || scale <= 0.f)
+        return;
+
+    const auto oldClip = g_drawPool.getClipRect();
+    const auto clip = oldClip.isValid() ? screenRect.intersection(oldClip) : screenRect;
+    if (clip.isEmpty())
+        return;
+    g_drawPool.setClipRect(clip);
+
+    const MinimapProjection projection(screenRect, mapCenter, scale, offset);
+    const auto project = [&](const Point& origin, const Size& size) {
+        const auto topLeft = projection.tileEdge(origin);
+        const auto end = projection.tileEdge(origin + size.toPoint());
+        return Rect(topLeft, Size(end.x - topLeft.x, end.y - topLeft.y));
+    };
+    const auto fill = [&](const Rect& rect, const Color& color) {
+        if (rect.isValid())
+            g_drawPool.addFilledRect(rect, color);
+    };
+
+    // The mask follows world tiles through pan and zoom. Only changed blocks rebuild it.
+    // Include the adjacent tile at either edge to account for pixel rounding.
+    const Point pixel(1, 1);
+    const auto first = getBlockOffset(projection.screenTile(clip.topLeft() - pixel));
+    const auto last = projection.screenTile(clip.bottomRight() + pixel);
+    for (int y = first.y; y <= last.y; y += MMBLOCK_SIZE) {
+        for (int x = first.x; x <= last.x; x += MMBLOCK_SIZE) {
+            const auto dest = project(Point(x, y), Size(MMBLOCK_SIZE, MMBLOCK_SIZE));
+            if (!dest.isValid())
+                continue;
+            const Position pos(x, y, mapCenter.z);
+            if (pos.isMapPosition()) {
+                if (const auto texture = getFogTexture(pos)) {
+                    g_drawPool.addTexturedRect(dest, texture, Rect(1, 1, MMBLOCK_SIZE, MMBLOCK_SIZE));
+                    continue;
+                }
+            }
+            fill(dest, UnexploredFogShade);
+        }
+    }
+
+    g_drawPool.setClipRect(oldClip);
+}
+
 Point Minimap::getTilePoint(const Position& pos, const Rect& screenRect, const Position& mapCenter, const float scale, const PointF& offset)
 {
     if (screenRect.isEmpty() || pos.z != mapCenter.z)
@@ -854,14 +967,39 @@ Rect Minimap::getTileRect(const Position& pos, const Rect& screenRect, const Pos
     return tileRect;
 }
 
+void Minimap::revealFog(const Position& center)
+{
+    if (!center.isMapPosition())
+        return;
+
+    const auto range = g_map.getAwareRange();
+    const int radius = std::min({ range.left, range.right, range.top, range.bottom });
+    for (int dy = -radius; dy <= radius; ++dy) {
+        for (int dx = -radius; dx <= radius; ++dx) {
+            const Position pos(center.x + dx, center.y + dy, center.z);
+            if (dx * dx + dy * dy > radius * radius || !pos.isMapPosition())
+                continue;
+
+            auto& block = getBlock(pos);
+            auto tile = block.getTile(pos.x, pos.y);
+            if (tile.hasFlag(MinimapTileFogExplored))
+                continue;
+
+            tile.flags |= MinimapTileFogExplored;
+            block.updateTile(pos.x, pos.y, tile);
+            block.justSaw();
+        }
+    }
+}
+
 void Minimap::updateTile(const Position& pos, const TilePtr& tile)
 {
     if (tile)
         updateHdTile(pos, tile);
     MinimapTile minimapTile;
+    minimapTile.flags = MinimapTileWasSeen;
     if (tile) {
         minimapTile.color = tile->getMinimapColorByte();
-        minimapTile.flags |= MinimapTileWasSeen;
         if (!tile->isWalkable(true))
             minimapTile.flags |= MinimapTileNotWalkable;
         if (!tile->isPathable())
@@ -871,12 +1009,10 @@ void Minimap::updateTile(const Position& pos, const TilePtr& tile)
         minimapTile.flags |= MinimapTileNotWalkable | MinimapTileNotPathable;
     }
 
-    if (minimapTile != nulltile) {
-        MinimapBlock& block = getBlock(pos);
-        const auto& offsetPos = getBlockOffset(Point(pos.x, pos.y));
-        block.updateTile(pos.x - offsetPos.x, pos.y - offsetPos.y, minimapTile);
-        block.justSaw();
-    }
+    MinimapBlock& block = getBlock(pos);
+    minimapTile.flags |= block.getTile(pos.x, pos.y).flags & MinimapTileFogExplored;
+    block.updateTile(pos.x, pos.y, minimapTile);
+    block.justSaw();
 }
 
 const MinimapTile& Minimap::getTile(const Position& pos)
@@ -999,7 +1135,7 @@ bool Minimap::loadOtmm(const std::string& fileName)
 
         const uint16_t start = fin->getU16();
         const uint16_t version = fin->getU16();
-        fin->getU32(); // flags
+        const auto flags = fin->getU32();
 
         switch (version) {
             case 1:
@@ -1038,6 +1174,12 @@ bool Minimap::loadOtmm(const std::string& fileName)
                 break;
 
             memcpy(&block.getTiles(), decompressBuffer.data(), blockSize);
+            if (!(flags & OtmmCircularFog)) {
+                for (auto& tile : block.getTiles()) {
+                    if (tile.hasFlag(MinimapTileWasSeen))
+                        tile.flags |= MinimapTileFogExplored;
+                }
+            }
             block.mustUpdate();
             block.justSaw();
         }
@@ -1056,14 +1198,11 @@ void Minimap::saveOtmm(const std::string& fileName)
         const FileStreamPtr fin = g_resources.createFile(fileName);
         fin->cache();
 
-        //TODO: compression flag with zlib
-        constexpr uint32_t flags = 0;
-
         // header
         fin->addU32(OTMM_SIGNATURE);
         fin->addU16(0); // data start, will be overwritten later
         fin->addU16(OTMM_VERSION);
-        fin->addU32(flags);
+        fin->addU32(OtmmCircularFog);
 
         // version 1 header
         fin->addString("OTMM 1.0"); // description

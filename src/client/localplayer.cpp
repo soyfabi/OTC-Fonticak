@@ -26,6 +26,7 @@
 #include "game.h"
 #include "item.h"
 #include "map.h"
+#include "minimap.h"
 #include "tile.h"
 #include "framework/core/clock.h"
 #include "framework/core/eventdispatcher.h"
@@ -220,6 +221,7 @@ void LocalPlayer::terminateWalk()
 
 void LocalPlayer::onPositionChange(const Position& newPos, const Position& oldPos)
 {
+    g_minimap.revealFog(newPos);
     Creature::onPositionChange(newPos, oldPos);
 
     if (newPos == m_autoWalkDestination)

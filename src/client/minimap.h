@@ -41,7 +41,8 @@ enum MinimapTileFlags
     MinimapTileWasSeen = 1,
     MinimapTileNotPathable = 2,
     MinimapTileNotWalkable = 4,
-    MinimapTileEmpty = 8
+    MinimapTileEmpty = 8,
+    MinimapTileFogExplored = 16
 };
 
 #pragma pack(push,1) // disable memory alignment
@@ -67,7 +68,8 @@ public:
     uint32_t getTileIndex(const int x, const int y) { return ((y % MMBLOCK_SIZE) * MMBLOCK_SIZE) + (x % MMBLOCK_SIZE); }
     const TexturePtr& getTexture() { return m_texture; }
     std::array<MinimapTile, MMBLOCK_SIZE* MMBLOCK_SIZE>& getTiles() { return m_tiles; }
-    void mustUpdate() { m_mustUpdate = true; }
+    void mustUpdate() { m_mustUpdate = true; ++m_fogRevision; }
+    uint64_t getFogRevision() const { return m_fogRevision; }
     void justSaw() { m_wasSeen = true; }
     bool wasSeen() const { return m_wasSeen; }
 private:
@@ -79,6 +81,7 @@ private:
     std::array<MinimapTile, MMBLOCK_SIZE* MMBLOCK_SIZE> m_tiles;
 
     bool m_mustUpdate{ true };
+    uint64_t m_fogRevision{ 0 };
     bool m_wasSeen{ false };
 };
 
@@ -135,6 +138,8 @@ public:
     void clean();
 
     void draw(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, const PointF& offset);
+    void drawFog(const Rect& screenRect, const Position& mapCenter, float scale, const PointF& offset);
+    void revealFog(const Position& center);
     void drawHd(const Rect& screenRect, const Position& mapCenter, float scale, const Color& color, bool live,
                 const PointF& offset, bool zooming, bool animationsEnabled, bool showFloorItems, MinimapHdCache& cache);
     void setWalkView(const UIMinimapPtr& widget, bool enabled);
@@ -158,6 +163,13 @@ public:
 
 private:
     std::vector<std::weak_ptr<UIMinimap>> m_walkViews;
+    struct FogChunk
+    {
+        std::array<uint64_t, 9> revisions{};
+        TexturePtr texture;
+    };
+    std::unordered_map<uint64_t, FogChunk> m_fogChunks;
+    TexturePtr getFogTexture(const Position& pos);
 
     struct HdTile
     {
@@ -206,8 +218,8 @@ private:
     Point getBlockOffset(const Point& pos)
     {
         return {
-            pos.x - pos.x % MMBLOCK_SIZE,
-                     pos.y - pos.y % MMBLOCK_SIZE
+            pos.x - (pos.x % MMBLOCK_SIZE + MMBLOCK_SIZE) % MMBLOCK_SIZE,
+            pos.y - (pos.y % MMBLOCK_SIZE + MMBLOCK_SIZE) % MMBLOCK_SIZE
         };
     }
     Position getIndexPosition(const int index, const int z)

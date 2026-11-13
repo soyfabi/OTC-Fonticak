@@ -458,10 +458,10 @@ void Map::cleanTile(const Position& pos)
                 block.remove(pos);
 
             notificateTileUpdate(pos, nullptr, Otc::OPERATION_CLEAN);
-        } else {
-            g_minimap.updateTile(pos, nullptr);
         }
     }
+    // A skipped tile in a map description is known empty terrain.
+    g_minimap.updateTile(pos, nullptr);
 
     g_textDispatcher.addEvent([=, this] {
         for (auto itt = m_staticTexts.begin(); itt != m_staticTexts.end();) {

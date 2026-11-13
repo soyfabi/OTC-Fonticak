@@ -108,6 +108,9 @@ MinimapHdControl < MinimapMapControl
 MinimapFreeViewControl < MinimapMapControl
   icon-source: /images/game/minimap/free-view
 
+MinimapFogControl < MinimapMapControl
+  icon-source: /images/game/minimap/fog-of-war
+
 MinimapCenterControl < MinimapMapControl
   icon-source: /images/game/minimap/cross
 

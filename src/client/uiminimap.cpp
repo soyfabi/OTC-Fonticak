@@ -59,6 +59,17 @@ void UIMinimap::drawSelf(const DrawPoolType drawPane)
                          m_hdAnimations, m_showFloorItems, *m_hdCache);
     } else
         g_minimap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_color, offset);
+
+    if (m_fogOfWar && g_game.isOnline())
+        g_minimap.drawFog(getPaddingRect(), m_cameraPosition, m_scale, offset);
+}
+
+void UIMinimap::setFogOfWar(bool enabled)
+{
+    if (m_fogOfWar == enabled)
+        return;
+    m_fogOfWar = enabled;
+    repaint();
 }
 
 void UIMinimap::setSmoothWalk(bool enabled)
@@ -293,5 +304,7 @@ void UIMinimap::onStyleApply(const std::string_view styleName, const OTMLNodePtr
             setMaxZoom(node->value<int>());
         else if (node->tag() == "min-zoom")
             setMinZoom(node->value<int>());
+        else if (node->tag() == "fog-of-war")
+            setFogOfWar(node->value<bool>());
     }
 }

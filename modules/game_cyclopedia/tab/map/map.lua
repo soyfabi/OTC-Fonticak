@@ -108,7 +108,7 @@ local CYCLOPEDIA_AREA_LABEL_COLOR = "#ffffffff"
 local CYCLOPEDIA_AREA_LABEL_SELECTED_COLOR = "#ffff00ff"
 local CYCLOPEDIA_SUBAREA_LABEL_COLOR = "#8f8f8fff"
 local CYCLOPEDIA_SECTION_COLLAPSED_HEIGHT = 19
-local CYCLOPEDIA_DISPLAY_PANEL_HEIGHT = 253
+local CYCLOPEDIA_DISPLAY_PANEL_HEIGHT = 271
 local CYCLOPEDIA_NAVIGATION_PANEL_HEIGHT = 97
 local CYCLOPEDIA_AREA_PANEL_HEIGHT = 141
 local CYCLOPEDIA_SUBAREA_PANEL_HEIGHT = 202
@@ -1686,6 +1686,34 @@ function Cyclopedia.onMapViewChange(widget, checked)
 	onCyclopediaViewToggle(checked, "SurfaceCheck")
 end
 
+function refreshMapFogOfWar()
+	local minimap = getCyclopediaMinimap()
+	local fogCheck = UI and UI:recursiveGetChildById("FogOfWarCheck")
+	if not minimap or not fogCheck then
+		return
+	end
+
+	fogCheck:setEnabled(minimap.setFogOfWar ~= nil)
+	if minimap.setFogOfWar then
+		local enabled = g_settings.getBoolean("minimapFogOfWar", true)
+		fogCheck:setChecked(enabled)
+		minimap:setFogOfWar(enabled)
+	end
+end
+
+function Cyclopedia.onFogOfWarChange(checked)
+	local minimap = getCyclopediaMinimap()
+	if not minimap or not minimap.setFogOfWar or checked == g_settings.getBoolean("minimapFogOfWar", true) then
+		return
+	end
+
+	g_settings.set("minimapFogOfWar", checked)
+	minimap:setFogOfWar(checked)
+	if modules.game_minimap then
+		modules.game_minimap.refreshMinimapFogOfWar()
+	end
+end
+
 local function getMinimapViewFloor()
 	local minimap = getCyclopediaMinimap()
 
@@ -2100,6 +2128,7 @@ function Cyclopedia.loadMap()
 	end
 
 	local minimapWidget = UI.MapBase.minimap
+	refreshMapFogOfWar()
 
 	if minimapWidget.setSmoothWalk then
 		minimapWidget:setSmoothWalk(true)

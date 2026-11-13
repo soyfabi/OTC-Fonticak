@@ -40,7 +40,7 @@ UIWidget
         UIWidget
           id: DisplayBase
           margin-left: 11
-          size: 146 253
+          size: 146 271
           fixed-size: true
           image-source: /images/ui/t2pixel-up-frame-borderimage
           image-border: 20
@@ -285,7 +285,7 @@ UIWidget
             anchors.top: viewsLabel.bottom
             anchors.left: parent.left
             margin-left: 7
-            size: 132 76
+            size: 132 94
             &scrollSize: 15
             image-source: /images/ui/1pixel-down-frame
 
@@ -318,9 +318,22 @@ UIWidget
               enabled: true
               @onCheckChange: modules.game_cyclopedia.Cyclopedia.onMapViewChange(self, self:isChecked())
 
+            CheckBox
+              id: FogOfWarCheck
+              anchors.top: MapCheck.bottom
+              anchors.left: MapCheck.left
+              margin-top: 6
+              !text: tr('Fog of War')
+              font: $var-cip-font-new
+              color: #c0c0c0
+              text-offset: 15 0
+              text-auto-resize: true
+              checked: true
+              @onCheckChange: modules.game_cyclopedia.Cyclopedia.onFogOfWarChange(self:isChecked())
+
             Label
               id: levelSeparatorLabel
-              anchors.top: MapCheck.bottom
+              anchors.top: FogOfWarCheck.bottom
               anchors.left: parent.left
               margin-left: 4
               margin-top: 6
@@ -760,6 +773,7 @@ UIWidget
     image-border: 10
     UIMinimap 
       id: minimap
+      fog-of-war: true
       anchors.fill: parent
       margin: 1
       clipping: true

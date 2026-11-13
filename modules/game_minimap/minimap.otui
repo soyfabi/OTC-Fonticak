@@ -23,6 +23,7 @@ PhantomMiniWindow
 
       Minimap
         id: minimap
+        fog-of-war: true
         anchors.fill: parent
         margin: 1
 
@@ -34,10 +35,19 @@ PhantomMiniWindow
           margin-right: 3
           @onClick: toggleMinimapHd()
 
+        MinimapFogControl
+          id: fogOfWarButton
+          anchors.right: hdButton.right
+          anchors.bottom: hdButton.top
+          margin-bottom: 3
+          visible: false
+          !tooltip: tr('Toggle Fog of War')
+          @onClick: toggleMinimapFogOfWar()
+
         MinimapFreeViewControl
           id: freeViewButton
           anchors.right: hdButton.right
-          anchors.bottom: hdButton.top
+          anchors.bottom: fogOfWarButton.top
           margin-bottom: 3
           !tooltip: tr('Keep the map in place while your character moves.')
           visible: false
