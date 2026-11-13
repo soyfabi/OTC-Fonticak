@@ -26,44 +26,29 @@ PhantomMiniWindow
         anchors.fill: parent
         margin: 1
 
-        Button
+        MinimapHdControl
           id: hdButton
-          text: HD
-          size: 61 17
           anchors.top: parent.top
           anchors.right: parent.right
           margin-top: 3
           margin-right: 3
-          focusable: false
           @onClick: toggleMinimapHd()
 
-          $on:
-            color: #8fda82
-
-        Button
+        MinimapFreeViewControl
           id: freeViewButton
-          size: 61 17
           anchors.right: hdButton.right
           anchors.bottom: hdButton.top
           margin-bottom: 3
-          !text: tr('Free View')
           !tooltip: tr('Keep the map in place while your character moves.')
-          focusable: false
           visible: false
           @onClick: toggleMinimapFreeView()
 
-          $on:
-            color: #8fda82
-
-        Button
+        MinimapCenterControl
           id: centerMapButton
-          size: 61 17
           anchors.right: freeViewButton.right
           anchors.bottom: freeViewButton.top
           margin-bottom: 3
-          !text: tr('Center')
           !tooltip: tr('Center the minimap on your character.')
-          focusable: false
           visible: false
           @onClick: centerMinimapOnPlayer()
 

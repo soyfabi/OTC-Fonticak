@@ -753,9 +753,9 @@ UIWidget
     id: MapBase
     anchors.top: InformationBase.top
     anchors.left: InformationBase.right
+    anchors.bottom: parent.bottom
     margin-left: 6
-    margin-bottom: 25
-    size: 493 415
+    width: 493
     image-source: /images/ui/1pixel-down-frame
     image-border: 10
     UIMinimap 
@@ -778,27 +778,21 @@ UIWidget
       anchors.bottom: parent.bottom
       margin-left: 7
       margin-bottom: 7
-      size: 145 20
+      size: 45 20
       phantom: true
       layout:
         type: horizontalBox
         spacing: 5
 
-      Button
+      MinimapCenterControl
         id: centerMapButton
-        size: 63 20
-        !text: tr('Center')
         !tooltip: tr('Center the map on your character.')
         visible: false
-        focusable: false
         @onClick: modules.game_cyclopedia.Cyclopedia.centerOnPlayer()
 
-      Button
+      MinimapFreeViewControl
         id: freeViewButton
-        size: 77 20
-        !text: tr('Free View')
         !tooltip: tr('Keep the map in place while your character moves.')
-        focusable: false
         @onClick: modules.game_cyclopedia.Cyclopedia.toggleFreeView()
 
 MapLayerSelector < UIWidget

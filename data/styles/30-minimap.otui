@@ -77,9 +77,42 @@ MinimapZoomOutButton < Button
   anchors.bottom: parent.bottom
   //icon-source: /images/game/minimap/zoom_out
 
-MinimapResetButton < Button
-  !text: tr('Center')
-  size: 44 20
+MinimapMapControl < Button
+  size: 20 20
+  padding: 0
+  focusable: false
+  icon-rect: 2 2 16 16
+  icon-color: #ffffff
+
+  $on:
+    icon-color: #8fda82
+
+MinimapHdControl < MinimapMapControl
+  icon-source: /images/topbuttons/minimap
+
+  UIWidget
+    id: highlight
+    anchors.centerIn: parent
+    size: 22 22
+    image-source: /images/topbuttons/highlight
+    phantom: true
+    focusable: false
+
+  UIWidget
+    id: brightButton
+    anchors.fill: parent
+    image-source: /images/ui/bright-x20
+    phantom: true
+    focusable: false
+
+MinimapFreeViewControl < MinimapMapControl
+  icon-source: /images/game/minimap/free-view
+
+MinimapCenterControl < MinimapMapControl
+  icon-source: /images/game/minimap/cross
+
+MinimapResetButton < MinimapCenterControl
+  !tooltip: tr('Center the minimap on your character.')
   anchors.left: parent.left
   anchors.top: parent.top
   margin: 4
