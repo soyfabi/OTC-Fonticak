@@ -39,15 +39,15 @@ void LocalPlayer::lockWalk(const uint16_t millis)
 
 bool LocalPlayer::canWalk(const bool ignoreLock)
 {
-    // paralyzed
-    if (isDead())
-        return false;
+    return !isDead() && !m_preWalking && getWalkDelay(ignoreLock) == 0;
+}
 
-    // cannot walk while locked
-    if (isWalkLocked() && !ignoreLock)
-        return false;
-
-    return m_walkTimer.ticksElapsed() >= (getStepDuration() - 9);
+ticks_t LocalPlayer::getWalkDelay(const bool ignoreLock)
+{
+    const ticks_t lockDelay = ignoreLock ? 0 : m_walkLockExpiration - g_clock.millis();
+    const ticks_t elapsed = m_walkTimer.ticksElapsed();
+    const ticks_t stepDelay = m_walking || elapsed < 0 ? getStepDuration() - elapsed : 0;
+    return std::max({ ticks_t{0}, lockDelay, stepDelay });
 }
 
 void LocalPlayer::walk(const Position& oldPos, const Position& newPos)

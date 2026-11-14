@@ -253,6 +253,7 @@ return {
         end
     },
     smartWalk                         = false,
+    dashWalk                          = false,
     alwaysTurnTowardsMoveDirection    = true,
     allowInspect                      = {
         value = false,

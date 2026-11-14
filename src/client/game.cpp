@@ -100,12 +100,7 @@ void Game::resetGameStates()
 
     m_newPingIds.clear();
 
-    if (m_walkEvent) {
-        m_walkEvent->cancel();
-        m_walkEvent = nullptr;
-    }
-
-    m_nextScheduledDir = Otc::InvalidDirection;
+    cancelScheduledWalk();
 
     if (m_checkConnectionEvent) {
         m_checkConnectionEvent->cancel();
@@ -253,6 +248,7 @@ void Game::processGameEnd()
 void Game::processDeath(const uint8_t deathType, const uint8_t penality)
 {
     m_dead = true;
+    cancelScheduledWalk();
     m_localPlayer->stopWalk();
 
     g_lua.callGlobalField("g_game", "onDeath", deathType, penality);
@@ -651,6 +647,7 @@ void Game::processAttackCancel(const uint32_t seq)
 
 void Game::processWalkCancel(const Otc::Direction direction)
 {
+    cancelScheduledWalk();
     m_localPlayer->cancelWalk(direction);
 }
 
@@ -743,28 +740,23 @@ bool Game::walk(const Otc::Direction direction, const bool isKeyDown /*= false*/
     // check we can walk and add new walk event if false
     if (!m_localPlayer->canWalk()) {
         if (m_nextScheduledDir != direction) {
-            const float ticks = std::clamp<float>(m_localPlayer->getStepTicksLeft(), 1, 2000);
+            const auto ticks = std::clamp<ticks_t>(m_localPlayer->getWalkDelay(), 1, 2000);
             if (isKeyDown || (m_scheduleLastWalk && ticks < std::min<int>(m_localPlayer->getStepDuration() / 3, 250))) {
                 // must add a new walk event
-                if (m_walkEvent) {
-                    m_walkEvent->cancel();
+                cancelScheduledWalk();
+                m_walkEvent = g_dispatcher.scheduleEvent([this, direction] {
                     m_walkEvent = nullptr;
-                }
-
-                m_walkEvent = g_dispatcher.scheduleEvent([this, direction] { walk(direction); }, ticks);
+                    m_nextScheduledDir = Otc::InvalidDirection;
+                    if (m_localPlayer && m_localPlayer->canWalk())
+                        walk(direction);
+                }, static_cast<int>(ticks));
                 m_nextScheduledDir = direction;
             }
         }
         return false;
     }
 
-    m_nextScheduledDir = Otc::InvalidDirection;
-
-    // if it's going to walk, but there is another scheduled event, cancel it
-    if (m_walkEvent && !m_walkEvent->isExecuted()) {
-        m_walkEvent->cancel();
-        m_walkEvent = nullptr;
-    }
+    cancelScheduledWalk();
 
     const auto& toPos = m_localPlayer->getPosition().translatedToDirection(direction);
 
@@ -814,6 +806,15 @@ bool Game::walk(const Otc::Direction direction, const bool isKeyDown /*= false*/
     m_lastWalkDir = direction;
 
     return true;
+}
+
+void Game::cancelScheduledWalk()
+{
+    if (m_walkEvent) {
+        m_walkEvent->cancel();
+        m_walkEvent = nullptr;
+    }
+    m_nextScheduledDir = Otc::InvalidDirection;
 }
 
 void Game::autoWalk(const std::vector<Otc::Direction>& dirs, const Position& startPos)
@@ -919,6 +920,7 @@ void Game::stop()
     if (isFollowing())
         cancelFollow();
 
+    cancelScheduledWalk();
     m_protocolGame->sendStop();
 }
 
@@ -1137,12 +1139,7 @@ void Game::cancelAttackAndFollow()
     if (isAttacking())
         setAttackingCreature(nullptr);
 
-    if (m_walkEvent) {
-        m_walkEvent->cancel();
-        m_walkEvent = nullptr;
-    }
-
-    m_nextScheduledDir = Otc::InvalidDirection;
+    cancelScheduledWalk();
 
     m_localPlayer->stopAutoWalk();
 

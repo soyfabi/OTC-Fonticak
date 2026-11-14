@@ -1879,6 +1879,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                 local position = useThing:getPosition()
                 if position and position.x ~= 0 and autoWalkPos then
                     local player = g_game.getLocalPlayer()
+                    modules.game_walk.stopChasingWhenMoving()
                     player:autoWalk(autoWalkPos)
                     return true
                 end
@@ -1898,6 +1899,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                 -- For walkable tiles, we want to walk
                 if lookTile and lookTile:isWalkable() and autoWalkPos then
                     local player = g_game.getLocalPlayer()
+                    modules.game_walk.stopChasingWhenMoving()
                     player:autoWalk(autoWalkPos)
                     return true
                 else
@@ -1909,6 +1911,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
 
             if autoWalkPos then
                 local player = g_game.getLocalPlayer()
+                modules.game_walk.stopChasingWhenMoving()
                 player:autoWalk(autoWalkPos)
                 return true
             end
@@ -2222,16 +2225,12 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
 
             if not isCorpseOrContainer and
                 not (lookThing and not lookThing:isCreature() and lookThing:isPickupable()) then
+                modules.game_walk.stopChasingWhenMoving()
                 player:autoWalk(autoWalkPos)
-                if g_game.isAttacking() and g_game.getChaseMode() == ChaseOpponent then
-                    g_game.setChaseMode(DontChase)
-                end
             end
         else
+            modules.game_walk.stopChasingWhenMoving()
             player:autoWalk(autoWalkPos)
-            if g_game.isAttacking() and g_game.getChaseMode() == ChaseOpponent then
-                g_game.setChaseMode(DontChase)
-            end
         end
         return true
     end

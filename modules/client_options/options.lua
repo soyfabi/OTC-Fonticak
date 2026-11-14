@@ -1594,7 +1594,6 @@ end
 function resetControls()
     setOption('mouseControlMode', 0, true)
     setOption('lootControlMode', 0, true)
-    setOption('smartWalk', false, true)
     setOption('alwaysTurnTowardsMoveDirection', true, true)
     setOption('moveStack', false, true)
     setOption('openMinimized', false, true)
@@ -1603,6 +1602,8 @@ end
 
 function resetGameplay()
     setOption('allowInspect', false, true)
+    setOption('smartWalk', false, true)
+    setOption('dashWalk', false, true)
     setOption('autoChaseOverride', true, true)
     setOption('talkOnRightClick', false, true)
     setOption('quickAllCorpses', false, true)

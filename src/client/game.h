@@ -493,6 +493,7 @@ public:
     void setWalkMaxSteps(uint8_t v) { m_walkMaxSteps = v; }
 
 private:
+    void cancelScheduledWalk();
     void setAttackingCreature(const CreaturePtr& creature);
     void setFollowingCreature(const CreaturePtr& creature);
 

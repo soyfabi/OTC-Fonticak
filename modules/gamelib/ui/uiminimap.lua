@@ -601,6 +601,9 @@ local function onFlagMouseRelease(widget, pos, button)
         end
 
         if widget:getParent().autowalk then
+            if modules.game_walk then
+                modules.game_walk.stopChasingWhenMoving()
+            end
             player:autoWalk(widget.pos)
         end
         return true
@@ -786,6 +789,9 @@ function UIMinimap:onMouseRelease(pos, button)
         end
 
         if self.autowalk then
+            if modules.game_walk then
+                modules.game_walk.stopChasingWhenMoving()
+            end
             player:autoWalk(mapPos)
         end
         return true
