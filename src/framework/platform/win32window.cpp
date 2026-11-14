@@ -29,6 +29,7 @@
 #include <framework/graphics/image.h>
 #include <framework/graphics/vulkan/vkcontext.h>
 
+#include <chrono>
 #include <timeapi.h>
 
  // Include for DWM API
@@ -558,10 +559,18 @@ void WIN32Window::poll()
 {
     AutoStat s(STATS_RENDER, "PollWindow");
     fireKeysPress();
+    const auto mouseMoveDeadline = std::chrono::steady_clock::now() + std::chrono::milliseconds(1);
+    unsigned mouseMoveCount = 0;
     MSG msg;
     while (PeekMessage(&msg, nullptr, 0, 0, PM_REMOVE)) {
-        TranslateMessage(&msg);
+        if (msg.message != WM_MOUSEMOVE)
+            TranslateMessage(&msg);
         DispatchMessage(&msg);
+
+        // Leave the remaining messages in queue order and give rendering a turn.
+        if (msg.message == WM_MOUSEMOVE && ++mouseMoveCount % 8 == 0 &&
+            std::chrono::steady_clock::now() >= mouseMoveDeadline)
+            break;
     }
 
     updateUnmaximizedCoords();
@@ -640,10 +649,19 @@ Fw::Key WIN32Window::retranslateVirtualKey(const WPARAM wParam, const LPARAM lPa
 
 LRESULT WIN32Window::windowProc(const HWND hWnd, const uint32_t uMsg, const WPARAM wParam, const LPARAM lParam)
 {
+    if (uMsg == WM_SETCURSOR) {
+        if (LOWORD(lParam) == HTCLIENT && m_cursor) {
+            if (GetCursor() != m_cursor)
+                SetCursor(m_cursor);
+            return TRUE;
+        }
+        return DefWindowProc(hWnd, uMsg, wParam, lParam);
+    }
+
     m_inputEvent.keyboardModifiers = 0;
-    if (IsKeyDown(VK_CONTROL))
+    if (uMsg == WM_MOUSEMOVE ? (wParam & MK_CONTROL) != 0 : IsKeyDown(VK_CONTROL))
         m_inputEvent.keyboardModifiers |= Fw::KeyboardCtrlModifier;
-    if (IsKeyDown(VK_SHIFT))
+    if (uMsg == WM_MOUSEMOVE ? (wParam & MK_SHIFT) != 0 : IsKeyDown(VK_SHIFT))
         m_inputEvent.keyboardModifiers |= Fw::KeyboardShiftModifier;
 #if defined(__APPLE__)
     if (IsKeyDown(VK_LWIN))
@@ -655,14 +673,6 @@ LRESULT WIN32Window::windowProc(const HWND hWnd, const uint32_t uMsg, const WPAR
 
     bool signalKeyEvent = false;
     switch (uMsg) {
-        case WM_SETCURSOR:
-        {
-            if (LOWORD(lParam) == HTCLIENT && m_cursor)
-                SetCursor(m_cursor);
-            else
-                return DefWindowProc(hWnd, uMsg, wParam, lParam);
-            break;
-        }
         case WM_ACTIVATE:
         {
             m_focused = !(wParam == WA_INACTIVE);

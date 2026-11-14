@@ -355,11 +355,7 @@ void GraphicalApplication::mainPoll()
     {
         AutoStat s2(STATS_MAIN, "WindowPoll");
         g_window.poll();
-        if (m_hasCoalescedMouseMove) {
-            g_dispatcher.addEvent([this] {
-                flushCoalescedMouseMove();
-            });
-        }
+        queueCoalescedMouseMove();
     }
     {
         AutoStat s2(STATS_MAIN, "TexturePoll");
@@ -398,31 +394,34 @@ void GraphicalApplication::inputEvent(const InputEvent& event)
 
 void GraphicalApplication::queueInputEvent(const InputEvent& event)
 {
-    if (event.type == Fw::MouseMoveInputEvent) {
-        if (m_hasCoalescedMouseMove) {
-            const Point delta = event.mousePos - m_coalescedMouseMove.mousePos;
-            m_coalescedMouseMove.mousePos = event.mousePos;
-            m_coalescedMouseMove.mouseMoved += delta;
-        } else {
-            m_coalescedMouseMove = event;
-            m_hasCoalescedMouseMove = true;
+    // Some platform callbacks also run on the dispatcher thread.
+    if (stdext::getThreadId() == g_mainThreadId) {
+        if (event.type == Fw::MouseMoveInputEvent) {
+            if (m_hasCoalescedMouseMove) {
+                const Point delta = event.mousePos - m_coalescedMouseMove.mousePos;
+                m_coalescedMouseMove.mousePos = event.mousePos;
+                m_coalescedMouseMove.mouseMoved += delta;
+            } else {
+                m_coalescedMouseMove = event;
+                m_hasCoalescedMouseMove = true;
+            }
+            return;
         }
-        return;
+
+        // End the movement batch before queuing a click, scroll or key event.
+        queueCoalescedMouseMove();
     }
 
-    g_dispatcher.addEvent([this, event] {
-        flushCoalescedMouseMove();
-        inputEvent(event);
-    });
+    g_dispatcher.addEvent([this, event] { inputEvent(event); });
 }
 
-void GraphicalApplication::flushCoalescedMouseMove()
+void GraphicalApplication::queueCoalescedMouseMove()
 {
     if (!m_hasCoalescedMouseMove)
         return;
 
     m_hasCoalescedMouseMove = false;
-    inputEvent(m_coalescedMouseMove);
+    g_dispatcher.addEvent([this, event = m_coalescedMouseMove] { inputEvent(event); });
 }
 
 bool GraphicalApplication::isLoadingAsyncTexture() { return m_loadingAsyncTexture || (m_drawEvents && m_drawEvents->isLoadingAsyncTexture()); }
