@@ -1,0 +1,37 @@
+UIWidget
+  id: clipRecordingIndicator
+  anchors.right: parent.right
+  anchors.bottom: parent.bottom
+  margin-right: 10
+  margin-bottom: 12
+  size: 90 24
+  focusable: false
+  phantom: true
+  visible: false
+
+  Label
+    !text: tr('Record:')
+    font: Verdana Bold-11px
+    color: white
+    anchors.left: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 8
+    size: 54 15
+    text-align: left
+    phantom: true
+
+  UIWidget
+    id: light
+    anchors.right: parent.right
+    anchors.verticalCenter: parent.verticalCenter
+    margin-right: 8
+    size: 18 18
+    phantom: true
+
+    UIWidget
+      id: dot
+      image-source: /images/icons/recording_dot
+      image-smooth: true
+      anchors.centerIn: parent
+      size: 14 14
+      phantom: true

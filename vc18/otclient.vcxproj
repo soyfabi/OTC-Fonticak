@@ -517,6 +517,10 @@
     <ClCompile Include="..\src\framework\platform\win32crashhandler.cpp" />
     <ClCompile Include="..\src\framework\platform\win32platform.cpp" />
     <ClCompile Include="..\src\framework\platform\win32window.cpp" />
+    <ClCompile Include="..\src\framework\platform\cliprecorder.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+      <IncludeInUnityFile>false</IncludeInUnityFile>
+    </ClCompile>
     <ClCompile Include="..\src\framework\proxy\proxy.cpp" />
     <ClCompile Include="..\src\framework\proxy\proxy_client.cpp" />
     <ClCompile Include="..\src\framework\sound\combinedsoundsource.cpp" />

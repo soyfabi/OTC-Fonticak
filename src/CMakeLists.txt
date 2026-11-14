@@ -483,6 +483,7 @@ if (TOGGLE_FRAMEWORK_GRAPHICS)
           framework/graphics/vulkan/vkbatch.cpp
           framework/graphics/vulkan/vkfeeder.cpp
           framework/platform/win32window.cpp
+          framework/platform/cliprecorder.cpp
           framework/platform/x11window.cpp
           framework/ui/uianchorlayout.cpp
           framework/ui/uiboxlayout.cpp
@@ -572,6 +573,9 @@ if(SPEED_UP_BUILD_UNITY)
   log_option_enabled("Build unity for speed up compilation")
 endif(SPEED_UP_BUILD_UNITY)
 
+set_source_files_properties(framework/platform/cliprecorder.cpp PROPERTIES
+    SKIP_PRECOMPILE_HEADERS ON SKIP_UNITY_BUILD_INCLUSION ON)
+
 if(ANDROID)
   target_sources(${PROJECT_NAME} PRIVATE androidmain.cpp main.cpp)
 else()
@@ -581,6 +585,9 @@ endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE otclient_core)
 if(WIN32)
   target_link_libraries(otclient_core PRIVATE winhttp)
+  if(TOGGLE_FRAMEWORK_GRAPHICS)
+    target_link_libraries(otclient_core PRIVATE d3d11 mfplat mfreadwrite mfuuid ole32 windowsapp)
+  endif()
 endif()
 
 # *****************************************************************************

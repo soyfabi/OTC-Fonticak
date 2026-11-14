@@ -23,6 +23,7 @@
 #ifdef WIN32
 
 #include "win32window.h"
+#include "cliprecorder.h"
 #include <framework/core/configmanager.h>
 #include <framework/core/eventdispatcher.h>
 #include <framework/util/stats.h>
@@ -262,6 +263,7 @@ void WIN32Window::ensureGLContext()
 
 void WIN32Window::terminate()
 {
+    g_clipRecorder.shutdown();
     SetCursor(nullptr);
     if (m_defaultCursor) {
         DestroyCursor(m_defaultCursor);
