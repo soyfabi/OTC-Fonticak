@@ -6,6 +6,7 @@ MainWindow
     fit-children: true
   
   Label
+    id: bindingContext
     font: verdana-11px-monochrome
     text-align: center
     color: #c0c0c0

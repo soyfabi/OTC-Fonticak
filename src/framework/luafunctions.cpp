@@ -72,6 +72,16 @@
 
 #include "core/clock.h"
 #include "core/graphicalapplication.h"
+#if defined(WIN32) && defined(FRAMEWORK_GRAPHICS)
+#include "platform/cliprecorder.h"
+
+void ClipRecorder::configureFromGame(bool enabled, int fps, int minutes, int resolution, int quality, bool automaticEncoder)
+{
+    configure(enabled ? g_window.getNativeWindowHandle() : nullptr,
+              enabled ? g_resources.getWriteDir() : std::string{},
+              fps, minutes, resolution, quality, automaticEncoder);
+}
+#endif
 #include "net/inputmessage.h"
 #include "net/outputmessage.h"
 
@@ -382,6 +392,12 @@ void Application::registerLuaFunctions()
     g_lua.bindSingletonFunction("g_app", "setAnimatedTextScale", &GraphicalApplication::setAnimatedTextScale, &g_app);
     g_lua.bindSingletonFunction("g_app", "setStaticTextScale", &GraphicalApplication::setStaticTextScale, &g_app);
     g_lua.bindSingletonFunction("g_app", "doScreenshot", &GraphicalApplication::doScreenshot, &g_app);
+#if defined(WIN32) && defined(FRAMEWORK_GRAPHICS)
+    g_lua.bindSingletonFunction("g_app", "configureClipRecording", &ClipRecorder::configureFromGame, &g_clipRecorder);
+    g_lua.bindSingletonFunction("g_app", "saveClip", &ClipRecorder::save, &g_clipRecorder);
+    g_lua.bindSingletonFunction("g_app", "isClipRecording", &ClipRecorder::isRecording, &g_clipRecorder);
+    g_lua.bindSingletonFunction("g_app", "getClipRecordingStatus", &ClipRecorder::status, &g_clipRecorder);
+#endif
     g_lua.bindSingletonFunction("g_app", "doMapScreenshot", &GraphicalApplication::doMapScreenshot, &g_app);
 
     // PlatformWindow

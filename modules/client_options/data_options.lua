@@ -266,6 +266,13 @@ return {
         end
     },
     autoChaseOverride                 = true,
+    clipRecordingEnabled             = false,
+    clipRecordingFps                 = 30,
+    clipRecordingMinutes             = 3,
+    clipRecordingResolution          = 0,
+    clipRecordingQuality             = 1,
+    clipRecordingEncoder             = 0,
+    clipRecordingFormat              = 0,
     talkOnRightClick                  = false,
     quickAllCorpses                   = false,
     storeAskBeforeBuyingProducts      = true,

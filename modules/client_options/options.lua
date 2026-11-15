@@ -21,6 +21,7 @@ panels = {
     miscGameplay = nil,
     miscScreenshot = nil,
     miscHelp = nil,
+    recordingsPanel = nil,
     minimapPanel = nil,
     keybindsPanel = nil,
     customHotkeys = nil,
@@ -173,6 +174,10 @@ local buttons = { {
     icon = "/images/topbuttons/minimap",
     open = "minimapPanel"
 }, {
+    text = "Recordings",
+    icon = "/images/icons/icon_recordings",
+    open = "recordingsPanel"
+}, {
     text = "Misc.",
     icon = "/images/icons/icon_misc",
     open = "misc",
@@ -195,6 +200,128 @@ local buttons = { {
 } }
 
 -- LuaFormatter on
+local recordingStatusEvent
+local recordingIndicator
+local recordingPulseEvent
+
+local function updateRecordingIndicator()
+    if not g_app.isClipRecording then
+        return
+    end
+    if not g_game.isOnline() or not g_app.isClipRecording() then
+        if recordingIndicator then
+            recordingIndicator:hide()
+        end
+        return
+    end
+    if not recordingIndicator then
+        recordingIndicator = g_ui.loadUI('styles/recording_indicator', modules.game_interface.getRootPanel())
+    end
+    if not recordingIndicator then
+        return
+    end
+    if not recordingIndicator:isExplicitlyVisible() then
+        recordingIndicator:show()
+        recordingIndicator:raise()
+    end
+    local diameter = math.floor(13 - 3 * math.cos(g_clock.millis() * math.pi / 450) + 0.5)
+    local dot = recordingIndicator.light.dot
+    if dot:getWidth() ~= diameter then
+        dot:setSize({width = diameter, height = diameter})
+    end
+end
+
+local recordingChoices = {
+    clipRecordingFps = {
+        { '15 FPS', 15 }, { '20 FPS', 20 }, { '24 FPS', 24 },
+        { '30 FPS', 30 }, { '60 FPS', 60 }, { '80 FPS', 80 }
+    },
+    clipRecordingMinutes = { { '3 minutes', 3 }, { '10 minutes', 10 } },
+    clipRecordingResolution = { { 'Native', 0 }, { 'Up to 1080p', 1080 }, { 'Up to 720p', 720 } },
+    clipRecordingQuality = {
+        { 'Very Low', 3 }, { 'Low', 4 }, { 'Medium', 0 }, { 'Good', 1 }, { 'High', 2 }, { 'Best', 5 }
+    },
+    clipRecordingEncoder = { { 'Automatic', 0 }, { 'Software (CPU)', 1 } },
+    clipRecordingFormat = { { 'MP4', 0 }, { 'MKV', 1 }, { 'AVI', 2 } }
+}
+
+local function configureClipRecording(disable)
+    if g_app.configureClipRecording then
+        g_app.configureClipRecording(not disable and g_game.isOnline() and getOption('clipRecordingEnabled') == true,
+            getOption('clipRecordingFps'), getOption('clipRecordingMinutes'),
+            getOption('clipRecordingResolution'), getOption('clipRecordingQuality'), getOption('clipRecordingEncoder') == 0)
+    end
+end
+
+function saveRecordingClip()
+    if g_app.saveClip then
+        g_app.saveClip(getOption('clipRecordingFormat'))
+    end
+end
+
+function openRecordingFolder()
+    local writeDir = g_resources.getWriteDir() or ''
+    if writeDir ~= '' and g_resources.makeDir('recordings') then
+        local directory = writeDir:gsub('[/\\]+$', '') .. '/recordings'
+        directory = directory:gsub('[/\\]+', '\\')
+        if g_platform.openDir('"' .. directory .. '"', true) then
+            return
+        end
+    end
+    displayErrorBox(tr('Open Clips Folder'), tr('Could not open the recordings folder.'))
+end
+
+function autoDetectRecordingEncoder()
+    setOption('clipRecordingEncoder', 0, true)
+end
+
+local function setupClipRecording(panel)
+    for key, choices in pairs(recordingChoices) do
+        local combo = panel:recursiveGetChildById(key)
+        for _, choice in ipairs(choices) do
+            combo:addOption(tr(choice[1]), choice[2])
+        end
+        combo:setCurrentOptionByData(g_settings.getNumber(key, getOption(key)), true)
+        combo.onOptionChange = function(_, _, data) setOption(key, data) end
+        combo:setEnabled(g_app.configureClipRecording ~= nil)
+    end
+
+    local status = panel:recursiveGetChildById('clipRecordingStatus')
+    local save = panel:recursiveGetChildById('saveRecordingClip')
+    if not g_app.configureClipRecording then
+        panel:recursiveGetChildById('clipRecordingEnabled'):setEnabled(false)
+        panel:recursiveGetChildById('autoDetectRecordingEncoder'):setEnabled(false)
+        save:setEnabled(false)
+        panel:recursiveGetChildById('openRecordingFolder'):setEnabled(false)
+        panel:recursiveGetChildById('setRecordingHotkey'):setEnabled(false)
+        status:setText(tr('Clip recording is available on Windows.'))
+        return
+    end
+
+    Keybind.new("UI", "Save Recording Clip", "Ctrl+Shift+F10", "")
+    Keybind.bind("UI", "Save Recording Clip", {{type = KEY_DOWN, callback = saveRecordingClip}})
+    recordingPulseEvent = cycleEvent(updateRecordingIndicator, 40)
+    local shortcut = panel:recursiveGetChildById('clipRecordingShortcut')
+    local lastStatus
+    recordingStatusEvent = cycleEvent(function()
+        local message = g_app.getClipRecordingStatus()
+        if message ~= lastStatus then
+            lastStatus = message
+            local textMessage = modules.game_textmessage
+            if textMessage and g_game.isOnline()
+                and (message:match('^Saved ') or message:match('^Could not ') or message:match('^Recording failed')) then
+                textMessage.displayStatusMessage(message)
+            end
+        end
+        if panel:isVisible() then
+            status:setText(message)
+            local keys = Keybind.getKeybindKeys("UI", "Save Recording Clip")
+            local key = keys.primary ~= "" and keys.primary or keys.secondary
+            shortcut:setText(key ~= "" and key or tr('Unassigned'))
+        end
+    end, 500)
+end
+
 local extraWidgets = {
     audioButton = nil,
     optionsButton = nil,
@@ -599,6 +726,7 @@ function controller:onInit()
     panels.iuSoundPanel = g_ui.loadUI('styles/sound/uiSounds', controller.ui.optionsTabContent)
 
     panels.misc = g_ui.loadUI('styles/misc/misc', controller.ui.optionsTabContent)
+    panels.recordingsPanel = g_ui.loadUI('styles/recordings', controller.ui.optionsTabContent)
     panels.miscGameplay = g_ui.loadUI('styles/misc/gameplay', controller.ui.optionsTabContent)
     panels.miscHelp = g_ui.loadUI('styles/misc/help', controller.ui.optionsTabContent)
     panels.minimapPanel = g_ui.loadUI('styles/minimap/minimap', controller.ui.optionsTabContent)
@@ -614,6 +742,7 @@ function controller:onInit()
     
     init_binds()
     init_custom_hotkeys()
+    setupClipRecording(panels.recordingsPanel)
 
     Keybind.new("UI", "Toggle Fullscreen", "Ctrl+Shift+F", "")
     Keybind.bind("UI", "Toggle Fullscreen", {
@@ -741,6 +870,16 @@ function controller:onInit()
 end
 
 function controller:onTerminate()
+    removeEvent(recordingStatusEvent)
+    removeEvent(recordingPulseEvent)
+    if recordingIndicator then
+        recordingIndicator:destroy()
+        recordingIndicator = nil
+    end
+    if g_app.configureClipRecording then
+        configureClipRecording(true)
+        Keybind.delete("UI", "Save Recording Clip")
+    end
     terminateMinimapAnimationDownload()
     if autoSwitchPresetEvent then
         removeEvent(autoSwitchPresetEvent)
@@ -888,6 +1027,7 @@ function syncChatModePanels(chatMode)
 end
 
 function controller:onGameStart()
+    configureClipRecording()
     if autoSwitchPresetEvent then
         removeEvent(autoSwitchPresetEvent)
     end
@@ -934,6 +1074,10 @@ function controller:onGameStart()
 end
 
 function controller:onGameEnd()
+    if recordingIndicator then
+        recordingIndicator:hide()
+    end
+    configureClipRecording(true)
     if autoSwitchPresetEvent then
         removeEvent(autoSwitchPresetEvent)
         autoSwitchPresetEvent = nil
@@ -1054,6 +1198,13 @@ function setOption(key, value, force)
     end
 
     g_settings.set(key, value)
+    local recordingsPanel = panels.recordingsPanel
+    if recordingsPanel and recordingChoices[key] then
+        recordingsPanel:recursiveGetChildById(key):setCurrentOptionByData(value, true)
+    end
+    if key == 'clipRecordingEnabled' or (recordingChoices[key] and key ~= 'clipRecordingFormat') then
+        configureClipRecording()
+    end
     syncProtocolSoundSettings(key)
 end
 
@@ -2094,6 +2245,13 @@ function configureCharacterCategories()
         local widget = g_ui.createWidget("OptionsCategory", controller.ui.optionsTabBar)
         widget:setId(id)
         widget.Button.Icon:setIcon(button.icon)
+        if button.open == "recordingsPanel" then
+            widget.Button.Icon:setSize({width = 16, height = 16})
+            widget.Button.Icon:setIconSize({width = 16, height = 16})
+            widget.Button.Icon:setMarginLeft(6)
+            widget.Button.Title:setMarginLeft(25)
+            widget.Button.Title:setMarginRight(7)
+        end
         widget.Button.Title:setText(button.text)
         widget.open = button.open
 

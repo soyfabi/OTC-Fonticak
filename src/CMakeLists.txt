@@ -581,6 +581,12 @@ endif()
 target_link_libraries(${PROJECT_NAME} PRIVATE otclient_core)
 if(WIN32)
   target_link_libraries(otclient_core PRIVATE winhttp)
+  if(TOGGLE_FRAMEWORK_GRAPHICS)
+    target_sources(otclient_core PRIVATE framework/platform/cliprecorder.cpp)
+    set_source_files_properties(framework/platform/cliprecorder.cpp PROPERTIES
+        SKIP_PRECOMPILE_HEADERS ON SKIP_UNITY_BUILD_INCLUSION ON)
+    target_link_libraries(otclient_core PRIVATE d3d11 mfplat mfreadwrite mfuuid ole32 windowsapp)
+  endif()
 endif()
 
 # *****************************************************************************
