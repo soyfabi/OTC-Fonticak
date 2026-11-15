@@ -89,7 +89,7 @@ UIWidget
     OptionsLabel
       id: formatLabel
       !text: tr('Output Format')
-      !tooltip: tr('MKV and AVI export require ffmpeg.exe next to the client or on PATH.')
+      !tooltip: tr('MKV and AVI export require ffmpeg.exe next to the client.')
       anchors.left: parent.left
       anchors.top: qualityLabel.bottom
       margin-top: 6

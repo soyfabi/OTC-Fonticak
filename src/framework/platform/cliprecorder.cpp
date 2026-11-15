@@ -6,6 +6,8 @@
 #endif
 #undef _WIN32_WINNT
 #define _WIN32_WINNT 0x0A00
+#undef NTDDI_VERSION
+#define NTDDI_VERSION 0x0A000000
 #include <Windows.h>
 #include <d3d11.h>
 #include <mfapi.h>
@@ -24,6 +26,7 @@
 #include <cstring>
 #include <deque>
 #include <filesystem>
+#include <memory>
 #include <mutex>
 #include <optional>
 #include <stdexcept>
@@ -69,13 +72,6 @@ struct Settings
     bool operator==(const Settings&) const = default;
 };
 
-struct Segment
-{
-    std::filesystem::path path;
-    LONGLONG start;
-    LONGLONG end;
-};
-
 const wchar_t* clipExtension(int format)
 {
     switch (format) {
@@ -89,23 +85,12 @@ std::wstring findFfmpeg()
 {
     std::wstring executable(32768, L'\0');
     const DWORD length = GetModuleFileNameW(nullptr, executable.data(), static_cast<DWORD>(executable.size()));
-    if (length > 0 && length < executable.size()) {
-        executable.resize(length);
-        const auto local = std::filesystem::path(executable).parent_path() / L"ffmpeg.exe";
-        std::error_code error;
-        if (std::filesystem::is_regular_file(local, error))
-            return local.wstring();
-    }
-
-    const DWORD size = GetEnvironmentVariableW(L"PATH", nullptr, 0);
-    if (size == 0)
+    if (length == 0 || length >= executable.size())
         return {};
-    std::wstring path(size, L'\0');
-    if (const DWORD written = GetEnvironmentVariableW(L"PATH", path.data(), size); written == 0 || written >= size)
-        return {};
-    std::wstring result(32768, L'\0');
-    const DWORD found = SearchPathW(path.c_str(), L"ffmpeg.exe", nullptr, static_cast<DWORD>(result.size()), result.data(), nullptr);
-    return found > 0 && found < result.size() ? result.substr(0, found) : std::wstring{};
+    executable.resize(length);
+    const auto local = std::filesystem::path(executable).parent_path() / L"ffmpeg.exe";
+    std::error_code error;
+    return std::filesystem::is_regular_file(local, error) ? local.wstring() : std::wstring{};
 }
 
 void remuxClip(const std::wstring& ffmpeg, const std::filesystem::path& input, const std::filesystem::path& output)
@@ -121,16 +106,16 @@ void remuxClip(const std::wstring& ffmpeg, const std::filesystem::path& input, c
     if (!CreateProcessW(ffmpeg.c_str(), command.data(), nullptr, nullptr, FALSE, CREATE_NO_WINDOW,
                        nullptr, nullptr, &startup, &process))
         throw std::runtime_error("Could not launch FFmpeg.");
+    const winrt::handle child{process.hProcess};
     CloseHandle(process.hThread);
-    const auto wait = WaitForSingleObject(process.hProcess, 30'000);
+    const auto wait = WaitForSingleObject(child.get(), 30'000);
     DWORD exitCode = 1;
     if (wait == WAIT_OBJECT_0) {
-        GetExitCodeProcess(process.hProcess, &exitCode);
+        GetExitCodeProcess(child.get(), &exitCode);
     } else {
-        TerminateProcess(process.hProcess, 1);
-        WaitForSingleObject(process.hProcess, 1000);
+        TerminateProcess(child.get(), 1);
+        WaitForSingleObject(child.get(), 1000);
     }
-    CloseHandle(process.hProcess);
     if (exitCode != 0)
         throw std::runtime_error("FFmpeg could not export the selected clip format.");
 }
@@ -161,8 +146,7 @@ com_ptr<IMFSinkWriter> openWriter(const std::filesystem::path& path, IMFMediaTyp
                                 IMFMediaType* input, bool hardware, DWORD& stream)
 {
     com_ptr<IMFAttributes> options;
-    check_hresult(MFCreateAttributes(options.put(), 2));
-    check_hresult(options->SetUINT32(MF_SINK_WRITER_DISABLE_THROTTLING, TRUE));
+    check_hresult(MFCreateAttributes(options.put(), 1));
     check_hresult(options->SetUINT32(MF_READWRITE_ENABLE_HARDWARE_TRANSFORMS, hardware));
     com_ptr<IMFSinkWriter> writer;
     check_hresult(MFCreateSinkWriterFromURL(path.c_str(), nullptr, options.get(), writer.put()));
@@ -174,7 +158,7 @@ com_ptr<IMFSinkWriter> openWriter(const std::filesystem::path& path, IMFMediaTyp
 
 struct Capture
 {
-    explicit Capture(HWND window)
+    void start(HWND window)
     {
         if (!GraphicsCaptureSession::IsSupported())
             throw hresult_error(E_NOTIMPL);
@@ -203,14 +187,19 @@ struct Capture
 
     ~Capture()
     {
+        // The window or device may already be gone. Still close each resource.
         try {
             if (borderAccess)
                 borderAccess.Cancel();
-            session.Close();
-            pool.Close();
-        } catch (...) {
-            // The window or capture device can already be gone during shutdown.
-        }
+        } catch (...) {}
+        try {
+            if (session)
+                session.Close();
+        } catch (...) {}
+        try {
+            if (pool)
+                pool.Close();
+        } catch (...) {}
     }
 
     void updateBorder()
@@ -307,91 +296,82 @@ struct Capture
         winrt::Windows::Security::Authorization::AppCapabilityAccess::AppCapabilityAccessStatus> borderAccess{nullptr};
 };
 
+struct BufferDirectory
+{
+    explicit BufferDirectory(const std::filesystem::path& directory)
+        : path(directory / (L".buffer-" + uniqueId()))
+    {
+        std::filesystem::create_directories(path);
+    }
+
+    ~BufferDirectory()
+    {
+        std::error_code ignored;
+        std::filesystem::remove_all(path, ignored);
+    }
+
+    const std::filesystem::path path;
+};
+
+struct Segment
+{
+    Segment(std::shared_ptr<const BufferDirectory> directory, LONGLONG time)
+        : directory(std::move(directory)), path(this->directory->path / (std::to_wstring(time) + L".mp4")), start(time)
+    {}
+
+    ~Segment()
+    {
+        std::error_code ignored;
+        std::filesystem::remove(path, ignored);
+    }
+
+    const std::shared_ptr<const BufferDirectory> directory;
+    const std::filesystem::path path;
+    const LONGLONG start;
+};
+
+using Segments = std::deque<std::shared_ptr<const Segment>>;
+
 class ReplayBuffer
 {
 public:
     explicit ReplayBuffer(const Settings& settings)
-        : m_directory(settings.directory / (L".buffer-" + uniqueId())), m_fps(settings.fps),
+        : m_directory(std::make_shared<BufferDirectory>(settings.directory)), m_fps(settings.fps),
           m_limit(settings.minutes * 60 * second), m_quality(settings.quality), m_useHardware(settings.automaticEncoder)
-    {
-        std::filesystem::create_directories(m_directory);
-    }
-
-    ~ReplayBuffer()
-    {
-        m_writer = nullptr;
-        std::error_code ignored;
-        std::filesystem::remove_all(m_directory, ignored);
-    }
+    {}
 
     void clear()
     {
-        finish();
-        for (const auto& segment : m_segments)
-            std::filesystem::remove(segment.path);
+        m_writer = nullptr;
+        m_current.reset();
         m_segments.clear();
     }
 
     void append(IMFSample* sample, SizeInt32 size, LONGLONG time)
     {
-        if (m_writer && time - m_current.start >= segmentDuration)
+        if (m_writer && time - m_current->start >= segmentDuration)
             finish();
         if (!m_writer)
             start(size, time);
 
         const auto duration = second / m_fps;
-        check_hresult(sample->SetSampleTime(time - m_current.start));
+        check_hresult(sample->SetSampleTime(time - m_current->start));
         check_hresult(sample->SetSampleDuration(duration));
         check_hresult(m_writer->WriteSample(m_stream, sample));
-        m_current.end = time + duration;
-
-        while (!m_segments.empty() && m_segments.front().start < m_current.end - m_limit) {
-            std::filesystem::remove(m_segments.front().path);
+        while (!m_segments.empty() && m_segments.front()->start < time + duration - m_limit)
             m_segments.pop_front();
-        }
     }
 
-    std::string save(int format = 0)
+    Segments snapshot()
     {
         finish();
-        if (m_segments.empty())
-            return {};
-
-        const auto name = L"Clip-" + uniqueId();
-        const auto path = m_directory.parent_path() / (name + clipExtension(format));
-        if (format != 0) {
-            const auto ffmpeg = findFfmpeg();
-            if (ffmpeg.empty())
-                throw std::runtime_error("MKV and AVI require ffmpeg.exe next to the client or on PATH.");
-
-            const auto input = m_directory / (name + L".mp4");
-            try {
-                exportVideo(input);
-                remuxClip(ffmpeg, input, path);
-            } catch (...) {
-                std::error_code ignored;
-                std::filesystem::remove(input, ignored);
-                std::filesystem::remove(path, ignored);
-                throw;
-            }
-            std::error_code ignored;
-            std::filesystem::remove(input, ignored);
-            return path.filename().string();
-        }
-        try {
-            exportVideo(path);
-        } catch (...) {
-            std::error_code ignored;
-            std::filesystem::remove(path, ignored);
-            throw;
-        }
-        return path.filename().string();
+        return m_segments;
     }
 
 private:
     void start(SizeInt32 size, LONGLONG time)
     {
-        m_current = {m_directory / (std::to_wstring(time) + L".mp4"), time, time};
+        m_current = std::make_shared<Segment>(m_directory, time);
         const auto output = videoType(MFVideoFormat_H264, size, m_fps);
         const auto factor = qualityFactors[m_quality];
         const auto bitrate = std::clamp<int64_t>(
@@ -402,14 +382,14 @@ private:
         check_hresult(input->SetUINT32(MF_MT_DEFAULT_STRIDE, size.Width * 4));
         if (m_useHardware) {
             try {
-                m_writer = openWriter(m_current.path, output.get(), input.get(), true, m_stream);
+                m_writer = openWriter(m_current->path, output.get(), input.get(), true, m_stream);
                 return;
             } catch (const hresult_error&) {
-                std::filesystem::remove(m_current.path);
+                std::filesystem::remove(m_current->path);
                 m_useHardware = false;
             }
         }
-        m_writer = openWriter(m_current.path, output.get(), input.get(), false, m_stream);
+        m_writer = openWriter(m_current->path, output.get(), input.get(), false, m_stream);
     }
 
     void finish()
@@ -421,81 +401,183 @@ private:
         m_segments.push_back(std::move(m_current));
     }
 
-    void exportVideo(const std::filesystem::path& path) const
-    {
-        // A single segment is already a playable MP4.
-        if (m_segments.size() == 1) {
-            std::filesystem::copy_file(m_segments.front().path, path);
-            return;
-        }
-
-        com_ptr<IMFSinkWriter> output;
-        DWORD stream{};
-        LONGLONG offset = 0;
-        constexpr DWORD video = MF_SOURCE_READER_FIRST_VIDEO_STREAM;
-        for (const auto& segment : m_segments) {
-            com_ptr<IMFSourceReader> source;
-            check_hresult(MFCreateSourceReaderFromURL(segment.path.c_str(), nullptr, source.put()));
-            if (!output) {
-                com_ptr<IMFMediaType> type;
-                check_hresult(source->GetCurrentMediaType(video, type.put()));
-                output = openWriter(path, type.get(), type.get(), false, stream);
-            }
-            LONGLONG end = offset;
-            for (;;) {
-                DWORD flags{};
-                LONGLONG time{};
-                com_ptr<IMFSample> sample;
-                check_hresult(source->ReadSample(video, 0, nullptr, &flags, &time, sample.put()));
-                if (sample) {
-                    LONGLONG duration = second / m_fps;
-                    sample->GetSampleDuration(&duration);
-                    check_hresult(sample->SetSampleTime(offset + time));
-                    check_hresult(output->WriteSample(stream, sample.get()));
-                    end = std::max(end, offset + time + duration);
-                }
-                if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
-                    break;
-            }
-            offset = end;
-        }
-        check_hresult(output->Finalize());
-    }
-
-    std::filesystem::path m_directory;
+    std::shared_ptr<const BufferDirectory> m_directory;
     int m_fps;
     LONGLONG m_limit;
     int m_quality;
     bool m_useHardware;
     DWORD m_stream{};
+    std::shared_ptr<const Segment> m_current;
+    Segments m_segments;
     com_ptr<IMFSinkWriter> m_writer;
-    Segment m_current{};
-    std::deque<Segment> m_segments;
+};
+
+struct ExportJob
+{
+    Segments segments;
+    int fps{};
+    int format{};
+    unsigned revision{};
+};
+
+void exportVideo(const ExportJob& job, const std::filesystem::path& path)
+{
+    // A single segment is already a playable MP4.
+    if (job.segments.size() == 1) {
+        std::filesystem::copy_file(job.segments.front()->path, path);
+        return;
+    }
+
+    com_ptr<IMFSinkWriter> output;
+    DWORD stream{};
+    LONGLONG offset = 0;
+    constexpr DWORD video = MF_SOURCE_READER_FIRST_VIDEO_STREAM;
+    for (const auto& segment : job.segments) {
+        com_ptr<IMFSourceReader> source;
+        check_hresult(MFCreateSourceReaderFromURL(segment->path.c_str(), nullptr, source.put()));
+        if (!output) {
+            com_ptr<IMFMediaType> type;
+            check_hresult(source->GetCurrentMediaType(video, type.put()));
+            output = openWriter(path, type.get(), type.get(), false, stream);
+        }
+        LONGLONG end = offset;
+        for (;;) {
+            DWORD flags{};
+            LONGLONG time{};
+            com_ptr<IMFSample> sample;
+            check_hresult(source->ReadSample(video, 0, nullptr, &flags, &time, sample.put()));
+            if (sample) {
+                LONGLONG duration = second / job.fps;
+                sample->GetSampleDuration(&duration);
+                check_hresult(sample->SetSampleTime(offset + time));
+                check_hresult(output->WriteSample(stream, sample.get()));
+                end = std::max(end, offset + time + duration);
+            }
+            if (flags & MF_SOURCE_READERF_ENDOFSTREAM)
+                break;
+        }
+        offset = end;
+    }
+    check_hresult(output->Finalize());
+}
+
+std::string saveClip(const ExportJob& job)
+{
+    const auto& directory = job.segments.front()->directory->path;
+    const auto name = L"Clip-" + uniqueId();
+    const auto path = directory.parent_path() / (name + clipExtension(job.format));
+    const auto input = directory / (name + L".mp4");
+    const auto ffmpeg = job.format != 0 ? findFfmpeg() : std::wstring{};
+    if (job.format != 0 && ffmpeg.empty())
+        throw std::runtime_error("MKV and AVI require ffmpeg.exe next to the client.");
+
+    try {
+        if (job.format == 0) {
+            exportVideo(job, path);
+        } else {
+            exportVideo(job, input);
+            remuxClip(ffmpeg, input, path);
+        }
+    } catch (...) {
+        std::error_code ignored;
+        std::filesystem::remove(input, ignored);
+        std::filesystem::remove(path, ignored);
+        throw;
+    }
+    std::error_code ignored;
+    std::filesystem::remove(input, ignored);
+    return path.filename().string();
+}
+
+struct Apartment
+{
+    Apartment() { init_apartment(); }
+    ~Apartment() { uninit_apartment(); }
+};
+
+struct MediaFoundation
+{
+    MediaFoundation() { check_hresult(MFStartup(MF_VERSION, MFSTARTUP_LITE)); }
+    ~MediaFoundation() { MFShutdown(); }
 };
 
 struct Worker
 {
     std::mutex mutex;
     std::condition_variable wake;
-    std::thread thread;
+    std::condition_variable exportWake;
+    std::thread captureThread;
+    std::thread exportThread;
     Settings settings;
     unsigned revision{};
     std::optional<int> saveRequested;
+    std::optional<ExportJob> exportJob;
+    bool exporting{};
     bool stopping{};
     bool recording{};
     std::string status{"Off"};
 
-    void report(std::string message)
+    ~Worker() { stop(); }
+
+    void stop()
     {
-        std::lock_guard guard(mutex);
-        status = std::move(message);
+        {
+            std::lock_guard guard(mutex);
+            stopping = true;
+            recording = false;
+            saveRequested.reset();
+        }
+        wake.notify_one();
+        exportWake.notify_one();
+        if (captureThread.joinable())
+            captureThread.join();
+        if (exportThread.joinable())
+            exportThread.join();
+    }
+
+    void runExports()
+    {
+        for (;;) {
+            ExportJob job;
+            {
+                std::unique_lock guard(mutex);
+                exportWake.wait(guard, [&] { return stopping || exportJob; });
+                if (!exportJob)
+                    return;
+                job = std::move(*exportJob);
+                exportJob.reset();
+            }
+
+            std::string result;
+            try {
+                const Apartment apartment;
+                const MediaFoundation mediaFoundation;
+                result = "Saved " + saveClip(job);
+            } catch (const hresult_error& e) {
+                result = "Could not save clip: " + to_string(e.message());
+            } catch (const std::exception& e) {
+                result = std::string("Could not save clip: ") + e.what();
+            }
+            job.segments.clear();
+
+            std::lock_guard guard(mutex);
+            exporting = false;
+            if (!stopping && revision == job.revision && recording)
+                status = std::move(result);
+        }
     }
 
     void record(const Settings& config, unsigned activeRevision)
     {
-        Capture capture(config.window);
+        Capture capture;
+        capture.start(config.window);
         ReplayBuffer buffer(config);
-        report("Buffering video...");
+        {
+            std::lock_guard guard(mutex);
+            if (stopping || revision != activeRevision)
+                return;
+            status = "Buffering video...";
+        }
         const auto period = second / config.fps;
         LONGLONG nextFrame = 0;
         bool hasFrame = false;
@@ -506,17 +588,27 @@ struct Worker
                 wake.wait_for(guard, 4ms, [&] { return stopping || revision != activeRevision || saveRequested; });
                 if (stopping || revision != activeRevision)
                     return;
-                save = std::exchange(saveRequested, std::nullopt);
+                save = saveRequested;
             }
 
             if (save) {
-                try {
-                    const auto filename = buffer.save(*save);
-                    report(filename.empty() ? "No video buffered yet" : "Saved " + filename);
-                } catch (const hresult_error& e) {
-                    report("Could not save clip: " + to_string(e.message()));
-                } catch (const std::exception& e) {
-                    report(std::string("Could not save clip: ") + e.what());
+                auto segments = buffer.snapshot();
+                std::lock_guard guard(mutex);
+                if (stopping || revision != activeRevision)
+                    return;
+                if (!exportThread.joinable()) {
+                    try {
+                        exportThread = std::thread([this] { runExports(); });
+                    } catch (const std::system_error&) {
+                        saveRequested.reset();
+                        status = "Could not start clip export";
+                    }
+                }
+                if (saveRequested) {
+                    exportJob.emplace(ExportJob{std::move(segments), config.fps, *save, activeRevision});
+                    exporting = true;
+                    saveRequested.reset();
+                    exportWake.notify_one();
                 }
             }
 
@@ -532,10 +624,12 @@ struct Worker
                 capture.resize(size);
                 buffer.clear();
                 hasFrame = false;
+                nextFrame = 0;
                 {
                     std::lock_guard guard(mutex);
                     if (revision == activeRevision) {
                         recording = false;
+                        saveRequested.reset();
                         status = "Window resized. Buffering video...";
                     }
                 }
@@ -560,12 +654,6 @@ struct Worker
 
     void run()
     {
-        try {
-            init_apartment();
-        } catch (const hresult_error& e) {
-            report("Could not initialize capture: " + to_string(e.message()));
-            return;
-        }
         unsigned activeRevision = 0;
         while (true) {
             Settings config;
@@ -582,30 +670,23 @@ struct Worker
                 }
             }
 
+            std::string failure;
             try {
-                check_hresult(MFStartup(MF_VERSION, MFSTARTUP_LITE));
-                try {
-                    record(config, activeRevision);
-                } catch (...) {
-                    MFShutdown();
-                    throw;
-                }
-                MFShutdown();
+                const Apartment apartment;
+                const MediaFoundation mediaFoundation;
+                record(config, activeRevision);
             } catch (const hresult_error& e) {
-                std::lock_guard guard(mutex);
-                if (revision == activeRevision) {
-                    recording = false;
-                    status = "Recording failed: " + to_string(e.message());
-                }
-            } catch (const std::exception&) {
-                std::lock_guard guard(mutex);
-                if (revision == activeRevision) {
-                    recording = false;
-                    status = "Could not write to the recordings folder";
-                }
+                failure = "Recording failed: " + to_string(e.message());
+            } catch (const std::exception& e) {
+                failure = std::string("Recording failed: ") + e.what();
+            }
+            std::lock_guard guard(mutex);
+            if (!stopping && revision == activeRevision && !failure.empty()) {
+                recording = false;
+                saveRequested.reset();
+                status = std::move(failure);
             }
         }
-        uninit_apartment();
     }
 };
 
@@ -635,22 +716,29 @@ void ClipRecorder::configure(void* window, std::string writeDir, int framesPerSe
     }
     if (worker.settings == settings || worker.stopping)
         return;
+    if (window && !worker.captureThread.joinable()) {
+        try {
+            worker.captureThread = std::thread([] { worker.run(); });
+        } catch (const std::system_error&) {
+            worker.status = "Could not start clip recording";
+            return;
+        }
+    }
     worker.settings = std::move(settings);
     worker.saveRequested.reset();
     worker.recording = false;
     ++worker.revision;
     worker.status = window ? "Starting recorder..." : "Off";
-    if (window && !worker.thread.joinable())
-        worker.thread = std::thread([] { worker.run(); });
     worker.wake.notify_one();
 }
 
 bool ClipRecorder::save(int format)
 {
     std::lock_guard guard(worker.mutex);
-    if (!worker.settings.window || worker.saveRequested)
+    if (!worker.recording || worker.saveRequested || worker.exporting)
         return false;
     worker.saveRequested = std::clamp(format, 0, 2);
+    worker.status = "Saving clip...";
     worker.wake.notify_one();
     return true;
 }
@@ -669,14 +757,7 @@ bool ClipRecorder::isRecording()
 
 void ClipRecorder::shutdown()
 {
-    {
-        std::lock_guard guard(worker.mutex);
-        worker.stopping = true;
-        worker.recording = false;
-        worker.wake.notify_one();
-    }
-    if (worker.thread.joinable())
-        worker.thread.join();
+    worker.stop();
 }
 
 #endif

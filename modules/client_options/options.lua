@@ -245,20 +245,17 @@ local recordingChoices = {
     clipRecordingFormat = { { 'MP4', 0 }, { 'MKV', 1 }, { 'AVI', 2 } }
 }
 
-local function configureClipRecording()
+local function configureClipRecording(disable)
     if g_app.configureClipRecording then
-        g_app.configureClipRecording(g_game.isOnline() and getOption('clipRecordingEnabled') == true,
+        g_app.configureClipRecording(not disable and g_game.isOnline() and getOption('clipRecordingEnabled') == true,
             getOption('clipRecordingFps'), getOption('clipRecordingMinutes'),
             getOption('clipRecordingResolution'), getOption('clipRecordingQuality'), getOption('clipRecordingEncoder') == 0)
     end
 end
 
 function saveRecordingClip()
-    if g_app.saveClip and g_app.saveClip(getOption('clipRecordingFormat')) then
-        local status = panels.recordingsPanel and panels.recordingsPanel:recursiveGetChildById('clipRecordingStatus')
-        if status then
-            status:setText(tr('Saving clip...'))
-        end
+    if g_app.saveClip then
+        g_app.saveClip(getOption('clipRecordingFormat'))
     end
 end
 
@@ -880,7 +877,7 @@ function controller:onTerminate()
         recordingIndicator = nil
     end
     if g_app.configureClipRecording then
-        g_app.configureClipRecording(false, 30, 3, 0, 1, true)
+        configureClipRecording(true)
         Keybind.delete("UI", "Save Recording Clip")
     end
     terminateMinimapAnimationDownload()
@@ -1080,9 +1077,7 @@ function controller:onGameEnd()
     if recordingIndicator then
         recordingIndicator:hide()
     end
-    if g_app.configureClipRecording then
-        g_app.configureClipRecording(false, 30, 3, 0, 1, true)
-    end
+    configureClipRecording(true)
     if autoSwitchPresetEvent then
         removeEvent(autoSwitchPresetEvent)
         autoSwitchPresetEvent = nil
