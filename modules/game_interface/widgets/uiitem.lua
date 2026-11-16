@@ -16,6 +16,9 @@ function UIItem:onDragEnter(mousePos)
     self:setBorderWidthBottom(1)
     self:setBorderWidthLeft(1)
     self.currentDragThing = item
+    if item:isPickupable() and modules.game_actionbar then
+        modules.game_actionbar.startActionBarDragTrail(self, mousePos)
+    end
     -- Use native cursor when enabled, otherwise use custom cursor
     if modules.client_options and modules.client_options.getOption('nativeCursor') then
         g_window.setSystemCursor('cross')
@@ -25,7 +28,16 @@ function UIItem:onDragEnter(mousePos)
     return true
 end
 
+function UIItem:onDragMove(mousePos)
+    if modules.game_actionbar then
+        modules.game_actionbar.updateActionBarDragTrail(self, mousePos)
+    end
+end
+
 function UIItem:onDragLeave(droppedWidget, mousePos)
+    if modules.game_actionbar then
+        modules.game_actionbar.finishActionBarDragTrail(self, mousePos)
+    end
     if self:isVirtual() then
         return false
     end

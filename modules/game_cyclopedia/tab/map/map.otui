@@ -40,7 +40,7 @@ UIWidget
         UIWidget
           id: DisplayBase
           margin-left: 11
-          size: 146 253
+          size: 146 271
           fixed-size: true
           image-source: /images/ui/t2pixel-up-frame-borderimage
           image-border: 20
@@ -285,7 +285,7 @@ UIWidget
             anchors.top: viewsLabel.bottom
             anchors.left: parent.left
             margin-left: 7
-            size: 132 76
+            size: 132 94
             &scrollSize: 15
             image-source: /images/ui/1pixel-down-frame
 
@@ -318,9 +318,22 @@ UIWidget
               enabled: true
               @onCheckChange: modules.game_cyclopedia.Cyclopedia.onMapViewChange(self, self:isChecked())
 
+            CheckBox
+              id: FogOfWarCheck
+              anchors.top: MapCheck.bottom
+              anchors.left: MapCheck.left
+              margin-top: 6
+              !text: tr('Fog of War')
+              font: $var-cip-font-new
+              color: #c0c0c0
+              text-offset: 15 0
+              text-auto-resize: true
+              checked: true
+              @onCheckChange: modules.game_cyclopedia.Cyclopedia.onFogOfWarChange(self:isChecked())
+
             Label
               id: levelSeparatorLabel
-              anchors.top: MapCheck.bottom
+              anchors.top: FogOfWarCheck.bottom
               anchors.left: parent.left
               margin-left: 4
               margin-top: 6
@@ -753,13 +766,14 @@ UIWidget
     id: MapBase
     anchors.top: InformationBase.top
     anchors.left: InformationBase.right
+    anchors.bottom: parent.bottom
     margin-left: 6
-    margin-bottom: 25
-    size: 493 415
+    width: 493
     image-source: /images/ui/1pixel-down-frame
     image-border: 10
     UIMinimap 
       id: minimap
+      fog-of-war: true
       anchors.fill: parent
       margin: 1
       clipping: true
@@ -768,15 +782,43 @@ UIWidget
       autowalk: true
       cross: true
       color: black
-      // Zoom bounds chosen from the data, not by eye (scale = 2^zoom, 1 tile = scale px,
-      // drawing window ~491x413 px):
-      //   -2 = scale 0.25 -> ~1964x1652 tiles, i.e. the whole main continent. Below this
-      //        the engine drops to the worst LOD (threshold 0.15 in satellitemap.cpp) and stops
-      //        drawing city names and markers, and the world shrinks to an unreadable speck.
-      //    2 = scale 4 -> ~123x103 tiles. Above that blur begins: the satellite has 2 px per tile,
-      //        and Map View tiles only 1 px, so zoom 3-4 is already a 4-8x magnification of the source.
+      // Overview at 0.25 px per tile; HD close-up at 32 px per tile.
       min-zoom: -2
-      max-zoom: 2
+      max-zoom: 5
+
+      MinimapDownloadButton
+        id: downloadPackButton
+        anchors.horizontalCenter: parent.horizontalCenter
+        anchors.bottom: parent.bottom
+        margin-bottom: 4
+        visible: false
+        @onClick: modules.game_minimap.downloadMinimapPack()
+
+      MinimapDownloadProgress
+        id: downloadPackProgress
+
+    UIWidget
+      id: cameraControls
+      anchors.left: parent.left
+      anchors.bottom: parent.bottom
+      margin-left: 7
+      margin-bottom: 7
+      size: 45 20
+      phantom: true
+      layout:
+        type: horizontalBox
+        spacing: 5
+
+      MinimapCenterControl
+        id: centerMapButton
+        !tooltip: tr('Center the map on your character.')
+        visible: false
+        @onClick: modules.game_cyclopedia.Cyclopedia.centerOnPlayer()
+
+      MinimapFreeViewControl
+        id: freeViewButton
+        !tooltip: tr('Keep the map in place while your character moves.')
+        @onClick: modules.game_cyclopedia.Cyclopedia.toggleFreeView()
 
 MapLayerSelector < UIWidget
   UIWidget

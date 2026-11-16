@@ -436,38 +436,75 @@ local function horizontalPanelWidth(side)
     return width
 end
 
-function updateHorizontalPanelWidths()
-    if gameLeftTopPanel and not gameLeftTopPanel:isDestroyed() then
-        local leftWidth = horizontalPanelWidth('left')
-        if leftWidth <= 0 then
-            gameLeftTopPanel:setWidth(0)
-            gameLeftTopPanel:setVisible(false)
-        else
-            gameLeftTopPanel:setWidth(leftWidth)
-            if gameLeftTopPanel:isOn() then
-                gameLeftTopPanel:setVisible(true)
-            end
-            if type(gameLeftTopPanel.redistributeChildrenWidths) == 'function' then
-                gameLeftTopPanel:redistributeChildrenWidths()
-            end
-        end
-    end
+local minimapDragging = false
+local minimapDropPulseEvent
+local minimapDropOverlays = {}
 
-    if gameRightTopPanel and not gameRightTopPanel:isDestroyed() then
-        local rightWidth = horizontalPanelWidth('right')
-        if rightWidth <= 0 then
-            gameRightTopPanel:setWidth(0)
-            gameRightTopPanel:setVisible(false)
-        else
-            gameRightTopPanel:setWidth(rightWidth)
-            if gameRightTopPanel:isOn() then
-                gameRightTopPanel:setVisible(true)
-            end
-            if type(gameRightTopPanel.redistributeChildrenWidths) == 'function' then
-                gameRightTopPanel:redistributeChildrenWidths()
+local function clearMinimapDropOverlays()
+    removeEvent(minimapDropPulseEvent)
+    minimapDropPulseEvent = nil
+    for _, overlay in ipairs(minimapDropOverlays) do
+        if not overlay:isDestroyed() then overlay:destroy() end
+    end
+    minimapDropOverlays = {}
+end
+
+local function updateMinimapTopSlot(panel, side)
+    if not panel or panel:isDestroyed() then return end
+    local minimap = panel:getChildById('mainmappanel')
+    local occupied = minimap ~= nil and minimap:isExplicitlyVisible()
+    local expanded = minimapDragging or occupied
+    -- Keep the width for the next drop, but release the vertical space when empty.
+    panel:setWidth(math.max(horizontalPanelWidth(side), expanded and 178 or 0))
+    panel:setHeight(expanded and 200 or 0)
+    panel:setVisible(expanded and panel:isOn())
+    if expanded then
+        if occupied then minimap:setHeight(panel:getHeight() - panel:getPaddingTop() - panel:getPaddingBottom()) end
+        panel:redistributeChildrenWidths()
+    end
+end
+
+function updateHorizontalPanelWidths()
+    updateMinimapTopSlot(gameLeftTopPanel, 'left')
+    updateMinimapTopSlot(gameRightTopPanel, 'right')
+end
+
+function setMinimapDragging(dragging)
+    minimapDragging = dragging == true
+    clearMinimapDropOverlays()
+    updateHorizontalPanelWidths()
+    if minimapDragging then
+        for _, panel in ipairs({ gameLeftTopPanel, gameRightTopPanel }) do
+            if panel and not panel:isDestroyed() and panel:isVisible() then
+                -- Top slots use a horizontal layout, so draw the overlay on
+                -- the root without adding a child that could consume a slot.
+                local overlay = g_ui.createWidget('UIWidget', rootWidget)
+                overlay:setId('minimapDropTarget')
+                overlay._sidebarPlaceholderWidget = true
+                overlay:setPhantom(true)
+                overlay:setFocusable(false)
+                overlay:setBorderWidth(2)
+                overlay:setBorderColor('#e2bd55')
+                overlay:setBackgroundColor('#e2bd5520')
+                overlay._minimapSlot = panel
+                overlay:setRect(panel:getRect())
+                minimapDropOverlays[#minimapDropOverlays + 1] = overlay
             end
         end
+        local started = g_clock.millis()
+        minimapDropPulseEvent = cycleEvent(function()
+            local opacity = 0.35 + 0.65 * (0.5 + 0.5 * math.sin((g_clock.millis() - started) * math.pi / 400))
+            for _, overlay in ipairs(minimapDropOverlays) do
+                if not overlay:isDestroyed() then
+                    if overlay._minimapSlot and not overlay._minimapSlot:isDestroyed() then
+                        overlay:setRect(overlay._minimapSlot:getRect())
+                    end
+                    overlay:setOpacity(opacity)
+                end
+            end
+        end, 40)
     end
+    scheduleSidebarLayoutUpdate()
 end
 
 local function raiseHorizontalPanels()
@@ -915,6 +952,8 @@ function initSidebarColumns()
 end
 
 function terminateSidebarColumns()
+    minimapDragging = false
+    clearMinimapDropOverlays()
     for index = #gameLeftExtraPanels, 2, -1 do
         local panel = gameLeftExtraPanels[index]
         if panel and not panel:isDestroyed() then

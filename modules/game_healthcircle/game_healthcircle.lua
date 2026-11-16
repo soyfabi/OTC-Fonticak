@@ -956,11 +956,13 @@ function addToOptionsModule()
 
     statsBarMenuLoaded = true
 
+    local storedDimension = g_settings.getString('statsbar_dimension')
+    local storedPlacement = g_settings.getString('statsbar_placement')
     if chooseStatsBarDimension then
-        chooseStatsBarDimension:setCurrentOptionByData(g_settings.getString('statsbar_dimension'), true)
+        chooseStatsBarDimension:setCurrentOptionByData(storedDimension ~= "" and storedDimension or 'compact', true)
     end
     if chooseStatsBarPlacement then
-        chooseStatsBarPlacement:setCurrentOptionByData(g_settings.getString('statsbar_placement'), true)
+        chooseStatsBarPlacement:setCurrentOptionByData(storedPlacement ~= "" and storedPlacement or 'top', true)
     end
 
     skillsLoaded = true
@@ -982,10 +984,19 @@ function addToOptionsModule()
 end
 
 function updateStatsBar()
-    if statsBarMenuLoaded and chooseStatsBarDimension and chooseStatsBarPlacement then
-        modules.game_interface.updateStatsBar(chooseStatsBarDimension:getCurrentOption().data,
-            chooseStatsBarPlacement:getCurrentOption().data)
+    if not statsBarMenuLoaded then
+        return
     end
+
+    local dimensionOption = chooseStatsBarDimension:getCurrentOption()
+    local placementOption = chooseStatsBarPlacement:getCurrentOption()
+    -- a selection can be empty while the stored stats bar state is still unknown,
+    -- there is nothing to apply in that case
+    if not dimensionOption or not placementOption then
+        return
+    end
+
+    modules.game_interface.updateStatsBar(dimensionOption.data, placementOption.data)
 end
 
 function setPlayerValues()

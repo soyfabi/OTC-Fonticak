@@ -1826,29 +1826,7 @@ end
 modules.client_entergame.toggleHiddenCharacters = toggleHiddenCharacters
 
 function CharacterList.createCharacter()
-	if Services and Services.createAccount then
-		if createWidgetAccount then
-			createWidgetAccount()
-			return
-		end
-	end
-
-	local charList = charactersWindow and charactersWindow:recursiveGetChildById("characters")
-	if charList then
-		for _, child in ipairs(charList:getChildren()) do
-			if child.characterName and child.characterName:lower():find("account manager") then
-				charList:focusChild(child)
-				CharacterList.doLogin()
-				return
-			end
-		end
-	end
-
-	if Services and Services.websites then
-		g_platform.openUrl(Services.websites)
-	elseif Services and Services.website then
-		g_platform.openUrl(Services.website)
-	end
+	CreateCharacter.show()
 end
 
 function CharacterList.manageAccount()

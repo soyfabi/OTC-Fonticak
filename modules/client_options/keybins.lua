@@ -677,6 +677,71 @@ local function getInlineKeyConflictFeedback(keyCombo, category, action)
     return nil
 end
 
+function editRecordingHotkey()
+    local category, action = "UI", "Save Recording Clip"
+    local preset, chatMode = Keybind.currentPreset, Keybind.chatMode
+    local window = keyEditWindow
+    local selected
+    local function closeEditor()
+        window:ungrabKeyboard()
+        window:hide()
+    end
+    local function apply()
+        if selected == nil then
+            return
+        end
+        Keybind.setPrimaryActionKey(category, action, preset, selected, chatMode)
+        Keybind.configs.keybinds[preset]:save()
+        closeEditor()
+    end
+
+    window:setText(tr('Save Clip Hotkey'))
+    local mode = chatMode == CHAT_MODE.ON and tr('Chat On') or tr('Chat Off')
+    window.bindingContext:setText(tr('%s (%s)', preset, mode))
+    local keys = Keybind.getKeybindKeys(category, action, chatMode, preset)
+    window.keyCombo:setText(keys.primary ~= '' and keys.primary or tr('Unassigned'))
+    window.info:setText(tr('Press the key combination to save a clip.'))
+    window.used:hide()
+    window.buttons.ok:setEnabled(false)
+    window.buttons.ok.onClick = apply
+    window.buttons.cancel.onClick = closeEditor
+    window.buttons.clear.onClick = function()
+        selected = ''
+        apply()
+    end
+    window.onEscape = closeEditor
+    window.onKeyDown = function(_, keyCode, modifiers)
+        if keyCode == KeyEscape then
+            closeEditor()
+            return true
+        end
+        if selected and isInlineEnterKey(keyCode) then
+            apply()
+            return true
+        end
+        if keyCode == KeyCtrl or keyCode == KeyAlt or keyCode == KeyShift then
+            return true
+        end
+        local combo = determineKeyComboDesc(keyCode, modifiers)
+        if not combo or combo == '' then
+            return true
+        end
+        local blocked = Keybind.reservedKeys[combo]
+            or Keybind.getKeyComboOverwriteTarget(combo, category, action, chatMode, preset) ~= nil
+            or hasCustomHotkeyConflictForCombo(combo, chatMode, preset)
+            or hasActionbarHotkeyConflictForCombo(combo, chatMode)
+        selected = not blocked and combo or nil
+        window.keyCombo:setText(combo)
+        window.used:setVisible(blocked == true)
+        window.buttons.ok:setEnabled(selected ~= nil)
+        return true
+    end
+    window:show()
+    window:raise()
+    window:focus()
+    window:grabKeyboard()
+end
+
 cancelPendingInlineKeybindCommit = function()
     if inlineKeyEditSession then
         clearInlineKeyOverwriteConfirmUI(inlineKeyEditSession)

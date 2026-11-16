@@ -2059,6 +2059,7 @@ local function applyEquipmentAssign(closeAfter)
         normalizeEquipmentIconIndex(equipmentAssignIconIndex),
         equipmentAssignDescription or "",
         normalizeEquipmentTypeIndex(equipmentAssignTypeIndex))
+    bounceActionBarSlot(button)
     updateButton(button)
     if closeAfter then closeEquipmentAssignWindow() end
 end

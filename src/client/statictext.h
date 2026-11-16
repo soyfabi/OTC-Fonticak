@@ -35,6 +35,7 @@ public:
     StaticText();
 
     void drawText(const Point& dest, const Rect& parentRect);
+    Rect getDrawRect(const Point& dest, const Rect& parentRect);
 
     std::string getName() { return m_name; }
     std::string getText() { return m_cachedText.getText(); }

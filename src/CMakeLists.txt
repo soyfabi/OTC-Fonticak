@@ -512,6 +512,9 @@ if (TOGGLE_FRAMEWORK_SOUND)
           framework/sound/soundchannel.cpp
           framework/sound/soundfile.cpp
           framework/sound/soundmanager.cpp
+					framework/sound/soundmanager_debug.cpp
+          framework/sound/soundmanager_itemambience.cpp
+          framework/sound/soundmanager_protocol.cpp
           framework/sound/soundsource.cpp
           framework/sound/streamsoundsource.cpp
           framework/sound/soundeffect.cpp
@@ -576,6 +579,15 @@ else()
 endif()
 
 target_link_libraries(${PROJECT_NAME} PRIVATE otclient_core)
+if(WIN32)
+  target_link_libraries(otclient_core PRIVATE winhttp)
+  if(TOGGLE_FRAMEWORK_GRAPHICS)
+    target_sources(otclient_core PRIVATE framework/platform/cliprecorder.cpp)
+    set_source_files_properties(framework/platform/cliprecorder.cpp PROPERTIES
+        SKIP_PRECOMPILE_HEADERS ON SKIP_UNITY_BUILD_INCLUSION ON)
+    target_link_libraries(otclient_core PRIVATE d3d11 mfplat mfreadwrite mfuuid ole32 windowsapp)
+  endif()
+endif()
 
 # *****************************************************************************
 # Build flags
@@ -628,6 +640,14 @@ target_compile_definitions(otclient_core PRIVATE ENABLE_DISCORD_RPC=${OTCLIENT_E
 # *****************************************************************************
 # Includes and librarys
 # *****************************************************************************
+find_package(Stb QUIET)
+if(NOT Stb_FOUND)
+  find_path(Stb_INCLUDE_DIR "stb_image.h")
+  if(NOT Stb_INCLUDE_DIR)
+    message(FATAL_ERROR "Stb not found: install the stb vcpkg port or make stb_image.h available")
+  endif()
+endif()
+
 if(MSVC)
 
   # Set variables to have Windows Vista Value so httplib will build 'inet_pton'
@@ -689,6 +709,7 @@ if(MSVC)
           ${PARALLEL_HASHMAP_INCLUDE_DIRS}
           ${NLOHMANN_JSON_INCLUDE_DIR}
           ${CPPCODEC_INCLUDE_DIRS}
+          ${Stb_INCLUDE_DIR}
   )
   target_link_libraries(otclient_core
           PUBLIC
@@ -742,6 +763,7 @@ elseif(ANDROID)
           ${PARALLEL_HASHMAP_INCLUDE_DIRS}
           ${NLOHMANN_JSON_INCLUDE_DIR}
           ${CPPCODEC_INCLUDE_DIRS}
+          ${Stb_INCLUDE_DIR}
   )
   target_link_libraries(otclient_core
           PUBLIC
@@ -808,6 +830,7 @@ elseif(WASM)
           ${OPENSSL_INCLUDE_DIR}
           ${BROWSER_INCLUDE_DIR}
           ${CPPCODEC_INCLUDE_DIRS}
+          ${Stb_INCLUDE_DIR}
   )
   target_link_libraries(otclient_core
           PUBLIC
@@ -931,6 +954,7 @@ else() # Linux
           ${NLOHMANN_JSON_INCLUDE_DIR}
           ${OPENSSL_INCLUDE_DIR}
           ${CPPCODEC_INCLUDE_DIRS}
+          ${Stb_INCLUDE_DIR}
   )
   target_link_libraries(otclient_core
           PUBLIC

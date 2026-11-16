@@ -1,3 +1,20 @@
+VipOnlineCount < Label
+  anchors.top: parent.top
+  anchors.right: parent.right
+  margin-top: 1
+  margin-right: 1
+  height: 12
+  padding-left: 1
+  padding-right: 1
+  font: verdana-8px-rounded
+  color: #5ff75f
+  background-color: #00000080
+  text-align: center
+  text-horizontal-auto-resize: true
+  phantom: true
+  focusable: false
+  visible: false
+
 VipListLabel < GameLabel
   text-offset: 14 0
   image-rect: 0 1 12 12

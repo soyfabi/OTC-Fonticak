@@ -30,7 +30,8 @@ local statsBarsDimensions = {
     }
 }
 
-local firstCall = true
+local DEFAULT_DIMENSION = "compact"
+local DEFAULT_PLACEMENT = "top"
 
 local currentStats = {
     dimension = "hide",
@@ -870,6 +871,12 @@ function StatsBar.applyMonkStatsVisibility(localPlayer)
     end
 end
 
+local function syncStatsBarSelectors()
+    if modules.game_healthcircle and modules.game_healthcircle.setStatsBarOption then
+        modules.game_healthcircle.setStatsBarOption(currentStats.dimension, currentStats.placement)
+    end
+end
+
 function StatsBar.onVocationChange(localPlayer, vocation, oldVocation)
     modules.game_healthcircle.checkMonkVocation()
     StatsBar.applyMonkStatsVisibility(localPlayer)
@@ -896,22 +903,31 @@ function constructStatsBar(dimension, placement)
         reloadSkillsTab(statsBar[dimensionOnPlacement].skills, statsBar[dimensionOnPlacement])
         StatsBar.reloadCurrentStatsBarQuickInfo()
 
+        syncStatsBarSelectors()
         modules.game_healthcircle.setStatsBarOption()
         createStatsBarProficiencyButtons(statsBar)
         StatsBar.switchCurrentLayout()
         scheduleEvent(function()
             StatsBar.resyncProficiencyPerkHighlightWidgets()
         end, 0)
+        StatsBar.initProficiencyTopBar()
     else
         print("No stats bar found for:", dimensionOnPlacement .. " on constructStatsBar()")
     end
 end
 
 function StatsBar.updateCurrentStats(dimension, placement)
-    currentStats = {
-        dimension = dimension,
-        placement = placement
-    }
+    if dimension then
+        currentStats.dimension = dimension
+    end
+
+    if placement then
+        currentStats.placement = placement
+    end
+
+    -- Persist immediately, the in-memory state is never re-read from the
+    -- settings on a change request, so it can't be rolled back by a later load.
+    StatsBar.saveSettings()
 end
 
 function StatsBar.refreshProficiencyStatusBar()
@@ -1014,7 +1030,7 @@ local function onStatsMousePress(tab, mousePos, mouseButton)
 end
 
 function StatsBar.reloadCurrentTab()
-    if currentStats.dimension == "hide" then
+    if currentStats.dimension == "hide" or currentStats.placement == "hide" then
         return
     end
 
@@ -1028,13 +1044,22 @@ function StatsBar.reloadCurrentTab()
     end
 end
 
-function StatsBar.updateStatsBarOption(dimension)
-    StatsBar.hideAll()
-    StatsBar.firstLoadSettings()
-
-    if currentStats.dimension ~= "hide" and dimension ~= "hide" then
-        StatsBar.reloadCurrentTab()
+-- Applies a dimension/placement request. The in-memory state is the source of
+-- truth, it is persisted right away (same behaviour as client_options setOption)
+-- and never re-read from the settings, so a change request can't be discarded.
+function StatsBar.updateStatsBarOption(dimension, placement)
+    if dimension or placement then
+        StatsBar.updateCurrentStats(dimension, placement)
     end
+
+    StatsBar.hideAll()
+
+    if currentStats.dimension == "hide" or currentStats.placement == "hide" then
+        syncStatsBarSelectors()
+        return
+    end
+
+    StatsBar.reloadCurrentTab()
 end
 
 local function getSettingOrDefault(setting, default)
@@ -1046,28 +1071,43 @@ local function setSetting(setting, value)
     g_settings.set(setting, value)
 end
 
+local function isValidDimension(dimension)
+    if dimension == "hide" then
+        return true
+    end
+    return statsBarsDimensions[dimension:gsub("^%l", string.upper)] ~= nil
+end
+
+local function isValidPlacement(placement)
+    for _, knownPlacement in ipairs(statsBarsPlacements) do
+        if placement == knownPlacement:lower() then
+            return true
+        end
+    end
+    return false
+end
+
 function StatsBar.loadSettings()
+    local dimension = getSettingOrDefault('statsbar_dimension', DEFAULT_DIMENSION)
+    local placement = getSettingOrDefault('statsbar_placement', DEFAULT_PLACEMENT)
+
+    -- fall back to the defaults when the stored values are not known anymore
+    if not isValidDimension(dimension) then
+        dimension = DEFAULT_DIMENSION
+    end
+    if not isValidPlacement(placement) then
+        placement = DEFAULT_PLACEMENT
+    end
+
     currentStats = {
-        dimension = getSettingOrDefault('statsbar_dimension', "compact"),
-        placement = getSettingOrDefault('statsbar_placement', "top")
+        dimension = dimension,
+        placement = placement
     }
 end
 
 function StatsBar.saveSettings()
     setSetting('statsbar_dimension', currentStats.dimension)
     setSetting('statsbar_placement', currentStats.placement)
-end
-
-function StatsBar.firstLoadSettings()
-    if firstCall then
-        currentStats.dimension = getSettingOrDefault("statsbar_dimension", "compact")
-        currentStats.placement = getSettingOrDefault("statsbar_placement", "top")
-
-        firstCall = false
-    end
-
-    StatsBar.saveSettings()
-    StatsBar.loadSettings()
 end
 
 function StatsBar.OnGameEnd()
@@ -1098,15 +1138,32 @@ function StatsBar.OnGameStart()
     proficiencyHighlightActive = false
     StatsBar.loadSettings()
     StatsBar.reloadCurrentTab()
+    syncStatsBarSelectors()
     StatsBar.applyDefaultTopProficiencyLayout()
     modules.game_healthcircle.setStatsBarOption()
     StatsBar.setHarmonyVisible(isDisplayHarmonyEnabled())
     StatsBar.refreshMonkState(g_game.getLocalPlayer())
+    StatsBar.initProficiencyTopBar()
     scheduleEvent(function()
         if modules.game_proficiency and modules.game_proficiency.refreshEquippedProficiencyStatusBar then
             modules.game_proficiency.refreshEquippedProficiencyStatusBar(nil, true)
         end
     end, 600)
+end
+
+-- Initialize proficiency top bar widget
+function StatsBar.initProficiencyTopBar()
+    if not g_game.getFeature(GameProficiency) then
+        return
+    end
+    local statsBar = StatsBar.getCurrentStatsBarWithPosition()
+    if not statsBar then return end
+
+    local profWidget = statsBar:recursiveGetChildById('proficiencyTopBar')
+    if profWidget then
+        profWidget:setVisible(true)
+        modules.game_proficiency.updateTopBarProficiency()
+    end
 end
 
 function createStatsBarWidgets(statsBar)

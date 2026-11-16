@@ -380,6 +380,8 @@ end
 local characterCombatStatListenerConnected = false
 local characterCombatStatsSyncEvent = nil
 local CHARACTER_COMBAT_STATS_SYNC_DELAY = 250
+local characterItemSummaryRefreshEvent = nil
+local CHARACTER_ITEM_SUMMARY_REFRESH_DELAY = 150
 
 local function isCharacterCyclopediaActive()
 	if not UI or UI:isDestroyed() then
@@ -401,6 +403,25 @@ end
 
 local function isCharacterPanelActive()
 	return isCharacterCyclopediaActive()
+end
+
+function Cyclopedia.scheduleCharacterItemSummaryRefresh()
+	if not isCharacterPanelActive() or UI.selectedOption ~= "CharacterItems"
+		or not g_game.isOnline() or not g_game.requestCharacterInfo then
+		return
+	end
+
+	if characterItemSummaryRefreshEvent then
+		removeEvent(characterItemSummaryRefreshEvent)
+	end
+
+	characterItemSummaryRefreshEvent = scheduleEvent(function()
+		characterItemSummaryRefreshEvent = nil
+		if isCharacterPanelActive() and UI.selectedOption == "CharacterItems"
+			and g_game.isOnline() and g_game.requestCharacterInfo then
+			g_game.requestCharacterInfo(0, CyclopediaCharacterInfoTypes.ItemSummary)
+		end
+	end, CHARACTER_ITEM_SUMMARY_REFRESH_DELAY)
 end
 
 local function cancelCharacterCombatStatsServerSync()
@@ -553,6 +574,9 @@ end
 function Cyclopedia.onCharacterInventoryLiveChange()
 	if not isCharacterCyclopediaActive() then
 		return
+	end
+	if UI.selectedOption == "CharacterItems" then
+		Cyclopedia.scheduleCharacterItemSummaryRefresh()
 	end
 
 	local tab = UI.selectedOption
@@ -1030,6 +1054,14 @@ function Cyclopedia.reloadCharacterAppearances()
 			data.widget = widget
 		end
 	end
+
+	local scrollArea = listGrid:getParent()
+	addEvent(function()
+		if not listGrid:isDestroyed() and scrollArea and not scrollArea:isDestroyed()
+			and scrollArea.updateScrollBars then
+			scrollArea:updateScrollBars()
+		end
+	end)
 end
 
 function Cyclopedia.loadCharacterAppearances(color, outfits, mounts, familiars)
@@ -1128,6 +1160,8 @@ local CHARACTER_ITEMS_DEFAULT_FILTERS = {
 	stash = false,
 	depot = false
 }
+local CHARACTER_ITEMS_VIEW_SETTING = "cyclopediaCharacterItemsView"
+local CHARACTER_ITEMS_FILTER_SETTING_PREFIX = "cyclopediaCharacterItemsFilter_"
 
 function Cyclopedia.resetCharacterItemsFiltersUI()
 	if not UI or not UI.CharacterItems or UI.CharacterItems:isDestroyed() then
@@ -1138,10 +1172,11 @@ function Cyclopedia.resetCharacterItemsFiltersUI()
 
 	local filters = UI.CharacterItems.filters
 
-	for filterId, checked in pairs(CHARACTER_ITEMS_DEFAULT_FILTERS) do
+	for filterId, defaultChecked in pairs(CHARACTER_ITEMS_DEFAULT_FILTERS) do
 		local checkbox = filters[filterId]
 
 		if checkbox and not checkbox:isDestroyed() then
+			local checked = g_settings.getBoolean(CHARACTER_ITEMS_FILTER_SETTING_PREFIX .. filterId, defaultChecked)
 			checkbox:setChecked(checked)
 		end
 	end
@@ -1150,7 +1185,10 @@ function Cyclopedia.resetCharacterItemsFiltersUI()
 		filters.SearchEdit:setText("")
 	end
 
-	Cyclopedia.characterItemListFilter(UI.CharacterItems.listFilter.list)
+	local savedView = g_settings.get(CHARACTER_ITEMS_VIEW_SETTING, "list")
+	local viewWidget = savedView == "grid" and UI.CharacterItems.listFilter.grid
+		or UI.CharacterItems.listFilter.list
+	Cyclopedia.characterItemListFilter(viewWidget)
 
 	Cyclopedia.Character.ItemsFilterResetting = false
 end
@@ -1163,7 +1201,8 @@ function Cyclopedia.applyCharacterItemsDefaultFilters()
 	end
 
 	for _, item in ipairs(Cyclopedia.Character.Items) do
-		item.data.visible = CHARACTER_ITEMS_DEFAULT_FILTERS[item.data.type] == true
+		local checkbox = UI.CharacterItems.filters[item.data.type]
+		item.data.visible = checkbox and checkbox:isChecked() or false
 	end
 
 	Cyclopedia.reloadCharacterItems()
@@ -1201,13 +1240,17 @@ function Cyclopedia.characterItemsFilter(widget, force)
 	if Cyclopedia.Character.ItemsFilterResetting then
 		return
 	end
-
-	if not Cyclopedia.Character.Items then
+	if not widget or widget:isDestroyed() then
 		return
 	end
 
 	if force then
 		widget:setChecked(true)
+	end
+	g_settings.set(CHARACTER_ITEMS_FILTER_SETTING_PREFIX .. widget:getId(), widget:isChecked())
+
+	if not Cyclopedia.Character.Items then
+		return
 	end
 
 	local id = widget:getId()
@@ -1250,6 +1293,7 @@ local function populateCharacterItemSummaryWidgets(listParent, gridParent, itemI
 	local listItem = g_ui.createWidget("CharacterListItem", listParent)
 
 	applyCharacterListItemSlot(listItem, itemId, tier, showStoreIcon)
+	listItem.item:setTooltip(data.name)
 	listItem.name:setText(data.name)
 	listItem.amount:setText(data.amount)
 	listItem:setBackgroundColor(rowColor)
@@ -1257,6 +1301,7 @@ local function populateCharacterItemSummaryWidgets(listParent, gridParent, itemI
 	local gridItem = g_ui.createWidget("CharacterGridItem", gridParent)
 
 	applyCharacterListItemSlot(gridItem, itemId, tier, showStoreIcon)
+	gridItem.item:setTooltip(data.name)
 	gridItem.amount:setText(data.amount)
 end
 
@@ -1304,9 +1349,8 @@ function Cyclopedia.loadCharacterItems(data)
 		end
 
 		local thing = g_things.getThingType(data.itemId, ThingCategoryItem)
-		local name = thing:getMarketData().name:lower()
-
-		name = name ~= "" and name or "?"
+		local name = data.name and data.name ~= "" and data.name or
+			(thing and Cyclopedia.getItemDisplayName(thing) or ("Item #" .. tostring(data.itemId)))
 
 		local data_t = {
 			visible = false,
@@ -1393,13 +1437,14 @@ function Cyclopedia.resetCharacterAchievementsFiltersUI()
 		end
 	end
 
-	Cyclopedia.Character.Achievements.lastSort = 1
+	Cyclopedia.Character.Achievements.lastSort = Cyclopedia.Character.Achievements.lastSort or 1
 
 	if ui.sort and not ui.sort:isDestroyed() then
 		if ui.sort.setCurrentOptionByData then
-			ui.sort:setCurrentOptionByData(1, true)
+			ui.sort:setCurrentOptionByData(Cyclopedia.Character.Achievements.lastSort, true)
 		elseif ui.sort.setCurrentOption then
-			ui.sort:setCurrentOption("Alphabetically", true)
+			local sortNames = { "Alphabetically", "By Grade", "By Unlock Date" }
+			ui.sort:setCurrentOption(sortNames[Cyclopedia.Character.Achievements.lastSort] or sortNames[1], true)
 		end
 	end
 
@@ -1474,6 +1519,23 @@ local function getAchievementTotals()
 	end
 
 	return #getRegularAchievementList()
+end
+
+local function getSecretAchievementTotals()
+	if g_things.getSecretAchievementCount then
+		local count = g_things.getSecretAchievementCount()
+		if count and count > 0 then
+			return count
+		end
+	end
+
+	local count = 0
+	for _, achievement in pairs(ACHIEVEMENTS or {}) do
+		if achievement.secret then
+			count = count + 1
+		end
+	end
+	return count
 end
 
 local function isSecretAchievement(id, playerEntry)
@@ -1645,7 +1707,7 @@ function Cyclopedia.refreshCharacterAchievementsUI()
 
 	local function updateBars()
 		Cyclopedia.setAchievementProgressBar(ui.regular, regularDone, getAchievementTotals())
-		Cyclopedia.setAchievementProgressBar(ui.secret, secretDone, data.secretAchievementsMax or 0)
+		Cyclopedia.setAchievementProgressBar(ui.secret, secretDone, data.secretAchievementsMax or getSecretAchievementTotals())
 	end
 
 	updateBars()
@@ -1802,6 +1864,10 @@ function Cyclopedia.onParseCyclopediaCharacterAchievements(data)
 end
 
 function Cyclopedia.characterItemListFilter(widget)
+	if not widget or widget:isDestroyed() then
+		return
+	end
+
 	local parent = widget:getParent()
 
 	for i = 1, parent:getChildCount() do
@@ -1817,9 +1883,11 @@ function Cyclopedia.characterItemListFilter(widget)
 	if widget:getId() == "list" then
 		UI.CharacterItems.ListBase:setVisible(true)
 		UI.CharacterItems.gridBase:setVisible(false)
+		g_settings.set(CHARACTER_ITEMS_VIEW_SETTING, "list")
 	else
 		UI.CharacterItems.ListBase:setVisible(false)
 		UI.CharacterItems.gridBase:setVisible(true)
+		g_settings.set(CHARACTER_ITEMS_VIEW_SETTING, "grid")
 	end
 end
 
@@ -1880,6 +1948,9 @@ function Cyclopedia.loadCharacterRecentKills(data)
 			local description = entry.description
 			local status = entry.status
 			local widget = g_ui.createWidget("CharacterKill", UI.RecentKills.ListBase.List)
+			if not widget then
+				break
+			end
 
 			widget:setId(i)
 			widget:setHeight(16)
@@ -1944,6 +2015,9 @@ function Cyclopedia.loadCharacterRecentDeaths(data)
 		for i = 1, #data do
 			local entry = data[i]
 			local widget = g_ui.createWidget("CharacterDeath", UI.RecentDeaths.ListBase.List)
+			if not widget then
+				break
+			end
 
 			widget:setId(i)
 			widget:setHeight(16)
@@ -3660,6 +3734,9 @@ function Cyclopedia.refreshCharacterTitles(currentTitle)
 	if not list then
 		return
 	end
+	local listBase = UI.CharacterTitles.AvailableTitlesPanel.ListBase
+	local scrollBar = listBase and listBase.ListScrollbar
+	local scrollValue = scrollBar and scrollBar:getValue() or 0
 
 	list:destroyChildren()
 
@@ -3756,6 +3833,13 @@ function Cyclopedia.refreshCharacterTitles(currentTitle)
 
 	if selectedRow then
 		selectCharacterTitleRow(selectedRow)
+	end
+	if scrollBar and not scrollBar:isDestroyed() then
+		addEvent(function()
+			if not scrollBar:isDestroyed() then
+				scrollBar:setValue(scrollValue)
+			end
+		end)
 	end
 
 	local currentPanel = UI.CharacterTitles.CurrentTitlePanel
@@ -3877,9 +3961,15 @@ function Cyclopedia.characterTitleShowCurrentInfo()
 	end
 
 	if text and text ~= "" then
-		displayGeneralBox(tr("Character Title"), text, {
+		local infoBox
+		infoBox = displayGeneralBox(tr("Character Title"), text, {
 			{
-				text = tr("Ok")
+				text = tr("Close"),
+				callback = function()
+					if infoBox then
+						infoBox:destroy()
+					end
+				end
 			}
 		})
 	end
@@ -4081,8 +4171,8 @@ end
 local HOUSE_ITEMS_LIST_MARGIN_TOP = -3
 local HOUSE_ITEMS_PANEL_TITLE_HEIGHT = 19
 local HOUSE_ITEMS_PANEL_BOTTOM = 17
-local HOUSE_ITEMS_PANEL_HEADER = HOUSE_ITEMS_LIST_MARGIN_TOP + HOUSE_ITEMS_PANEL_TITLE_HEIGHT
-local HOUSE_ITEMS_ROW_HEIGHT = 74
+local HOUSE_ITEMS_PANEL_HEADER = HOUSE_ITEMS_LIST_MARGIN_TOP + HOUSE_ITEMS_PANEL_TITLE_HEIGHT + 6
+local HOUSE_ITEMS_ROW_HEIGHT = 60
 local HOUSE_ITEMS_GRID_SPACING = 4
 local HOUSE_ITEMS_COLUMNS = 2
 
@@ -4100,8 +4190,12 @@ local function applyHouseItemPreview(itemWidget, itemId)
 	end
 
 	itemWidget:setItemId(itemId)
-	itemWidget:setFixedItemSize(false)
-	itemWidget:setPadding(0)
+	if itemWidget.setFixedItemSize then
+		itemWidget:setFixedItemSize(false)
+	end
+	if itemWidget.setPadding then
+		itemWidget:setPadding(0)
+	end
 
 	local previewSize = g_gameConfig.getSpriteSize()
 	local itemThing = itemWidget:getItem()

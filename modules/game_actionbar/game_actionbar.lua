@@ -487,6 +487,7 @@ end
 
 --- Handles termination event
 function ActionBarController:onTerminate()
+    clearActionBarEffects()
     ApiJson.saveData()
     if clearFreeActionButtonSelectionClickAwayHandler then
         clearFreeActionButtonSelectionClickAwayHandler()
@@ -561,6 +562,7 @@ end
 
 function ActionBarController:onGameEnd()
     isLoaded = false
+    clearActionBarEffects()
     closeAllAssignWindows()
     if resetEquipmentAssignRuntimeState then
         resetEquipmentAssignRuntimeState()
@@ -1046,6 +1048,7 @@ local function autoAssignSpell(spellName)
                         if button then
                             if showAnimation then
                                 flySpellAnimation(spellName, button, function()
+                                    bounceActionBarSlot(button)
                                     updateButton(button)
                                     ApiJson.saveData()
                                 end)

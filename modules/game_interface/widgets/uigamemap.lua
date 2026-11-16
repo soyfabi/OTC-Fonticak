@@ -78,6 +78,9 @@ function UIGameMap:onDragEnter(mousePos)
 
     if thing:isItem() and not thing:isNotMoveable() then
         UIDragIcon:display(thing)
+        if thing:isPickupable() and modules.game_actionbar then
+            modules.game_actionbar.startActionBarDragTrail(self, mousePos)
+        end
     end
 
     self.currentDragThing = thing
@@ -92,7 +95,16 @@ function UIGameMap:onDragEnter(mousePos)
     return true
 end
 
+function UIGameMap:onDragMove(mousePos)
+    if modules.game_actionbar then
+        modules.game_actionbar.updateActionBarDragTrail(self, mousePos)
+    end
+end
+
 function UIGameMap:onDragLeave(droppedWidget, mousePos)
+    if modules.game_actionbar then
+        modules.game_actionbar.finishActionBarDragTrail(self, mousePos)
+    end
     self.currentDragThing = nil
     self.hoveredWho = nil
     -- Restore cursor

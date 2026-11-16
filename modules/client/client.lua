@@ -1,8 +1,26 @@
 local musicFilename = 'sounds/startup'
 local musicChannel = nil
-local startupGameSignalsConnected = false
 if g_sounds then
     musicChannel = g_sounds.getChannel(SoundChannels.Music)
+end
+
+local function onGameStart()
+    if not musicChannel then
+        return
+    end
+
+    musicChannel:stop(3)
+end
+
+local function onGameEnd()
+    if not musicChannel then
+        return
+    end
+
+    g_sounds.stopAll()
+    if modules.client_options and modules.client_options.getOption('soundAnthem') then
+        musicChannel:enqueue(musicFilename, 3)
+    end
 end
 
 function setMusic(filename)
@@ -10,20 +28,20 @@ function setMusic(filename)
 
     if not g_game.isOnline() then
         musicChannel:stop()
-        musicChannel:enqueue(musicFilename, 3)
+        if modules.client_options and modules.client_options.getOption('soundAnthem') then
+            musicChannel:enqueue(musicFilename, 3)
+        end
     end
 end
 
-local function onStartupGameStart()
-    if musicChannel then
-        musicChannel:stop(3)
+function reloadMusic()
+    if not musicChannel then
+        return
     end
-end
 
-local function onStartupGameEnd()
-    if g_sounds then
-        g_sounds.stopAll()
-        if musicChannel then
+    if not g_game.isOnline() then
+        musicChannel:stop()
+        if modules.client_options and modules.client_options.getOption('soundAnthem') then
             musicChannel:enqueue(musicFilename, 3)
         end
     end
@@ -31,13 +49,8 @@ end
 
 function startup()
     if musicChannel then
-        musicChannel:enqueue(musicFilename, 3)
-        if not startupGameSignalsConnected then
-            connect(g_game, {
-                onGameStart = onStartupGameStart,
-                onGameEnd = onStartupGameEnd
-            })
-            startupGameSignalsConnected = true
+        if modules.client_options and modules.client_options.getOption('soundAnthem') then
+            musicChannel:enqueue(musicFilename, 3)
         end
     end
 
@@ -61,7 +74,7 @@ function startup()
         EnterGame.firstShow()
     end
     if g_app.hasUpdater() and g_sounds then
-        g_sounds.setAudioEnabled(g_settings.getBoolean('enableAudio'))
+        g_sounds.setAudioEnabled(g_settings.getBoolean('enableAudio', true))
     end
 end
 
@@ -78,6 +91,10 @@ function init()
 
     if musicChannel then
         g_sounds.preload(musicFilename)
+        connect(g_game, {
+            onGameStart = onGameStart,
+            onGameEnd = onGameEnd
+        })
     end
 end
 
@@ -92,12 +109,10 @@ function terminate()
         })
     end
 
-    if startupGameSignalsConnected then
+    if musicChannel then
         disconnect(g_game, {
-            onGameStart = onStartupGameStart,
-            onGameEnd = onStartupGameEnd
+            onGameStart = onGameStart,
+            onGameEnd = onGameEnd
         })
-        startupGameSignalsConnected = false
     end
-    musicChannel = nil
 end

@@ -771,12 +771,20 @@ local function onCyclopediaResourcesBalanceChange(value, oldBalance, resourceTyp
 end
 
 local function onCyclopediaInventoryMoneyChange(player, slot, item, oldItem)
+	if Cyclopedia.scheduleCharacterItemSummaryRefresh then
+		Cyclopedia.scheduleCharacterItemSummaryRefresh()
+	end
+
 	if isCyclopediaCoinItem(item) or isCyclopediaCoinItem(oldItem) then
 		refreshCyclopediaMoneyNow()
 	end
 end
 
 local function onCyclopediaContainerMoneyChange(container, slot, item, oldItem)
+	if Cyclopedia.scheduleCharacterItemSummaryRefresh then
+		Cyclopedia.scheduleCharacterItemSummaryRefresh()
+	end
+
 	if isCyclopediaCoinItem(item) or isCyclopediaCoinItem(oldItem) then
 		refreshCyclopediaMoneyNow()
 	end

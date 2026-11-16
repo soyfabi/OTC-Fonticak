@@ -37,6 +37,7 @@ public:
 
     bool autoWalk(const Position& destination, bool retry = false);
     bool canWalk(bool ignoreLock = false);
+    ticks_t getWalkDelay(bool ignoreLock = false);
 
     void setStates(uint64_t states);
     void setSkill(Otc::Skill skillId, uint16_t level, uint16_t levelPercent);

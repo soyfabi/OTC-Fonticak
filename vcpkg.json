@@ -19,6 +19,7 @@
     "protobuf",
     "pugixml",
     "stduuid",
+    "stb",
     "zlib",
     "bshoshany-thread-pool",
     "fmt",

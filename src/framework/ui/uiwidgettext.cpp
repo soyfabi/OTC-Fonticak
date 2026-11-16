@@ -23,8 +23,6 @@
 #include "uiwidget.h"
 #include "uitranslator.h"
 
-#include <cctype>
-
 #include <framework/graphics/drawpoolmanager.h>
 #include <framework/graphics/fontmanager.h>
 #include <framework/html/htmlnode.h>
@@ -59,6 +57,41 @@ namespace {
         } else if (!s.empty() && s[0] == '\n') {
             s.erase(0, 1);
         }
+    }
+
+    bool isHtmlSpace(const char c) {
+        return c == ' ' || c == '\t' || c == '\r' || c == '\n' || c == '\f' || c == '\v';
+    }
+
+    bool isInlineHtmlNode(const HtmlNodePtr& node) {
+        if (!node)
+            return false;
+        if (node->getType() == NodeType::Text)
+            return true;
+        if (node->getType() != NodeType::Element)
+            return false;
+        const auto display = node->getStyle("display");
+        return display.empty() || display.starts_with("inline");
+    }
+
+    // A collapsible space at the edge of a text fragment separates it from
+    // adjacent inline content (`click <em>Add</em> to`), so it must survive
+    // trimming when the neighbouring sibling is inline.
+    std::pair<bool, bool> inlineEdgeSpaces(const HtmlNodePtr& node, const std::string& text) {
+        if (!node || text.empty())
+            return { false, false };
+        const auto parent = node->getParent();
+        if (!parent)
+            return { false, false };
+
+        const auto& siblings = parent->getChildren();
+        const auto it = std::find(siblings.begin(), siblings.end(), node);
+        if (it == siblings.end())
+            return { false, false };
+
+        const bool keepLeading = isHtmlSpace(text.front()) && it != siblings.begin() && isInlineHtmlNode(*std::prev(it));
+        const bool keepTrailing = isHtmlSpace(text.back()) && std::next(it) != siblings.end() && isInlineHtmlNode(*std::next(it));
+        return { keepLeading, keepTrailing };
     }
 
     void normalizeWhiteSpace(std::string& s, bool collapseSpaces, bool keepNewlines) {
@@ -179,6 +212,7 @@ void UIWidget::updateText()
     if (isTextWrap() && m_rect.isValid()) {
         m_drawTextColors = m_textColors;
         const auto& wrapOptions = getTextWrapOptions();
+        m_textWrapWidth = getWidth();
         if (m_textOverflowLength > 0 && m_text.length() > m_textOverflowLength)
             m_drawText = m_font->wrapText(m_text.substr(0, m_textOverflowLength - m_textOverflowCharacter.length()) + m_textOverflowCharacter, getWidth() - m_textOffset.x, wrapOptions, &m_drawTextColors);
         else
@@ -206,7 +240,15 @@ void UIWidget::updateText()
         if (size.height() <= 0 || hasProp(PropTextVerticalAutoResize))
             size.setHeight(textBoxSize.height());
 
+        const int prevHeight = getHeight();
         setSize(size);
+
+        // A text re-wrap at its final width changes the line count after the
+        // content-sized ancestors were measured; let them re-measure.
+        if (getHeight() != prevHeight && isOnHtml() && m_parent && m_htmlNode
+            && m_htmlNode->getType() == NodeType::Text
+            && (m_parent->getWidthHtml().unit != Unit::FitContent || m_parent->getDisplay() == DisplayType::TableCell))
+            invalidateHtmlAncestorsHeight();
     }
 
     m_textCachedScreenCoords = {};
@@ -261,8 +303,8 @@ void UIWidget::parseTextStyle(const OTMLNodePtr& styleNode)
     }
 
     if (!ttfFontName.empty()) {
-        g_logger.debug("parseTextStyle: setting TTF font '{}' size {} stroke {} rgba({},{},{},{})", 
-                      ttfFontName, ttfFontSize, ttfStrokeWidth, 
+        g_logger.debug("ParseTextStyle: setting TTF font '{}' size {} stroke {} rgba({},{},{},{})",
+                      ttfFontName, ttfFontSize, ttfStrokeWidth,
                       ttfStrokeColor.r(), ttfStrokeColor.g(), ttfStrokeColor.b(), ttfStrokeColor.a());
         setTTFFont(ttfFontName, ttfFontSize, ttfStrokeWidth, ttfStrokeColor);
     }
@@ -403,14 +445,16 @@ void UIWidget::setColoredText(const std::string_view coloredText, bool dontFireL
     m_coordsBuffer->clear();
     m_textEvents.clear();
 
+    static const std::regex expColor(R"(\{([^\}]+),[ ]*([^\}]+)\})");
     static const std::regex expEvent(R"(\[text-event\](.*?)\[/text-event\])");
 
-    std::string _text(coloredText);
+    std::string _text{ coloredText.data() };
     std::string text;
     text.reserve(coloredText.size());
 
     Color baseColor = m_color;
     m_baseTextColor = baseColor;
+    std::smatch res;
     text.clear();
     auto processTextEvents = [&](const std::string& fragment, size_t basePosition) -> std::string {
         if (fragment.find("[text-event]") == std::string::npos) {
@@ -481,54 +525,25 @@ void UIWidget::setColoredText(const std::string_view coloredText, bool dontFireL
 
     m_textColors.reserve(coloredText.size() / 20 + 5);
 
-    auto trimToken = [](std::string_view token) {
-        while (!token.empty() && std::isspace(static_cast<unsigned char>(token.front()))) {
-            token.remove_prefix(1);
-        }
-        while (!token.empty() && std::isspace(static_cast<unsigned char>(token.back()))) {
-            token.remove_suffix(1);
-        }
-        return std::string(token);
-    };
-
-    size_t pos = 0;
-    while (pos < _text.size()) {
-        if (_text[pos] != '{') {
-            const size_t nextOpen = _text.find('{', pos);
-            const std::string prefix = _text.substr(pos, nextOpen == std::string::npos ? std::string::npos : nextOpen - pos);
-            if (!prefix.empty()) {
-                const std::string processedPrefix = processTextEvents(prefix, text.size());
-                m_textColors.emplace_back(text.size(), baseColor);
-                text.append(processedPrefix);
-            }
-            pos = nextOpen == std::string::npos ? _text.size() : nextOpen;
-            continue;
-        }
-
-        const size_t close = _text.find('}', pos + 1);
-        if (close == std::string::npos) {
-            const std::string processedRemaining = processTextEvents(_text.substr(pos), text.size());
+    while (std::regex_search(_text, res, expColor)) {
+        std::string prefix = res.prefix().str();
+        if (!prefix.empty()) {
+            std::string processedPrefix = processTextEvents(prefix, text.size());
             m_textColors.emplace_back(text.size(), baseColor);
-            text.append(processedRemaining);
-            break;
+            text.append(processedPrefix);
         }
-
-        const size_t comma = _text.rfind(',', close);
-        if (comma == std::string::npos || comma <= pos) {
-            const std::string processedRemaining = processTextEvents(_text.substr(pos, close - pos + 1), text.size());
-            m_textColors.emplace_back(text.size(), baseColor);
-            text.append(processedRemaining);
-            pos = close + 1;
-            continue;
-        }
-
-        // Do not trim segment text: leading/trailing spaces are meaningful between colored runs.
-        const std::string colorContent = _text.substr(pos + 1, comma - pos - 1);
-        const std::string colorToken = trimToken(_text.substr(comma + 1, close - comma - 1));
-        const std::string processedColorContent = processTextEvents(colorContent, text.size());
-        m_textColors.emplace_back(text.size(), Color(colorToken));
+        auto color = Color(res[2].str());
+        std::string colorContent = res[1].str();
+        std::string processedColorContent = processTextEvents(colorContent, text.size());
+        m_textColors.emplace_back(text.size(), color);
         text.append(processedColorContent);
-        pos = close + 1;
+        _text = res.suffix().str();
+    }
+
+    if (!_text.empty()) {
+        std::string processedRemaining = processTextEvents(_text, text.size());
+        m_textColors.emplace_back(text.size(), baseColor);
+        text.append(processedRemaining);
     }
 
     if (hasProp(PropTextOnlyUpperCase))
@@ -684,14 +699,29 @@ void UIWidget::applyWhiteSpace() {
     setProp(PropTextHorizontalAutoResize, false);
     setProp(PropTextVerticalAutoResize, false);
 
+    const auto [keepLeadingSpace, keepTrailingSpace] = inlineEdgeSpaces(m_htmlNode, m_text);
+    const auto collapse = [&](const bool keepNewlines) {
+        normalizeWhiteSpace(m_text, true, keepNewlines);
+        if (m_text.empty()) {
+            if (!keepLeadingSpace && !keepTrailingSpace)
+                return;
+            m_text = " ";
+            return;
+        }
+        if (keepLeadingSpace)
+            m_text.insert(m_text.begin(), ' ');
+        if (keepTrailingSpace)
+            m_text.push_back(' ');
+    };
+
     if (whiteSpace == "normal") {
         setProp(PropTextWrap, true);
-        normalizeWhiteSpace(m_text, true, false);
+        collapse(false);
     } else if (whiteSpace == "nowrap") {
         setProp(PropTextWrap, false);
         setProp(PropTextHorizontalAutoResize, true);
         setProp(PropTextVerticalAutoResize, true);
-        normalizeWhiteSpace(m_text, true, false);
+        collapse(false);
     } else if (whiteSpace == "pre") {
         stripPreStartNewline(m_text);
         setProp(PropTextWrap, false);
@@ -703,10 +733,10 @@ void UIWidget::applyWhiteSpace() {
     } else if (whiteSpace == "pre-line") {
         stripPreStartNewline(m_text);
         setProp(PropTextWrap, true);
-        normalizeWhiteSpace(m_text, true, true);
+        collapse(true);
     } else {
         setProp(PropTextWrap, true);
-        normalizeWhiteSpace(m_text, true, false);
+        collapse(false);
     }
     computeHtmlTextIntrinsicSize();
 }

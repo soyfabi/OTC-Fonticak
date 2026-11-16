@@ -25,6 +25,9 @@
 #include "lightview.h"
 #include "map.h"
 #include "mapview.h"
+#include "framework/ui/uimanager.h"
+#include "statictext.h"
+#include "framework/core/graphicalapplication.h"
 #include "framework/graphics/drawpoolmanager.h"
 #include "framework/otml/otmlnode.h"
 #include <framework/platform/platformwindow.h>
@@ -53,7 +56,7 @@ UIMap::~UIMap()
 void UIMap::draw(const DrawPoolType drawPane) {
     if (drawPane == DrawPoolType::MAP) {
         g_drawPool.preDraw(drawPane, [this] {
-            m_mapView->drawFloor();
+            m_mapView->drawFloor(isHovered() || g_ui.isMouseGrabbed());
         }, [this] {
             m_mapView->registerEvents();
         }, m_mapView->m_posInfo.rect, m_mapView->m_posInfo.srcRect, Color::black);
@@ -89,6 +92,8 @@ void UIMap::drawSelf(const DrawPoolType drawPane)
 
 void UIMap::updateMapRect() {
     m_mapView->updateRect(m_mapviewRect);
+    if (isHovered() && m_mapView->getLastMousePosition().isValid())
+        m_mapView->updateMouseCursor(m_mapView->getLastMousePosition());
 }
 
 // ----------------- moved from header: bodies that access m_mapView -----------------
@@ -171,7 +176,54 @@ CreaturePtr UIMap::getFollowingCreature() { return m_mapView->getFollowingCreatu
 
 Position UIMap::getCameraPosition() { return m_mapView->getCameraPosition(); }
 
+Point UIMap::getTilePoint(const Position& pos)
+{
+    if (!pos.isMapPosition() || !m_mapView || !m_mapView->isInRange(pos))
+        return {};
+
+    auto point = m_mapView->transformPositionTo2D(pos) - m_mapView->m_posInfo.drawOffset;
+    point.x *= m_mapView->m_posInfo.horizontalStretchFactor;
+    point.y *= m_mapView->m_posInfo.verticalStretchFactor;
+    point += m_mapviewRect.topLeft();
+    point /= g_window.getDisplayDensity();
+    return point;
+}
+
+Rect UIMap::getTileRect(const Position& pos)
+{
+    if (!pos.isMapPosition() || !m_mapView || !m_mapView->isInRange(pos))
+        return {};
+
+    const auto point = getTilePoint(pos);
+    const auto density = g_window.getDisplayDensity();
+    const auto width = std::max<int>(1, std::lround(static_cast<float>(m_mapView->m_tileSize) * m_mapView->m_posInfo.horizontalStretchFactor / density));
+    const auto height = std::max<int>(1, std::lround(static_cast<float>(m_mapView->m_tileSize) * m_mapView->m_posInfo.verticalStretchFactor / density));
+    return { point.x, point.y, width, height };
+}
+
 Position UIMap::getPosition(const Point& mousePos) { return m_mapView->getPosition(mousePos); }
+
+std::vector<Rect> UIMap::getSpeechTextRects()
+{
+    std::vector<Rect> rects;
+    const float textScale = g_app.getStaticTextScale();
+    const float uiScale = textScale / g_window.getDisplayDensity();
+    for (const auto& text : g_map.getStaticTexts()) {
+        if (text->getMessageMode() == Otc::MessageNone || !text->hasText()
+            || !m_mapView->isInRange(text->getPosition()))
+            continue;
+
+        // Match MapView::drawForeground, then convert back to UI coordinates.
+        auto point = m_mapView->transformPositionTo2D(text->getPosition()) - m_mapView->m_posInfo.drawOffset;
+        point.x *= m_mapView->m_posInfo.horizontalStretchFactor;
+        point.y *= m_mapView->m_posInfo.verticalStretchFactor;
+        point += m_mapviewRect.topLeft();
+        const auto rect = text->getDrawRect(point.scale(textScale), m_mapviewRect);
+        rects.emplace_back(std::lround(rect.x() * uiScale), std::lround(rect.y() * uiScale),
+            std::ceil(rect.width() * uiScale), std::ceil(rect.height() * uiScale));
+    }
+    return rects;
+}
 
 Point UIMap::getPositionOffset(const Point& mousePos) { return m_mapView->getPositionOffset(mousePos); }
 
@@ -290,8 +342,16 @@ void UIMap::resetCursorToDefault()
 void UIMap::onHoverChange(bool hovered)
 {
     UIWidget::onHoverChange(hovered);
-    if (!hovered)
+    if (!hovered) {
         resetCursorToDefault();
+    } else {
+        const auto mousePosition = getPosition(g_window.getMousePosition());
+        if (mousePosition.isValid()) {
+            m_mapView->onMouseMove(mousePosition);
+            m_mapView->setLastMousePosition(mousePosition);
+            m_mapView->updateMouseCursor(mousePosition);
+        }
+    }
 }
 
 bool UIMap::onMouseMove(const Point& mousePos, const Point& mouseMoved)
@@ -310,6 +370,8 @@ bool UIMap::onMouseMove(const Point& mousePos, const Point& mouseMoved)
     if (isHovered() && tileChanged) {
         m_mapView->onMouseMove(pos);
         m_mapView->setLastMousePosition(pos);
+    } else if (isHovered()) {
+        m_mapView->updateMouseCursor(pos);
     }
 
     if (tileChanged)

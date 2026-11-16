@@ -318,7 +318,7 @@ EnterGameWindow
     size: 110 21
     color: #FFFFFF
     @onClick: |
-      if Services and Services.createAccount and createWidgetAccount then
+      if createWidgetAccount then
         self:disable()
         createWidgetAccount()
       end

@@ -23,11 +23,22 @@
 #include "luavaluecasts_client.h"
 #include "uiminimap.h"
 
+#include "game.h"
+#include "gameconfig.h"
+#include "localplayer.h"
 #include "minimap.h"
 #include "satellitemap.h"
 #include "uimapanchorlayout.h"
+#include "framework/graphics/drawpoolmanager.h"
 #include "framework/otml/otmlnode.h"
 #include "framework/ui/uilayout.h"
+#include <cmath>
+
+UIMinimap::~UIMinimap()
+{
+    if (m_hdMode)
+        g_minimap.removeHdView();
+}
 
 void UIMinimap::drawSelf(const DrawPoolType drawPane)
 {
@@ -38,10 +49,117 @@ void UIMinimap::drawSelf(const DrawPoolType drawPane)
     if (!m_layout)
         m_layout = std::make_shared<UIMapAnchorLayout>(static_self_cast<UIWidget>());
 
+    const auto offset = getProjectionOffset();
     if (m_satelliteMode && g_satelliteMap.hasChunksForView(m_cameraPosition.z))
-        g_satelliteMap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_floorSeparatorOpacity);
-    else
-        g_minimap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_color);
+        g_satelliteMap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_floorSeparatorOpacity, offset);
+    else if (m_hdMode) {
+        if (!m_hdCache)
+            m_hdCache = std::make_shared<MinimapHdCache>();
+        g_minimap.drawHd(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_hdLive, offset, m_zoomAnimating,
+                         m_hdAnimations, m_showFloorItems, *m_hdCache);
+    } else
+        g_minimap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_color, offset);
+
+    if (m_fogOfWar && g_game.isOnline())
+        g_minimap.drawFog(getPaddingRect(), m_cameraPosition, m_scale, offset);
+}
+
+void UIMinimap::setFogOfWar(bool enabled)
+{
+    if (m_fogOfWar == enabled)
+        return;
+    m_fogOfWar = enabled;
+    repaint();
+}
+
+void UIMinimap::setSmoothWalk(bool enabled)
+{
+    if (enabled == m_smoothWalk)
+        return;
+
+    m_smoothWalk = enabled;
+    g_minimap.setWalkView(static_self_cast<UIMinimap>(), enabled);
+    updateWalkOffset();
+}
+
+void UIMinimap::updateWalkOffset()
+{
+    Point offset;
+    PointF remainder;
+    if (m_smoothWalk && isVisible() && !isDragging()) {
+        const auto& player = g_game.getLocalPlayer();
+        const int spriteSize = g_gameConfig.getSpriteSize();
+        if (player && player->getPosition() == m_cameraPosition && spriteSize > 0) {
+            const auto walk = player->getWalkOffset();
+            const float scale = m_scale / spriteSize;
+            const PointF screenOffset(-walk.x * scale, -walk.y * scale);
+            offset = Point(std::lround(screenOffset.x), std::lround(screenOffset.y));
+            if (m_hdMode || m_satelliteMode) {
+                // Keep terrain moving between screen pixels at low zoom.
+                remainder = PointF(screenOffset.x - offset.x, screenOffset.y - offset.y);
+            }
+        }
+    }
+
+    if (offset == m_walkOffset && remainder == m_walkRemainder)
+        return;
+
+    const bool anchorsMoved = offset != m_walkOffset;
+    m_walkOffset = offset;
+    m_walkRemainder = remainder;
+    if (anchorsMoved && m_layout)
+        m_layout->update();
+    repaint();
+}
+
+void UIMinimap::setHdMode(bool enabled, bool live)
+{
+    if (m_hdMode == enabled && m_hdLive == live)
+        return;
+
+    if (m_hdMode != enabled) {
+        m_hdMode = enabled;
+        if (enabled)
+            g_minimap.addHdView();
+        else {
+            m_hdCache.reset();
+            g_minimap.removeHdView();
+        }
+    }
+    m_hdLive = live;
+    updateWalkOffset();
+    repaint();
+}
+
+void UIMinimap::setHdAnimations(bool enabled)
+{
+    if (m_hdAnimations == enabled)
+        return;
+
+    m_hdAnimations = enabled;
+    repaint();
+}
+
+void UIMinimap::setShowFloorItems(bool enabled)
+{
+    if (m_showFloorItems == enabled)
+        return;
+
+    m_showFloorItems = enabled;
+    repaint();
+}
+
+void UIMinimap::setScale(float scale)
+{
+    scale = std::max(scale, 0.01f);
+    if (scale == m_scale)
+        return;
+
+    m_scale = scale;
+    updateWalkOffset();
+    if (m_layout)
+        m_layout->update();
+    repaint();
 }
 
 bool UIMinimap::setZoom(const int8_t zoom)
@@ -55,32 +173,59 @@ bool UIMinimap::setZoom(const int8_t zoom)
     const int oldZoom = m_zoom;
     m_zoom = zoom;
 
-    m_scale = 1.f;
-
-    if (m_zoom < 0)
-        m_scale /= 1 << std::abs(zoom);
-    else if (m_zoom > 0)
-        m_scale *= 1 << std::abs(zoom);
-
-    if (m_layout)
-        m_layout->update();
+    setScale(std::ldexp(1.f, zoom));
 
     onZoomChange(zoom, oldZoom);
     return true;
 }
 
+void UIMinimap::setZoomAnimating(bool animating)
+{
+    if (m_zoomAnimating != animating) {
+        m_zoomAnimating = animating;
+        repaint();
+    }
+}
+
+PointF UIMinimap::getProjectionOffset() const
+{
+    return PointF(m_walkOffset.x, m_walkOffset.y) + m_walkRemainder - m_cameraFraction * m_scale;
+}
+
+void UIMinimap::panByPixels(int dx, int dy)
+{
+    if (!m_cameraPosition.isMapPosition())
+        return;
+
+    constexpr double lastTile = 65534.0;
+    const double x = std::clamp(m_cameraPosition.x + double(m_cameraFraction.x) - dx / double(m_scale), 0.0, lastTile);
+    const double y = std::clamp(m_cameraPosition.y + double(m_cameraFraction.y) - dy / double(m_scale), 0.0, lastTile);
+    const int tileX = std::lround(x);
+    const int tileY = std::lround(y);
+    applyCameraPosition(Position(tileX, tileY, m_cameraPosition.z), PointF(x - tileX, y - tileY));
+}
+
 void UIMinimap::setCameraPosition(const Position& pos)
 {
-    if (m_cameraPosition == pos)
+    applyCameraPosition(pos, {});
+}
+
+void UIMinimap::applyCameraPosition(const Position& pos, const PointF& fraction)
+{
+    if (m_cameraPosition == pos && m_cameraFraction == fraction)
         return;
 
     const Position oldPos = m_cameraPosition;
     m_cameraPosition = pos;
+    m_cameraFraction = fraction;
 
+    updateWalkOffset();
+    repaint();
     if (m_layout)
         m_layout->update();
 
-    onCameraPositionChange(pos, oldPos);
+    if (pos != oldPos)
+        onCameraPositionChange(pos, oldPos);
 }
 
 bool UIMinimap::floorUp()
@@ -104,17 +249,17 @@ bool UIMinimap::floorDown()
 
 Point UIMinimap::getTilePoint(const Position& pos)
 {
-    return g_minimap.getTilePoint(pos, getPaddingRect(), m_cameraPosition, m_scale);
+    return g_minimap.getTilePoint(pos, getPaddingRect(), m_cameraPosition, m_scale, getProjectionOffset());
 }
 
 Rect UIMinimap::getTileRect(const Position& pos)
 {
-    return g_minimap.getTileRect(pos, getPaddingRect(), m_cameraPosition, m_scale);
+    return g_minimap.getTileRect(pos, getPaddingRect(), m_cameraPosition, m_scale, getProjectionOffset() - m_walkRemainder);
 }
 
 Position UIMinimap::getTilePosition(const Point& mousePos)
 {
-    return g_minimap.getTilePosition(mousePos, getPaddingRect(), m_cameraPosition, m_scale);
+    return g_minimap.getTilePosition(mousePos, getPaddingRect(), m_cameraPosition, m_scale, getProjectionOffset());
 }
 
 void UIMinimap::anchorPosition(const UIWidgetPtr& anchoredWidget, const Fw::AnchorEdge anchoredEdge, const Position& hookedPosition, const Fw::AnchorEdge hookedEdge)
@@ -161,5 +306,7 @@ void UIMinimap::onStyleApply(const std::string_view styleName, const OTMLNodePtr
             setMaxZoom(node->value<int>());
         else if (node->tag() == "min-zoom")
             setMinZoom(node->value<int>());
+        else if (node->tag() == "fog-of-war")
+            setFogOfWar(node->value<bool>());
     }
 }

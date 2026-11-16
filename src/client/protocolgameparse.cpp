@@ -44,6 +44,9 @@
 #include "framework/net/inputmessage.h"
 #include "paperdollmanager.h"
 #include "paperdoll.h"
+#ifdef FRAMEWORK_SOUND
+#include <framework/sound/soundmanager.h>
+#endif
 #include <fmt/format.h>
 #include <framework/util/stats.h>
 #include <functional>
@@ -337,9 +340,22 @@ void ProtocolGame::parseMessage(const InputMessagePtr& msg)
                 case Proto::GameServerPartyAnalyzer:
                     parsePartyAnalyzer(msg);
                     break;
+                case Proto::GameServerBossCooldown:
+                    parseBossCooldown(msg);
+                    break;
                 case Proto::GameServerExtendedOpcode: // otclient only
                     parseExtendedOpcode(msg);
                     break;
+                case Proto::GameServerSoundEffect:
+                    parseSoundEffect(msg);
+                    break;
+                case Proto::GameServerLocationAmbient: {
+                    const uint32_t ambientId = msg->getU32();
+#ifdef FRAMEWORK_SOUND
+                    g_sounds.setLocationAmbient(ambientId);
+#endif
+                    break;
+                }
                 case Proto::GameServerNewPing:
                     parseNewPing(msg);
                     break;
@@ -1605,10 +1621,10 @@ void ProtocolGame::parseFloorDescription(const InputMessagePtr& msg)
     const uint8_t floor = msg->getU8();
 
     if (pos.z == floor) {
-        const auto& oldPos = m_localPlayer->getPosition();
         if (!m_mapKnown) {
             m_localPlayer->setPosition(pos);
         }
+        const auto oldPos = m_localPlayer->getPosition();
 
         g_map.setCentralPosition(pos);
 
@@ -1618,7 +1634,7 @@ void ProtocolGame::parseFloorDescription(const InputMessagePtr& msg)
         }
 
         g_dispatcher.addEvent([] { g_lua.callGlobalField("g_game", "onMapDescription"); });
-        g_lua.callGlobalField("g_game", "onTeleport", m_localPlayer, pos, oldPos);
+        g_game.processTeleport(m_localPlayer, pos, oldPos);
     }
 
     const auto& range = g_map.getAwareRange();
@@ -1630,11 +1646,10 @@ void ProtocolGame::parseFloorDescription(const InputMessagePtr& msg)
 void ProtocolGame::parseMapDescription(const InputMessagePtr& msg)
 {
     const auto& pos = getPosition(msg);
-    const auto& oldPos = m_localPlayer->getPosition();
-
     if (!m_mapKnown) {
         m_localPlayer->setPosition(pos);
     }
+    const auto oldPos = m_localPlayer->getPosition();
 
     g_map.setCentralPosition(pos);
 
@@ -1647,7 +1662,7 @@ void ProtocolGame::parseMapDescription(const InputMessagePtr& msg)
     }
 
     g_dispatcher.addEvent([] { g_lua.callGlobalField("g_game", "onMapDescription"); });
-    g_lua.callGlobalField("g_game", "onTeleport", m_localPlayer, pos, oldPos);
+    g_game.processTeleport(m_localPlayer, pos, oldPos);
 }
 
 void ProtocolGame::parseMapMoveNorth(const InputMessagePtr& msg)
@@ -2186,15 +2201,21 @@ void ProtocolGame::parseMagicEffect(const InputMessagePtr& msg)
                 }
 
                 case Otc::MAGIC_EFFECTS_CREATE_SOUND_MAIN_EFFECT: {
-                    msg->getU8(); // Source
-                    msg->getU16(); // Sound ID
+                    const uint8_t soundSource = msg->getU8(); // Source
+                    const uint16_t soundId = msg->getU16(); // Sound ID
+                    #ifdef FRAMEWORK_SOUND
+                    g_sounds.playProtocolSoundMain(soundSource, soundId, pos);
+                    #endif
                     break;
                 }
 
                 case Otc::MAGIC_EFFECTS_CREATE_SOUND_SECONDARY_EFFECT: {
-                    msg->getU8(); // ENUM
-                    msg->getU8(); // Source
-                    msg->getU16(); // Sound ID
+                    msg->getU8(); // Reserved secondary sound enum.
+                    const uint8_t soundSource = msg->getU8(); // Source
+                    const uint16_t soundId = msg->getU16(); // Sound ID
+                    #ifdef FRAMEWORK_SOUND
+                    g_sounds.playProtocolSoundSecondary(soundSource, soundId, pos);
+                    #endif
                     break;
                 }
                 default:
@@ -2208,6 +2229,7 @@ void ProtocolGame::parseMagicEffect(const InputMessagePtr& msg)
     }
 
     uint16_t effectId = g_game.getFeature(Otc::GameMagicEffectU16) ? msg->getU16() : msg->getU8();
+    const uint8_t effectSource = g_game.getFeature(Otc::GameEffectSource) ? msg->getU8() : 0;
 
     if (g_game.getClientVersion() <= 750) {
         effectId += 1; //hack to fix effects in earlier clients
@@ -2228,8 +2250,27 @@ void ProtocolGame::parseMagicEffect(const InputMessagePtr& msg)
 
     const auto& effect = std::make_shared<Effect>();
     effect->setId(effectId);
+    effect->setSource(static_cast<Otc::MagicEffectSources>(effectSource));
 
     g_map.addThing(effect, pos);
+}
+
+void ProtocolGame::parseSoundEffect(const InputMessagePtr& msg)
+{
+    const auto pos = getPosition(msg);
+    const uint8_t source = msg->getU8();
+    const uint16_t mainSoundId = msg->getU16();
+    const bool hasSecondary = msg->getU8() != 0;
+#ifdef FRAMEWORK_SOUND
+    g_sounds.playProtocolSoundMain(source, mainSoundId, pos);
+#endif
+    if (hasSecondary) {
+        const uint8_t secondarySource = msg->getU8();
+        const uint16_t secondarySoundId = msg->getU16();
+#ifdef FRAMEWORK_SOUND
+        g_sounds.playProtocolSoundSecondary(secondarySource, secondarySoundId, pos);
+#endif
+    }
 }
 
 void ProtocolGame::parseRemoveMagicEffect(const InputMessagePtr& msg)
@@ -2281,6 +2322,7 @@ void ProtocolGame::parseDistanceMissile(const InputMessagePtr& msg)
     const auto& toPos = getPosition(msg);
 
     const uint16_t shotId = g_game.getFeature(Otc::GameDistanceEffectU16) ? msg->getU16() : msg->getU8();
+    const uint8_t effectSource = g_game.getFeature(Otc::GameEffectSource) ? msg->getU8() : 0;
     if (!g_things.isValidDatId(shotId, ThingCategoryMissile)) {
         g_logger.traceError("invalid missile id {}", shotId);
         return;
@@ -2288,6 +2330,7 @@ void ProtocolGame::parseDistanceMissile(const InputMessagePtr& msg)
 
     const auto& missile = std::make_shared<Missile>();
     missile->setId(shotId);
+    missile->setEffectSource(static_cast<Otc::MagicEffectSources>(effectSource));
     missile->setPath(fromPos, toPos);
 
     g_map.addThing(missile, fromPos);
@@ -3343,7 +3386,7 @@ void ProtocolGame::parseFloorChangeUp(const InputMessagePtr& msg)
     ++newPos.y;
     g_map.setCentralPosition(newPos);
 
-    g_lua.callGlobalField("g_game", "onTeleport", m_localPlayer, newPos, pos);
+    g_game.processTeleport(m_localPlayer, newPos, pos);
 }
 
 void ProtocolGame::parseFloorChangeDown(const InputMessagePtr& msg)
@@ -3369,7 +3412,7 @@ void ProtocolGame::parseFloorChangeDown(const InputMessagePtr& msg)
     --newPos.y;
     g_map.setCentralPosition(newPos);
 
-    g_lua.callGlobalField("g_game", "onTeleport", m_localPlayer, newPos, pos);
+    g_game.processTeleport(m_localPlayer, newPos, pos);
 }
 
 void ProtocolGame::parseOpenOutfitWindow(const InputMessagePtr& msg) const
@@ -5588,17 +5631,11 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             for (auto i = 0; i < inventoryItemsCount; ++i) {
                 ItemSummary item;
                 const uint16_t itemId = msg->getU16();
-                const auto& itemCreated = Item::create(itemId);
-                const uint16_t classification = itemCreated->getClassification();
-
-                uint8_t itemTier = 0;
-                if (classification > 0) {
-                    itemTier = msg->getU8();
-                }
-
+                const uint8_t itemTier = msg->getU8();
                 item.itemId = itemId;
                 item.tier = itemTier;
                 item.amount = msg->getU32();
+                item.name = msg->getString();
                 data.inventory.emplace_back(item);
             }
 
@@ -5606,17 +5643,11 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             for (auto i = 0; i < storeItemsCount; ++i) {
                 ItemSummary item;
                 const uint16_t itemId = msg->getU16();
-                const auto& itemCreated = Item::create(itemId);
-                const uint16_t classification = itemCreated->getClassification();
-
-                uint8_t itemTier = 0;
-                if (classification > 0) {
-                    itemTier = msg->getU8();
-                }
-
+                const uint8_t itemTier = msg->getU8();
                 item.itemId = itemId;
                 item.tier = itemTier;
                 item.amount = msg->getU32();
+                item.name = msg->getString();
                 data.store.emplace_back(item);
             }
 
@@ -5624,20 +5655,17 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             for (auto i = 0; i < stashItemsCount; ++i) {
                 ItemSummary item;
                 const uint16_t itemId = msg->getU16();
+                const uint8_t itemTier = msg->getU8();
+                const uint32_t amount = msg->getU32();
+                const std::string name = msg->getString();
                 const auto& thing = g_things.getThingType(itemId, ThingCategoryItem);
                 if (!thing) {
                     continue;
                 }
-                const uint16_t classification = thing->getClassification();
-
-                uint8_t itemTier = 0;
-                if (classification > 0) {
-                    itemTier = msg->getU8();
-                }
-
                 item.itemId = itemId;
                 item.tier = itemTier;
-                item.amount = msg->getU32();
+                item.amount = amount;
+                item.name = name;
                 data.stash.emplace_back(item);
             }
 
@@ -5645,17 +5673,11 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             for (auto i = 0; i < depotItemsCount; ++i) {
                 ItemSummary item;
                 const uint16_t itemId = msg->getU16();
-                const auto& itemCreated = Item::create(itemId);
-                const uint16_t classification = itemCreated->getClassification();
-
-                uint8_t itemTier = 0;
-                if (classification > 0) {
-                    itemTier = msg->getU8();
-                }
-
+                const uint8_t itemTier = msg->getU8();
                 item.itemId = itemId;
                 item.tier = itemTier;
                 item.amount = msg->getU32();
+                item.name = msg->getString();
                 data.depot.emplace_back(item);
             }
 
@@ -5663,17 +5685,11 @@ void ProtocolGame::parseCyclopediaCharacterInfo(const InputMessagePtr& msg)
             for (auto i = 0; i < inboxItemsCount; ++i) {
                 ItemSummary item;
                 const uint16_t itemId = msg->getU16();
-                const auto& itemCreated = Item::create(itemId);
-                const uint16_t classification = itemCreated->getClassification();
-
-                uint8_t itemTier = 0;
-                if (classification > 0) {
-                    itemTier = msg->getU8();
-                }
-
+                const uint8_t itemTier = msg->getU8();
                 item.itemId = itemId;
                 item.tier = itemTier;
                 item.amount = msg->getU32();
+                item.name = msg->getString();
                 data.inbox.emplace_back(item);
             }
 
@@ -6820,6 +6836,34 @@ void ProtocolGame::parseBosstiaryCooldownTimer(const InputMessagePtr& msg)
     for (auto i = 0; i < bossesOnTrackerSize; ++i) {
         const uint32_t bossRaceId = msg->getU32(); // bossRaceId
         const uint64_t cooldownTime = msg->getU64(); // Boss cooldown in seconds
+
+        cooldownData.emplace_back(bossRaceId, cooldownTime);
+    }
+
+    // Call the Lua callback with the cooldown data
+    g_lua.callGlobalField("g_game", "onBossCooldown", cooldownData);
+}
+
+void ProtocolGame::parseBossCooldown(const InputMessagePtr& msg)
+{
+    // Custom 8.60 server packet (forgottenserver data/scripts/network/
+    // boss_cooldown/bosscooldown.lua), also parsed by AstraClient. Its wire
+    // format differs from GameServerBosstiaryCooldownTimer: U8 count, then
+    // per boss U16 raceId, U32 cooldown expiry (unix timestamp), name and
+    // outfit. The name/outfit are redundant for Lua, which re-derives them
+    // from local race data, but they must be consumed to keep the message
+    // stream aligned.
+    const uint8_t bossCount = msg->getU8();
+    std::vector<BossCooldownData> cooldownData;
+    cooldownData.reserve(bossCount);
+
+    for (uint8_t i = 0; i < bossCount; ++i) {
+        const uint16_t bossRaceId = msg->getU16();
+        const uint32_t cooldownTime = msg->getU32(); // cooldown expiry, unix timestamp
+        msg->getString(); // boss name, derived from race data in Lua
+        msg->getU16(); // outfit lookType
+        for (int j = 0; j < 5; ++j)
+            msg->getU8(); // outfit head/body/legs/feet/addons
 
         cooldownData.emplace_back(bossRaceId, cooldownTime);
     }

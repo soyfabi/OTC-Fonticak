@@ -517,6 +517,7 @@ struct ItemSummary
     uint16_t itemId;
     uint8_t tier;
     uint32_t amount;
+    std::string name;
 };
 
 struct CyclopediaCharacterItemSummary

@@ -143,7 +143,7 @@ protected:
 
 private:
     void queueInputEvent(const InputEvent& event);
-    void flushCoalescedMouseMove();
+    void queueCoalescedMouseMove();
 
     bool canDrawMap() const;
     bool m_onInputEvent{ false };

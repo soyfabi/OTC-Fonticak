@@ -1,4 +1,9 @@
 local options = dofile("data_options")
+for k, obj in pairs(options) do
+    if type(obj) ~= "table" then
+        options[k] = { value = obj }
+    end
+end
 local autoSwitchPresetEvent = nil
 local turnModifierIds = { 'turnModifierCtrl', 'turnModifierShift', 'turnModifierAlt' }
 
@@ -16,8 +21,12 @@ panels = {
     miscGameplay = nil,
     miscScreenshot = nil,
     miscHelp = nil,
+    recordingsPanel = nil,
+    minimapPanel = nil,
     keybindsPanel = nil,
-    customHotkeys = nil
+    customHotkeys = nil,
+    battleSoundsPanel = nil,
+    iuSoundPanel = nil,
 }
 
 local GAME_WINDOW_MESSAGE_CHILDREN = {
@@ -152,14 +161,22 @@ local buttons = { {
 }, {
     text = "Sound",
     icon = "/images/icons/icon_sound",
-    open = "soundPanel"
-    --[[     subCategories = {{
+    open = "soundPanel",
+    subCategories = {{
         text = "Battle Sounds",
-        open = "Battle_Sounds"
+        open = "battleSoundsPanel"
     }, {
         text = "UI Sounds",
-        open = "UI_Sounds"
-    }} ]]
+        open = "iuSoundPanel"
+    }} 
+}, {
+    text = "Minimap",
+    icon = "/images/topbuttons/minimap",
+    open = "minimapPanel"
+}, {
+    text = "Recordings",
+    icon = "/images/icons/icon_recordings",
+    open = "recordingsPanel"
 }, {
     text = "Misc.",
     icon = "/images/icons/icon_misc",
@@ -183,12 +200,181 @@ local buttons = { {
 } }
 
 -- LuaFormatter on
+local recordingStatusEvent
+local recordingIndicator
+local recordingPulseEvent
+
+local function updateRecordingIndicator()
+    if not g_app.isClipRecording then
+        return
+    end
+    if not g_game.isOnline() or not g_app.isClipRecording() then
+        if recordingIndicator then
+            recordingIndicator:hide()
+        end
+        return
+    end
+    if not recordingIndicator then
+        recordingIndicator = g_ui.loadUI('styles/recording_indicator', modules.game_interface.getRootPanel())
+    end
+    if not recordingIndicator then
+        return
+    end
+    if not recordingIndicator:isExplicitlyVisible() then
+        recordingIndicator:show()
+        recordingIndicator:raise()
+    end
+    local diameter = math.floor(13 - 3 * math.cos(g_clock.millis() * math.pi / 450) + 0.5)
+    local dot = recordingIndicator.light.dot
+    if dot:getWidth() ~= diameter then
+        dot:setSize({width = diameter, height = diameter})
+    end
+end
+
+local recordingChoices = {
+    clipRecordingFps = {
+        { '15 FPS', 15 }, { '20 FPS', 20 }, { '24 FPS', 24 },
+        { '30 FPS', 30 }, { '60 FPS', 60 }, { '80 FPS', 80 }
+    },
+    clipRecordingMinutes = { { '3 minutes', 3 }, { '10 minutes', 10 } },
+    clipRecordingResolution = { { 'Native', 0 }, { 'Up to 1080p', 1080 }, { 'Up to 720p', 720 } },
+    clipRecordingQuality = {
+        { 'Very Low', 3 }, { 'Low', 4 }, { 'Medium', 0 }, { 'Good', 1 }, { 'High', 2 }, { 'Best', 5 }
+    },
+    clipRecordingEncoder = { { 'Automatic', 0 }, { 'Software (CPU)', 1 } },
+    clipRecordingFormat = { { 'MP4', 0 }, { 'MKV', 1 }, { 'AVI', 2 } }
+}
+
+local function configureClipRecording(disable)
+    if g_app.configureClipRecording then
+        g_app.configureClipRecording(not disable and g_game.isOnline() and getOption('clipRecordingEnabled') == true,
+            getOption('clipRecordingFps'), getOption('clipRecordingMinutes'),
+            getOption('clipRecordingResolution'), getOption('clipRecordingQuality'), getOption('clipRecordingEncoder') == 0)
+    end
+end
+
+function saveRecordingClip()
+    if g_app.saveClip then
+        g_app.saveClip(getOption('clipRecordingFormat'))
+    end
+end
+
+function openRecordingFolder()
+    local writeDir = g_resources.getWriteDir() or ''
+    if writeDir ~= '' and g_resources.makeDir('recordings') then
+        local directory = writeDir:gsub('[/\\]+$', '') .. '/recordings'
+        directory = directory:gsub('[/\\]+', '\\')
+        if g_platform.openDir('"' .. directory .. '"', true) then
+            return
+        end
+    end
+    displayErrorBox(tr('Open Clips Folder'), tr('Could not open the recordings folder.'))
+end
+
+function autoDetectRecordingEncoder()
+    setOption('clipRecordingEncoder', 0, true)
+end
+
+local function setupClipRecording(panel)
+    for key, choices in pairs(recordingChoices) do
+        local combo = panel:recursiveGetChildById(key)
+        for _, choice in ipairs(choices) do
+            combo:addOption(tr(choice[1]), choice[2])
+        end
+        combo:setCurrentOptionByData(g_settings.getNumber(key, getOption(key)), true)
+        combo.onOptionChange = function(_, _, data) setOption(key, data) end
+        combo:setEnabled(g_app.configureClipRecording ~= nil)
+    end
+
+    local status = panel:recursiveGetChildById('clipRecordingStatus')
+    local save = panel:recursiveGetChildById('saveRecordingClip')
+    if not g_app.configureClipRecording then
+        panel:recursiveGetChildById('clipRecordingEnabled'):setEnabled(false)
+        panel:recursiveGetChildById('autoDetectRecordingEncoder'):setEnabled(false)
+        save:setEnabled(false)
+        panel:recursiveGetChildById('openRecordingFolder'):setEnabled(false)
+        panel:recursiveGetChildById('setRecordingHotkey'):setEnabled(false)
+        status:setText(tr('Clip recording is available on Windows.'))
+        return
+    end
+
+    Keybind.new("UI", "Save Recording Clip", "Ctrl+Shift+F10", "")
+    Keybind.bind("UI", "Save Recording Clip", {{type = KEY_DOWN, callback = saveRecordingClip}})
+    recordingPulseEvent = cycleEvent(updateRecordingIndicator, 40)
+    local shortcut = panel:recursiveGetChildById('clipRecordingShortcut')
+    local lastStatus
+    recordingStatusEvent = cycleEvent(function()
+        local message = g_app.getClipRecordingStatus()
+        if message ~= lastStatus then
+            lastStatus = message
+            local textMessage = modules.game_textmessage
+            if textMessage and g_game.isOnline()
+                and (message:match('^Saved ') or message:match('^Could not ') or message:match('^Recording failed')) then
+                textMessage.displayStatusMessage(message)
+            end
+        end
+        if panel:isVisible() then
+            status:setText(message)
+            local keys = Keybind.getKeybindKeys("UI", "Save Recording Clip")
+            local key = keys.primary ~= "" and keys.primary or keys.secondary
+            shortcut:setText(key ~= "" and key or tr('Unassigned'))
+        end
+    end, 500)
+end
+
 local extraWidgets = {
     audioButton = nil,
     optionsButton = nil,
     logoutButton = nil,
     optionsButtons = nil
 }
+
+local protocolSoundSettingsKeys = {
+    battleSoundOwnBattle = true,
+    battleSoundOtherPlayers = true,
+    battleSoundCreature = true,
+    battleSoundOwnBattleSubChannelsAttack = true,
+    battleSoundOwnBattleSoundSubChannelsHealing = true,
+    battleSoundOwnBattleSoundSubChannelsSupport = true,
+    battleSoundOwnBattleSoundSubChannelsWeapons = true,
+    battleSoundOtherPlayersSubChannelsAttack = true,
+    battleSoundOtherPlayersSubChannelsHealing = true,
+    battleSoundOtherPlayersSubChannelsSupport = true,
+    battleSoundOtherPlayersSubChannelsWeapons = true,
+    battleSoundCreatureSubChannelsNoises = true,
+    battleSoundCreatureSubChannelsNoisesDeath = true,
+    battleSoundCreatureSubChannelsAttacksAndSpells = true,
+    soundItems = true,
+    soundFoodAndBeverages = true,
+    soundMoveItem = true,
+    soundEventVolume = true,
+    soundAmbience = true,
+    soundUI = true,
+    soundUIsubChannelsInteractions = true,
+    soundUIsubChannelsJoinLeaveParty = true,
+    soundUIsubChannelsVipLoginLogout = true,
+    soundNotificationConsoleMessages = true,
+    soundNotificationUIInteractions = true,
+    soundNotificationsubChannelsParty = true,
+    soundNotificationsubChannelsGuild = true,
+    soundNotificationsubChannelsLocalChat = true,
+    soundNotificationsubChannelsPrivateMessages = true,
+    soundNotificationsubChannelsNPC = true,
+    soundNotificationsubChannelsGlobal = true,
+    soundNotificationsubChannelsTeamFinder = true,
+    soundNotificationsubChannelsRaidAnnouncements = true,
+    soundNotificationsubChannelsSystemAnnouncements = true,
+}
+
+local function syncProtocolSoundSettings(key)
+    if key and not protocolSoundSettingsKeys[key] then
+        return
+    end
+
+    if g_sounds and g_sounds.refreshProtocolSoundSettings then
+        g_sounds.refreshProtocolSoundSettings()
+    end
+end
 
 local function toggleDisplays()
     local manaKey = options['showOwnMana'] and 'showOwnMana' or 'displayMana'
@@ -223,6 +409,27 @@ local function syncControlModeComboboxes()
     if lootControlModeCombobox then
         lootControlModeCombobox:setCurrentOptionByData(options.lootControlMode.value)
         lootControlModeCombobox:setVisible(options.mouseControlMode.value == 1)
+    end
+
+    local soundDeviceCombobox = panels.soundPanel and panels.soundPanel:recursiveGetChildById('soundDevice')
+    if soundDeviceCombobox and options.soundDevice and options.soundDevice.value then
+        soundDeviceCombobox:setCurrentOptionByData(options.soundDevice.value, true)
+    end
+end
+
+-- Toggles mute without discarding the user's previously saved master volume
+local function toggleMute()
+    local current = getOption('soundMaster')
+    if current <= 1 then
+        local restoreVolume = options.soundMaster.lastVolume or g_settings.getNumber('soundMasterLastVolume', 25)
+        if not restoreVolume or restoreVolume <= 1 then
+            restoreVolume = 25
+        end
+        setOption('soundMaster', restoreVolume)
+    else
+        options.soundMaster.lastVolume = current
+        g_settings.set('soundMasterLastVolume', current)
+        setOption('soundMaster', 1)
     end
 end
 
@@ -342,6 +549,32 @@ local function setupComboBox()
         setOption('profile', comboBox:getCurrentOption().data)
     end
 
+    local soundDeviceCombobox = panels.soundPanel:recursiveGetChildById('soundDevice')
+    if soundDeviceCombobox then
+        soundDeviceCombobox:clearOptions()
+        soundDeviceCombobox:addOption(tr('(auto-select)'), '(auto-select)')
+        if g_sounds and g_sounds.getAudioDevices then
+            local devices = g_sounds.getAudioDevices()
+            for _, device in ipairs(devices) do
+                local displayName = device:gsub('^OpenAL Soft on%s*', '')
+                soundDeviceCombobox:addOption(displayName, device)
+            end
+        end
+
+        soundDeviceCombobox.onOptionChange = function(comboBox, option)
+            local current = comboBox:getCurrentOption()
+            if current then
+                setOption('soundDevice', current.data)
+            end
+        end
+
+        local currentDevice = '(auto-select)'
+        if options.soundDevice and options.soundDevice.value and options.soundDevice.value ~= '' then
+            currentDevice = options.soundDevice.value
+        end
+        soundDeviceCombobox:setCurrentOptionByData(currentDevice, true)
+    end
+
     for _, preset in ipairs(Keybind.presets) do
         listKeybindsPanel:addOption(preset)
     end
@@ -358,17 +591,25 @@ local function setup()
 
     -- load options
     for k, obj in pairs(options) do
-        local v = obj.value
+        -- an option may either be a bare value or a table with an 'action'
+        -- an "and/or" chain cannot be used here: a default of 'false' would
+        -- fall through to the table and the option would never be loaded
+        local v
+        if type(obj) == 'table' then
+            v = obj.value
+        else
+            v = obj
+        end
 
         if k ~= 'classicControl' and k ~= 'smartLeftClick' and k ~= 'mouseControlMode' and k ~= 'showHealthManaCircle' then
             if type(v) == 'boolean' then
-                local value = g_settings.getBoolean(k)
+                local value = g_settings.getBoolean(k, v)
                 setOption(k, value, true)
             elseif type(v) == 'number' then
-                local value = g_settings.getNumber(k)
+                local value = g_settings.getNumber(k, v)
                 setOption(k, value, true)
             elseif type(v) == 'string' then
-                local value = g_settings.getString(k)
+                local value = g_settings.getString(k, v)
                 setOption(k, value, true)
             end
         end
@@ -384,6 +625,13 @@ local function setup()
         if master then
             master:setChecked(bothOn)
         end
+    end
+
+    -- Every persisted option has been applied, so widgets that mirror option
+    -- values outside of the options panels (e.g. the game_interface top bar
+    -- arrows) can now sync themselves with the loaded state.
+    if modules.game_interface and modules.game_interface.onOptionsLoaded then
+        modules.game_interface.onOptionsLoaded()
     end
     
     -- Special handling for mouseControlMode to ensure it's in sync with the underlying options
@@ -434,6 +682,7 @@ local function setup()
             parent:setMarginTop(0)
         end
     end
+
 end
 
 
@@ -450,7 +699,7 @@ function controller:onInit()
     end
 
     extraWidgets.audioButton = modules.client_topmenu.addTopRightToggleButton('audioButton', tr('Audio'),
-        '/images/topbuttons/button_mute_up', function() toggleOption('enableAudio') end)
+        '/images/topbuttons/button_mute_up', toggleMute)
 
     extraWidgets.optionsButton = modules.client_topmenu.addTopRightToggleButton('optionsButton', tr('Options'),
         '/images/topbuttons/button_options', toggle)
@@ -472,11 +721,16 @@ function controller:onInit()
     panels.interfaceGameWindow = g_ui.loadUI('styles/interface/gameWindow', controller.ui.optionsTabContent)
     panels.actionbars = g_ui.loadUI('styles/interface/actionbars', controller.ui.optionsTabContent)
 
-    panels.soundPanel = g_ui.loadUI('styles/sound/audio', controller.ui.optionsTabContent)
+    panels.soundPanel = g_ui.loadUI('styles/sound/sound', controller.ui.optionsTabContent)
+    panels.battleSoundsPanel = g_ui.loadUI('styles/sound/battleSounds', controller.ui.optionsTabContent)
+    panels.iuSoundPanel = g_ui.loadUI('styles/sound/uiSounds', controller.ui.optionsTabContent)
 
     panels.misc = g_ui.loadUI('styles/misc/misc', controller.ui.optionsTabContent)
+    panels.recordingsPanel = g_ui.loadUI('styles/recordings', controller.ui.optionsTabContent)
     panels.miscGameplay = g_ui.loadUI('styles/misc/gameplay', controller.ui.optionsTabContent)
     panels.miscHelp = g_ui.loadUI('styles/misc/help', controller.ui.optionsTabContent)
+    panels.minimapPanel = g_ui.loadUI('styles/minimap/minimap', controller.ui.optionsTabContent)
+    initMinimapAnimationDownload(panels.minimapPanel)
 
     self.ui:hide()
 
@@ -488,6 +742,7 @@ function controller:onInit()
     
     init_binds()
     init_custom_hotkeys()
+    setupClipRecording(panels.recordingsPanel)
 
     Keybind.new("UI", "Toggle Fullscreen", "Ctrl+Shift+F", "")
     Keybind.bind("UI", "Toggle Fullscreen", {
@@ -522,7 +777,7 @@ function controller:onInit()
     Keybind.bind("Sound", "Mute/unmute music", {
         {
             type = KEY_DOWN,
-            callback = function() toggleOption('enableAudio') end,
+            callback = toggleMute,
         }
     })
 
@@ -615,6 +870,17 @@ function controller:onInit()
 end
 
 function controller:onTerminate()
+    removeEvent(recordingStatusEvent)
+    removeEvent(recordingPulseEvent)
+    if recordingIndicator then
+        recordingIndicator:destroy()
+        recordingIndicator = nil
+    end
+    if g_app.configureClipRecording then
+        configureClipRecording(true)
+        Keybind.delete("UI", "Save Recording Clip")
+    end
+    terminateMinimapAnimationDownload()
     if autoSwitchPresetEvent then
         removeEvent(autoSwitchPresetEvent)
         autoSwitchPresetEvent = nil
@@ -761,6 +1027,7 @@ function syncChatModePanels(chatMode)
 end
 
 function controller:onGameStart()
+    configureClipRecording()
     if autoSwitchPresetEvent then
         removeEvent(autoSwitchPresetEvent)
     end
@@ -807,6 +1074,10 @@ function controller:onGameStart()
 end
 
 function controller:onGameEnd()
+    if recordingIndicator then
+        recordingIndicator:hide()
+    end
+    configureClipRecording(true)
     if autoSwitchPresetEvent then
         removeEvent(autoSwitchPresetEvent)
         autoSwitchPresetEvent = nil
@@ -877,7 +1148,12 @@ function setOption(key, value, force)
         g_logger.warning(string.format("[client_options] Attempted to set unknown option: '%s'", key))
         return
     end
-    
+
+    if type(option) ~= 'table' then
+        option = { value = option }
+        options[key] = option
+    end
+
     if not force and option.value == value then
         return
     end
@@ -922,6 +1198,14 @@ function setOption(key, value, force)
     end
 
     g_settings.set(key, value)
+    local recordingsPanel = panels.recordingsPanel
+    if recordingsPanel and recordingChoices[key] then
+        recordingsPanel:recursiveGetChildById(key):setCurrentOptionByData(value, true)
+    end
+    if key == 'clipRecordingEnabled' or (recordingChoices[key] and key ~= 'clipRecordingFormat') then
+        configureClipRecording()
+    end
+    syncProtocolSoundSettings(key)
 end
 
 function openManageControlButtonsPage()
@@ -965,7 +1249,15 @@ function getOption(key)
         g_logger.warning(string.format("[client_options] Attempted to get unknown option: '%s'", key))
         return nil
     end
-    return option.value
+
+    -- an option may either be a bare value or a table with an 'action'
+    -- a plain "and/or" chain cannot be used here: a stored 'false' would fall
+    -- through to 'option' and make every caller see a truthy table
+    if type(option) == 'table' then
+        return option.value
+    end
+
+    return option
 end
 
 function hasOption(key)
@@ -1377,9 +1669,9 @@ function resetEffects()
     setOption('limitVisibleDimension', false, true)
     setOption('floatingEffect', false, true)
     setOption('setMissileAlphaScroll', 100, true)
-    setOption('setOwnSpellEffectAlphaScroll', 100, true)
+    setOption('setOwnSpellEffectAlphaScroll', 90, true)
     setOption('setOtherPlayerSpellEffectAlphaScroll', 100, true)
-    setOption('setCreatureSpellEffectAlphaScroll', 100, true)
+    setOption('setCreatureSpellEffectAlphaScroll', 60, true)
     setOption('setBossAreaCreatureEffectAlphaScroll', 100, true)
 end
 
@@ -1394,6 +1686,8 @@ function resetAnimation()
     setOption('showAnimationHudManaBar', true, true)
     setOption('showAnimationArcs', true, true)
     setOption('showSpellAnimation', true, true)
+    setOption('showActionBarMaster', true, true)
+    setOption('showAnimationDrag', true, true)
     setOption('showOptionsFrameAnimation', true, true)
     setOption('uiBarAnimationSpeed', 100, true)
     setOption('showOutfitAnimationMaster', true, true)
@@ -1453,7 +1747,6 @@ end
 function resetControls()
     setOption('mouseControlMode', 0, true)
     setOption('lootControlMode', 0, true)
-    setOption('smartWalk', false, true)
     setOption('alwaysTurnTowardsMoveDirection', true, true)
     setOption('moveStack', false, true)
     setOption('openMinimized', false, true)
@@ -1462,6 +1755,9 @@ end
 
 function resetGameplay()
     setOption('allowInspect', false, true)
+    setOption('smartWalk', false, true)
+    setOption('dashWalk', true, true)
+    setOption('preciseControl', false, true)
     setOption('autoChaseOverride', true, true)
     setOption('talkOnRightClick', false, true)
     setOption('quickAllCorpses', false, true)
@@ -1541,6 +1837,20 @@ function show()
     controller.ui:focus()
 end
 
+function showMinimapOptions()
+    if not controller.ui then
+        return
+    end
+
+    show()
+    for _, category in ipairs(controller.ui.optionsTabBar:getChildren()) do
+        if category.open == 'minimapPanel' and category.Button then
+            category.Button:onClick()
+            return
+        end
+    end
+end
+
 function showCustomHotkeys()
     if not controller or not controller.ui then
         return
@@ -1573,6 +1883,9 @@ function hide()
     -- Save all settings when closing the options window
     if cancelGeneralHotkeyInlineEdit then
         cancelGeneralHotkeyInlineEdit()
+    end
+    if extraWidgets.optionsButton then
+        extraWidgets.optionsButton:setOn(false)
     end
     if cancelCustomHotkeyInlineEdit then
         cancelCustomHotkeyInlineEdit()
@@ -1936,6 +2249,13 @@ function configureCharacterCategories()
         local widget = g_ui.createWidget("OptionsCategory", controller.ui.optionsTabBar)
         widget:setId(id)
         widget.Button.Icon:setIcon(button.icon)
+        if button.open == "recordingsPanel" then
+            widget.Button.Icon:setSize({width = 16, height = 16})
+            widget.Button.Icon:setIconSize({width = 16, height = 16})
+            widget.Button.Icon:setMarginLeft(6)
+            widget.Button.Title:setMarginLeft(25)
+            widget.Button.Title:setMarginRight(7)
+        end
         widget.Button.Title:setText(button.text)
         widget.open = button.open
 

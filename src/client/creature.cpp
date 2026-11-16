@@ -48,6 +48,9 @@
 #include "framework/graphics/painter.h"
 #include "framework/graphics/shadermanager.h"
 #include "framework/ui/uiwidget.h"
+#ifdef FRAMEWORK_SOUND
+#include <framework/sound/soundmanager.h>
+#endif
 #include <framework/core/graphicalapplication.h>
 #include <framework/util/stats.h>
 
@@ -259,7 +262,15 @@ void Creature::drawInformation(const MapPosInfo& mapRect, const Point& dest, con
     const auto displacementY = g_game.getFeature(Otc::GameNegativeOffset) ? 0 : getDisplacementY();
 
     const auto& parentRect = mapRect.rect;
-    const auto& creatureOffset = Point(16 - displacementX, -displacementY - 2) + getDrawOffset();
+    // Keep the name and its bars above the outfit as one group. Apply this
+    // in map coordinates so the clearance follows the map zoom.
+    constexpr int informationClearance = 10;
+    auto creatureOffset = Point(16 - displacementX, -displacementY - informationClearance) + getDrawOffset();
+    if (m_outfit.isCreature() && m_outfit.hasMount()) {
+        // internalDraw translates the mount destination before ThingType::draw
+        // applies its displacement. Keep the information on the same anchor.
+        creatureOffset -= getMountThingType()->getDisplacement();
+    }
 
     Point p = dest - mapRect.drawOffset;
     p += (creatureOffset - Point(std::round(m_jumpOffset.x), std::round(m_jumpOffset.y))) * mapRect.scaleFactor;
@@ -714,6 +725,10 @@ void Creature::updateJump()
 
 void Creature::onPositionChange(const Position& newPos, const Position& oldPos)
 {
+    #ifdef FRAMEWORK_SOUND
+    if (isLocalPlayer())
+        g_sounds.onListenerPositionChanged(newPos, oldPos);
+    #endif // FRAMEWORK_SOUND
     callLuaFieldUnchecked("onPositionChange", newPos, oldPos);
 }
 
@@ -911,13 +926,16 @@ void Creature::updateWalkingTile()
 void Creature::nextWalkUpdate()
 {
     // remove any previous scheduled walk updates
-    if (m_walkUpdateEvent)
+    if (m_walkUpdateEvent) {
         m_walkUpdateEvent->cancel();
+        m_walkUpdateEvent = nullptr;
+    }
 
     // do the update
     updateWalk();
 
-    if (!m_walking) return;
+    if (!m_walking || m_walkedPixels == g_gameConfig.getSpriteSize())
+        return;
 
     // schedules next update
     auto action = [self = static_self_cast<Creature>()] {
@@ -925,16 +943,19 @@ void Creature::nextWalkUpdate()
         self->nextWalkUpdate();
     };
 
-    m_walkUpdateEvent = g_dispatcher.scheduleEvent(action, m_stepCache.walkDuration);
+    m_walkUpdateEvent = g_dispatcher.scheduleEvent(action, std::max<int>(1, m_stepCache.walkDuration));
 }
 
 void Creature::updateWalk(const bool isPreWalking)
 {
-    // Use diagonal-aware duration (false). With true, diagonals finish the tile early and then
-    // freeze until the remaining ~2/3 of the step time elapses (slow/stuttery feel).
-    const float walkTicksPerPixel = getStepDuration(false) / static_cast<float>(g_gameConfig.getSpriteSize());
-
-    const int totalPixelsWalked = std::min<int>(m_walkTimer.ticksElapsed() / walkTicksPerPixel, g_gameConfig.getSpriteSize());
+    // Historical walking animates a tile at the straight-step duration.
+    // The movement cooldown still accounts for diagonal steps.
+    const auto spriteSize = g_gameConfig.getSpriteSize();
+    const auto stepDuration = getStepDuration(true);
+    const auto elapsed = m_walkTimer.ticksElapsed();
+    const int totalPixelsWalked = stepDuration > 0
+        ? static_cast<int>(std::clamp<ticks_t>(elapsed, 0, stepDuration) * spriteSize / stepDuration)
+        : spriteSize;
 
     // needed for paralyze effect
     m_walkedPixels = std::max<int>(m_walkedPixels, totalPixelsWalked);
@@ -949,15 +970,11 @@ void Creature::updateWalk(const bool isPreWalking)
         g_map.notificateCameraMove(m_walkOffset);
     }
 
-    if (m_walkedPixels == g_gameConfig.getSpriteSize()) {
-        if (isPreWalking) {
-            const auto self = static_self_cast<Creature>();
-            m_walkFinishAnimEvent = g_dispatcher.scheduleEvent([self] {
-                self->m_walkAnimationPhase = 0;
-                self->m_walkFinishAnimEvent = nullptr;
-            }, g_game.getServerBeat());
-        }
-        else terminateWalk();
+    if (m_walkedPixels == spriteSize) {
+        if (isPreWalking)
+            scheduleWalkAnimationReset();
+        else
+            terminateWalk();
     }
 }
 
@@ -983,6 +1000,14 @@ void Creature::terminateWalk()
     m_walkedPixels = 0;
     m_walkOffset = {};
     m_walking = false;
+
+    scheduleWalkAnimationReset();
+}
+
+void Creature::scheduleWalkAnimationReset()
+{
+    if (m_walkFinishAnimEvent)
+        m_walkFinishAnimEvent->cancel();
 
     const auto self = static_self_cast<Creature>();
     m_walkFinishAnimEvent = g_dispatcher.scheduleEvent([self] {

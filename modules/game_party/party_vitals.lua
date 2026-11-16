@@ -1,6 +1,6 @@
--- Server opcode 0x3E: party member vitals (must not use 0x34 — that is GameServerAttchedEffect in C++).
+-- Server opcode 0x3F: party member vitals (0x3E is also used by boss difficulty).
 
-local OPCODE_PARTY_VITALS = 0x3E
+local OPCODE_PARTY_VITALS = 0x3F
 local PARTY_VITALS_VERSION_LEGACY = 1
 local PARTY_VITALS_VERSION_MAP = 2
 

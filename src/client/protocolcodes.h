@@ -62,6 +62,7 @@ namespace Proto
         GameServerSupplyStash = 41,
         GameServerSpecialContainer = 42,
         GameServerPartyAnalyzer = 43,
+        GameServerBossCooldown = 44, // 0x2C, custom 8.60 server packet (bosscooldown.lua)
         GameServerCharmProc = 45,
 
         // all in game opcodes must be greater than 50
@@ -73,6 +74,8 @@ namespace Proto
         // NOTE: add any custom opcodes in this range
         // 51 - 99
         GameServerChangeMapAwareRange = 51,
+        GameServerSoundEffect = 70,
+        GameServerLocationAmbient = 71,
         GameServerAttchedEffect = 52,
         GameServerDetachEffect = 53,
         GameServerCreatureShader = 54,

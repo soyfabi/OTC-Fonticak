@@ -18,7 +18,7 @@ UIWidget
       anchors.left: parent.left
       anchors.right: parent.right
       anchors.top: parent.top
-      height: 720
+      height: 778
 
       QtPanel
         id: animationBarsPanel
@@ -332,6 +332,30 @@ UIWidget
               @onSetup: |
                 local value = modules.client_options.getOption('slideAnimationSpeed')
                 self:setText(tr('Animation Speed: %s%%', value))
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 7
+        height: 22
+
+        OptionCheckBoxMarked
+          id: showActionBarMaster
+          !text: tr('Show Action Bar Bounce')
+          !tooltip: tr('Briefly enlarge the action bar slot when you assign an item, spell, or other action.')
+
+      SmallReversedQtPanel
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: prev.bottom
+        margin-top: 7
+        height: 22
+
+        OptionCheckBoxMarked
+          id: showAnimationDrag
+          !text: tr('Show Animation Drag')
+          !tooltip: tr('Show a fading trail of dots that follows the cursor while dragging.')
 
       SmallReversedQtPanel
         anchors.left: parent.left

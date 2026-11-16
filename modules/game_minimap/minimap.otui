@@ -23,8 +23,55 @@ PhantomMiniWindow
 
       Minimap
         id: minimap
+        fog-of-war: true
         anchors.fill: parent
         margin: 1
+
+        MinimapHdControl
+          id: hdButton
+          anchors.top: parent.top
+          anchors.right: parent.right
+          margin-top: 3
+          margin-right: 3
+          @onClick: toggleMinimapHd()
+
+        MinimapFogControl
+          id: fogOfWarButton
+          anchors.right: hdButton.right
+          anchors.bottom: hdButton.top
+          margin-bottom: 3
+          visible: false
+          !tooltip: tr('Toggle Fog of War')
+          @onClick: toggleMinimapFogOfWar()
+
+        MinimapFreeViewControl
+          id: freeViewButton
+          anchors.right: hdButton.right
+          anchors.bottom: fogOfWarButton.top
+          margin-bottom: 3
+          !tooltip: tr('Keep the map in place while your character moves.')
+          visible: false
+          @onClick: toggleMinimapFreeView()
+
+        MinimapCenterControl
+          id: centerMapButton
+          anchors.right: freeViewButton.right
+          anchors.bottom: freeViewButton.top
+          margin-bottom: 3
+          !tooltip: tr('Center the minimap on your character.')
+          visible: false
+          @onClick: centerMinimapOnPlayer()
+
+        MinimapDownloadButton
+          id: downloadPackButton
+          anchors.horizontalCenter: parent.horizontalCenter
+          anchors.bottom: parent.bottom
+          margin-bottom: 4
+          visible: false
+          @onClick: downloadMinimapPack()
+
+        MinimapDownloadProgress
+          id: downloadPackProgress
 
     UIWidget
       id: layersPanel

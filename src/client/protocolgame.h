@@ -172,6 +172,7 @@ public:
     void sendRequestBestiarySearch(uint16_t raceId);
     void sendBuyCharmRune(uint8_t runeId, uint8_t action, uint16_t raceId);
     void sendCyclopediaRequestCharacterInfo(uint32_t playerId, Otc::CyclopediaCharacterInfoType_t characterInfoType, uint16_t entriesPerPage, uint16_t page);
+    void sendSelectCharacterTitle(uint8_t titleId);
     void sendCyclopediaHouseAuction(Otc::CyclopediaHouseAuctionType_t type, uint32_t houseId, uint32_t timestamp, uint64_t bidValue, std::string_view name);
     void sendRequestBosstiaryInfo();
     void sendRequestBossSlootInfo();
@@ -271,6 +272,7 @@ private:
     void parseCloseNpcTrade(const InputMessagePtr&);
     void parseWorldLight(const InputMessagePtr& msg);
     void parseMagicEffect(const InputMessagePtr& msg);
+    void parseSoundEffect(const InputMessagePtr& msg);
     void parseRemoveMagicEffect(const InputMessagePtr& msg);
     void parseAnimatedText(const InputMessagePtr& msg);
     void parseDistanceMissile(const InputMessagePtr& msg);
@@ -423,6 +425,7 @@ private:
     void parseBosstiaryData(const InputMessagePtr& msg);
     void parseBosstiarySlots(const InputMessagePtr& msg);
     void parseBosstiaryCooldownTimer(const InputMessagePtr& msg);
+    void parseBossCooldown(const InputMessagePtr& msg);
     void parseBosstiaryEntryChanged(const InputMessagePtr& msg);
     void parseBestiaryRaces(const InputMessagePtr& msg);
     void parseBestiaryOverview(const InputMessagePtr& msg);

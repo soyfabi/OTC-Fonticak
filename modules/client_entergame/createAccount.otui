@@ -51,7 +51,7 @@ PanelCreateYourAccount < Panel
     $disabled:
       image-source: /images/ui/createaccount/icon-no
 
-MainWindow
+StaticMainWindow
   id: mainWindow
   size: 513 390
   text: "Start Your Journey"
@@ -194,6 +194,7 @@ MainWindow
         
         Label
           id: characterTextEdit
+          text-offset: 0 3
           width: 180
         
         UIWidget
@@ -207,8 +208,10 @@ MainWindow
             image-source: /images/ui/createaccount/icon-no
 
         Button
+          id: suggestButton
+          size: 116 12
           text: "Suggest Name"
-          font: cipsoftFont
+          font: Verdana Bold-11px
           @onClick: onClickSuggestName()
       Panel
         id: panelSex
@@ -273,6 +276,7 @@ MainWindow
           text: "Change World"
           font: cipsoftFont
           margin-left: -30
+          size: 116 22
           @onClick: toggleMainPanels(true)
     HorizontalSeparator
       id: separatorOne
@@ -339,14 +343,18 @@ MainWindow
       HiddenTextQtEdit
         id: textEditEmail
         text-hidden: false
+        padding-top: 3
       HiddenTextQtToggleEdit
         id: textEditPassword
+        padding-top: 3
       HiddenTextQtToggleEdit
         id: textEditRepeatPassword
+        padding-top: 3
       HiddenTextQtEdit
         id: textEditCharacter
         text-hidden: false
-        margin-top: 58
+        margin-top: 63
+        padding-top: 3
     Panel
       id: testToolstips
       anchors.horizontalCenter: parent.horizontalCenter
@@ -710,7 +718,7 @@ MainWindow
       anchors.right: parent.right
 
     Button
-      text: "back"
+      text: "Back"
       size: 115 22
       margin-top: 10
       margin-left: 5
@@ -721,7 +729,7 @@ MainWindow
 
     Button
       text: "Ok"
-      size: 115 22
+      size: 116 22
       margin-top: 10
       margin-left: 5
       anchors.top: separadorThee.bottom

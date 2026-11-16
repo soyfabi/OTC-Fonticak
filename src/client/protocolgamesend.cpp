@@ -142,15 +142,27 @@ void ProtocolGame::sendLoginPacket(const uint32_t challengeTimestamp, const uint
             challengeTimestamp, challengeRandom
         );
         msg->addU32(signature);
-        // The marker commits this connection to the highlighted catalog layout.
-        // Enable its parser before the server can answer with a Store packet.
-        g_game.enableFeature(Otc::GameIngameStoreHighlights);
-        msg->addString(FONTICAK_STORE_HIGHLIGHTS_MARKER);
+        // This optional extension must fit in the RSA block together with the
+        // credentials. Encrypting the last 128 bytes of an oversized packet
+        // loses its leading zero and can fail before the packet is sent.
+        const int markerBytes = 2 + static_cast<int>(std::string_view(FONTICAK_STORE_HIGHLIGHTS_MARKER).size());
+        if (msg->getMessageSize() - offset + markerBytes <= g_crypt.rsaGetSize()) {
+            g_game.enableFeature(Otc::GameIngameStoreHighlights);
+            msg->addString(FONTICAK_STORE_HIGHLIGHTS_MARKER);
+        } else {
+            g_game.disableFeature(Otc::GameIngameStoreHighlights);
+        }
+        // Negotiate caster metadata only when this optional marker fits RSA.
+        // Older servers stop at unknown markers, so keep it after store flags.
+        if (msg->getMessageSize() - offset + 4 <= g_crypt.rsaGetSize())
+            msg->addString("ES");
     }
 
     // complete the bytes for rsa encryption with zeros
     const int paddingBytes = g_crypt.rsaGetSize() - (msg->getMessageSize() - offset);
-    assert(paddingBytes >= 0);
+    if (paddingBytes < 0) {
+        throw stdext::exception("Login data exceeds the RSA block size. Use a shorter account name/password or a protocol with larger login capacity.");
+    }
     msg->addPaddingBytes(paddingBytes);
 
     // encrypt with RSA
@@ -1203,6 +1215,15 @@ void ProtocolGame::sendCyclopediaRequestCharacterInfo(const uint32_t playerId, c
         msg->addU16(page);
     }
 
+    send(msg);
+}
+
+void ProtocolGame::sendSelectCharacterTitle(uint8_t titleId)
+{
+    const auto& msg = std::make_shared<OutputMessage>();
+    msg->addU8(0x81);
+    msg->addU8(0x0E);
+    msg->addU8(titleId);
     send(msg);
 }
 

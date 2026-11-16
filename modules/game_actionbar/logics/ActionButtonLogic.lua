@@ -1329,9 +1329,11 @@ function updateButton(button)
             button.cache.isDragging = true
             dragButton = button
             dragItem = self
+            startActionBarDragTrail(self, mousePos)
             return true
         end
         button.item.onDragMove = function(self, mousePos)
+            updateActionBarDragTrail(self, mousePos)
             self:setPhantom(true)
             self:setParent(gameRootPanel)
             self:setX(mousePos.x)
@@ -1350,6 +1352,7 @@ function updateButton(button)
             lastHighlightWidget:setBorderColor('white')
         end
         button.item.onDragLeave = function(self, widget, mousePos)
+            finishActionBarDragTrail(self, mousePos)
             if not button.cache.isDragging then
                 return false
             end
@@ -1470,9 +1473,11 @@ function updateButton(button)
         button.cache.isDragging = true
         dragButton = button
         dragItem = self
+        startActionBarDragTrail(self, mousePos)
         return true
     end
     button.item.onDragMove = function(self, mousePos)
+        updateActionBarDragTrail(self, mousePos)
         self:setPhantom(true)
         self:setParent(gameRootPanel)
         self:setX(mousePos.x)
@@ -1496,6 +1501,7 @@ function updateButton(button)
     end
 
     button.item.onDragLeave = function(self, widget, mousePos)
+        finishActionBarDragTrail(self, mousePos)
         if not button.cache.isDragging then
             return false
         end
@@ -1683,6 +1689,7 @@ function tryAssignSpellFromDrop(mousePos, spellData)
                     assignMultiAction(button, true)
                 end
                 ApiJson.saveData()
+                bounceActionBarSlot(button)
                 return true
             end
         end
@@ -1709,6 +1716,7 @@ function tryAssignSpellFromDrop(mousePos, spellData)
     end
 
     ApiJson.createOrUpdateText(tonumber(barID), tonumber(buttonID), spellText, true)
+    bounceActionBarSlot(button)
     updateButton(button)
     ApiJson.saveData()
     return true
@@ -2384,6 +2392,7 @@ function onDragItemLeave(self, mousePos, button)
                     assignMultiAction(targetButton, true)
                 end
 
+                bounceActionBarSlot(targetButton)
                 resetDragWidget(self, button)
                 return true
             end
@@ -2451,6 +2460,9 @@ function onDragItemLeave(self, mousePos, button)
             clearMultiActionCooldownEvents(button:getId())
         end
 
+        if destButton ~= button then
+            bounceActionBarSlot(destButton)
+        end
         updateButton(destButton)
         resetDragWidget(self, button)
         self:setBorderColor('alpha')
@@ -2485,6 +2497,9 @@ function onDragItemLeave(self, mousePos, button)
             getActionName(button.cache.actionType), itemId, button.cache.upgradeTier)
     elseif button.cache.isPassive then
         ApiJson.createOrUpdatePassive(tonumber(destBarID), tonumber(destButtonID), 1)
+    end
+    if destButton ~= button then
+        bounceActionBarSlot(destButton)
     end
     updateButton(destButton)
     if isButtonEmpty then

@@ -1,0 +1,12 @@
+Module
+  name: game_compendium
+  description: In-game compendium with game news, guides and client information
+  author: kokekanon, libergod; OTC-Fonticak integration
+  website: https://github.com/opentibiabr/otclient
+  sandboxed: true
+  scripts: [ game_compendium ]
+  dependencies:
+    - modulelib
+    - game_interface
+  @onLoad: compendiumController:init()
+  @onUnload: compendiumController:terminate()

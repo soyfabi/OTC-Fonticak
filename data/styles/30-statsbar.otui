@@ -1180,7 +1180,7 @@ StatsBarBottomWithShrink < UIWidget
     size: 0 0
 
   UIWidget
-    id: rightDecreaseSidePanels
+    id: rightBottomDecreaseSidePanels
     anchors.right: parent.right
     anchors.top: rightBottomIncreaseSidePanels.bottom
     size: 0 0
@@ -1538,3 +1538,4 @@ TopStatsBarCompactOnBottom < UIWidget
     margin-top: 2
     margin-right: 6
     height: 0
+

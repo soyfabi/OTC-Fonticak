@@ -38,13 +38,21 @@ StaticText::StaticText()
 
 void StaticText::drawText(const Point& dest, const Rect& parentRect)
 {
+    m_cachedText.draw(getDrawRect(dest, parentRect), m_color);
+}
+
+Rect StaticText::getDrawRect(const Point& dest, const Rect& parentRect)
+{
     Size textSize = m_cachedText.getTextSize();
-    // OTC-Fonticak base offset is Point(20, 5), but their MapView adds Point(8, 0) before calling drawText.
-    // Since this client doesn't add the 8 in MapView, we apply the total +28 X offset here.
-    Rect rect = Rect(dest.x + 28 - (textSize.width() / 2), dest.y + 5 - textSize.height(), textSize);
+    // Offset the entire speech block to the right of the creature information.
+    // Keep its bottom anchored so additional lines grow upward.
+    constexpr int speechOffsetX = 52;
+    constexpr int speechOffsetY = 9;
+    Rect rect = Rect(dest.x + speechOffsetX - (textSize.width() / 2),
+        dest.y + speechOffsetY - textSize.height(), textSize);
     rect.bind(parentRect);
 
-    m_cachedText.draw(rect, m_color);
+    return rect;
 }
 
 

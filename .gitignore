@@ -328,3 +328,4 @@ android/app/.cxx/
 android/.gradle/
 android/build/
 luajit-src/
+/data/minimap_hd/

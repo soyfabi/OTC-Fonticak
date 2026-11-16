@@ -1,0 +1,183 @@
+UIWidget
+  anchors.fill: parent
+  visible: false
+
+  SmallReversedQtPanel
+    id: captureOptions
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: parent.right
+    height: 197
+
+    OptionCheckBoxMarked
+      id: clipRecordingEnabled
+      !text: tr('Enable Clip Recording')
+      !tooltip: tr('Keep recent video from the game window while logged in. Turning this off clears unsaved video.')
+
+    OptionsLabel
+      id: encoderLabel
+      !text: tr('Encoder')
+      anchors.left: parent.left
+      anchors.top: clipRecordingEnabled.bottom
+      margin-top: 8
+      height: 20
+
+    OptionsComboBox
+      id: clipRecordingEncoder
+      anchors.left: parent.left
+      anchors.verticalCenter: encoderLabel.verticalCenter
+      margin-left: 140
+      width: 130
+      mouse-scroll: false
+
+    OptionsQtButton
+      id: autoDetectRecordingEncoder
+      !text: tr('Auto Detect')
+      !tooltip: tr('Let Windows choose an H.264 encoder. Hardware encoders are enabled in automatic mode.')
+      anchors.left: clipRecordingEncoder.right
+      anchors.verticalCenter: encoderLabel.verticalCenter
+      margin-left: 8
+      size: 90 20
+      @onClick: modules.client_options.autoDetectRecordingEncoder()
+
+    OptionsLabel
+      id: fpsLabel
+      !text: tr('Record FPS')
+      anchors.left: parent.left
+      anchors.top: encoderLabel.bottom
+      margin-top: 6
+      height: 20
+
+    OptionsComboBox
+      id: clipRecordingFps
+      anchors.left: clipRecordingEncoder.left
+      anchors.verticalCenter: fpsLabel.verticalCenter
+      width: 130
+      mouse-scroll: false
+
+    OptionsLabel
+      id: durationLabel
+      !text: tr('Buffer Duration')
+      anchors.left: parent.left
+      anchors.top: fpsLabel.bottom
+      margin-top: 6
+      height: 20
+
+    OptionsComboBox
+      id: clipRecordingMinutes
+      anchors.left: clipRecordingFps.left
+      anchors.verticalCenter: durationLabel.verticalCenter
+      width: 130
+      mouse-scroll: false
+
+    OptionsLabel
+      id: qualityLabel
+      !text: tr('Quality')
+      !tooltip: tr('Higher quality uses a higher bitrate and more disk space.')
+      anchors.left: parent.left
+      anchors.top: durationLabel.bottom
+      margin-top: 6
+      height: 20
+
+    OptionsComboBox
+      id: clipRecordingQuality
+      anchors.left: clipRecordingEncoder.left
+      anchors.verticalCenter: qualityLabel.verticalCenter
+      width: 130
+      mouse-scroll: false
+
+    OptionsLabel
+      id: formatLabel
+      !text: tr('Output Format')
+      !tooltip: tr('MKV and AVI export require ffmpeg.exe next to the client.')
+      anchors.left: parent.left
+      anchors.top: qualityLabel.bottom
+      margin-top: 6
+      height: 20
+
+    OptionsComboBox
+      id: clipRecordingFormat
+      anchors.left: clipRecordingEncoder.left
+      anchors.verticalCenter: formatLabel.verticalCenter
+      width: 130
+      mouse-scroll: false
+
+    OptionsLabel
+      id: resolutionLabel
+      !text: tr('Resolution')
+      !tooltip: tr('Limits video height while preserving the window aspect ratio.')
+      anchors.left: parent.left
+      anchors.top: formatLabel.bottom
+      margin-top: 6
+      height: 20
+
+    OptionsComboBox
+      id: clipRecordingResolution
+      anchors.left: clipRecordingEncoder.left
+      anchors.verticalCenter: resolutionLabel.verticalCenter
+      width: 130
+      mouse-scroll: false
+
+  HorizontalSeparator
+    id: captureSeparator
+    anchors.top: captureOptions.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 8
+
+  OptionsLabel
+    id: clipRecordingHotkeyLabel
+    !text: tr('Save Clip Hotkey')
+    anchors.top: captureSeparator.bottom
+    anchors.left: parent.left
+    margin-top: 12
+
+  OptionsQtButton
+    id: setRecordingHotkey
+    !text: tr('Set Hotkey')
+    anchors.left: parent.left
+    anchors.verticalCenter: clipRecordingHotkeyLabel.verticalCenter
+    margin-left: 144
+    size: 90 20
+    @onClick: modules.client_options.editRecordingHotkey()
+
+  OptionsLabel
+    id: clipRecordingShortcut
+    anchors.left: setRecordingHotkey.right
+    anchors.verticalCenter: setRecordingHotkey.verticalCenter
+    margin-left: 8
+
+  OptionsQtButton
+    id: saveRecordingClip
+    !text: tr('Save Clip')
+    anchors.top: setRecordingHotkey.bottom
+    anchors.left: parent.left
+    margin-top: 12
+    size: 90 20
+    @onClick: modules.client_options.saveRecordingClip()
+
+  OptionsLabel
+    id: clipRecordingStatus
+    anchors.top: saveRecordingClip.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    margin-top: 10
+    text-wrap: true
+    height: 36
+
+  OptionsQtButton
+    id: openRecordingFolder
+    !text: tr('Open Clips Folder')
+    anchors.left: saveRecordingClip.right
+    anchors.top: saveRecordingClip.top
+    margin-left: 8
+    size: 128 20
+    @onClick: modules.client_options.openRecordingFolder()
+
+  OptionsLabel
+    anchors.top: clipRecordingStatus.bottom
+    anchors.left: parent.left
+    anchors.right: parent.right
+    !text: tr('Changing capture settings clears the buffer. You can switch the output format before saving a clip.')
+    text-wrap: true
+    height: 36
