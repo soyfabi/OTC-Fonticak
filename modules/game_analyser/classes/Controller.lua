@@ -58,10 +58,6 @@ function ControllerAnalyser:startEvent()
     if DropTrackerAnalyser then
 		DropTrackerAnalyser.session = os.time()
 	end
-    if PartyHuntAnalyser then
-		PartyHuntAnalyser.session = os.time()
-	end
-
     ControllerAnalyser:stopEvents()
 
     ControllerAnalyser.event250 = cycleEvent(function()

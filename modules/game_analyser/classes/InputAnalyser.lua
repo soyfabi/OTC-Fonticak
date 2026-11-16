@@ -99,95 +99,6 @@ local effectsFiles = {
 	[12] = 'agony',
 }
 
-local obj = {
-	launchTime = 0,
-	session = 0,
-
-	total = 0,
-	maxDPS = 0,
-	monsterName = '',
-
-	inputValues = {},
-	damageTicks = {},
-	damageEffect = {},
-
-	-- Session data storage for 60 minutes
-	sessionDamageTicks = {},
-	sessionMode = false,
-	sessionMinuteData = {}, -- Array to store DPS data per minute for the graph
-	lastMinuteUpdate = 0, -- Track when we last updated minute data
-
-	graphVisible = true,
-	typesVisible = true,
-	sourceVisible = true,
-
-	-- private
-	window = nil,
-	event = nil,
-	eventGraph = nil,
-}
-
-local valueInSeconds = function(t)
-    local d = 0
-    local time = 0
-    local now = g_clock.millis()
-    if #t > 0 then
-		local itemsToBeRemoved = 0
-        for i, v in ipairs(t) do
-            if now - v.tick <= 3000 then
-                if time == 0 then
-                    time = v.tick
-                end
-                d = d + v.amount
-            else
-				itemsToBeRemoved = itemsToBeRemoved + 1
-            end
-        end
-
-		-- items are added in order, so we can safely
-		-- remove only the first items
-		for i = 1, itemsToBeRemoved do
-			table.remove(t, 1)
-		end
-    end
-    local duration = math.max(1000, now - time) / 1000
-    return math.ceil(d/duration)
-end
-
--- Function to handle session data for 60 minutes
-local valueInSessionMode = function(t)
-    local d = 0
-    local time = 0
-    local now = g_clock.millis()
-    local sessionDuration = 60 * 60 * 1000 -- 60 minutes in milliseconds
-    
-    if #t > 0 then
-        local itemsToBeRemoved = 0
-        for i, v in ipairs(t) do
-            if now - v.tick <= sessionDuration then
-                if time == 0 then
-                    time = v.tick
-                end
-                d = d + v.amount
-            else
-                itemsToBeRemoved = itemsToBeRemoved + 1
-            end
-        end
-
-        -- Remove expired items
-        for i = 1, itemsToBeRemoved do
-            table.remove(t, 1)
-        end
-    end
-    
-    if time > 0 then
-        local duration = math.max(1000, now - time) / 1000
-        return math.ceil(d/duration)
-    else
-        return 0
-    end
-end
-
 function InputAnalyser:create()
 	InputAnalyser.window = openedWindows['damageButton']
 	
@@ -414,9 +325,9 @@ end
 function InputAnalyser:checkDPS()
 	local curDPS = 0
 	if InputAnalyser.sessionMode then
-		curDPS = valueInSessionMode(InputAnalyser.sessionDamageTicks)
+		curDPS = combatRate(InputAnalyser.sessionDamageTicks, 60 * 60 * 1000)
 	else
-		curDPS = valueInSeconds(InputAnalyser.damageTicks)
+		curDPS = combatRate(InputAnalyser.damageTicks, 3000)
 	end
 	
 	if not curDPS or not tonumber(curDPS) then curDPS = 0 end
@@ -504,8 +415,8 @@ function InputAnalyser:addInputDamage(amount, effect, target)
 	InputAnalyser.total = InputAnalyser.total + amount
 
 	local currentTime = g_clock.millis()
-	InputAnalyser.damageTicks[#InputAnalyser.damageTicks + 1] = {amount = amount, tick = currentTime}
-	InputAnalyser.sessionDamageTicks[#InputAnalyser.sessionDamageTicks + 1] = {amount = amount, tick = currentTime}
+	recordCombatTick(InputAnalyser.damageTicks, amount, currentTime, 3000)
+	recordCombatTick(InputAnalyser.sessionDamageTicks, amount, currentTime, 60 * 60 * 1000)
 
 	if not InputAnalyser.damageEffect[effect] then
 		InputAnalyser.damageEffect[effect] = 0
@@ -655,7 +566,7 @@ function InputAnalyser:toggleSessionMode()
 		
 		-- If no session data exists yet, add current DPS to start the graph properly
 		if #InputAnalyser.sessionMinuteData == 0 then
-			local currentDPS = valueInSeconds(InputAnalyser.damageTicks) or 0
+			local currentDPS = combatRate(InputAnalyser.damageTicks, 3000) or 0
 			InputAnalyser.window.contentsPanel.graphPanel:addValue(1, currentDPS)
 		end
 	else

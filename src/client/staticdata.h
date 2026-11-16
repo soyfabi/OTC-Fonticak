@@ -174,6 +174,8 @@ struct BossCooldownData
 {
     uint32_t bossRaceId;
     uint64_t cooldownTime;
+    std::string name;
+    Outfit outfit;
 
     BossCooldownData(uint32_t raceId, uint64_t cooldown)
         : bossRaceId(raceId), cooldownTime(cooldown) {}

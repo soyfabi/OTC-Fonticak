@@ -7,10 +7,6 @@ end
 openedWindows = {}
 cancelNextRelease = nil
 
--- Party member tracking
-partyMemberCheckEvent = nil
-local lastPartyMembers = {}
-
 -- Drop Tracker deferred load retry (single chain per login)
 local dropTrackerLoadRetryEvent = nil
 local dropTrackerLoadRetrySession = 0
@@ -90,6 +86,46 @@ function getCombatName(effectId)
 end
 
 -- objects
+-- Group combat events by second so closed windows cannot accumulate unbounded history.
+function recordCombatTick(ticks, amount, now, historyMs)
+  local tick = now - now % 1000
+  local last = ticks[#ticks]
+  if last and last.tick == tick then
+    last.amount = last.amount + amount
+    return
+  end
+
+  local first = 1
+  local count = #ticks
+  while first <= count and ticks[first].tick < tick - historyMs do
+    first = first + 1
+  end
+  if first > 1 then
+    for index = first, count do
+      ticks[index - first + 1] = ticks[index]
+    end
+    for index = count - first + 2, count do
+      ticks[index] = nil
+    end
+  end
+  ticks[#ticks + 1] = { amount = amount, tick = tick }
+end
+
+function combatRate(ticks, historyMs)
+  local now = g_clock.millis()
+  local total = 0
+  local firstTick = now
+  for index = #ticks, 1, -1 do
+    local sample = ticks[index]
+    if sample.tick < now - historyMs then
+      break
+    end
+    total = total + sample.amount
+    firstTick = sample.tick
+  end
+  return math.ceil(total * 1000 / math.max(1000, now - firstTick))
+end
+
 function init()
 
   analyserButton = modules.game_mainpanel.addToggleButton('analyzerButton', 
@@ -216,11 +252,6 @@ function init()
     onClose = saveAnalyserPersistentData,
   })
   
-  -- Set up party member tracking as backup (less frequent since shield changes trigger it)
-  if partyMemberCheckEvent then
-    partyMemberCheckEvent:cancel()
-  end
-  partyMemberCheckEvent = cycleEvent(checkPartyMembersChange, 5000) -- Every 5 seconds as backup
 
   Keybind.new('Windows', 'Open Analyser Window', 'Alt+N', '')
   Keybind.bind('Windows', 'Open Analyser Window', {
@@ -291,11 +322,6 @@ function terminate()
     onClose = saveAnalyserPersistentData,
   })
   
-  -- Clean up party member tracking
-  if partyMemberCheckEvent then
-    partyMemberCheckEvent:cancel()
-    partyMemberCheckEvent = nil
-  end
 
   cancelDropTrackerLoadRetry()
   dropTrackerLoadRetrySession = dropTrackerLoadRetrySession + 1
@@ -343,8 +369,6 @@ function startNewSession(login)
   DropTrackerAnalyser:updateWindow(true)
 
   PartyHuntAnalyser:reset()
-  PartyHuntAnalyser:updateWindow(true, true)
-  PartyHuntAnalyser:startEvent()
 
   ControllerAnalyser:startEvent()
 end
@@ -374,10 +398,6 @@ function onlineAnalyser()
 
   loadGainAndWastConfigJson()
 
-  if partyMemberCheckEvent then
-    partyMemberCheckEvent:cancel()
-  end
-  partyMemberCheckEvent = cycleEvent(checkPartyMembersChange, 5000)
 
   cancelDropTrackerLoadRetry()
   dropTrackerLoadRetrySession = dropTrackerLoadRetrySession + 1
@@ -452,10 +472,6 @@ function offlineAnalyser()
   if PartyHuntAnalyser and PartyHuntAnalyser.stopEvent then
     PartyHuntAnalyser:stopEvent()
   end
-  if partyMemberCheckEvent then
-    partyMemberCheckEvent:cancel()
-    partyMemberCheckEvent = nil
-  end
 
   cancelDropTrackerLoadRetry()
   dropTrackerLoadRetrySession = dropTrackerLoadRetrySession + 1
@@ -477,6 +493,7 @@ function offlineAnalyser()
     end
   end
   BossCooldown.cooldown = {}
+  BossCooldown.customCooldown = false
 end
 
 function toggle()
@@ -536,9 +553,11 @@ function toggleAnalysers(buttonId)
     widget.isOpen = true
 
     if buttonId == 'impactButton' then
-      ImpactAnalyser:checkAnchos()
+      ImpactAnalyser:updateWindow(true)
     elseif buttonId == 'damageButton' then
-      InputAnalyser:checkAnchos()
+      InputAnalyser:updateWindow(true)
+    elseif buttonId == 'partyButton' then
+      PartyHuntAnalyser:updateWindow(true, true)
     elseif buttonId == 'xpButton' then
       XPAnalyser:checkAnchos()
       XPAnalyser:forceUpdateUI()  -- Update UI with any accumulated XP data
@@ -615,6 +634,10 @@ function onSupplyTracker(itemId)
 end
 
 function onImpactTracker(analyzerType, amount, effect, target)
+  if g_game.isOnline() and not ControllerAnalyser.event1000 then
+    ControllerAnalyser:startEvent()
+  end
+
   if analyzerType == ANALYZER_HEAL then
     HuntingAnalyser:addHealing(amount)
     ImpactAnalyser:addHealing(amount)
@@ -739,14 +762,8 @@ function onPartyMembersChange(self, members)
   PartyHuntAnalyser.onPartyMembersChange(self, members)
 end
 
--- Simplified party checking - no longer needed as PartyState handles everything
-function checkPartyMembersChange()
-  -- This function is now redundant as PartyState manages all party tracking
-  -- Keeping it for compatibility but it does nothing
-end
-
-function onBossCooldown(cooldown)
-  BossCooldown:setupCooldown(cooldown)
+function onBossCooldown(cooldown, custom)
+  BossCooldown:setupCooldown(cooldown, custom)
 end
 
 function onCloseMiniWindow(self)
