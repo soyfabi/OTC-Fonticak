@@ -62,6 +62,7 @@ protected:
     void processInventoryChange(uint8_t slot, const ItemPtr& item);
     void processAttackCancel(uint32_t seq);
     void processWalkCancel(Otc::Direction direction);
+    void processTeleport(const LocalPlayerPtr& player, const Position& newPos, const Position& oldPos);
 
     static void processPlayerHelpers(uint16_t helpers);
     void processPlayerModes(Otc::FightModes fightMode, Otc::ChaseModes chaseMode, bool safeMode, Otc::PVPModes pvpMode);
@@ -177,6 +178,7 @@ public:
     void stop();
     void setScheduleLastWalk(bool scheduleLastWalk) { m_scheduleLastWalk = scheduleLastWalk; }
     Otc::Direction getLastWalkDir() { return m_lastWalkDir; }
+    void cancelScheduledWalk();
 
     // item related
     void look(const ThingPtr& thing, bool isBattleList = false);
@@ -493,6 +495,8 @@ public:
     void setWalkMaxSteps(uint8_t v) { m_walkMaxSteps = v; }
 
 private:
+    friend class LocalPlayer;
+    void schedulePendingWalk();
     void setAttackingCreature(const CreaturePtr& creature);
     void setFollowingCreature(const CreaturePtr& creature);
 

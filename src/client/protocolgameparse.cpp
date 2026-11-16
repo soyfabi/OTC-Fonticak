@@ -1621,10 +1621,10 @@ void ProtocolGame::parseFloorDescription(const InputMessagePtr& msg)
     const uint8_t floor = msg->getU8();
 
     if (pos.z == floor) {
-        const auto& oldPos = m_localPlayer->getPosition();
         if (!m_mapKnown) {
             m_localPlayer->setPosition(pos);
         }
+        const auto oldPos = m_localPlayer->getPosition();
 
         g_map.setCentralPosition(pos);
 
@@ -1634,7 +1634,7 @@ void ProtocolGame::parseFloorDescription(const InputMessagePtr& msg)
         }
 
         g_dispatcher.addEvent([] { g_lua.callGlobalField("g_game", "onMapDescription"); });
-        g_lua.callGlobalField("g_game", "onTeleport", m_localPlayer, pos, oldPos);
+        g_game.processTeleport(m_localPlayer, pos, oldPos);
     }
 
     const auto& range = g_map.getAwareRange();
@@ -1646,11 +1646,10 @@ void ProtocolGame::parseFloorDescription(const InputMessagePtr& msg)
 void ProtocolGame::parseMapDescription(const InputMessagePtr& msg)
 {
     const auto& pos = getPosition(msg);
-    const auto& oldPos = m_localPlayer->getPosition();
-
     if (!m_mapKnown) {
         m_localPlayer->setPosition(pos);
     }
+    const auto oldPos = m_localPlayer->getPosition();
 
     g_map.setCentralPosition(pos);
 
@@ -1663,7 +1662,7 @@ void ProtocolGame::parseMapDescription(const InputMessagePtr& msg)
     }
 
     g_dispatcher.addEvent([] { g_lua.callGlobalField("g_game", "onMapDescription"); });
-    g_lua.callGlobalField("g_game", "onTeleport", m_localPlayer, pos, oldPos);
+    g_game.processTeleport(m_localPlayer, pos, oldPos);
 }
 
 void ProtocolGame::parseMapMoveNorth(const InputMessagePtr& msg)
@@ -3387,7 +3386,7 @@ void ProtocolGame::parseFloorChangeUp(const InputMessagePtr& msg)
     ++newPos.y;
     g_map.setCentralPosition(newPos);
 
-    g_lua.callGlobalField("g_game", "onTeleport", m_localPlayer, newPos, pos);
+    g_game.processTeleport(m_localPlayer, newPos, pos);
 }
 
 void ProtocolGame::parseFloorChangeDown(const InputMessagePtr& msg)
@@ -3413,7 +3412,7 @@ void ProtocolGame::parseFloorChangeDown(const InputMessagePtr& msg)
     --newPos.y;
     g_map.setCentralPosition(newPos);
 
-    g_lua.callGlobalField("g_game", "onTeleport", m_localPlayer, newPos, pos);
+    g_game.processTeleport(m_localPlayer, newPos, pos);
 }
 
 void ProtocolGame::parseOpenOutfitWindow(const InputMessagePtr& msg) const

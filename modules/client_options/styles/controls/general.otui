@@ -250,18 +250,6 @@ UIWidget
     margin-top: 7
     height: 22
   
-    OptionCheckBoxMarked
-      id: smartWalk
-      !text: tr('Diagonal movement (Smart Walk)')
-      !tooltip: tr('Will detect when to use diagonal step based on the\nkeys you are pressing')
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-  
     OptionCheckBox
       id: moveStack
       !text: tr('Press CTRL to Drag Complete Stacks')

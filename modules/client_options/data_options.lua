@@ -253,6 +253,13 @@ return {
         end
     },
     smartWalk                         = false,
+    dashWalk                          = true,
+    preciseControl = {
+        value = false,
+        action = function(value)
+            g_game.setScheduleLastWalk(not value)
+        end
+    },
     alwaysTurnTowardsMoveDirection    = true,
     allowInspect                      = {
         value = false,

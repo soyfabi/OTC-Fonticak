@@ -1665,6 +1665,11 @@ function createThingMenu(menuPosition, lookThing, useThing, creatureThing)
     menu:display(menuPosition)
 end
 
+local function autoWalkFromMouse(player, position)
+    modules.game_walk.stopChasingWhenMoving()
+    player:autoWalk(position)
+end
+
 function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, useThing, creatureThing, attackCreature)
     local keyboardModifiers = g_keyboard.getModifiers()
 
@@ -1878,8 +1883,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
                 -- If we couldn't use or pick up the item, try to walk to its position if possible
                 local position = useThing:getPosition()
                 if position and position.x ~= 0 and autoWalkPos then
-                    local player = g_game.getLocalPlayer()
-                    player:autoWalk(autoWalkPos)
+                    autoWalkFromMouse(g_game.getLocalPlayer(), autoWalkPos)
                     return true
                 end
 
@@ -1897,8 +1901,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
 
                 -- For walkable tiles, we want to walk
                 if lookTile and lookTile:isWalkable() and autoWalkPos then
-                    local player = g_game.getLocalPlayer()
-                    player:autoWalk(autoWalkPos)
+                    autoWalkFromMouse(g_game.getLocalPlayer(), autoWalkPos)
                     return true
                 else
                     -- Only look at the thing if we haven't used it already
@@ -1908,8 +1911,7 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
             end
 
             if autoWalkPos then
-                local player = g_game.getLocalPlayer()
-                player:autoWalk(autoWalkPos)
+                autoWalkFromMouse(g_game.getLocalPlayer(), autoWalkPos)
                 return true
             end
         end
@@ -2215,23 +2217,10 @@ function processMouseAction(menuPosition, mouseButton, autoWalkPos, lookThing, u
         local classicControl = modules.client_options.getOption('classicControl')
         local lootControlMode = modules.client_options.getOption('lootControlMode')
 
-        if classicControl and lootControlMode == 2 then
-            -- Check if there's a corpse or item we should be looting instead of walking
-            -- If not, proceed with autowalk
-            local isCorpseOrContainer = isContainerOrCorpse(useThing)
-
-            if not isCorpseOrContainer and
-                not (lookThing and not lookThing:isCreature() and lookThing:isPickupable()) then
-                player:autoWalk(autoWalkPos)
-                if g_game.isAttacking() and g_game.getChaseMode() == ChaseOpponent then
-                    g_game.setChaseMode(DontChase)
-                end
-            end
-        else
-            player:autoWalk(autoWalkPos)
-            if g_game.isAttacking() and g_game.getChaseMode() == ChaseOpponent then
-                g_game.setChaseMode(DontChase)
-            end
+        local lootClick = classicControl and lootControlMode == 2
+            and (isContainerOrCorpse(useThing) or (lookThing and not lookThing:isCreature() and lookThing:isPickupable()))
+        if not lootClick then
+            autoWalkFromMouse(player, autoWalkPos)
         end
         return true
     end

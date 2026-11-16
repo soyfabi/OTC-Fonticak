@@ -39,30 +39,27 @@ void LocalPlayer::lockWalk(const uint16_t millis)
 
 bool LocalPlayer::canWalk(const bool ignoreLock)
 {
-    // paralyzed
-    if (isDead())
-        return false;
+    return !isDead() && getWalkDelay(ignoreLock) == 0;
+}
 
-    // cannot walk while locked
-    if (isWalkLocked() && !ignoreLock)
-        return false;
-
-    return m_walkTimer.ticksElapsed() >= (getStepDuration() - 9);
+ticks_t LocalPlayer::getWalkDelay(const bool ignoreLock)
+{
+    const ticks_t lockDelay = ignoreLock ? 0 : m_walkLockExpiration - g_clock.millis();
+    const ticks_t elapsed = m_walkTimer.ticksElapsed();
+    const ticks_t stepDelay = getStepDuration() - 9 - elapsed;
+    return std::max({ ticks_t{0}, lockDelay, stepDelay });
 }
 
 void LocalPlayer::walk(const Position& oldPos, const Position& newPos)
 {
     m_autoWalkRetries = 0;
 
-    if (m_preWalking) {
-        m_preWalking = false;
-        if (newPos == m_lastPrewalkDestination) {
-            updateWalk();
-            return;
-        }
-    }
-
-    Creature::walk(oldPos, newPos);
+    const bool confirmedPreWalk = m_preWalking && newPos == m_lastPrewalkDestination;
+    m_preWalking = false;
+    if (confirmedPreWalk)
+        updateWalk();
+    else
+        Creature::walk(oldPos, newPos);
 }
 
 void LocalPlayer::preWalk(Otc::Direction direction)
@@ -184,12 +181,14 @@ void LocalPlayer::stopAutoWalk()
 
     if (m_autoWalkContinueEvent)
         m_autoWalkContinueEvent->cancel();
+    m_autoWalkContinueEvent = nullptr;
 }
 
 void LocalPlayer::stopWalk()
 {
     Creature::stopWalk(); // will call terminateWalk
 
+    m_preWalking = false;
     m_lastPrewalkDestination = {};
 }
 
@@ -221,6 +220,12 @@ void LocalPlayer::terminateWalk()
 
 void LocalPlayer::onPositionChange(const Position& newPos, const Position& oldPos)
 {
+    if (oldPos.isValid() && !oldPos.isInRange(newPos, 1, 1)) {
+        g_game.cancelScheduledWalk();
+        if (m_preWalking)
+            stopWalk();
+    }
+
     g_minimap.revealFog(newPos);
     Creature::onPositionChange(newPos, oldPos);
 
