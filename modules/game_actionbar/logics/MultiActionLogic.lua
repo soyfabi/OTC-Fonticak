@@ -860,9 +860,11 @@ function assignMultiAction(button, skipPrefill)
                     actionButton.cache.isDragging = true
                     dragButton = actionButton
                     dragItem = self
+                    startActionBarDragTrail(self, mousePos)
                     return true
                 end
                 actionButton.item.onDragMove = function(self, mousePos)
+                    updateActionBarDragTrail(self, mousePos)
                     self:setPhantom(true)
                     self:setParent(gameRootPanel)
                     self:setX(mousePos.x)
@@ -881,6 +883,7 @@ function assignMultiAction(button, skipPrefill)
                     lastHighlightWidget:setBorderColor('white')
                 end
                 actionButton.item.onDragLeave = function(self, widget, mousePos)
+                    finishActionBarDragTrail(self, mousePos)
                     if not actionButton.cache or not actionButton.cache.isDragging then
                         return false
                     end
@@ -950,6 +953,9 @@ function onDragMultiActionItemLeave(self, mousePos, actionButton)
 
                     updateMultiButtonState(parentButton)
                     assignMultiAction(parentButton, true)
+                    if sourceIndex ~= targetIndex then
+                        bounceActionBarSlot(parentButton)
+                    end
                     return true
                 end
 
@@ -968,6 +974,7 @@ function onDragMultiActionItemLeave(self, mousePos, actionButton)
                 updateMultiButtonState(parentButton)
                 assignMultiAction(targetButton, true)
                 assignMultiAction(parentButton, true)
+                bounceActionBarSlot(targetButton)
                 return true
             end
         end
@@ -1062,6 +1069,7 @@ function onDragMultiActionItemLeave(self, mousePos, actionButton)
     end
 
     cancelMultiDrag(self, actionButton)
+    bounceActionBarSlot(destButton)
     updateButton(destButton)
     updateMultiButtonState(parentButton)
     assignMultiAction(parentButton, true)

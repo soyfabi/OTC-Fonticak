@@ -215,6 +215,9 @@ local function setupSpellDrag(widget, spell)
     spellDragPreview:setPhantom(true)
     spellDragPreview:setPosition({ x = mousePos.x - 16, y = mousePos.y - 16 })
 
+    if modules.game_actionbar then
+      modules.game_actionbar.startActionBarDragTrail(self, mousePos)
+    end
     if modules.client_options and modules.client_options.getOption('nativeCursor') then
       g_window.setSystemCursor('cross')
     else
@@ -224,6 +227,9 @@ local function setupSpellDrag(widget, spell)
   end
 
   widget.onDragMove = function(self, mousePos)
+    if modules.game_actionbar then
+      modules.game_actionbar.updateActionBarDragTrail(self, mousePos)
+    end
     if spellDragPreview and not spellDragPreview:isDestroyed() then
       spellDragPreview:setPosition({ x = mousePos.x - 16, y = mousePos.y - 16 })
     end
@@ -232,6 +238,9 @@ local function setupSpellDrag(widget, spell)
   end
 
   widget.onDragLeave = function(self, droppedWidget, mousePos)
+    if modules.game_actionbar then
+      modules.game_actionbar.finishActionBarDragTrail(self, mousePos)
+    end
     destroySpellDragPreview()
     clearSpellDragHighlight()
     restoreSpellDragCursor()

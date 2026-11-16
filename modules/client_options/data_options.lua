@@ -1733,6 +1733,12 @@ return {
     showSpellAnimation = {
         value = true,
     },
+    showActionBarMaster = {
+        value = true,
+    },
+    showAnimationDrag = {
+        value = true,
+    },
     showOptionsFrameAnimation = {
         value = true,
         action = function(value)

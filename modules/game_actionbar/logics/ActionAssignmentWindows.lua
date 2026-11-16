@@ -365,6 +365,7 @@ function assignSpell(button, multiSlotIndex)
             updateButton(button)
         end
 
+        bounceActionBarSlot(button)
         closeAssignSpellWindow()
     end
 
@@ -496,6 +497,7 @@ function assignText(button, multiSlotIndex)
             updateButton(button)
         end
 
+        bounceActionBarSlot(button)
         closeAssignTextWindow()
     end
 
@@ -874,6 +876,7 @@ function assignItem(button, itemId, itemTier, dragEvent, multiSlotIndex)
             updateButton(button)
         end
 
+        bounceActionBarSlot(button)
         closeWindow()
     end
 
@@ -1001,6 +1004,7 @@ function assignPassive(button)
         end
         local barID, buttonID = string.match(button:getId(), "(.*)%.(.*)")
         ApiJson.createOrUpdatePassive(tonumber(barID), tonumber(buttonID), tonumber(selected:getId()))
+        bounceActionBarSlot(button)
         updateButton(button)
         closeAssignPassiveWindow()
     end
@@ -1029,6 +1033,7 @@ function assignSpecialAction(button, mousePos)
         menu:addOption(specialAction.text, function()
             local barID, buttonID = string.match(button:getId(), "(.*)%.(.*)")
             ApiJson.createOrUpdateSpecialAction(tonumber(barID), tonumber(buttonID), specialAction.id)
+            bounceActionBarSlot(button)
             updateButton(button)
         end)
     end
