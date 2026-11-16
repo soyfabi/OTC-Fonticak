@@ -31,6 +31,13 @@ local turnDirs = {
     { "Left",  West },
 }
 
+local diagonalMap = {
+    [North] = { [West] = NorthWest, [East] = NorthEast },
+    [South] = { [West] = SouthWest, [East] = SouthEast },
+    [West]  = { [North] = NorthWest, [South] = SouthWest },
+    [East]  = { [North] = NorthEast, [South] = SouthEast }
+}
+
 WalkController = Controller:new()
 
 local function getOptionNumber(key, fallback)
@@ -57,22 +64,19 @@ local function getOptionBool(key, fallback)
     return fallback
 end
 
+local function getKeyboardDelay()
+    if modules.client_options and modules.client_options.getKeyboardDelay then
+        return modules.client_options.getKeyboardDelay()
+    end
+    return getOptionBool('useDefaultKeyboardDelay', false) and 250 or getOptionNumber('keyboardDelay', 50)
+end
+
 --- Applies keyboard auto-repeat delay used for held movement keys.
 function applyKeyboardDelay(delay)
     local panel = modules.game_interface and modules.game_interface.getRootPanel and modules.game_interface.getRootPanel()
-    if not panel then
-        return
+    if panel then
+        panel:setAutoRepeatDelay(math.max(0, delay or getKeyboardDelay()))
     end
-    if not delay then
-        if modules.client_options and modules.client_options.getKeyboardDelay then
-            delay = modules.client_options.getKeyboardDelay()
-        elseif getOptionBool('useDefaultKeyboardDelay', false) then
-            delay = 250
-        else
-            delay = getOptionNumber('keyboardDelay', 50)
-        end
-    end
-    panel:setAutoRepeatDelay(math.max(0, delay))
 end
 
 local function cancelDashWalk()
@@ -95,7 +99,7 @@ function stopChasingWhenMoving()
 end
 
 --- Makes the player walk in the given direction.
-local function walk(dir, isFirst, bufferStep)
+local function walk(dir, isFirst)
     local player = g_game.getLocalPlayer()
     if not player or g_keyboard.getModifiers() ~= KeyboardNoModifier then
         return false
@@ -107,7 +111,7 @@ local function walk(dir, isFirst, bufferStep)
     end
 
     stopChasingWhenMoving()
-    local walked = g_game.walk(dir, bufferStep)
+    local walked = g_game.walk(dir, isFirst)
 
     if isFirst and walked then
         local firstDelay = getOptionNumber('walkFirstStepDelay', 50)
@@ -149,7 +153,7 @@ local function scheduleDashWalk(minDelay)
 
         if player:isPreWalking() or player:getWalkDelay() > 0 then
             scheduleDashWalk()
-        elseif not player:isAutoWalking() and walk(smartWalkDir, false, false) then
+        elseif not player:isAutoWalking() and walk(smartWalkDir, false) then
             scheduleDashWalk()
         end
     end, math.max(1, delay))
@@ -157,7 +161,7 @@ end
 
 --- Initiates a smart walk in the given direction.
 function smartWalk(dir)
-    walk(smartWalkDir or dir, false, false)
+    walk(smartWalkDir or dir, false)
 end
 
 --- Changes the current walking direction.
@@ -180,17 +184,11 @@ local function changeWalkDir(key, dir, pop)
 
     smartWalkDir = smartWalkDirs[1].dir
 
-    if getOptionBool('smartWalk', false) and #smartWalkDirs > 1 then
-        local diagonalMap = {
-            [North] = { [West] = NorthWest, [East] = NorthEast },
-            [South] = { [West] = SouthWest, [East] = SouthEast },
-            [West]  = { [North] = NorthWest, [South] = SouthWest },
-            [East]  = { [North] = NorthEast, [South] = SouthEast }
-        }
-
+    local diagonals = diagonalMap[smartWalkDir]
+    if diagonals and getOptionBool('smartWalk', false) then
         for _, entry in ipairs(smartWalkDirs) do
-            if diagonalMap[smartWalkDir] and diagonalMap[smartWalkDir][entry.dir] then
-                smartWalkDir = diagonalMap[smartWalkDir][entry.dir]
+            if diagonals[entry.dir] then
+                smartWalkDir = diagonals[entry.dir]
                 break
             end
         end
@@ -207,10 +205,6 @@ local function turn(dir, repeated)
     local ctrlTurnDelay = getOptionNumber('walkCtrlTurnDelay', 0)
     local turnDelay = getOptionNumber('walkTurnDelay', 0)
     local delay = repeated and math.max(ctrlTurnDelay, 50) or math.max(ctrlTurnDelay, 0)
-    if delay <= 0 then
-        delay = repeated and 50 or 0
-    end
-
     if lastTurn + delay < g_clock.millis() then
         g_game.turn(dir)
         lastTurn = g_clock.millis()
@@ -247,11 +241,8 @@ local function buildTurnKeyCombos()
 end
 
 local function unbindBoundTurnKeys()
-    local gameRootPanel = modules.game_interface.getRootPanel()
     for _, key in ipairs(boundTurnKeys) do
-        g_keyboard.unbindKeyDown(key, gameRootPanel)
-        g_keyboard.unbindKeyPress(key, gameRootPanel)
-        g_keyboard.unbindKeyUp(key, gameRootPanel)
+        unbindTurnKey(key)
     end
     boundTurnKeys = {}
 end
@@ -340,6 +331,7 @@ end
 
 function WalkController:onTerminate()
     stopSmartWalk()
+    g_game.cancelScheduledWalk()
     unbindKeys()
 end
 
@@ -355,23 +347,25 @@ function WalkController:onGameStart()
         onWalk = onServerWalk
     })
 
-    modules.game_interface.getRootPanel().onFocusChange = stopSmartWalk
+    self:registerEvents(modules.game_interface.getRootPanel(), {
+        onFocusChange = function(_, focused)
+            if not focused then
+                stopSmartWalk()
+                g_game.cancelScheduledWalk()
+            end
+        end
+    })
     modules.game_joystick.addOnJoystickMoveListener(function(dir)
         stopChasingWhenMoving()
         g_game.walk(dir)
     end)
     applyKeyboardDelay()
     rebindTurnKeys()
-
-    if not g_game.isOfficialTibia() then
-        g_game.enableFeature(GameForceFirstAutoWalkStep)
-    else
-        g_game.disableFeature(GameForceFirstAutoWalkStep)
-    end
 end
 
 function WalkController:onGameEnd()
     stopSmartWalk()
+    modules.game_joystick.addOnJoystickMoveListener(nil)
 end
 
 function bindWalkKey(key, dir)
@@ -395,14 +389,10 @@ function bindWalkKey(key, dir)
 
         local isFirst = firstStep
         firstStep = false
-        local walked = walk(smartWalkDir or dir, isFirst, isFirst and not useDash)
+        local walked = walk(smartWalkDir or dir, isFirst)
         local player = g_game.getLocalPlayer()
         if useDash and player and (walked or player:isPreWalking() or player:getWalkDelay() > 0) then
-            local repeatDelay = isFirst and getOptionNumber('keyboardDelay', 120) or 0
-            if isFirst and getOptionBool('useDefaultKeyboardDelay', false) then
-                repeatDelay = 250
-            end
-            scheduleDashWalk(repeatDelay)
+            scheduleDashWalk(isFirst and getKeyboardDelay() or 0)
         end
     end, gameRootPanel)
 end

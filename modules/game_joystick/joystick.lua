@@ -58,6 +58,8 @@ function onGameStart()
 end
 
 function onGameEnd()
+  removeEvent(keypadUpdateEvent)
+  keypadUpdateEvent = nil
   keypad:hide()
 end
 

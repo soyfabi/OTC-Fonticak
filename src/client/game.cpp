@@ -651,6 +651,15 @@ void Game::processWalkCancel(const Otc::Direction direction)
     m_localPlayer->cancelWalk(direction);
 }
 
+void Game::processTeleport(const LocalPlayerPtr& player, const Position& newPos, const Position& oldPos)
+{
+    if (newPos != oldPos) {
+        cancelScheduledWalk();
+        player->stopWalk();
+    }
+    g_lua.callGlobalField("g_game", "onTeleport", player, newPos, oldPos);
+}
+
 void Game::loginWorld(const std::string_view account, const std::string_view password, const std::string_view worldName, const std::string_view worldHost, const int worldPort, const std::string_view characterName, const std::string_view authenticatorToken, const std::string_view sessionKey, const std::string_view& recordTo)
 {
     if (m_protocolGame || isOnline())
@@ -727,11 +736,12 @@ void Game::safeLogout()
 
 bool Game::walk(const Otc::Direction direction, const bool isKeyDown /*= false*/)
 {
-    if (!canPerformGameAction())
+    if (direction == Otc::InvalidDirection || !canPerformGameAction())
         return false;
 
     // must cancel auto walking, and wait next try
     if (m_localPlayer->isAutoWalking()) {
+        cancelScheduledWalk();
         m_protocolGame->sendStop();
         m_localPlayer->autoWalk(m_localPlayer->getPosition().translatedToDirection(direction));
         return false;
@@ -742,15 +752,9 @@ bool Game::walk(const Otc::Direction direction, const bool isKeyDown /*= false*/
         if (m_nextScheduledDir != direction) {
             const auto ticks = std::clamp<ticks_t>(m_localPlayer->getWalkDelay(), 1, 2000);
             if (isKeyDown || (m_scheduleLastWalk && ticks < std::min<int>(m_localPlayer->getStepDuration() / 3, 250))) {
-                // must add a new walk event
                 cancelScheduledWalk();
-                m_walkEvent = g_dispatcher.scheduleEvent([this, direction] {
-                    m_walkEvent = nullptr;
-                    m_nextScheduledDir = Otc::InvalidDirection;
-                    if (m_localPlayer && m_localPlayer->canWalk())
-                        walk(direction);
-                }, static_cast<int>(ticks));
                 m_nextScheduledDir = direction;
+                schedulePendingWalk();
             }
         }
         return false;
@@ -808,6 +812,25 @@ bool Game::walk(const Otc::Direction direction, const bool isKeyDown /*= false*/
     return true;
 }
 
+void Game::schedulePendingWalk()
+{
+    // LocalPlayer::walk resumes the queue when the server confirms a predicted step.
+    if (m_walkEvent || m_nextScheduledDir == Otc::InvalidDirection || m_localPlayer->isPreWalking())
+        return;
+
+    const auto delay = std::clamp<ticks_t>(m_localPlayer->getWalkDelay(), 1, 2000);
+    m_walkEvent = g_dispatcher.scheduleEvent([this] {
+        m_walkEvent = nullptr;
+        if (!canPerformGameAction() || m_localPlayer->isDead() || m_localPlayer->isAutoWalking()) {
+            cancelScheduledWalk();
+        } else if (m_localPlayer->canWalk()) {
+            walk(m_nextScheduledDir);
+        } else {
+            schedulePendingWalk();
+        }
+    }, static_cast<int>(delay));
+}
+
 void Game::cancelScheduledWalk()
 {
     if (m_walkEvent) {
@@ -817,7 +840,7 @@ void Game::cancelScheduledWalk()
     m_nextScheduledDir = Otc::InvalidDirection;
 }
 
-void Game::autoWalk(const std::vector<Otc::Direction>& dirs, const Position& startPos)
+void Game::autoWalk(const std::vector<Otc::Direction>& dirs, const Position& /*startPos*/)
 {
     if (!canPerformGameAction())
         return;
@@ -836,13 +859,7 @@ void Game::autoWalk(const std::vector<Otc::Direction>& dirs, const Position& sta
         cancelFollow();
     }
 
-    const Otc::Direction direction = *dirs.begin();
-    if (const auto& toTile = g_map.getTile(startPos.translatedToDirection(direction))) {
-        if (m_localPlayer->isPreWalking() && startPos == m_localPlayer->getPosition() && toTile->isWalkable() && !m_localPlayer->isWalking() && m_localPlayer->canWalk(true)) {
-            m_localPlayer->preWalk(direction);
-        }
-    }
-
+    cancelScheduledWalk();
     g_lua.callGlobalField("g_game", "onAutoWalk", m_localPlayer, dirs);
     m_protocolGame->sendAutoWalk(dirs);
 }
@@ -1116,6 +1133,7 @@ void Game::follow(CreaturePtr creature)
     if (creature && isAttacking())
         cancelAttack();
 
+    cancelScheduledWalk();
     setFollowingCreature(creature);
     m_localPlayer->stopAutoWalk();
 

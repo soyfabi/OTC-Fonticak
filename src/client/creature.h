@@ -254,6 +254,7 @@ protected:
 
 private:
     void nextWalkUpdate();
+    void scheduleWalkAnimationReset();
     void updateJump();
     void updateShield();
     void updateWalkingTile();

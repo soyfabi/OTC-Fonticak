@@ -54,15 +54,13 @@ void LocalPlayer::walk(const Position& oldPos, const Position& newPos)
 {
     m_autoWalkRetries = 0;
 
-    if (m_preWalking) {
-        m_preWalking = false;
-        if (newPos == m_lastPrewalkDestination) {
-            updateWalk();
-            return;
-        }
-    }
-
-    Creature::walk(oldPos, newPos);
+    const bool confirmedPreWalk = m_preWalking && newPos == m_lastPrewalkDestination;
+    m_preWalking = false;
+    if (confirmedPreWalk)
+        updateWalk();
+    else
+        Creature::walk(oldPos, newPos);
+    g_game.schedulePendingWalk();
 }
 
 void LocalPlayer::preWalk(Otc::Direction direction)
@@ -184,12 +182,14 @@ void LocalPlayer::stopAutoWalk()
 
     if (m_autoWalkContinueEvent)
         m_autoWalkContinueEvent->cancel();
+    m_autoWalkContinueEvent = nullptr;
 }
 
 void LocalPlayer::stopWalk()
 {
     Creature::stopWalk(); // will call terminateWalk
 
+    m_preWalking = false;
     m_lastPrewalkDestination = {};
 }
 
@@ -221,6 +221,12 @@ void LocalPlayer::terminateWalk()
 
 void LocalPlayer::onPositionChange(const Position& newPos, const Position& oldPos)
 {
+    if (oldPos.isValid() && !oldPos.isInRange(newPos, 1, 1)) {
+        g_game.cancelScheduledWalk();
+        if (m_preWalking)
+            stopWalk();
+    }
+
     g_minimap.revealFog(newPos);
     Creature::onPositionChange(newPos, oldPos);
 
