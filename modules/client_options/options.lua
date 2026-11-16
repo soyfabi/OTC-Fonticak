@@ -1603,7 +1603,7 @@ end
 function resetGameplay()
     setOption('allowInspect', false, true)
     setOption('smartWalk', false, true)
-    setOption('dashWalk', false, true)
+    setOption('preciseControl', false, true)
     setOption('autoChaseOverride', true, true)
     setOption('talkOnRightClick', false, true)
     setOption('quickAllCorpses', false, true)

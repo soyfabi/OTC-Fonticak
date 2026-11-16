@@ -39,14 +39,14 @@ void LocalPlayer::lockWalk(const uint16_t millis)
 
 bool LocalPlayer::canWalk(const bool ignoreLock)
 {
-    return !isDead() && !m_preWalking && getWalkDelay(ignoreLock) == 0;
+    return !isDead() && getWalkDelay(ignoreLock) == 0;
 }
 
 ticks_t LocalPlayer::getWalkDelay(const bool ignoreLock)
 {
     const ticks_t lockDelay = ignoreLock ? 0 : m_walkLockExpiration - g_clock.millis();
     const ticks_t elapsed = m_walkTimer.ticksElapsed();
-    const ticks_t stepDelay = m_walking || elapsed < 0 ? getStepDuration() - elapsed : 0;
+    const ticks_t stepDelay = getStepDuration() - 9 - elapsed;
     return std::max({ ticks_t{0}, lockDelay, stepDelay });
 }
 
@@ -60,7 +60,6 @@ void LocalPlayer::walk(const Position& oldPos, const Position& newPos)
         updateWalk();
     else
         Creature::walk(oldPos, newPos);
-    g_game.schedulePendingWalk();
 }
 
 void LocalPlayer::preWalk(Otc::Direction direction)

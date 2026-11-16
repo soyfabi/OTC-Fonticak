@@ -948,10 +948,10 @@ void Creature::nextWalkUpdate()
 
 void Creature::updateWalk(const bool isPreWalking)
 {
-    // Use diagonal-aware duration (false). With true, diagonals finish the tile early and then
-    // freeze until the remaining ~2/3 of the step time elapses (slow/stuttery feel).
+    // Historical walking animates a tile at the straight-step duration.
+    // The movement cooldown still accounts for diagonal steps.
     const auto spriteSize = g_gameConfig.getSpriteSize();
-    const auto stepDuration = getStepDuration(false);
+    const auto stepDuration = getStepDuration(true);
     const auto elapsed = m_walkTimer.ticksElapsed();
     const int totalPixelsWalked = stepDuration > 0
         ? static_cast<int>(std::clamp<ticks_t>(elapsed, 0, stepDuration) * spriteSize / stepDuration)

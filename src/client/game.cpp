@@ -750,7 +750,7 @@ bool Game::walk(const Otc::Direction direction, const bool isKeyDown /*= false*/
     // check we can walk and add new walk event if false
     if (!m_localPlayer->canWalk()) {
         if (m_nextScheduledDir != direction) {
-            const auto ticks = std::clamp<ticks_t>(m_localPlayer->getWalkDelay(), 1, 2000);
+            const auto ticks = std::clamp<ticks_t>(m_localPlayer->getStepTicksLeft(), 1, 2000);
             if (isKeyDown || (m_scheduleLastWalk && ticks < std::min<int>(m_localPlayer->getStepDuration() / 3, 250))) {
                 cancelScheduledWalk();
                 m_nextScheduledDir = direction;
@@ -814,8 +814,7 @@ bool Game::walk(const Otc::Direction direction, const bool isKeyDown /*= false*/
 
 void Game::schedulePendingWalk()
 {
-    // LocalPlayer::walk resumes the queue when the server confirms a predicted step.
-    if (m_walkEvent || m_nextScheduledDir == Otc::InvalidDirection || m_localPlayer->isPreWalking())
+    if (m_walkEvent || m_nextScheduledDir == Otc::InvalidDirection)
         return;
 
     const auto delay = std::clamp<ticks_t>(m_localPlayer->getWalkDelay(), 1, 2000);

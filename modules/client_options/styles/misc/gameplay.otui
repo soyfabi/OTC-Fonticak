@@ -14,15 +14,15 @@ UIWidget
       !tooltip: tr('Combine two perpendicular movement keys into a diagonal step.')
 
     OptionCheckBoxMarked
-      id: dashWalk
+      id: preciseControl
       anchors.top: smartWalk.bottom
       margin-top: 3
-      !text: tr('Dash Walk')
-      !tooltip: tr('Hold a movement key to chain steps without the initial keyboard repeat delay. Each step still waits for the server confirmation.')
+      !text: tr('Precise Control')
+      !tooltip: tr('Only buffer a new key press. Held-key repeats will not queue an extra step.')
 
     OptionCheckBoxMarked
       id: autoChaseOverride
-      anchors.top: dashWalk.bottom
+      anchors.top: preciseControl.bottom
       margin-top: 3
       !text: tr('Stop Chasing when Moving')
       !tooltip: tr('Switch to Stand While Fighting when you move manually while chasing an opponent.')
