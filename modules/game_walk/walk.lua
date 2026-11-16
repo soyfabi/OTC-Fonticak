@@ -1,9 +1,8 @@
 local smartWalkDirs = {}
 local smartWalkDir = nil
 local lastTurn = 0
-local firstStep = true
-local dashWalkEvent = nil
-local dashWalkWaitingForServer = false
+local heldWalkEvent
+local heldWalkWaitingForServer = false
 local boundTurnKeys = {}
 
 -- Used by game_bot panels to pause cavebot/attack after manual walking
@@ -79,15 +78,15 @@ function applyKeyboardDelay(delay)
     end
 end
 
-local function cancelDashWalk()
-    removeEvent(dashWalkEvent)
-    dashWalkEvent = nil
-    dashWalkWaitingForServer = false
+local function cancelHeldWalk()
+    removeEvent(heldWalkEvent)
+    heldWalkEvent = nil
+    heldWalkWaitingForServer = false
 end
 
 --- Stops the smart walking process.
 local function stopSmartWalk()
-    cancelDashWalk()
+    cancelHeldWalk()
     smartWalkDirs = {}
     smartWalkDir = nil
 end
@@ -99,7 +98,7 @@ function stopChasingWhenMoving()
 end
 
 --- Makes the player walk in the given direction.
-local function walk(dir, isFirst)
+local function walk(dir, bufferStep, fromIdle)
     local player = g_game.getLocalPlayer()
     if not player or g_keyboard.getModifiers() ~= KeyboardNoModifier then
         return false
@@ -111,9 +110,9 @@ local function walk(dir, isFirst)
     end
 
     stopChasingWhenMoving()
-    local walked = g_game.walk(dir, isFirst)
+    local walked = g_game.walk(dir, bufferStep)
 
-    if isFirst and walked then
+    if fromIdle and walked then
         local firstDelay = getOptionNumber('walkFirstStepDelay', 50)
         if firstDelay > 0 then
             player:lockWalk(firstDelay)
@@ -129,32 +128,32 @@ local function walk(dir, isFirst)
     return walked
 end
 
-local function scheduleDashWalk(minDelay)
+local function scheduleHeldWalk(minDelay)
     local player = g_game.getLocalPlayer()
-    if not player or not smartWalkDir or not getOptionBool('dashWalk', false) then
+    if not player or not smartWalkDir then
         return
     end
 
     local delay = math.max(minDelay or 0, player:getWalkDelay())
     if delay == 0 and player:isPreWalking() then
-        dashWalkWaitingForServer = true
+        heldWalkWaitingForServer = true
         return
     end
 
-    dashWalkEvent = scheduleEvent(function()
-        dashWalkEvent = nil
+    heldWalkEvent = scheduleEvent(function()
+        heldWalkEvent = nil
         local held = smartWalkDirs[1]
         local panel = modules.game_interface.getRootPanel()
-        if not held or not getOptionBool('dashWalk', false) or not g_window.hasFocus()
-            or not panel:isFocused() or g_ui.isKeyboardGrabbed() or not g_keyboard.isKeyPressed(held.key)
-            or g_keyboard.getModifiers() ~= KeyboardNoModifier or player:isDead() then
+        if not held or not g_window.hasFocus() or not panel:isFocused() or g_ui.isKeyboardGrabbed()
+            or not g_keyboard.isKeyPressed(held.key) or g_keyboard.getModifiers() ~= KeyboardNoModifier
+            or player:isDead() or player:isAutoWalking() then
             return
         end
 
         if player:isPreWalking() or player:getWalkDelay() > 0 then
-            scheduleDashWalk()
-        elseif not player:isAutoWalking() and walk(smartWalkDir, false) then
-            scheduleDashWalk()
+            scheduleHeldWalk()
+        elseif walk(smartWalkDir, false) then
+            scheduleHeldWalk()
         end
     end, math.max(1, delay))
 end
@@ -198,16 +197,18 @@ end
 --- Handles turning the player.
 local function turn(dir, repeated)
     local player = g_game.getLocalPlayer()
-    if player:isWalking() and player:getDirection() == dir then
+    if not player or (player:isWalking() and player:getDirection() == dir) then
         return
     end
 
     local ctrlTurnDelay = getOptionNumber('walkCtrlTurnDelay', 0)
     local turnDelay = getOptionNumber('walkTurnDelay', 0)
-    local delay = repeated and math.max(ctrlTurnDelay, 50) or math.max(ctrlTurnDelay, 0)
-    if lastTurn + delay < g_clock.millis() then
+    local now = g_clock.millis()
+    if not repeated or now - lastTurn >= math.max(ctrlTurnDelay, 50) then
+        cancelHeldWalk()
+        g_game.cancelScheduledWalk()
         g_game.turn(dir)
-        lastTurn = g_clock.millis()
+        lastTurn = now
         local lockDelay = math.max(turnDelay, ctrlTurnDelay)
         if lockDelay > 0 then
             player:lockWalk(lockDelay)
@@ -251,7 +252,11 @@ function bindTurnKey(key, dir)
     local gameRootPanel = modules.game_interface.getRootPanel()
 
     g_keyboard.bindKeyDown(key, function() turn(dir, false) end, gameRootPanel)
-    g_keyboard.bindKeyPress(key, function() turn(dir, true) end, gameRootPanel)
+    g_keyboard.bindKeyPress(key, function(_, _, autoRepeatTicks)
+        if autoRepeatTicks > 0 then
+            turn(dir, true)
+        end
+    end, gameRootPanel)
     g_keyboard.bindKeyUp(key, function()
         local player = g_game.getLocalPlayer()
         if player then
@@ -296,7 +301,7 @@ end
 
 --- Handles player teleportation events.
 local function onTeleport(player, newPos, oldPos)
-    cancelDashWalk()
+    cancelHeldWalk()
     if not newPos or not oldPos then
         return
     end
@@ -314,14 +319,14 @@ local function onTeleport(player, newPos, oldPos)
 end
 
 local function onServerWalk()
-    if dashWalkWaitingForServer then
-        dashWalkWaitingForServer = false
-        scheduleDashWalk()
+    if heldWalkWaitingForServer then
+        heldWalkWaitingForServer = false
+        scheduleHeldWalk()
     end
 end
 
 local function onCancelWalk(player)
-    cancelDashWalk()
+    cancelHeldWalk()
     player:lockWalk(50)
 end
 
@@ -338,7 +343,7 @@ end
 function WalkController:onGameStart()
     self:registerEvents(g_game, {
         onTeleport = onTeleport,
-        onAutoWalk = cancelDashWalk,
+        onAutoWalk = cancelHeldWalk,
         onDeath = stopSmartWalk
     })
 
@@ -372,27 +377,42 @@ function bindWalkKey(key, dir)
     local gameRootPanel = modules.game_interface.getRootPanel()
 
     g_keyboard.bindKeyDown(key, function()
-        cancelDashWalk()
-        firstStep = true
+        cancelHeldWalk()
         changeWalkDir(key, dir)
     end, gameRootPanel, true)
 
     g_keyboard.bindKeyUp(key, function()
+        local previousDir = smartWalkDir
         changeWalkDir(key, dir, true)
+        if smartWalkDir and smartWalkDir ~= previousDir then
+            cancelHeldWalk()
+            g_game.cancelScheduledWalk()
+            if g_keyboard.getModifiers() == KeyboardNoModifier then
+                scheduleHeldWalk()
+            end
+        end
     end, gameRootPanel, true)
 
-    g_keyboard.bindKeyPress(key, function()
-        local useDash = getOptionBool('dashWalk', false)
-        if not firstStep and useDash and (dashWalkEvent or dashWalkWaitingForServer) then
+    g_keyboard.bindKeyPress(key, function(_, _, autoRepeatTicks)
+        local isFirst = autoRepeatTicks == 0
+        if not smartWalkDir or (not isFirst and (heldWalkEvent or heldWalkWaitingForServer)) then
             return
         end
 
-        local isFirst = firstStep
-        firstStep = false
-        local walked = walk(smartWalkDir or dir, isFirst)
         local player = g_game.getLocalPlayer()
-        if useDash and player and (walked or player:isPreWalking() or player:getWalkDelay() > 0) then
-            scheduleDashWalk(isFirst and getKeyboardDelay() or 0)
+        if not player then
+            return
+        end
+
+        -- A new direction replaces any buffered step, even if it hits a wall.
+        if isFirst then
+            g_game.cancelScheduledWalk()
+        end
+        local fromIdle = isFirst and #smartWalkDirs == 1 and not player:isWalking() and player:canWalk()
+        local walked = walk(smartWalkDir, isFirst, fromIdle)
+        if walked or player:isPreWalking() or player:getWalkDelay() > 0 then
+            local delay = fromIdle and walked and not getOptionBool('dashWalk', false) and getKeyboardDelay() or 0
+            scheduleHeldWalk(delay)
         end
     end, gameRootPanel)
 end

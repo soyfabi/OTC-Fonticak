@@ -18,7 +18,7 @@ UIWidget
       anchors.top: smartWalk.bottom
       margin-top: 3
       !text: tr('Dash Walk')
-      !tooltip: tr('Hold a movement key to start the next step as soon as the current step is finished and confirmed by the server.')
+      !tooltip: tr('Hold a movement key to chain steps without the initial keyboard repeat delay. Each step still waits for the server confirmation.')
 
     OptionCheckBoxMarked
       id: autoChaseOverride
