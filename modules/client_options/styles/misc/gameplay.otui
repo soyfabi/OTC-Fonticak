@@ -6,7 +6,7 @@ UIWidget
     anchors.left: parent.left
     anchors.right: parent.right
     anchors.top: parent.top
-    height: 56
+    height: 75
 
     OptionCheckBoxMarked
       id: smartWalk
@@ -14,8 +14,15 @@ UIWidget
       !tooltip: tr('Combine two perpendicular movement keys into a diagonal step.')
 
     OptionCheckBoxMarked
-      id: preciseControl
+      id: dashWalk
       anchors.top: smartWalk.bottom
+      margin-top: 3
+      !text: tr('Dash Walk')
+      !tooltip: tr('Start the next step as soon as movement is ready while a key is held.')
+
+    OptionCheckBoxMarked
+      id: preciseControl
+      anchors.top: dashWalk.bottom
       margin-top: 3
       !text: tr('Precise Control')
       !tooltip: tr('Only buffer a new key press. Held-key repeats will not queue an extra step.')

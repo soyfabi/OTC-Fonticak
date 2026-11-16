@@ -253,6 +253,7 @@ return {
         end
     },
     smartWalk                         = false,
+    dashWalk                          = true,
     preciseControl = {
         value = false,
         action = function(value)

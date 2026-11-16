@@ -123,7 +123,7 @@ end
 
 local function scheduleHeldWalk()
     local player = g_game.getLocalPlayer()
-    if not player or not smartWalkDir or heldWalkEvent then
+    if not player or not smartWalkDir or heldWalkEvent or not getOptionBool('dashWalk', true) then
         return
     end
 
@@ -131,7 +131,8 @@ local function scheduleHeldWalk()
         heldWalkEvent = nil
         local held = smartWalkDirs[1]
         local panel = modules.game_interface.getRootPanel()
-        if not held or g_game.getLocalPlayer() ~= player or player:isDead() or player:isAutoWalking()
+        if not held or not getOptionBool('dashWalk', true)
+            or g_game.getLocalPlayer() ~= player or player:isDead() or player:isAutoWalking()
             or not g_window.hasFocus() or not panel:isFocused() or g_ui.isKeyboardGrabbed()
             or not g_keyboard.isKeyPressed(held.key) or g_keyboard.getModifiers() ~= KeyboardNoModifier then
             return
@@ -365,6 +366,9 @@ function bindWalkKey(key, dir)
     end, gameRootPanel, true)
 
     g_keyboard.bindKeyPress(key, function()
+        if heldWalkEvent and not getOptionBool('dashWalk', true) then
+            cancelHeldWalk()
+        end
         if not firstStep and (heldWalkEvent or not smartWalkDir) then
             return
         end
