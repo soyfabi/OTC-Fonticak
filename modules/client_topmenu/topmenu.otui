@@ -80,11 +80,13 @@ TopMenuPanel
     anchors.verticalCenter: parent.verticalCenter
     anchors.left: parent.left
     margin-left: 10
-    size: 110 32
+    size: 120 32
 
     UIWidget
       id: discordIcon
       image-source: /images/icons/icon_discord
+      cursor: pointer
+      !tooltip: tr('Join Discord')
       anchors.verticalCenter: parent.verticalCenter
       anchors.left: parent.left
       size: 30 34
@@ -98,12 +100,14 @@ TopMenuPanel
       size: 11 7
 
     Label
-      id: topLeftDiscordStreamersLabel
-      !text: '-'
+      id: discordOnlineLabel
+      text: '-'
+      color: #82d6a0
+      !tooltip: tr('Members online on Discord (approximate)')
       anchors.left: prev.right
       margin-left: 5
       anchors.verticalCenter: prev.verticalCenter
-      width: 50
+      width: 69
 
   UIWidget
     id: topLeftYoutube

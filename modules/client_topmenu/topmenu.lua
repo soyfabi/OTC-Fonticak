@@ -7,15 +7,16 @@ local topLeftTogglesPanel
 local topLeftButtonsPanel
 local topLeftOnlinePlayersLabel
 
-local topLeftDiscordStreamersLabel
+local discordOnlineLabel
 local topLeftYoutubeViewersLabel
 local topLeftYoutubeStreamersLabel
 local fpsLabel
 local pingLabel
 local topLeftYoutubeLink
 local topLeftDiscordLink
-local url_discord = ""
 local url_youtube = ""
+local discordPresenceRequest
+local discordPresenceEvent
 local lastSyncValue = -1
 local fpsEvent = nil
 local fpsMin = -1;
@@ -219,6 +220,45 @@ local function setZoom(value)
     return oldValue ~= zoomLevel
 end
 
+local function refreshDiscordPresence()
+    if discordPresenceRequest or not g_http or not g_http.get then
+        return
+    end
+
+    local url = 'https://discord.com/api/v10/invites/' .. Services.discordInvite .. '?with_counts=true'
+    discordPresenceRequest = HTTP.getJSON(url, function(data, err)
+        discordPresenceRequest = nil
+        local count = not err and type(data) == 'table' and data.approximate_presence_count
+        if type(count) == 'number' and count >= 0 and count % 1 == 0 then
+            discordOnlineLabel:setText(tr('%d players', count))
+            discordOnlineLabel:setTooltip(tr('Members online on Discord (approximate)'))
+        else
+            discordOnlineLabel:setText('-')
+            discordOnlineLabel:setTooltip(tr('Discord online count unavailable'))
+        end
+    end, 8)
+end
+
+local function startDiscordPresence()
+    if not Services.discordInvite or Services.discordInvite == '' or discordPresenceEvent then
+        return
+    end
+
+    refreshDiscordPresence()
+    discordPresenceEvent = cycleEvent(refreshDiscordPresence, 60 * 1000)
+end
+
+local function stopDiscordPresence()
+    if discordPresenceEvent then
+        discordPresenceEvent:cancel()
+        discordPresenceEvent = nil
+    end
+    if discordPresenceRequest then
+        HTTP.cancel(discordPresenceRequest)
+        discordPresenceRequest = nil
+    end
+end
+
 -- public functions
 function init()
     connect(g_game, {
@@ -242,12 +282,15 @@ function init()
 
     topLeftOnlinePlayersLabel = topMenu:recursiveGetChildById('topLeftOnlinePlayersLabel')
 
-    topLeftDiscordStreamersLabel = topMenu:recursiveGetChildById('topLeftDiscordStreamersLabel')
+    discordOnlineLabel = topMenu:recursiveGetChildById('discordOnlineLabel')
     topLeftYoutubeViewersLabel = topMenu:recursiveGetChildById('topLeftYoutubeViewersLabel')
     topLeftYoutubeStreamersLabel = topMenu:recursiveGetChildById('topLeftYoutubeStreamersLabel')
 
     topLeftYoutubeLink = topMenu:recursiveGetChildById('youtubeIcon')
     topLeftDiscordLink = topMenu:recursiveGetChildById('discordIcon')
+    if Services.discordInvite and Services.discordInvite ~= '' then
+        setLinkDiscord('https://discord.com/invite/' .. Services.discordInvite)
+    end
 
     Keybind.new("UI", "Toggle Top Menu", "Ctrl+Shift+T", "")
     Keybind.bind("UI", "Toggle Top Menu", {
@@ -274,10 +317,13 @@ function init()
     end
     if g_game.isOnline() then
         online()
+    else
+        startDiscordPresence()
     end
 end
 
 function terminate()
+    stopDiscordPresence()
     disconnect(g_game, {
         onGameStart = online,
         onGameEnd = offline,
@@ -329,6 +375,7 @@ function show()
 end
 
 function online()
+    stopDiscordPresence()
     showGameButtons()
 
     addEvent(function()
@@ -393,6 +440,7 @@ function online()
 end
 
 function offline()
+    startDiscordPresence()
     hideGameButtons()
     pingLabel:hide()
     if pingPanel then
@@ -533,7 +581,7 @@ function setPlayersOnline(value)
     topLeftOnlinePlayersLabel:setText(value .. " " .. tr('players online'))
 end
 function setDiscordStreams(value)
-    topLeftDiscordStreamersLabel:setText(value)
+    discordOnlineLabel:setText(value)
 end
 
 function setYoutubeStreams(value)
@@ -555,14 +603,11 @@ function setLinkYoutube(value)
 end
 
 function setLinkDiscord(value)
-
-    url_discord = value
     topLeftDiscordLink.onClick = function()
-        if url_discord then
-            g_platform.openUrl(url_discord)
+        if value and value ~= '' then
+            g_platform.openUrl(value)
         end
     end
-
 end
 
 function addLeftButton(id, description, icon, callback, front)
@@ -703,7 +748,7 @@ function extendedView(extendedView)
         topMenu:addAnchor(AnchorHorizontalCenter, 'parent', AnchorHorizontalCenter)
         modules.game_interface.getRootPanel():addAnchor(AnchorTop, 'parent', AnchorTop)
         topMenu:setWidth(1020)
-        topMenu.topLeftDiscord:setWidth(110)
+        topMenu.topLeftDiscord:setWidth(120)
         topMenu.topLeftYoutube:setWidth(100)
         topMenu.topLeftOnlinePlayers:show()
         topMenu.topLeftDiscord:show()

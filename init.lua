@@ -7,6 +7,7 @@ Services = {
     --status = "http://localhost/tools/api/status.php", -- login panel: boosted creature/boss, online count, events
     --websites = "http://localhost/?subtopic=accountmanagement", --./client_entergame "Forgot password and/or email"
     createAccount = "http://127.0.0.1/otc-registration.php", -- Local TFS registration API
+    discordInvite = "GxTm7DyXVe",
     --googleLogin = "http://localhost/?subtopic=googlelogin", --./client_entergame "Login with Google"
     --getCoinsUrl = "http://localhost/?subtopic=shop&step=terms", --./game_market
 }

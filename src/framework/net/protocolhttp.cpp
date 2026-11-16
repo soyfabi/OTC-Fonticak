@@ -427,8 +427,8 @@ void HttpSession::on_request_sent(const std::error_code& ec, size_t /*bytes_tran
                     g_logger.debug("Server using chunked transfer encoding");
                     m_result->size = 0; // Unknown size for chunked
                 } else {
-                    g_logger.warning("No Content-Length or Transfer-Encoding found in headers");
-                    m_result->size = 0; // Unknown size
+                    // HTTP/1.0 requests use Connection: close, so EOF can delimit this body.
+                    m_result->size = 0;
                 }
             }
 
