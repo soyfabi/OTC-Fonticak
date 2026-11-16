@@ -67,33 +67,6 @@ local function short_text(text, maxLength)
     return text
 end
 
-local valueInSeconds = function(t)
-    local d = 0
-    local time = 0
-    local now = g_clock.millis()
-    if #t > 0 then
-		local itemsToBeRemoved = 0
-        for i, v in ipairs(t) do
-            if now - v.tick <= 3000 then
-                if time == 0 then
-                    time = v.tick
-                end
-                d = d + v.amount
-            else
-				itemsToBeRemoved = itemsToBeRemoved + 1
-            end
-        end
-
-		-- items are added in order, so we can safely
-		-- remove only the first items
-		for i = 1, itemsToBeRemoved do
-			table.remove(t, 1)
-		end
-    end
-    local duration = math.max(1000, now - time) / 1000
-    return math.ceil(d/duration)
-end
-
 if not HuntingAnalyser then
 	HuntingAnalyser = {
 		launchTime = 0,
@@ -459,7 +432,7 @@ function HuntingAnalyser:updateWindow(ignoreVisible)
 		contentsPanel.healing.lastValue = HuntingAnalyser.healing
 	end
 
-	local curHPS = valueInSeconds(HuntingAnalyser.healingTicks)
+	local curHPS = combatRate(HuntingAnalyser.healingTicks, 3000)
 	
 	-- Calculate healing per hour like XP/h (continuously updating)
 	if _duration > 0 then
@@ -790,12 +763,12 @@ end
 
 function HuntingAnalyser:addHealing(value)
 	HuntingAnalyser.healing = HuntingAnalyser.healing + value
-	HuntingAnalyser.healingTicks[#HuntingAnalyser.healingTicks + 1] = {amount = value, tick = g_clock.millis()}
+	recordCombatTick(HuntingAnalyser.healingTicks, value, g_clock.millis(), 3000)
 end
 
 function HuntingAnalyser:addDealDamage(value)
 	HuntingAnalyser.damage = HuntingAnalyser.damage + value
-	HuntingAnalyser.damageTicks[#HuntingAnalyser.damageTicks + 1] = {amount = value, tick = g_clock.millis()}
+	recordCombatTick(HuntingAnalyser.damageTicks, value, g_clock.millis(), 3000)
 end
 
 function HuntingAnalyser:addMonsterKilled(monsterName)

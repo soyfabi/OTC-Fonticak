@@ -92,67 +92,6 @@ local effectsFiles = {
 	[12] = 'agony',
 }
 
-local valueInSeconds = function(t)
-    local d = 0
-    local time = 0
-    local now = g_clock.millis()
-    if #t > 0 then
-		local itemsToBeRemoved = 0
-        for i, v in ipairs(t) do
-            if now - v.tick <= 10000 then
-                if time == 0 then
-                    time = v.tick
-                end
-                d = d + v.amount
-            else
-				itemsToBeRemoved = itemsToBeRemoved + 1
-            end
-        end
-
-		-- items are added in order, so we can safely
-		-- remove only the first items
-		for i = 1, itemsToBeRemoved do
-			table.remove(t, 1)
-		end
-    end
-    local duration = math.max(1000, now - time) / 1000
-    return math.ceil(d/duration)
-end
-
--- Function to handle session data for 60 minutes
-local valueInSessionMode = function(t)
-    local d = 0
-    local time = 0
-    local now = g_clock.millis()
-    local sessionDuration = 60 * 60 * 1000 -- 60 minutes in milliseconds
-    
-    if #t > 0 then
-        local itemsToBeRemoved = 0
-        for i, v in ipairs(t) do
-            if now - v.tick <= sessionDuration then
-                if time == 0 then
-                    time = v.tick
-                end
-                d = d + v.amount
-            else
-                itemsToBeRemoved = itemsToBeRemoved + 1
-            end
-        end
-
-        -- Remove expired items
-        for i = 1, itemsToBeRemoved do
-            table.remove(t, 1)
-        end
-    end
-    
-    if time > 0 then
-        local duration = math.max(1000, now - time) / 1000
-        return math.ceil(d/duration)
-    else
-        return 0
-    end
-end
-
 function ImpactAnalyser:create()
 	ImpactAnalyser.launchTime = 0
 	ImpactAnalyser.session = 0
@@ -299,9 +238,9 @@ function ImpactAnalyser:updateWindow(ignoreVisible)
 	
 	local curDPS = 0
 	if ImpactAnalyser.sessionMode then
-		curDPS = valueInSessionMode(ImpactAnalyser.sessionDamageTicks)
+		curDPS = combatRate(ImpactAnalyser.sessionDamageTicks, 60 * 60 * 1000)
 	else
-		curDPS = valueInSeconds(ImpactAnalyser.damageTicks)
+		curDPS = combatRate(ImpactAnalyser.damageTicks, 10000)
 	end
 	
 	if not curDPS then curDPS = 0 end
@@ -375,9 +314,9 @@ function ImpactAnalyser:updateWindow(ignoreVisible)
 
 	local curHPS = 0
 	if ImpactAnalyser.sessionMode then
-		curHPS = valueInSessionMode(ImpactAnalyser.sessionHealingTicks)
+		curHPS = combatRate(ImpactAnalyser.sessionHealingTicks, 60 * 60 * 1000)
 	else
-		curHPS = valueInSeconds(ImpactAnalyser.healingTicks)
+		curHPS = combatRate(ImpactAnalyser.healingTicks, 10000)
 	end
 	
 	if not curHPS then curHPS = 0 end
@@ -496,7 +435,7 @@ function ImpactAnalyser:updateGraphics()
 	if true then
 		return
 	end
-	local curHPS = valueInSeconds(ImpactAnalyser.damageTicks)
+	local curHPS = combatRate(ImpactAnalyser.damageTicks, 10000)
 	if not curHPS then curHPS = 0 end
 	ImpactAnalyser.maxDPS = ImpactAnalyser.maxDPS > curHPS and ImpactAnalyser.maxDPS or curHPS
 	-- Ensure DPS graph exists before adding value
@@ -508,7 +447,7 @@ function ImpactAnalyser:updateGraphics()
 	ImpactAnalyser.window.contentsPanel.graphDpsPanel:addValue(1, curHPS)
 
 
-	local curHPS = valueInSeconds(ImpactAnalyser.healingTicks)
+	local curHPS = combatRate(ImpactAnalyser.healingTicks, 10000)
 	if not curHPS then curHPS = 0 end
 	ImpactAnalyser.maxHPS = ImpactAnalyser.maxHPS > curHPS and ImpactAnalyser.maxHPS or curHPS
 	-- Ensure Heal graph exists before adding value
@@ -527,8 +466,8 @@ function ImpactAnalyser:addDealDamage(amount, effect)
 	ImpactAnalyser.damageTotal = ImpactAnalyser.damageTotal + amount
 	
 	local currentTime = g_clock.millis()
-	ImpactAnalyser.damageTicks[#ImpactAnalyser.damageTicks + 1] = {amount = amount, tick = currentTime}
-	ImpactAnalyser.sessionDamageTicks[#ImpactAnalyser.sessionDamageTicks + 1] = {amount = amount, tick = currentTime}
+	recordCombatTick(ImpactAnalyser.damageTicks, amount, currentTime, 10000)
+	recordCombatTick(ImpactAnalyser.sessionDamageTicks, amount, currentTime, 60 * 60 * 1000)
 	
 	if not ImpactAnalyser.damageEffect[effect] then
 		ImpactAnalyser.damageEffect[effect] = 0
@@ -544,8 +483,8 @@ function ImpactAnalyser:addHealing(amount)
 	ImpactAnalyser.healingTotal = ImpactAnalyser.healingTotal + amount
 	
 	local currentTime = g_clock.millis()
-	ImpactAnalyser.healingTicks[#ImpactAnalyser.healingTicks + 1] = {amount = amount, tick = currentTime}
-	ImpactAnalyser.sessionHealingTicks[#ImpactAnalyser.sessionHealingTicks + 1] = {amount = amount, tick = currentTime}
+	recordCombatTick(ImpactAnalyser.healingTicks, amount, currentTime, 10000)
+	recordCombatTick(ImpactAnalyser.sessionHealingTicks, amount, currentTime, 60 * 60 * 1000)
 end
 
 
@@ -637,12 +576,12 @@ function ImpactAnalyser:toggleSessionMode()
 		
 		-- If no session data exists yet, add current DPS/HPS to start the graphs properly
 		if #ImpactAnalyser.sessionDPSMinuteData == 0 then
-			local currentDPS = valueInSeconds(ImpactAnalyser.damageTicks) or 0
+			local currentDPS = combatRate(ImpactAnalyser.damageTicks, 10000) or 0
 			ImpactAnalyser.window.contentsPanel.graphDpsPanel:addValue(1, currentDPS)
 		end
 		
 		if #ImpactAnalyser.sessionHPSMinuteData == 0 then
-			local currentHPS = valueInSeconds(ImpactAnalyser.healingTicks) or 0
+			local currentHPS = combatRate(ImpactAnalyser.healingTicks, 10000) or 0
 			ImpactAnalyser.window.contentsPanel.graphHealPanel:addValue(1, currentHPS)
 		end
 	else

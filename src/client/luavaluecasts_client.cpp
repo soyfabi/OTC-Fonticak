@@ -2050,11 +2050,19 @@ int push_luavalue(const ForgeConfigData& data) {
 }
 // Custom structs implementations
 int push_luavalue(const BossCooldownData& data) {
-    g_lua.createTable(0, 2);
+    g_lua.createTable(0, 4);
     g_lua.pushInteger(data.bossRaceId);
     g_lua.setField("bossRaceId");
     g_lua.pushInteger(data.cooldownTime);
     g_lua.setField("cooldownTime");
+    if (!data.name.empty()) {
+        g_lua.pushString(data.name);
+        g_lua.setField("name");
+    }
+    if (data.outfit.getId() != 0) {
+        push_luavalue(data.outfit);
+        g_lua.setField("outfit");
+    }
     return 1;
 }
 

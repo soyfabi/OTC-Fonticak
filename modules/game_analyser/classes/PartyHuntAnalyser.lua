@@ -113,21 +113,23 @@ function PartyHuntAnalyser.create()
 	end
 end
 
+local PartyState
+
 function PartyHuntAnalyser:stopEvent()
 	if PartyHuntAnalyser.event then
 		PartyHuntAnalyser.event:cancel()
 		PartyHuntAnalyser.event = nil
 	end
-end
-
-function PartyHuntAnalyser:startEvent()
-	PartyHuntAnalyser.session = os.time()
-	PartyHuntAnalyser:stopEvent()
+	if PartyState.pendingUpdate then
+		PartyState.pendingUpdate:cancel()
+		PartyState.pendingUpdate = nil
+	end
 end
 
 function PartyHuntAnalyser:reset()
+	PartyHuntAnalyser:stopEvent()
 	PartyHuntAnalyser.launchTime = g_clock.millis()
-	PartyHuntAnalyser.session = os.time()
+	PartyHuntAnalyser.session = 0
 
 	PartyHuntAnalyser.lootType = PriceTypeEnum.Market
 	PartyHuntAnalyser.leaderID = 0
@@ -148,8 +150,6 @@ function PartyHuntAnalyser:reset()
 	-- Clear data tracking flags
 	PartyHuntAnalyser.hadRecentPartyData = false
 	PartyHuntAnalyser.lastDataReceiveTime = 0
-
-	if PartyHuntAnalyser.event then PartyHuntAnalyser.event:cancel() end
 
 	local contentsPanel = PartyHuntAnalyser.window:getChildById('contentsPanel')
 	contentsPanel.party:destroyChildren()
@@ -285,10 +285,8 @@ end
 
 function PartyHuntAnalyser:onPartyAnalyzer(startTime, leaderID, lootType, membersData, membersName)
 
-	if startTime == 0 and leaderID == 0 and not next(membersData) then
+	if startTime == 0 and leaderID == 0 and not next(membersData or {}) then
 		PartyHuntAnalyser:reset()
-		PartyHuntAnalyser.session = 0
-		PartyHuntAnalyser:updateWindow(false)
 		return
 	end
 	
@@ -429,12 +427,13 @@ function PartyHuntAnalyser:onPartyAnalyzer(startTime, leaderID, lootType, member
 		end
 	end
 
-	if PartyHuntAnalyser.event then PartyHuntAnalyser.event:cancel() end
-	PartyHuntAnalyser.event = cycleEvent(function()
-		if not g_game.isOnline() then return end
-		-- Update the window to show current time
-		PartyHuntAnalyser:updateWindow(false)
-	end, 1000)
+	if not PartyHuntAnalyser.event then
+		PartyHuntAnalyser.event = cycleEvent(function()
+			if g_game.isOnline() then
+				PartyHuntAnalyser:updateWindow(false)
+			end
+		end, 1000)
+	end
 
 	PartyHuntAnalyser:updateWindow(true)
 	PartyHuntAnalyser.leader = g_game.getLocalPlayer():getId() == leaderID
@@ -563,22 +562,22 @@ function PartyHuntAnalyser:lootSplitter()
 end
 
 -- Party State Manager - Single source of truth for party tracking
-local PartyState = {
-    updateScheduled = false,
+PartyState = {
+    pendingUpdate = nil,
     lastUpdateTime = 0,
     updateDebounceMs = 500  -- Only update every 500ms max
 }
 
 function PartyState:scheduleUpdate()
-    if self.updateScheduled then
+    if self.pendingUpdate then
         return  -- Update already scheduled
     end
     
     local now = g_clock.millis()
     if now - self.lastUpdateTime < self.updateDebounceMs then
         -- Too soon, schedule for later
-        self.updateScheduled = true
-        scheduleEvent(function()
+        self.pendingUpdate = scheduleEvent(function()
+            self.pendingUpdate = nil
             self:performUpdate()
         end, self.updateDebounceMs - (now - self.lastUpdateTime))
     else
@@ -588,7 +587,6 @@ function PartyState:scheduleUpdate()
 end
 
 function PartyState:performUpdate()
-    self.updateScheduled = false
     self.lastUpdateTime = g_clock.millis()
     
     local localPlayer = g_game.getLocalPlayer()

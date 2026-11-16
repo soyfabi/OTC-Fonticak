@@ -7,10 +7,6 @@ end
 openedWindows = {}
 cancelNextRelease = nil
 
--- Party member tracking
-partyMemberCheckEvent = nil
-local lastPartyMembers = {}
-
 -- Drop Tracker deferred load retry (single chain per login)
 local dropTrackerLoadRetryEvent = nil
 local dropTrackerLoadRetrySession = 0
@@ -90,41 +86,47 @@ function getCombatName(effectId)
 end
 
 -- objects
-local BOSS_COOLDOWN_OPCODE = 0x2C
-
-local function onBossCooldownOpcode(_protocol, msg)
-  local count = msg:getU8()
-  local cooldowns = {}
-
-  for _ = 1, count do
-    local raceId = msg:getU16()
-    local cooldown = msg:getU32()
-    local name = msg:getString()
-    local outfit = {
-      type = msg:getU16(),
-      head = msg:getU8(),
-      body = msg:getU8(),
-      legs = msg:getU8(),
-      feet = msg:getU8(),
-      addons = msg:getU8()
-    }
-
-    cooldowns[#cooldowns + 1] = {
-      raceId = raceId,
-      cooldown = cooldown,
-      name = name,
-      outfit = outfit
-    }
+-- Group combat events by second so closed windows cannot accumulate unbounded history.
+function recordCombatTick(ticks, amount, now, historyMs)
+  local tick = now - now % 1000
+  local last = ticks[#ticks]
+  if last and last.tick == tick then
+    last.amount = last.amount + amount
+    return
   end
 
-  onBossCooldown(cooldowns)
-  return true
+  local first = 1
+  local count = #ticks
+  while first <= count and ticks[first].tick < tick - historyMs do
+    first = first + 1
+  end
+  if first > 1 then
+    for index = first, count do
+      ticks[index - first + 1] = ticks[index]
+    end
+    for index = count - first + 2, count do
+      ticks[index] = nil
+    end
+  end
+  ticks[#ticks + 1] = { amount = amount, tick = tick }
+end
+
+function combatRate(ticks, historyMs)
+  local now = g_clock.millis()
+  local total = 0
+  local firstTick = now
+  for index = #ticks, 1, -1 do
+    local sample = ticks[index]
+    if sample.tick < now - historyMs then
+      break
+    end
+    total = total + sample.amount
+    firstTick = sample.tick
+  end
+  return math.ceil(total * 1000 / math.max(1000, now - firstTick))
 end
 
 function init()
-  if ProtocolGame and ProtocolGame.registerOpcode then
-    ProtocolGame.registerOpcode(BOSS_COOLDOWN_OPCODE, onBossCooldownOpcode)
-  end
 
   analyserButton = modules.game_mainpanel.addToggleButton('analyzerButton', 
                                                             tr('Open analytics selector window'),
@@ -250,11 +252,6 @@ function init()
     onClose = saveAnalyserPersistentData,
   })
   
-  -- Set up party member tracking as backup (less frequent since shield changes trigger it)
-  if partyMemberCheckEvent then
-    partyMemberCheckEvent:cancel()
-  end
-  partyMemberCheckEvent = cycleEvent(checkPartyMembersChange, 5000) -- Every 5 seconds as backup
 
   Keybind.new('Windows', 'Open Analyser Window', 'Alt+N', '')
   Keybind.bind('Windows', 'Open Analyser Window', {
@@ -268,10 +265,6 @@ end
 
 function terminate()
   saveAnalyserPersistentData()
-
-  if ProtocolGame and ProtocolGame.unregisterOpcode then
-    ProtocolGame.unregisterOpcode(BOSS_COOLDOWN_OPCODE)
-  end
 
   Keybind.delete('Windows', 'Open Analyser Window')
 
@@ -329,11 +322,6 @@ function terminate()
     onClose = saveAnalyserPersistentData,
   })
   
-  -- Clean up party member tracking
-  if partyMemberCheckEvent then
-    partyMemberCheckEvent:cancel()
-    partyMemberCheckEvent = nil
-  end
 
   cancelDropTrackerLoadRetry()
   dropTrackerLoadRetrySession = dropTrackerLoadRetrySession + 1
@@ -381,8 +369,6 @@ function startNewSession(login)
   DropTrackerAnalyser:updateWindow(true)
 
   PartyHuntAnalyser:reset()
-  PartyHuntAnalyser:updateWindow(true, true)
-  PartyHuntAnalyser:startEvent()
 
   ControllerAnalyser:startEvent()
 end
@@ -412,10 +398,6 @@ function onlineAnalyser()
 
   loadGainAndWastConfigJson()
 
-  if partyMemberCheckEvent then
-    partyMemberCheckEvent:cancel()
-  end
-  partyMemberCheckEvent = cycleEvent(checkPartyMembersChange, 5000)
 
   cancelDropTrackerLoadRetry()
   dropTrackerLoadRetrySession = dropTrackerLoadRetrySession + 1
@@ -490,10 +472,6 @@ function offlineAnalyser()
   if PartyHuntAnalyser and PartyHuntAnalyser.stopEvent then
     PartyHuntAnalyser:stopEvent()
   end
-  if partyMemberCheckEvent then
-    partyMemberCheckEvent:cancel()
-    partyMemberCheckEvent = nil
-  end
 
   cancelDropTrackerLoadRetry()
   dropTrackerLoadRetrySession = dropTrackerLoadRetrySession + 1
@@ -515,6 +493,7 @@ function offlineAnalyser()
     end
   end
   BossCooldown.cooldown = {}
+  BossCooldown.customCooldown = false
 end
 
 function toggle()
@@ -783,14 +762,8 @@ function onPartyMembersChange(self, members)
   PartyHuntAnalyser.onPartyMembersChange(self, members)
 end
 
--- Simplified party checking - no longer needed as PartyState handles everything
-function checkPartyMembersChange()
-  -- This function is now redundant as PartyState manages all party tracking
-  -- Keeping it for compatibility but it does nothing
-end
-
-function onBossCooldown(cooldown)
-  BossCooldown:setupCooldown(cooldown)
+function onBossCooldown(cooldown, custom)
+  BossCooldown:setupCooldown(cooldown, custom)
 end
 
 function onCloseMiniWindow(self)
