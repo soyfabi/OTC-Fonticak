@@ -285,22 +285,11 @@ end
 
 function PartyHuntAnalyser:onPartyAnalyzer(startTime, leaderID, lootType, membersData, membersName)
 
-	-- Check if this looks like a reset response (all important data is zeros)
-	local isResetData = false
-	if membersData and next(membersData) then
-		isResetData = true
-		for id, data in pairs(membersData) do
-			-- Check if all the important values are zero (loot[3], supplies[4], damage[5], healing[6])
-			if data[3] ~= 0 or data[4] ~= 0 or data[5] ~= 0 or data[6] ~= 0 then
-				isResetData = false
-				break
-			end
-		end
-		if isResetData then
-			-- When server sends reset data, reset our local session but keep member tracking
-			PartyHuntAnalyser.session = os.time() - startTime
-			-- Don't reset membersData and membersName here - let the server data override them below
-		end
+	if startTime == 0 and leaderID == 0 and not next(membersData) then
+		PartyHuntAnalyser:reset()
+		PartyHuntAnalyser.session = 0
+		PartyHuntAnalyser:updateWindow(false)
+		return
 	end
 	
 	-- Don't immediately reset on empty data - server might be sending incomplete data during party changes
@@ -344,9 +333,8 @@ function PartyHuntAnalyser:onPartyAnalyzer(startTime, leaderID, lootType, member
 		end
 	end
 	
-	-- startTime appears to be the session duration in seconds, not actual start time
-	-- So we calculate the actual session start time
-	PartyHuntAnalyser.session = os.time() - startTime
+	-- The 8.60 server sends a Unix timestamp. Some servers send elapsed seconds.
+	PartyHuntAnalyser.session = startTime >= 1000000000 and startTime or (os.time() - startTime)
 	PartyHuntAnalyser.leaderID = leaderID
 	PartyHuntAnalyser.lootType = lootType
 	
@@ -378,17 +366,9 @@ function PartyHuntAnalyser:onPartyAnalyzer(startTime, leaderID, lootType, member
 	-- we need to remap the membersData to use player IDs as keys
 	if membersName and type(newMembersData) == "table" then
 		local remappedData = {}
-		local memberIndex = 1
-		
-		-- Try to match positions in membersData with IDs from membersName
-		for i, memberInfo in ipairs(membersName) do
-			if type(memberInfo) == "table" then
-				local playerId = memberInfo.memberID  -- Use struct field
-				local memberData = newMembersData[memberIndex]
-				if memberData then
-					remappedData[playerId] = memberData
-					memberIndex = memberIndex + 1
-				end
+		for key, memberData in pairs(newMembersData) do
+			if type(memberData) == "table" then
+				remappedData[memberData.memberID or memberData[1] or key] = memberData
 			end
 		end
 		

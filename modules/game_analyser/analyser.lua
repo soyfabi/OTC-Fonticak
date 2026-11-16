@@ -574,9 +574,11 @@ function toggleAnalysers(buttonId)
     widget.isOpen = true
 
     if buttonId == 'impactButton' then
-      ImpactAnalyser:checkAnchos()
+      ImpactAnalyser:updateWindow(true)
     elseif buttonId == 'damageButton' then
-      InputAnalyser:checkAnchos()
+      InputAnalyser:updateWindow(true)
+    elseif buttonId == 'partyButton' then
+      PartyHuntAnalyser:updateWindow(true, true)
     elseif buttonId == 'xpButton' then
       XPAnalyser:checkAnchos()
       XPAnalyser:forceUpdateUI()  -- Update UI with any accumulated XP data
@@ -653,6 +655,10 @@ function onSupplyTracker(itemId)
 end
 
 function onImpactTracker(analyzerType, amount, effect, target)
+  if g_game.isOnline() and not ControllerAnalyser.event1000 then
+    ControllerAnalyser:startEvent()
+  end
+
   if analyzerType == ANALYZER_HEAL then
     HuntingAnalyser:addHealing(amount)
     ImpactAnalyser:addHealing(amount)
