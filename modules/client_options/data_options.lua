@@ -32,6 +32,7 @@ return {
     disableMinimapAnimations = { value = false, action = refreshMinimapPreferences },
     disableMinimapFloorItems = { value = false, action = refreshMinimapPreferences },
     disableMinimapHd = { value = false, action = refreshMinimapPreferences },
+    disableMinimapHoverZoom = { value = false, action = refreshMinimapPreferences },
     disableMinimapSmoothZoom = { value = false, action = refreshMinimapPreferences },
     showNearbyMinimapPlayers = { value = true, action = refreshNearbyMinimapPlayers },
     nearbyMinimapPlayerLimit = { value = 8, action = refreshNearbyMinimapPlayers },

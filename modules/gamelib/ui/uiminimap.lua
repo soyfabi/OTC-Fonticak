@@ -50,6 +50,7 @@ end
 
 function UIMinimap:onVisibilityChange()
     if not self:isVisible() then
+        self:setMinimapHoverZoom(false)
         self:finishSmoothZoom()
         self:destroyFlagWindow()
     end
@@ -448,6 +449,25 @@ function UIMinimap:finishSmoothZoom()
     end
 end
 
+local MINIMAP_HOVER_SCALE = 1.10
+
+function UIMinimap:setMinimapHoverZoom(hovered)
+    if not self.setScale or (self.minimapHoverZoom == true) == hovered then
+        return
+    end
+    if hovered then
+        local options = modules.client_options
+        if (self.fullMapView and not self:isCyclopediaMap())
+            or (options and options.getOption('disableMinimapHoverZoom')) then
+            return
+        end
+    end
+
+    self.minimapHoverZoom = hovered
+    local scale = 2 ^ self:getZoom()
+    self:startSmoothZoom(hovered and scale * MINIMAP_HOVER_SCALE or scale)
+end
+
 function UIMinimap:applyMinimapPreferences()
     local options = modules.client_options
     if not options then
@@ -461,7 +481,10 @@ function UIMinimap:applyMinimapPreferences()
         self:setShowFloorItems(not options.getOption('disableMinimapFloorItems'))
     end
     self:updateNearbyPlayerPulse()
-    if options.getOption('disableMinimapSmoothZoom') then
+    if self.minimapHoverZoom and options.getOption('disableMinimapHoverZoom') then
+        self:setMinimapHoverZoom(false)
+        self:finishSmoothZoom()
+    elseif options.getOption('disableMinimapSmoothZoom') then
         self:finishSmoothZoom()
     end
 end
@@ -496,15 +519,21 @@ function UIMinimap:smoothZoomBy(step)
         return false
     end
 
-    self._smoothZoomTargetScale = self:getScale()
+    local targetScale = self:getScale()
     self:setScale(startScale)
 
     if self.onSmoothZoomScaleChange then
         self:onSmoothZoomScaleChange(self:getScale())
     end
 
+    self:startSmoothZoom(targetScale)
+    return true
+end
+
+function UIMinimap:startSmoothZoom(targetScale)
+    self._smoothZoomTargetScale = targetScale
     if self._smoothZoomEvent then
-        return true
+        return
     end
 
     if self.setZoomAnimating then
@@ -544,7 +573,6 @@ function UIMinimap:smoothZoomBy(step)
     end
 
     self._smoothZoomEvent = scheduleEvent(animate, frameInterval)
-    return true
 end
 
 function UIMinimap:hideFloor()
@@ -562,6 +590,7 @@ function UIMinimap:disableAutoWalk()
 end
 
 function UIMinimap:load()
+    self:setMinimapHoverZoom(false)
     self:finishSmoothZoom()
     local settings = g_settings.getNode('Minimap')
     if settings then
@@ -698,6 +727,13 @@ function UIMinimap:updateFlag(flag, icon, description)
 end
 
 function UIMinimap:onZoomChange(zoom)
+    if self.minimapHoverZoom then
+        self:setScale((2 ^ zoom) * MINIMAP_HOVER_SCALE)
+    end
+    if self._smoothZoomEvent then
+        self._smoothZoomTargetScale = self:getScale()
+    end
+
     if self.fullMapView then
         self.zoomFullmap = zoom
     else

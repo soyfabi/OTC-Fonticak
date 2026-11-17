@@ -1232,6 +1232,7 @@ function mapController:onGameEnd()
         fullscreen()
     end
     if minimapWidget and not minimapWidget:isDestroyed() then
+        minimapWidget:setMinimapHoverZoom(false)
         minimapWidget:finishSmoothZoom()
         minimapWidget.sidebarFreeView = false
         minimapWidget.sidebarCameraHasPixelOffset = false
@@ -1308,6 +1309,7 @@ function fullscreen()
         return
     end
 
+    minimapWidget:setMinimapHoverZoom(false)
     minimapWidget:finishSmoothZoom()
     if minimapWidget.fullMapView then
         fullscreenWidget = nil
