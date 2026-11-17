@@ -108,20 +108,29 @@ MinimapHdControl < MinimapMapControl
 MinimapFreeViewControl < MinimapMapControl
   icon-source: /images/game/minimap/free-view
 
-MinimapDownloadButton < QtButton
-  size: 110 23
-  padding: 2 4 2 4
-  font: Verdana Bold-10px
-  color: #ffffff
-  image-smooth: false
-  text-wrap: false
+MinimapDownloadButton < Button
+  size: 113 23
+  padding: 0
+  ttf-font: Inter-Medium
+  ttf-font-size: 9
+  image-source: /images/ui/buttons-blue
+  text-offset: 0 0
   focusable: false
+
+  UIWidget
+    id: brightButton
+    anchors.fill: parent
+    margin: 1
+    image-source: /images/game/minimap/download-button-shine
+    image-smooth: true
+    phantom: true
+    focusable: false
 
   UIWidget
     id: highlight
     anchors.fill: parent
-    border-width: 1
-    border-color: #55aaff
+    image-source: /images/store/rectangle-highlight
+    image-border: 1
     phantom: true
     focusable: false
 

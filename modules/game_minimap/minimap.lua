@@ -578,7 +578,6 @@ function refreshMapDownloadOverlay(widget, offline)
         panel:raise()
     elseif hd ~= 'installed' or animations ~= 'installed' then
         local downloadAnimations = hd == 'installed'
-        button:setFont(downloadAnimations and 'Verdana-8px' or 'Verdana Bold-10px')
         button:setText(downloadAnimations and tr('Download Map Animation') or tr('Download Map HD'))
         button:raise()
     end
