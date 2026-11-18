@@ -56,6 +56,30 @@ UIWidget
       anchors.left: prev.right
       mouse-scroll: false
 
+  UIWidget
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 10
+    height: 22
+
+    OptionsLabel
+      !text: tr('HD Scale:')
+      !tooltip: tr('Choose the sprite resolution used when Enable HD Graphics is checked.')
+      anchors.left: parent.left
+      margin-left: 18
+      color: #c0c0c0ff
+      anchors.verticalCenter: parent.verticalCenter
+      text-align: left
+
+    OptionsComboBox
+      id: hdScale
+      width: 180
+      margin-left: 10
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.left: prev.right
+      mouse-scroll: false
+
   SmallReversedQtPanel
     anchors.left: parent.left
     anchors.right: parent.right

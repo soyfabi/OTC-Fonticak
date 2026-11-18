@@ -619,18 +619,23 @@ void MapView::updateGeometry(const Size& visibleDimension)
         scaleFactor /= 2;
     }
 
-    m_pool->setScaleFactor(scaleFactor);
-
-    m_posInfo.scaleFactor = scaleFactor;
-
-    const uint16_t tileSize = g_gameConfig.getSpriteSize() * m_pool->getScaleFactor();
     const auto& drawDimension = visibleDimension + 3;
-    const auto& bufferSize = drawDimension * tileSize;
-
-    if (bufferSize.width() > g_graphics.getMaxTextureSize() || bufferSize.height() > g_graphics.getMaxTextureSize()) {
+    const auto spriteSize = g_gameConfig.getSpriteSize();
+    const auto maxTextureSize = g_graphics.getMaxTextureSize();
+    uint16_t tileSize = spriteSize * scaleFactor;
+    auto bufferSize = drawDimension * tileSize;
+    if (scaleFactor > 1.f && std::max(bufferSize.width(), bufferSize.height()) > maxTextureSize) {
+        scaleFactor = 1.f;
+        tileSize = spriteSize;
+        bufferSize = drawDimension * tileSize;
+    }
+    if (std::max(bufferSize.width(), bufferSize.height()) > maxTextureSize) {
         g_logger.traceError("reached max zoom out");
         return;
     }
+
+    m_pool->setScaleFactor(scaleFactor);
+    m_posInfo.scaleFactor = scaleFactor;
 
     m_visibleDimension = visibleDimension;
     m_drawDimension = drawDimension;

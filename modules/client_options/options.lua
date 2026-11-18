@@ -437,6 +437,7 @@ local function setupComboBox()
     local crosshairCombo = panels.interface:recursiveGetChildById('crosshair')
     local graphicsEngineCombobox = panels.graphicsPanel:recursiveGetChildById('graphicsEngine')
     local antialiasingModeCombobox = panels.graphicsPanel:recursiveGetChildById('antialiasingMode')
+    local hdScaleCombobox = panels.graphicsPanel:recursiveGetChildById('hdScale')
     local floorViewModeCombobox = panels.graphicsEffectsPanel:recursiveGetChildById('floorViewMode')
     local framesRarityCombobox = panels.interface:recursiveGetChildById('frames')
     local vocationPresetsCombobox = panels.keybindsPanel:recursiveGetChildById('list')
@@ -499,6 +500,13 @@ local function setupComboBox()
 
     antialiasingModeCombobox.onOptionChange = function(comboBox, option)
         setOption('antialiasingMode', comboBox:getCurrentOption().data)
+    end
+
+    hdScaleCombobox:addOption(tr('2x'), 2)
+    hdScaleCombobox:addOption(tr('3x'), 3)
+    hdScaleCombobox:addOption(tr('4x (Ultra HD)'), 4)
+    hdScaleCombobox.onOptionChange = function(_, _, scale)
+        setOption('hdScale', scale)
     end
 
     local sizeBox = panels.interfaceHUD and panels.interfaceHUD:recursiveGetChildById('sizeBox')
@@ -1656,6 +1664,7 @@ function resetGraphics()
     setOption('forceEffectOptimization', false, true)
     setOption('asyncTxtLoading', false, true)
     setOption('hdGraphics', false, true)
+    setOption('hdScale', 2, true)
     setOption('dontStretchShrink', false, true)
 end
 

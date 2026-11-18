@@ -2,6 +2,28 @@ local ownBattleSubChannelsSaved = nil
 local otherPlayersSubChannelsSaved = nil
 local consoleMessagesSubChannelsSaved = nil
 
+local function applyHdGraphics(_value, options, _controller, panels)
+    local enabled = options.hdGraphics.value
+    local scale = options.hdScale.value
+    if scale ~= 3 and scale ~= 4 then
+        scale = 2
+    end
+
+    local combo = panels.graphicsPanel and panels.graphicsPanel:recursiveGetChildById('hdScale')
+    if combo then
+        combo:setCurrentOptionByData(scale, true)
+        combo:setEnabled(enabled)
+    end
+
+    local spriteScale = enabled and scale or 1
+    if g_sprites and g_sprites.setScaleFactor and g_sprites.getScaleFactor() ~= spriteScale then
+        g_sprites.setScaleFactor(spriteScale)
+        if panels.gameMapPanel then
+            panels.gameMapPanel:setAntiAliasingMode(options.antialiasingMode.value)
+        end
+    end
+end
+
 local function refreshMinimapPreferences()
     local minimap = modules.game_minimap
     if minimap and minimap.refreshMinimapPreferences then
@@ -954,15 +976,11 @@ return {
     },
     hdGraphics                        = {
         value = false,
-        action = function(value, options, controller, panels, extraWidgets)
-            if g_sprites and g_sprites.setScaleFactor then
-                g_sprites.setScaleFactor(value and 2 or 1)
-            end
-
-            if panels.gameMapPanel then
-                panels.gameMapPanel:setAntiAliasingMode(options.antialiasingMode.value)
-            end
-        end
+        action = applyHdGraphics
+    },
+    hdScale                           = {
+        value = 2,
+        action = applyHdGraphics
     },
     shadowFloorIntensity              = {
         value = 30,
