@@ -1,3 +1,33 @@
+GraphicsComboBoxPopupMenu < UIPopupMenu
+  image-source: /images/ui/menubox
+  image-border: 3
+  padding: 3
+
+GraphicsComboBoxPopupMenuButton < UIButton
+  height: 20
+  ttf-font: Inter-Medium
+  ttf-font-size: 11
+  text-align: left
+  text-offset: 15 0
+  color: #cecece
+  border-width-bottom: 1
+  border-color: #303030
+  icon-source: /images/ui/icon-arrow7x7-right
+  icon-rect: 3 6 7 7
+  icon-color: #ffffff00
+
+  $on:
+    color: #ffffff
+    icon-color: #ffffff
+    background-color: #ffffff12
+
+  $hover !disabled:
+    color: #ffffff
+    background-color: #ffffff26
+
+GraphicsComboBox < OptionsComboBox
+  &markSelectedMenuOption: true
+
 UIWidget
   anchors.fill: parent
   visible: false
@@ -16,7 +46,7 @@ UIWidget
       anchors.verticalCenter: parent.verticalCenter
       text-align: left
 
-    OptionsComboBox
+    GraphicsComboBox
       id: graphicsEngine
       width: 180
       margin-left: 10
@@ -48,8 +78,32 @@ UIWidget
       anchors.verticalCenter: parent.verticalCenter
       text-align: left
 
-    OptionsComboBox
+    GraphicsComboBox
       id: antialiasingMode
+      width: 180
+      margin-left: 10
+      anchors.verticalCenter: parent.verticalCenter
+      anchors.left: prev.right
+      mouse-scroll: false
+
+  UIWidget
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 10
+    height: 22
+
+    OptionsLabel
+      !text: tr('HD Scale:')
+      !tooltip: tr('Choose the sprite resolution used when Enable HD Graphics is checked.')
+      anchors.left: parent.left
+      margin-left: 18
+      color: #c0c0c0ff
+      anchors.verticalCenter: parent.verticalCenter
+      text-align: left
+
+    GraphicsComboBox
+      id: hdScale
       width: 180
       margin-left: 10
       anchors.verticalCenter: parent.verticalCenter

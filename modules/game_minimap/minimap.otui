@@ -26,6 +26,7 @@ PhantomMiniWindow
         fog-of-war: true
         anchors.fill: parent
         margin: 1
+        @onHoverChange: self:setMinimapHoverZoom(self:isHovered())
 
         MinimapHdControl
           id: hdButton

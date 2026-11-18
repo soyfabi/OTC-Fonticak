@@ -57,6 +57,18 @@ UIWidget
     height: 22
 
     OptionCheckBoxMarked
+      id: disableMinimapHoverZoom
+      !text: tr('Disable Hover Zoom Animation')
+      !tooltip: tr('Turn off the zoom effect when the cursor enters the minimap or Cyclopedia map.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBoxMarked
       id: showNearbyMinimapPlayers
       !text: tr('Show Nearby Players')
       !tooltip: tr('Mark nearby players when the minimap or Cyclopedia is zoomed in. Hover over a marker to see the player name.')

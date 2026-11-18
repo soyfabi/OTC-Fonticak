@@ -437,6 +437,7 @@ local function setupComboBox()
     local crosshairCombo = panels.interface:recursiveGetChildById('crosshair')
     local graphicsEngineCombobox = panels.graphicsPanel:recursiveGetChildById('graphicsEngine')
     local antialiasingModeCombobox = panels.graphicsPanel:recursiveGetChildById('antialiasingMode')
+    local hdScaleCombobox = panels.graphicsPanel:recursiveGetChildById('hdScale')
     local floorViewModeCombobox = panels.graphicsEffectsPanel:recursiveGetChildById('floorViewMode')
     local framesRarityCombobox = panels.interface:recursiveGetChildById('frames')
     local vocationPresetsCombobox = panels.keybindsPanel:recursiveGetChildById('list')
@@ -499,6 +500,13 @@ local function setupComboBox()
 
     antialiasingModeCombobox.onOptionChange = function(comboBox, option)
         setOption('antialiasingMode', comboBox:getCurrentOption().data)
+    end
+
+    hdScaleCombobox:addOption(tr('2x'), 2)
+    hdScaleCombobox:addOption(tr('3x'), 3)
+    hdScaleCombobox:addOption(tr('4x (Ultra HD)'), 4)
+    hdScaleCombobox.onOptionChange = function(_comboBox, _text, scale)
+        setOption('hdScale', scale)
     end
 
     local sizeBox = panels.interfaceHUD and panels.interfaceHUD:recursiveGetChildById('sizeBox')
@@ -589,6 +597,9 @@ local function setup()
 
     setupComboBox()
 
+    -- The hdGraphics action needs the saved scale before it is applied.
+    options.hdScale.value = g_settings.getNumber('hdScale', options.hdScale.value)
+
     -- load options
     for k, obj in pairs(options) do
         -- an option may either be a bare value or a table with an 'action'
@@ -601,7 +612,8 @@ local function setup()
             v = obj
         end
 
-        if k ~= 'classicControl' and k ~= 'smartLeftClick' and k ~= 'mouseControlMode' and k ~= 'showHealthManaCircle' then
+        if k ~= 'classicControl' and k ~= 'smartLeftClick' and k ~= 'mouseControlMode' and k ~= 'showHealthManaCircle'
+            and k ~= 'hdScale' then
             if type(v) == 'boolean' then
                 local value = g_settings.getBoolean(k, v)
                 setOption(k, value, true)
@@ -1656,6 +1668,7 @@ function resetGraphics()
     setOption('forceEffectOptimization', false, true)
     setOption('asyncTxtLoading', false, true)
     setOption('hdGraphics', false, true)
+    setOption('hdScale', 2, true)
     setOption('dontStretchShrink', false, true)
 end
 

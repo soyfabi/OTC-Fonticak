@@ -782,6 +782,7 @@ UIWidget
       autowalk: true
       cross: true
       color: black
+      @onHoverChange: self:setMinimapHoverZoom(self:isHovered())
       // Overview at 0.25 px per tile; HD close-up at 32 px per tile.
       min-zoom: -2
       max-zoom: 5

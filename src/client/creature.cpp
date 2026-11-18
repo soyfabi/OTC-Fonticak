@@ -95,12 +95,22 @@ void Creature::draw(const Point& dest, const bool drawThings, LightView* /*light
         return;
 
     if (drawThings) {
-        if (m_showTimedSquare) {
-            g_drawPool.addBoundingRect(Rect(dest + (m_walkOffset - getDisplacement() + 2) * g_drawPool.getScaleFactor(), Size(28 * g_drawPool.getScaleFactor())), m_timedSquareColor, std::max<int>(static_cast<int>(2 * g_drawPool.getScaleFactor()), 1));
-        }
+        if (m_showTimedSquare || m_showStaticSquare) {
+            const auto scale = g_drawPool.getScaleFactor();
+            const int inset = 2 * g_gameConfig.getSpriteScaleFactor();
+            const int spriteSize = g_gameConfig.getSpriteSize();
+            const auto offset = m_walkOffset - getDisplacement();
+            const auto lineWidth = std::max(static_cast<int>(inset * scale), 1);
 
-        if (m_showStaticSquare) {
-            g_drawPool.addBoundingRect(Rect(dest + (m_walkOffset - getDisplacement()) * g_drawPool.getScaleFactor(), Size(g_gameConfig.getSpriteSize() * g_drawPool.getScaleFactor())), m_staticSquareColor, std::max<int>(static_cast<int>(2 * g_drawPool.getScaleFactor()), 1));
+            if (m_showTimedSquare) {
+                const Rect rect(dest + (offset + inset) * scale, Size((spriteSize - 2 * inset) * scale));
+                g_drawPool.addBoundingRect(rect, m_timedSquareColor, lineWidth);
+            }
+
+            if (m_showStaticSquare) {
+                const Rect rect(dest + offset * scale, Size(spriteSize * scale));
+                g_drawPool.addBoundingRect(rect, m_staticSquareColor, lineWidth);
+            }
         }
 
         auto _dest = dest + m_walkOffset * g_drawPool.getScaleFactor();

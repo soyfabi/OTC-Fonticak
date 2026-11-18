@@ -129,15 +129,21 @@ function UIComboBox:onMousePress(mousePos, mouseButton)
     end
     menu:setId(self:getId() .. 'PopupMenu')
     for i, v in ipairs(self.options) do
-        menu:addOption(v.text, function()
+        local option = menu:addOption(v.text, function()
             self:setCurrentOption(v.text)
         end)
+        if self.markSelectedMenuOption and i == self.currentIndex and option then
+            option:setOn(true)
+        end
     end
     menu:setWidth(self:getWidth())
     menu:display({
         x = self:getX(),
         y = self:getY() + self:getHeight()
     })
+    if menu:isDestroyed() then
+        return true
+    end
     connect(menu, {
         onDestroy = function()
             self:setOn(false)
