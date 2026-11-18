@@ -69,6 +69,43 @@ UIWidget
     height: 22
 
     OptionCheckBoxMarked
+      id: disableFlyToMark
+      !text: tr('Disable Fly to Mark')
+      !tooltip: tr('Turn off automatic map movement while searching. Enter still goes to the next match.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionsLabel
+      id: flyToMarkDuration
+      anchors.fill: parent
+      text-align: left
+      text-offset: 18 0
+      !tooltip: tr('Set how long the trip to a mark takes. Smaller values are faster.')
+
+      HorizontalQtScrollBar
+        id: valueBar
+        minimum: 300
+        maximum: 5000
+        step: 100
+        anchors.right: parent.right
+        anchors.verticalCenter: parent.verticalCenter
+        margin-right: 3
+        width: 174
+        @onValueChange: modules.client_options.setOption(self:getParent():getId(), self:getValue())
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBoxMarked
       id: showNearbyMinimapPlayers
       !text: tr('Show Nearby Players')
       !tooltip: tr('Mark nearby players when the minimap or Cyclopedia is zoomed in. Hover over a marker to see the player name.')

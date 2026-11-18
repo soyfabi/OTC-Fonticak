@@ -40,7 +40,7 @@ UIWidget
         UIWidget
           id: DisplayBase
           margin-left: 11
-          size: 146 271
+          size: 146 316
           fixed-size: true
           image-source: /images/ui/t2pixel-up-frame-borderimage
           image-border: 20
@@ -73,9 +73,51 @@ UIWidget
             color: #c0c0c0
             text-align: center
 
+          TextEdit
+            id: markSearch
+            size: 132 19
+            anchors.top: filterMarksLabel.bottom
+            anchors.left: filterMarksLabel.left
+            !placeholder: tr('Search Mark')
+            !tooltip: tr('Search by mark name, map text or description')
+            @onTextChange: modules.game_cyclopedia.Cyclopedia.searchMapMarks(self:getText())
+
+          CheckBox
+            id: flyToMark
+            size: 132 18
+            anchors.left: markSearch.left
+            anchors.top: markSearch.bottom
+            margin-top: 4
+            text-align: left
+            text-offset: 17 0
+            !text: tr('Fly to Mark')
+            !tooltip: tr('Automatically move the map to a matching mark.')
+            @onCheckChange: modules.game_cyclopedia.Cyclopedia.onFlyToMarkChange()
+
+          Label
+            id: markSearchResults
+            size: 132 16
+            anchors.left: markSearch.left
+            anchors.top: flyToMark.bottom
+            margin-top: 2
+            color: #c0c0c0
+            visible: false
+            phantom: true
+
+          Label
+            id: markSearchHint
+            size: 132 14
+            anchors.left: markSearch.left
+            anchors.top: markSearchResults.bottom
+            font: Verdana-9px-antialiased
+            color: #a8a8a8
+            visible: false
+            phantom: true
+
           UIWidget
             id: MarkListFrame
-            anchors.top: filterMarksLabel.bottom
+            anchors.top: flyToMark.bottom
+            margin-top: 4
             anchors.left: parent.left
             margin-left: 7
             size: 132 107
@@ -138,6 +180,7 @@ UIWidget
                 size: 16 16
                 icon: /game_cyclopedia/images/icon-map-npc
                 icon-offset: 5 3
+                !tooltip: tr('Mark') .. ': ' .. tr('NPC')
 
               CheckBoxButton
                 id: 5
@@ -178,6 +221,7 @@ UIWidget
                 id: passage
                 size: 16 16
                 icon: /game_cyclopedia/images/icon-map-passage-idle
+                !tooltip: tr('Mark') .. ': ' .. tr('Passage')
 
               CheckBoxButton
                 id: 10
@@ -218,6 +262,7 @@ UIWidget
                 id: 21
                 size: 16 16
                 icon: /game_cyclopedia/images/icon-map-house
+                !tooltip: tr('Mark') .. ': ' .. tr('House')
 
               CheckBoxButton
                 id: 15

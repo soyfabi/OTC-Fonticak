@@ -105,7 +105,7 @@ local CYCLOPEDIA_AREA_LABEL_COLOR = "#ffffffff"
 local CYCLOPEDIA_AREA_LABEL_SELECTED_COLOR = "#ffff00ff"
 local CYCLOPEDIA_SUBAREA_LABEL_COLOR = "#8f8f8fff"
 local CYCLOPEDIA_SECTION_COLLAPSED_HEIGHT = 19
-local CYCLOPEDIA_DISPLAY_PANEL_HEIGHT = 271
+local CYCLOPEDIA_DISPLAY_PANEL_HEIGHT = 316
 local CYCLOPEDIA_NAVIGATION_PANEL_HEIGHT = 97
 local CYCLOPEDIA_AREA_PANEL_HEIGHT = 141
 local CYCLOPEDIA_SUBAREA_PANEL_HEIGHT = 202
@@ -126,6 +126,17 @@ local areaDataById = {}
 local areaLabelWidgets = {}
 local areaLabelRefreshEvent
 local mapCenterEvent
+local markFlightEvent
+local syncingFlyToMarkOption = false
+local markSearchOrigin
+local markSearchResults = {}
+local currentSearchMark
+local function stopMarkFlight()
+	if markFlightEvent then
+		removeEvent(markFlightEvent)
+		markFlightEvent = nil
+	end
+end
 local selectedAreaId = -1
 local selectedParentAreaId = 0
 local selectedDonationAreaId = 0
@@ -224,6 +235,27 @@ local function setPanelChildrenVisible(panel, childIds, visible)
 	end
 end
 
+local function updateMarkSearchLayout(panel)
+	local results = panel.markSearchResults
+	local hint = panel.markSearchHint
+	local showResults = displayPanelExpanded and results:getText() ~= ''
+	local showHint = showResults and hint:getText() ~= ''
+	results:setVisible(showResults)
+	hint:setVisible(showHint)
+
+	local extraHeight = 0
+	if showResults then
+		extraHeight = results:getMarginTop() + results:getHeight()
+		if showHint then
+			extraHeight = extraHeight + hint:getHeight()
+		end
+	end
+
+	panel.MarkListFrame:setMarginTop(4 + extraHeight)
+	panel:setHeight(displayPanelExpanded and (CYCLOPEDIA_DISPLAY_PANEL_HEIGHT + extraHeight)
+		or CYCLOPEDIA_SECTION_COLLAPSED_HEIGHT)
+end
+
 local function applyDisplayPanelState()
 	local panel = getDisplayBase()
 
@@ -233,12 +265,14 @@ local function applyDisplayPanelState()
 
 	setPanelChildrenVisible(panel, {
 		"filterMarksLabel",
+		"markSearch",
+		"flyToMark",
 		"MarkListFrame",
 		"viewsLabel",
 		"ViewBase"
 	}, displayPanelExpanded)
 	applySectionFrameState(panel, displayPanelExpanded)
-	panel:setHeight(displayPanelExpanded and CYCLOPEDIA_DISPLAY_PANEL_HEIGHT or CYCLOPEDIA_SECTION_COLLAPSED_HEIGHT)
+	updateMarkSearchLayout(panel)
 	setSectionToggleState(panel, "displayToggleButton", displayPanelExpanded)
 end
 
@@ -1229,6 +1263,7 @@ local function setupCyclopediaAreas()
 		local baseDragMove = minimap.onDragMove
 
 		function minimap.onDragMove(widget, position, moved)
+			stopMarkFlight()
 			local handled = baseDragMove(widget, position, moved)
 			if handled then
 				local viewport = widget:getPaddingRect()
@@ -1653,6 +1688,7 @@ local function onCyclopediaViewToggle(checked, otherCheckId)
 	if loadingMapConfig then
 		return
 	end
+	stopMarkFlight()
 
 	local otherCheck = UI and UI:recursiveGetChildById(otherCheckId)
 
@@ -1838,6 +1874,7 @@ function Cyclopedia.setVirtualFloor(target)
 	if type(target) ~= "number" then
 		return
 	end
+	stopMarkFlight()
 
 	target = math.max(LAYER_FLOOR_MIN, math.min(LAYER_FLOOR_MAX, target))
 
@@ -1902,17 +1939,168 @@ function Cyclopedia.applyMapFlagFilter()
 		end
 	end)
 
-	for _, flag in pairs(minimap.flags) do
-		if flag and not flag:isDestroyed() then
-			local icon = flag.icon
+	minimap:setMarkIconFilter(enabledIcons)
+end
 
-			if type(icon) == "number" and enabledIcons[icon] then
-				flag:show()
-			else
-				flag:hide()
+local function refreshMarkSearchResults(minimap)
+	local display = getDisplayBase()
+	if not display then
+		return
+	end
+
+	local query = minimap.markSearch
+	markSearchResults = {}
+	if query ~= '' then
+		markSearchOrigin = markSearchOrigin or minimap:getCameraPosition()
+		local origin = markSearchOrigin
+		for index, flag in ipairs(minimap.flags) do
+			if flag.searchText:find(query, 1, true) then
+				local match = flag.mapText:trim():lower() == query and 0
+					or (flag.description:trim():lower() == query or minimap:getMarkName(flag.icon):lower() == query) and 1 or 2
+				table.insert(markSearchResults, {
+					flag = flag,
+					match = match,
+					floor = origin and math.abs(flag.pos.z - origin.z) or 0,
+					distance = origin and ((flag.pos.x - origin.x) ^ 2 + (flag.pos.y - origin.y) ^ 2) or 0,
+					index = index
+				})
 			end
 		end
+		table.sort(markSearchResults, function(a, b)
+			if a.match ~= b.match then return a.match < b.match end
+			if a.floor ~= b.floor then return a.floor < b.floor end
+			if a.distance ~= b.distance then return a.distance < b.distance end
+			return a.index < b.index
+		end)
 	end
+	display.markSearchResults:setText(query ~= ''
+		and string.format('%s (%d)', display.markSearch:getText():trim(), #markSearchResults) or '')
+	display.markSearchHint:setText(#markSearchResults > 0 and tr('Press Enter: next mark') or '')
+	updateMarkSearchLayout(display)
+end
+
+local function flyToSearchMatch(minimap, mark)
+	local camera = minimap:getCameraPosition()
+	if not camera or not mark or mark:isDestroyed() then
+		return
+	end
+
+	local target = mark.pos
+	if not freeView then
+		Cyclopedia.toggleFreeView()
+	end
+	minimap:setCameraPosition(camera)
+	local x, y = camera.x, camera.y
+	local dx, dy = target.x - x, target.y - y
+	local options = modules.client_options
+	local duration = options and tonumber(options.getOption('flyToMarkDuration')) or 500
+	duration = math.max(300, math.min(5000, duration))
+	local started = g_clock.millis()
+
+	local function animate()
+		markFlightEvent = nil
+		if minimap:isDestroyed() or not minimap:isVisible() or mark:isDestroyed() then
+			return
+		end
+
+		local progress = math.min((g_clock.millis() - started) / duration, 1)
+		if progress == 1 or (dx == 0 and dy == 0) then
+			minimap:setCameraPosition({ x = target.x, y = target.y, z = camera.z })
+			Cyclopedia.setVirtualFloor(target.z)
+			return
+		end
+
+		local eased = progress * progress * (3 - 2 * progress)
+		local nextX, nextY = camera.x + dx * eased, camera.y + dy * eased
+		local scale = minimap:getScale()
+		local panX = math.floor((x - nextX) * scale + 0.5)
+		local panY = math.floor((y - nextY) * scale + 0.5)
+		if panX ~= 0 or panY ~= 0 then
+			minimap:panByPixels(panX, panY)
+			x, y = x - panX / scale, y - panY / scale
+		end
+		markFlightEvent = scheduleEvent(animate, 16)
+	end
+	animate()
+end
+
+function Cyclopedia.updateMarkFlight()
+	stopMarkFlight()
+	local display = getDisplayBase()
+	local minimap = getCyclopediaMinimap()
+	if not display or not minimap or minimap.markSearch == '' or not display.flyToMark:isChecked() then
+		return
+	end
+
+	markFlightEvent = scheduleEvent(function()
+		markFlightEvent = nil
+		if not minimap:isDestroyed() and minimap:isVisible() then
+			local first = markSearchResults[1]
+			if first then
+				flyToSearchMatch(minimap, first.flag)
+			end
+		end
+	end, 300)
+end
+
+function Cyclopedia.onFlyToMarkChange()
+	local display = getDisplayBase()
+	local options = modules.client_options
+	if display and options and not syncingFlyToMarkOption then
+		options.setOption('disableFlyToMark', not display.flyToMark:isChecked())
+	end
+end
+
+function Cyclopedia.syncFlyToMarkOption(disabled)
+	local display = getDisplayBase()
+	if not display then
+		return
+	end
+
+	syncingFlyToMarkOption = true
+	display.flyToMark:setChecked(not disabled)
+	syncingFlyToMarkOption = false
+	Cyclopedia.updateMarkFlight()
+end
+
+function Cyclopedia.searchMapMarks(text)
+	local minimap = getCyclopediaMinimap()
+	if minimap then
+		local previousQuery = minimap.markSearch
+		minimap:setMarkSearch(text)
+		if minimap.markSearch ~= previousQuery then
+			markSearchOrigin = minimap:getCameraPosition()
+			currentSearchMark = nil
+		end
+		refreshMarkSearchResults(minimap)
+		if minimap.markSearch ~= previousQuery then
+			Cyclopedia.updateMarkFlight()
+		end
+	end
+end
+
+local function flyToNextSearchMark()
+	local minimap = getCyclopediaMinimap()
+	if not minimap or minimap.markSearch == '' then
+		return false
+	end
+
+	refreshMarkSearchResults(minimap)
+	if #markSearchResults == 0 then
+		return true
+	end
+
+	local nextIndex = 1
+	for i, match in ipairs(markSearchResults) do
+		if match.flag == currentSearchMark then
+			nextIndex = i % #markSearchResults + 1
+			break
+		end
+	end
+	stopMarkFlight()
+	currentSearchMark = markSearchResults[nextIndex].flag
+	flyToSearchMatch(minimap, currentSearchMark)
+	return true
 end
 
 function Cyclopedia.syncShowAllBox()
@@ -1940,21 +2128,6 @@ function Cyclopedia.syncShowAllBox()
 	updatingMapFlags = false
 end
 
-local function hookCyclopediaMinimapFlags()
-	local minimap = getCyclopediaMinimap()
-
-	if not minimap then
-		return
-	end
-
-	local baseAddFlag = minimap.addFlag
-
-	function minimap:addFlag(pos, icon, description, temporary)
-		baseAddFlag(self, pos, icon, description, temporary)
-		Cyclopedia.applyMapFlagFilter()
-	end
-end
-
 function Cyclopedia.disconnectMapPositionEvent()
 	if mapPositionConnected then
 		disconnect(LocalPlayer, {
@@ -1975,6 +2148,7 @@ function Cyclopedia.centerMapAtPosition(pos, zoomDelta)
 	if not minimapWidget then
 		return false
 	end
+	stopMarkFlight()
 
 	local targetPos = {
 		x = pos.x or 0,
@@ -2046,6 +2220,10 @@ function initMap(contentContainer)
 
 	function UI.onDestroy()
 		Cyclopedia.disconnectMapPositionEvent()
+		stopMarkFlight()
+		markSearchOrigin = nil
+		markSearchResults = {}
+		currentSearchMark = nil
 		removeEvent(mapCenterEvent)
 		mapCenterEvent = nil
 		clearCyclopediaAreaState()
@@ -2067,7 +2245,25 @@ function initMap(contentContainer)
 	mapPositionConnected = true
 
 	Cyclopedia.loadMap()
-	hookCyclopediaMinimapFlags()
+	local options = modules.client_options
+	Cyclopedia.syncFlyToMarkOption(options and options.getOption('disableFlyToMark'))
+	local display = getDisplayBase()
+	if display then
+		g_keyboard.bindKeyDown('Enter', flyToNextSearchMark, display.markSearch)
+	end
+	local minimap = getCyclopediaMinimap()
+	if minimap then
+		minimap.onMarksChanged = refreshMarkSearchResults
+		forEachMapFlagFilterButton(function(button)
+			button:setTooltip(tr('Mark') .. ': ' .. minimap:getMarkName(button:getId()))
+		end)
+		minimap.onUserMarkChange = function(_, icon)
+			local button = getMarkFilterButton(icon)
+			if button and not button:isChecked() then
+				button:setChecked(true)
+			end
+		end
+	end
 
 	local player = g_game.getLocalPlayer()
 
@@ -2218,6 +2414,7 @@ function Cyclopedia.onUpdateCameraPosition()
 end
 
 function Cyclopedia.centerOnPlayer()
+	stopMarkFlight()
 	updateCyclopediaCamera(true)
 end
 
@@ -2247,6 +2444,7 @@ function Cyclopedia.onClickRoseButton(dir)
 	if not minimap then
 		return
 	end
+	stopMarkFlight()
 
 	if dir == "north" then
 		minimap:move(0, 1)
