@@ -5,6 +5,14 @@ MinimapFlag < UIWidget
   focusable: false
   clipping: true
 
+MinimapMarkText < Label
+  font: Verdana Bold-11px-outline
+  text-auto-resize: true
+  margin-left: 9
+  clipping: true
+  phantom: false
+  focusable: false
+
 MinimapCross < UIWidget
   focusable: false
   phantom: true
@@ -232,29 +240,100 @@ MinimapFlagButton < CheckBoxButton
   anchors.left: prev.right
   anchors.top: prev.top
 
+MinimapMarkColorSwatch < CheckBoxButton
+  size: 22 20
+  padding: 0
+  image-source: /images/ui/button-grey-up
+  image-border: 3
+  border-width: 1
+  border-color: #4c4c4c
+  cursor: pointer
+
+  $hover:
+    border-color: #b0b0b0
+
+  $checked:
+    border-color: #f3d46d
+    image-source: /images/ui/button-grey-down
+
+  UIWidget
+    id: sample
+    anchors.fill: parent
+    margin: 3
+    border-width: 1
+    border-color: #191919
+    phantom: true
+    focusable: false
+
 MinimapFlagWindow < MainWindowHigh
   font: $var-cip-font-new
   color: #909090
   text-offset: 0 2
-  size: 285 176
+  size: 285 258
+
+  Label
+    id: mapTextLabel
+    font: $var-cip-font-new
+    color: #c0c0c0
+    !text: tr('Map text')
+    anchors.left: parent.left
+    anchors.top: parent.top
+    margin-top: -7
+    margin-left: -1
+
+  Label
+    id: mapTextCount
+    font: $var-cip-font-new
+    color: #c0c0c0
+    text: 0/10
+    text-align: right
+    anchors.top: mapTextLabel.top
+    anchors.right: parent.right
+
+  TextEdit
+    id: mapText
+    height: 18
+    margin-top: 5
+    anchors.left: parent.left
+    anchors.top: mapTextLabel.bottom
+    anchors.right: parent.right
 
   Label
     id: descriptionLabel
     font: $var-cip-font-new
     color: #c0c0c0
     !text: tr('Enter a short description') .. ':'
-    anchors.left: parent.left
-    anchors.top: parent.top
-    margin-top: -7
-    margin-left: -1
+    anchors.left: mapText.left
+    anchors.top: mapText.bottom
+    margin-top: 7
 
   TextEdit
-    height: 16
     id: description
-    margin-top: 5
-    anchors.left: parent.left
+    height: 16
+    anchors.left: mapText.left
+    anchors.right: mapText.right
     anchors.top: descriptionLabel.bottom
-    anchors.right: parent.right
+    margin-top: 4
+
+  Label
+    id: textColorLabel
+    font: $var-cip-font-new
+    color: #c0c0c0
+    !text: tr('Text color') .. ':'
+    anchors.left: mapText.left
+    anchors.top: description.bottom
+    margin-top: 7
+
+  UIWidget
+    id: textColorPalette
+    height: 20
+    anchors.left: mapText.left
+    anchors.right: mapText.right
+    anchors.top: textColorLabel.bottom
+    margin-top: 4
+    layout:
+      type: horizontalBox
+      spacing: 4
 
   Label
     id: flagLabel
@@ -262,8 +341,8 @@ MinimapFlagWindow < MainWindowHigh
     color: #c0c0c0
     !text: tr('Select a type') .. ':'
     anchors.left: parent.left
-    anchors.top: description.bottom
-    margin-top: 11 
+    anchors.top: textColorPalette.bottom
+    margin-top: 9
     margin-left: -1
 
   MinimapFlagButton

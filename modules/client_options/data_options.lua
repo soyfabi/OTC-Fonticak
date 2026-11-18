@@ -51,12 +51,29 @@ local function refreshNearbyMinimapPlayers(_value, options, _controller, panels)
     end
 end
 
+local function syncMinimapFlyToMark(disabled)
+    local cyclopedia = modules.game_cyclopedia and modules.game_cyclopedia.Cyclopedia
+    if cyclopedia and cyclopedia.syncFlyToMarkOption then
+        cyclopedia.syncFlyToMarkOption(disabled)
+    end
+end
+
+local function updateFlyToMarkSpeedLabel(value, _options, _controller, panels)
+    local panel = panels.minimapPanel
+    local speed = panel and panel:recursiveGetChildById('flyToMarkDuration')
+    if speed then
+        speed:setText(tr('Fly to Mark Speed: %s ms', value))
+    end
+end
+
 return {
     disableMinimapAnimations = { value = false, action = refreshMinimapPreferences },
     disableMinimapFloorItems = { value = false, action = refreshMinimapPreferences },
     disableMinimapHd = { value = false, action = refreshMinimapPreferences },
     disableMinimapHoverZoom = { value = false, action = refreshMinimapPreferences },
     disableMinimapSmoothZoom = { value = false, action = refreshMinimapPreferences },
+    disableFlyToMark = { value = false, action = syncMinimapFlyToMark },
+    flyToMarkDuration = { value = 500, action = updateFlyToMarkSpeedLabel },
     showNearbyMinimapPlayers = { value = true, action = refreshNearbyMinimapPlayers },
     nearbyMinimapPlayerLimit = { value = 8, action = refreshNearbyMinimapPlayers },
     vsync                             = {
