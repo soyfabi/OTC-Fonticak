@@ -1,4 +1,4 @@
-local minimapsWithMarks = {}
+local minimapsWithMarks = setmetatable({}, { __mode = 'k' })
 local markNames = {
     [0] = 'Check', 'Question', 'Exclamation', 'Star', 'Cross', 'Signal',
     'Mouth', 'Spear', 'Sword', 'Flag', 'Lock', 'Bag', 'Skull', 'Coin',
@@ -20,6 +20,68 @@ function UIMinimap:getMarkName(icon)
     return tr(markNames[tonumber(icon) or icon] or 'Custom')
 end
 
+local platformType = g_window.getPlatformType()
+local markInputUsesUtf8 = platformType == 'ANDROID-EGL' or platformType == 'BROWSER-WEBGL'
+local MARK_TEXT_LIMIT = 10
+local lowercaseAccents = {}
+for code = 192, 222 do
+    if code ~= 215 then
+        if markInputUsesUtf8 then
+            lowercaseAccents[string.char(195, code - 64)] = string.char(195, code - 32)
+        else
+            lowercaseAccents[string.char(code)] = string.char(code + 32)
+        end
+    end
+end
+local uppercaseAccents = markInputUsesUtf8 and '\195[\128-\150\152-\158]' or '[\192-\214\216-\222]'
+
+local function normalizeMarkSearch(text)
+    return text:trim():lower():gsub(uppercaseAccents, lowercaseAccents)
+end
+
+local function limitMapText(text)
+    if not markInputUsesUtf8 then
+        return text:sub(1, MARK_TEXT_LIMIT), math.min(#text, MARK_TEXT_LIMIT)
+    end
+    local count = 0
+    for start in text:gmatch('()[^\128-\191]') do
+        if count == MARK_TEXT_LIMIT then
+            return text:sub(1, start - 1), count
+        end
+        count = count + 1
+    end
+    return text, count
+end
+
+local function updateMapTextCount(field)
+    local input = field:getText()
+    local text, count = limitMapText(input)
+    if text ~= input and not field.limitMarkTextEvent then
+        -- The native text callback can still hold a view of the current input.
+        field.limitMarkTextEvent = addEvent(function()
+            field.limitMarkTextEvent = nil
+            local current = field:getText()
+            local limited = limitMapText(current)
+            if limited ~= current then
+                local cursor = field:getCursorPos()
+                field:setText(limited, true)
+                field:setCursorPos(math.min(cursor, #limited))
+            end
+        end)
+    end
+    field:getParent().mapTextCount:setText(count .. '/' .. MARK_TEXT_LIMIT)
+end
+
+local function markPositionKey(pos)
+    return pos.x .. ':' .. pos.y .. ':' .. pos.z
+end
+
+local function notifyMarksChanged(minimap)
+    if minimap.markSearch ~= '' and minimap.onMarksChanged then
+        minimap:onMarksChanged()
+    end
+end
+
 function UIMinimap:onCreate()
     self.autowalk = true
 end
@@ -31,6 +93,7 @@ function UIMinimap:onSetup()
     self.zoomInWidget = self:getChildById('zoomInButton')
     self.zoomOutWidget = self:getChildById('zoomOutButton')
     self.flags = {}
+    self.flagsByPosition = {}
     self.markSearch = ''
     minimapsWithMarks[self] = true
     self.partyPins = {}
@@ -40,15 +103,11 @@ function UIMinimap:onSetup()
     self.zoomFullmap = 0
     self.onAddAutomapFlag = function(pos, icon, description)
         self:addFlag(pos, icon, description)
-        if self.onMarksChanged then
-            self:onMarksChanged()
-        end
+        notifyMarksChanged(self)
     end
-    self.onRemoveAutomapFlag = function(pos, icon, description)
-        self:removeFlag(pos, icon, description)
-        if self.onMarksChanged then
-            self:onMarksChanged()
-        end
+    self.onRemoveAutomapFlag = function(pos)
+        self:removeFlag(pos)
+        notifyMarksChanged(self)
     end
     connect(g_game, {
         onAddAutomapFlag = self.onAddAutomapFlag,
@@ -78,6 +137,7 @@ function UIMinimap:onDestroy()
     self:closeDeleteAllMarksBox()
     self:clearPartyPins()
     self.flags = {}
+    self.flagsByPosition = {}
 end
 
 function UIMinimap:onVisibilityChange()
@@ -693,7 +753,7 @@ function UIMinimap:save(keepFullscreenZoom)
     g_settings.setNode('Minimap', settings)
 end
 
-local function changeUserMark(source, pos, icon, description, mapText, textColor)
+local function changeUserMark(source, pos, icon, description, mapText, textColor, creating)
     for minimap in pairs(minimapsWithMarks) do
         local flag = minimap:getFlag(pos)
         if not icon then
@@ -701,15 +761,13 @@ local function changeUserMark(source, pos, icon, description, mapText, textColor
                 flag:destroy()
             end
         elseif flag then
-            if not flag.temporary then
+            if not creating and not flag.temporary then
                 minimap:updateFlag(flag, icon, description, mapText, textColor)
             end
         else
             minimap:addFlag(pos, icon, description, false, mapText, textColor)
         end
-        if minimap.onMarksChanged then
-            minimap:onMarksChanged()
-        end
+        notifyMarksChanged(minimap)
     end
     source:save(true)
 end
@@ -732,9 +790,9 @@ local function setFlagHoverSize(flag, size)
         local offset = -math.floor((iconSize - 11) / 2)
         flag:setClipping(iconSize == 11)
         flag:setIconRect({x = offset, y = offset, width = iconSize, height = iconSize})
-    end
-    if flag.mapLabel then
-        flag.mapLabel:setFontScale(1 + (size - 11) / 24)
+        if flag.mapLabel then
+            flag.mapLabel:setFontScale(1 + (iconSize - 11) / 24)
+        end
     end
 end
 
@@ -784,7 +842,9 @@ function UIMinimap:closeDeleteAllMarksBox()
     local box = self.deleteAllMarksBox
     if box then
         self.deleteAllMarksBox = nil
-        box:destroy()
+        if not box:isDestroyed() then
+            box:destroy()
+        end
     end
 end
 
@@ -805,9 +865,7 @@ function UIMinimap:confirmDeleteAllMarks()
                     flag:destroy()
                 end
             end
-            if minimap.onMarksChanged then
-                minimap:onMarksChanged()
-            end
+            notifyMarksChanged(minimap)
         end
         self:save(true)
     end
@@ -834,9 +892,7 @@ local function showFlagContextMenu(minimap, flag, mousePos, mapPos)
             end
             if flag.temporary then
                 flag:destroy()
-                if minimap.onMarksChanged then
-                    minimap:onMarksChanged()
-                end
+                notifyMarksChanged(minimap)
             else
                 changeUserMark(minimap, flag.pos)
             end
@@ -918,7 +974,8 @@ function UIMinimap:addFlag(pos, icon, description, temporary, mapText, textColor
     if not pos or not icon then
         return
     end
-    if self:getFlag(pos) then
+    local key = markPositionKey(pos)
+    if self.flagsByPosition[key] then
         return
     end
 
@@ -935,9 +992,18 @@ function UIMinimap:addFlag(pos, icon, description, temporary, mapText, textColor
             flag.mapLabel:destroy()
         end
         flag.mapLabel = nil
-        table.removevalue(self.flags, flag)
+        self.flagsByPosition[key] = nil
+        local lastIndex = #self.flags
+        local lastFlag = self.flags[lastIndex]
+        if lastFlag ~= flag then
+            self.flags[flag.markIndex] = lastFlag
+            lastFlag.markIndex = flag.markIndex
+        end
+        self.flags[lastIndex] = nil
     end
-    table.insert(self.flags, flag)
+    flag.markIndex = #self.flags + 1
+    self.flags[flag.markIndex] = flag
+    self.flagsByPosition[key] = flag
     self:centerInPosition(flag, pos)
     self:updateFlag(flag, icon, description, mapText, textColor)
 end
@@ -959,7 +1025,12 @@ function UIMinimap:updateFlag(flag, icon, description, mapText, textColor)
         tooltip = tooltip .. '\n' .. flag.description
     end
     flag:setTooltip(tooltip)
-    flag.searchText = table.concat({name, markNames[flag.icon] or '', flag.mapText, flag.description}, '\n'):lower()
+    flag.searchLabel = normalizeMarkSearch(flag.mapText)
+    flag.searchDescription = normalizeMarkSearch(flag.description)
+    flag.searchName = normalizeMarkSearch(name)
+    flag.searchOriginalName = normalizeMarkSearch(markNames[flag.icon] or 'Custom')
+    flag.searchText = table.concat({flag.searchLabel, flag.searchDescription, flag.searchName, flag.searchOriginalName}, '\n')
+    flag.lastSearchQuery = nil
 
     local label = flag.mapLabel
     if flag.mapText ~= '' then
@@ -978,7 +1049,7 @@ function UIMinimap:updateFlag(flag, icon, description, mapText, textColor)
             end
         end
         label:setTooltip(tooltip)
-        label:setFontScale(1 + ((flag.hoverSize or 11) - 11) / 24)
+        label:setFontScale(1 + ((flag.hoverIconSize or 11) - 11) / 24)
         label:setColor(flag.textColor)
         label:setText(flag.mapText)
     elseif label then
@@ -988,10 +1059,29 @@ function UIMinimap:updateFlag(flag, icon, description, mapText, textColor)
     self:updateMarkVisibility(flag, self:getCameraPosition())
 end
 
+function UIMinimap:getMarkMatchRank(flag)
+    local query = self.markSearch
+    if flag.lastSearchQuery ~= query then
+        flag.lastSearchQuery = query
+        flag.searchRank = nil
+        if query ~= '' then
+            if flag.searchLabel == query then
+                flag.searchRank = 0
+            elseif flag.searchDescription == query or flag.searchName == query or flag.searchOriginalName == query then
+                flag.searchRank = 1
+            elseif flag.searchText:find(query, 1, true) then
+                flag.searchRank = 2
+            end
+        end
+    end
+    return flag.searchRank
+end
+
 function UIMinimap:updateMarkVisibility(flag, cameraPos)
     local matches
     if self.markSearch ~= '' then
-        matches = flag.searchText:find(self.markSearch, 1, true) ~= nil
+        -- Searches include every icon type. The icon filter resumes when cleared.
+        matches = self:getMarkMatchRank(flag) ~= nil
     else
         matches = not self.enabledMarkIcons or self.enabledMarkIcons[flag.icon] == true
     end
@@ -1017,7 +1107,7 @@ function UIMinimap:refreshMarkVisibility()
 end
 
 function UIMinimap:setMarkSearch(text)
-    local query = text:trim():lower()
+    local query = normalizeMarkSearch(text)
     if self.markSearch ~= query then
         self.markSearch = query
         self:refreshMarkVisibility()
@@ -1026,7 +1116,9 @@ end
 
 function UIMinimap:setMarkIconFilter(enabledIcons)
     self.enabledMarkIcons = enabledIcons
-    self:refreshMarkVisibility()
+    if self.markSearch == '' then
+        self:refreshMarkVisibility()
+    end
 end
 
 function UIMinimap:onZoomChange(zoom)
@@ -1047,15 +1139,10 @@ function UIMinimap:onZoomChange(zoom)
 end
 
 function UIMinimap:getFlag(pos)
-    for _, flag in pairs(self.flags) do
-        if flag.pos.x == pos.x and flag.pos.y == pos.y and flag.pos.z == pos.z then
-            return flag
-        end
-    end
-    return nil
+    return pos and self.flagsByPosition[markPositionKey(pos)]
 end
 
-function UIMinimap:removeFlag(pos, icon, description)
+function UIMinimap:removeFlag(pos)
     local flag = self:getFlag(pos)
     if flag then
         flag:destroy()
@@ -1191,6 +1278,13 @@ function UIMinimap:createFlagWindow(pos, existingFlag)
 
     local description = self.flagWindow:getChildById('description')
     local mapText = self.flagWindow:getChildById('mapText')
+    mapText:setMaxLength(markInputUsesUtf8 and MARK_TEXT_LIMIT * 4 or MARK_TEXT_LIMIT)
+    mapText.onTextChange = updateMapTextCount
+    mapText.onDestroy = function(field)
+        if field.limitMarkTextEvent then
+            removeEvent(field.limitMarkTextEvent)
+        end
+    end
     local palette = self.flagWindow:getChildById('textColorPalette')
     local okButton = self.flagWindow:getChildById('okButton')
     local cancelButton = self.flagWindow:getChildById('cancelButton')
@@ -1230,18 +1324,21 @@ function UIMinimap:createFlagWindow(pos, existingFlag)
     end
 
     local successFunc = function()
+        if not existingFlag and self:getFlag(pos) then
+            self:destroyFlagWindow()
+            displayInfoBox(tr('Create Mark'), tr('This position already has a mark. Use Edit Mark to change it.'))
+            return
+        end
         if not existingFlag or not existingFlag:isDestroyed() then
             local icon = flagRadioGroup:getSelectedWidget().icon
             local text = description:getText()
-            local label = mapText:getText():trim()
+            local label = limitMapText(mapText:getText():trim())
             local color = colorRadioGroup:getSelectedWidget().textColor
             if existingFlag and existingFlag.temporary then
                 self:updateFlag(existingFlag, icon, text, label, color)
-                if self.onMarksChanged then
-                    self:onMarksChanged()
-                end
+                notifyMarksChanged(self)
             else
-                changeUserMark(self, pos, icon, text, label, color)
+                changeUserMark(self, pos, icon, text, label, color, not existingFlag)
                 if self.onUserMarkChange then
                     self:onUserMarkChange(icon)
                 end

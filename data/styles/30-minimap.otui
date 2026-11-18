@@ -293,12 +293,10 @@ MinimapFlagWindow < MainWindowHigh
   TextEdit
     id: mapText
     height: 18
-    max-length: 10
     margin-top: 5
     anchors.left: parent.left
     anchors.top: mapTextLabel.bottom
     anchors.right: parent.right
-    @onTextChange: self:getParent().mapTextCount:setText(#self:getText() .. '/10')
 
   Label
     id: descriptionLabel
