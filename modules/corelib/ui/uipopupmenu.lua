@@ -80,6 +80,7 @@ function UIPopupMenu:addOption(optionName, optionCallback, shortcut, disabled)
     optionWidget:setEnabled(not disabled)
     -- Fit to content (do not force a large minimum width; that leaves empty space on the right)
     self:setWidth(math.max(self:getWidth(), width))
+    return optionWidget
 end
 
 function UIPopupMenu:addSeparator()

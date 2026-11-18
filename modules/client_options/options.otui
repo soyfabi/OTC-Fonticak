@@ -36,6 +36,11 @@ SpecialConditionLabelSettings < UIWidget
 OptionsQtButton < QtButton
   font: Verdana Bold-11px
 
+OptionsConfigIconButton < OptionsQtButton
+  size: 32 24
+  icon-source: /images/icons/config-actions
+  icon-rect: 6 2 20 20
+
 OptionsLabel < Label
   font: Verdana Bold-11px
   color: #c0c0c0ff
@@ -288,36 +293,31 @@ MainWindow
     margin-left: 10
     margin-bottom: 10
 
-  OptionsQtButton
+  OptionsConfigIconButton
     id: exportConfigButton
-    !text: tr('Export')
+    icon-clip: 0 0 20 20
     !tooltip: tr('Export hotkeys or options to a JSON file\n(saved in configs/export).')
-    size: 60 20
     anchors.left: parent.left
     anchors.bottom: parent.bottom
-    margin-bottom: -8
+    margin-bottom: -10
     @onClick: modules.client_options.showExportConfigMenu()
 
-  OptionsQtButton
+  OptionsConfigIconButton
     id: importConfigButton
-    !text: tr('Import')
+    icon-clip: 20 0 20 20
     !tooltip: tr('Import hotkeys or options from a JSON file\nin configs/export.')
-    size: 60 20
     anchors.left: prev.right
-    anchors.bottom: parent.bottom
+    anchors.verticalCenter: prev.verticalCenter
     margin-left: 4
-    margin-bottom: -8
     @onClick: modules.client_options.showImportConfigMenu()
 
-  OptionsQtButton
+  OptionsConfigIconButton
     id: openConfigDirButton
-    !text: tr('Open Folder')
+    icon-clip: 40 0 20 20
     !tooltip: tr('Open the client data folder where configs are saved.')
-    size: 100 20
     anchors.left: prev.right
-    anchors.bottom: parent.bottom
+    anchors.verticalCenter: prev.verticalCenter
     margin-left: 4
-    margin-bottom: -8
     @onClick: modules.client_options.openConfigFolder()
 
   OptionsQtButton
@@ -326,9 +326,8 @@ MainWindow
     !tooltip: tr('Upload options/hotkeys and get a shareable hash code.')
     size: 95 20
     anchors.left: prev.right
-    anchors.bottom: parent.bottom
+    anchors.verticalCenter: prev.verticalCenter
     margin-left: 4
-    margin-bottom: -8
     @onClick: modules.client_options.showUploadConfigHashMenu()
 
   OptionsQtButton
@@ -337,9 +336,8 @@ MainWindow
     !tooltip: tr('Download options/hotkeys using a hash code.')
     size: 110 20
     anchors.left: prev.right
-    anchors.bottom: parent.bottom
+    anchors.verticalCenter: prev.verticalCenter
     margin-left: 4
-    margin-bottom: -8
     @onClick: modules.client_options.showDownloadConfigHash()
 
   OptionsQtButton
