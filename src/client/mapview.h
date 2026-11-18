@@ -219,7 +219,7 @@ private:
 
     void updateLight();
     void updateViewportDirectionCache();
-    void updateGeometry(const Size& visibleDimension);
+    void updateGeometry(const Size& visibleDimension, bool drawViewportEdge);
     void updateVisibleTiles();
     void updateRect(const Rect& rect);
     void updateViewport(const Otc::Direction dir = Otc::InvalidDirection) { m_viewport = m_viewPortDirection[dir]; }

@@ -16,7 +16,8 @@ local function applyHdGraphics(_value, options, _controller, panels)
     end
 
     local spriteScale = enabled and scale or 1
-    if g_sprites and g_sprites.setScaleFactor and g_sprites.getScaleFactor() ~= spriteScale then
+    if g_sprites and g_sprites.setScaleFactor
+        and (not g_sprites.getScaleFactor or g_sprites.getScaleFactor() ~= spriteScale) then
         g_sprites.setScaleFactor(spriteScale)
         if panels.gameMapPanel then
             panels.gameMapPanel:setAntiAliasingMode(options.antialiasingMode.value)

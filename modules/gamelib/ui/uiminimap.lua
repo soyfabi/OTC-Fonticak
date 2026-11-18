@@ -50,8 +50,7 @@ end
 
 function UIMinimap:onVisibilityChange()
     if not self:isVisible() then
-        self:setMinimapHoverZoom(false)
-        self:finishSmoothZoom()
+        self:finishSmoothZoom(true)
         self:destroyFlagWindow()
     end
     self:updateNearbyPlayerPulse()
@@ -434,15 +433,24 @@ function UIMinimap:setLevelSeparatorIntensity(value)
     self:setFloorSeparatorOpacity(value)
 end
 
-function UIMinimap:finishSmoothZoom()
+function UIMinimap:finishSmoothZoom(resetHover)
+    local targetScale = self._smoothZoomTargetScale
+    if resetHover and self.minimapHoverZoom then
+        self.minimapHoverZoom = false
+        targetScale = 2 ^ self:getZoom()
+    end
+
     if self._smoothZoomEvent then
         removeEvent(self._smoothZoomEvent)
         self._smoothZoomEvent = nil
-        self:setScale(self._smoothZoomTargetScale)
-        self._smoothZoomTargetScale = nil
         if self.setZoomAnimating then
             self:setZoomAnimating(false)
         end
+    end
+
+    self._smoothZoomTargetScale = nil
+    if targetScale then
+        self:setScale(targetScale)
         if self.onSmoothZoomScaleChange then
             self:onSmoothZoomScaleChange(self:getScale())
         end
@@ -458,7 +466,7 @@ function UIMinimap:setMinimapHoverZoom(hovered)
     if hovered then
         local options = modules.client_options
         if (self.fullMapView and not self:isCyclopediaMap())
-            or (options and options.getOption('disableMinimapHoverZoom')) then
+            or (options and options.getOption and options.getOption('disableMinimapHoverZoom')) then
             return
         end
     end
@@ -470,7 +478,7 @@ end
 
 function UIMinimap:applyMinimapPreferences()
     local options = modules.client_options
-    if not options then
+    if not options or not options.getOption then
         return
     end
 
@@ -482,8 +490,7 @@ function UIMinimap:applyMinimapPreferences()
     end
     self:updateNearbyPlayerPulse()
     if self.minimapHoverZoom and options.getOption('disableMinimapHoverZoom') then
-        self:setMinimapHoverZoom(false)
-        self:finishSmoothZoom()
+        self:finishSmoothZoom(true)
     elseif options.getOption('disableMinimapSmoothZoom') then
         self:finishSmoothZoom()
     end
@@ -503,7 +510,7 @@ function UIMinimap:smoothZoomBy(step)
     end
 
     local options = modules.client_options
-    if options and options.getOption('disableMinimapSmoothZoom') then
+    if options and options.getOption and options.getOption('disableMinimapSmoothZoom') then
         self:finishSmoothZoom()
         if not self:setZoom(targetZoom) then
             return false
@@ -531,11 +538,15 @@ function UIMinimap:smoothZoomBy(step)
 end
 
 function UIMinimap:startSmoothZoom(targetScale)
-    self._smoothZoomTargetScale = targetScale
     if self._smoothZoomEvent then
+        self._smoothZoomTargetScale = targetScale
+        return
+    end
+    if self:getScale() == targetScale then
         return
     end
 
+    self._smoothZoomTargetScale = targetScale
     if self.setZoomAnimating then
         self:setZoomAnimating(true)
     end
@@ -590,8 +601,7 @@ function UIMinimap:disableAutoWalk()
 end
 
 function UIMinimap:load()
-    self:setMinimapHoverZoom(false)
-    self:finishSmoothZoom()
+    self:finishSmoothZoom(true)
     local settings = g_settings.getNode('Minimap')
     if settings then
         if settings.flags then

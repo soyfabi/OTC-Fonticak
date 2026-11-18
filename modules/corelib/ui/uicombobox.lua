@@ -141,6 +141,9 @@ function UIComboBox:onMousePress(mousePos, mouseButton)
         x = self:getX(),
         y = self:getY() + self:getHeight()
     })
+    if menu:isDestroyed() then
+        return true
+    end
     connect(menu, {
         onDestroy = function()
             self:setOn(false)

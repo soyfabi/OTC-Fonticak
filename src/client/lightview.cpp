@@ -38,12 +38,15 @@ bool LightView::isEnabled() const { return m_pool->isEnabled(); }
 void LightView::setEnabled(const bool v) { m_pool->setEnable(v); }
 
 void LightView::resize(const Size& size, const uint16_t tileSize) {
-    if (!m_texture || (m_mapSize == size && m_tileSize == tileSize))
+    if (!m_texture)
+        return;
+
+    m_pool->setScaleFactor(static_cast<float>(tileSize) / g_gameConfig.getSpriteSize());
+    if (m_mapSize == size && m_tileSize == tileSize)
         return;
 
     m_mapSize = size;
     m_tileSize = tileSize;
-    m_pool->setScaleFactor(tileSize / g_gameConfig.getSpriteSize());
 
     m_lightData.tiles.resize(size.area());
     m_lightData.lights.clear();

@@ -1232,8 +1232,7 @@ function mapController:onGameEnd()
         fullscreen()
     end
     if minimapWidget and not minimapWidget:isDestroyed() then
-        minimapWidget:setMinimapHoverZoom(false)
-        minimapWidget:finishSmoothZoom()
+        minimapWidget:finishSmoothZoom(true)
         minimapWidget.sidebarFreeView = false
         minimapWidget.sidebarCameraHasPixelOffset = false
         if minimapWidget.setSmoothWalk then
@@ -1309,8 +1308,7 @@ function fullscreen()
         return
     end
 
-    minimapWidget:setMinimapHoverZoom(false)
-    minimapWidget:finishSmoothZoom()
+    minimapWidget:finishSmoothZoom(true)
     if minimapWidget.fullMapView then
         fullscreenWidget = nil
         minimapWidget:setParent(mapController.ui.minimapBorder)
@@ -1339,6 +1337,10 @@ function fullscreen()
     positionMinimapHdButton(minimapWidget, resolveMinimapSide(mapController.ui:getParent()))
     applyMinimapHd(minimapWidget, g_game.isOnline() and g_settings.getBoolean('minimapHd', true))
     refreshMinimapDownloadOverlay()
+    if not minimapWidget.fullMapView and minimapWidget:isEnabled() then
+        local hovered = g_ui.getRootWidget():recursiveGetChildByPos(g_window.getMousePosition(), false)
+        minimapWidget:setMinimapHoverZoom(hovered == minimapWidget)
+    end
 end
 
 function upLayer()

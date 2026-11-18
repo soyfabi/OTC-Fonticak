@@ -603,7 +603,7 @@ void MapView::updateRect(const Rect& rect) {
     }
 }
 
-void MapView::updateGeometry(const Size& visibleDimension)
+void MapView::updateGeometry(const Size& visibleDimension, const bool drawViewportEdge)
 {
     float scaleFactor = m_antiAliasingMode == Otc::ANTIALIASING_SMOOTH_RETRO ? 2.f : 1.f;
 
@@ -611,9 +611,6 @@ void MapView::updateGeometry(const Size& visibleDimension)
 
     const auto optimize = maxAwareRange > 115;
 
-    m_pool->agroup(optimize);
-    m_drawCoveredThings = !optimize;
-    m_multithreading = optimize;
     while (maxAwareRange > 100) {
         maxAwareRange /= 2;
         scaleFactor /= 2;
@@ -621,19 +618,28 @@ void MapView::updateGeometry(const Size& visibleDimension)
 
     const auto& drawDimension = visibleDimension + 3;
     const auto spriteSize = g_gameConfig.getSpriteSize();
-    const auto maxTextureSize = g_graphics.getMaxTextureSize();
+    const auto maxTileSize = g_graphics.getMaxTextureSize() / std::max(drawDimension.width(), drawDimension.height());
     uint16_t tileSize = spriteSize * scaleFactor;
-    auto bufferSize = drawDimension * tileSize;
-    if (scaleFactor > 1.f && std::max(bufferSize.width(), bufferSize.height()) > maxTextureSize) {
+    if (scaleFactor > 1.f && tileSize > maxTileSize) {
         scaleFactor = 1.f;
         tileSize = spriteSize;
-        bufferSize = drawDimension * tileSize;
     }
-    if (std::max(bufferSize.width(), bufferSize.height()) > maxTextureSize) {
+    if (tileSize > maxTileSize && visibleDimension == m_visibleDimension && m_tileSize > 0) {
+        // A sprite-scale change can exceed the limit for the already active viewport.
+        tileSize = m_tileSize;
+        scaleFactor = static_cast<float>(tileSize) / spriteSize;
+    }
+    if (tileSize > maxTileSize) {
         g_logger.traceError("reached max zoom out");
         return;
     }
+    const auto& bufferSize = drawDimension * tileSize;
+    const bool resizeBuffer = m_rectDimension.size() != bufferSize;
 
+    m_pool->agroup(optimize);
+    m_drawCoveredThings = !optimize;
+    m_multithreading = optimize;
+    m_drawViewportEdge = drawViewportEdge;
     m_pool->setScaleFactor(scaleFactor);
     m_posInfo.scaleFactor = scaleFactor;
 
@@ -651,9 +657,11 @@ void MapView::updateGeometry(const Size& visibleDimension)
         m_lightView->resize(lightSize, tileSize);
     }
 
-    g_mainDispatcher.addEvent([this, bufferSize] {
-        m_pool->getFrameBuffer()->resize(bufferSize);
-    });
+    if (resizeBuffer) {
+        g_mainDispatcher.addEvent([this, bufferSize] {
+            m_pool->getFrameBuffer()->resize(bufferSize);
+        });
+    }
 
     const uint8_t left = std::min<uint8_t>(g_map.getAwareRange().left, (m_drawDimension.width() / 2) - 1);
     const uint8_t top = std::min<uint8_t>(g_map.getAwareRange().top, (m_drawDimension.height() / 2) - 1);
@@ -864,15 +872,12 @@ void MapView::setVisibleDimension(const Size& visibleDimension)
     }
 
     const auto& awareRangeSize = Size(g_map.getAwareRange().left * 2, g_map.getAwareRange().top * 2);
+    const bool exceedsAwareRange = visibleDimension.width() > awareRangeSize.width()
+                                || visibleDimension.height() > awareRangeSize.height();
+    if (exceedsAwareRange && m_limitVisibleDimension)
+        return;
 
-    m_drawViewportEdge = m_forceDrawViewportEdge;
-    if (visibleDimension.width() > awareRangeSize.width() || visibleDimension.height() > awareRangeSize.height()) {
-        if (m_limitVisibleDimension)
-            return;
-        m_drawViewportEdge = true;
-    }
-
-    updateGeometry(visibleDimension);
+    updateGeometry(visibleDimension, m_forceDrawViewportEdge || exceedsAwareRange);
 }
 
 void MapView::setFloorViewMode(const Otc::FloorViewMode floorViewMode)
@@ -891,7 +896,7 @@ void MapView::setAntiAliasingMode(const Otc::AntialiasingMode mode)
         m_pool->getFrameBuffer()->setSmooth(mode != Otc::ANTIALIASING_DISABLED);
     });
 
-    updateGeometry(m_visibleDimension);
+    updateGeometry(m_visibleDimension, m_drawViewportEdge);
 }
 
 void MapView::followCreature(const CreaturePtr& creature)
