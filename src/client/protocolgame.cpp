@@ -36,8 +36,6 @@ void ProtocolGame::login(const std::string_view accountName, const std::string_v
 #ifndef __EMSCRIPTEN__
     connect(host, port);
 #else
-    if (port == 7172)
-        port = 443;
     connect(host, port, true);
 #endif
 }

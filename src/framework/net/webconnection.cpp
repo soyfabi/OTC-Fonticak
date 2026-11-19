@@ -100,7 +100,12 @@ void WebConnection::connect(const std::string_view host, uint16_t port, const st
 
     m_pthread = pthread_self();
 
-    const std::string url = prefix + ip + ":" + std::to_string(port);
+    // Local development uses a WebSocket bridge for the game server's TCP ports.
+    const bool localBridge = (ip == "127.0.0.1" || ip == "localhost") && (port == 7171 || port == 7172);
+    const uint16_t websocketPort = gameWorld && port == 7172 ? 443 : port;
+    const std::string url = localBridge
+        ? "ws://127.0.0.1:" + std::to_string(port + 10000)
+        : prefix + ip + ":" + std::to_string(websocketPort);
     EmscriptenWebSocketCreateAttributes attributes =
     {
         url.c_str(),
@@ -232,8 +237,7 @@ void WebConnection::read(const uint16_t size, const RecvCallback& callback, int 
     }
 
     if (m_inputStream.size() < size) {
-        emscripten_thread_sleep(10);
-        g_dispatcher.addEvent(std::move(retry));
+        g_dispatcher.scheduleEvent(std::move(retry), 10);
         return;
     }
 
