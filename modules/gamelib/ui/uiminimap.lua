@@ -152,9 +152,41 @@ end
 function UIMinimap:onCameraPositionChange(cameraPos, oldPosition)
     if not cameraPos or not oldPosition or cameraPos.z ~= oldPosition.z then
         self:refreshMarkVisibility()
+        self:updateDeathMarkVisibility()
     end
     self:updateCrossVisibility()
     self:updateAllPartyPinsVisibility()
+end
+
+function UIMinimap:updateDeathMarkVisibility()
+    local mark = self.deathMark
+    if mark then
+        local camera = self:getCameraPosition()
+        mark:setVisible(camera ~= nil and camera.z == mark.pos.z)
+    end
+end
+
+function UIMinimap:setDeathMark(pos, icon)
+    local mark = self.deathMark
+    if not pos then
+        if mark then
+            mark:destroy()
+            self.deathMark = nil
+        end
+        return
+    end
+
+    if not mark then
+        mark = g_ui.createWidget('MinimapFlag', self)
+        mark:setIcon(icon)
+        mark:setTooltip(tr('Last Death'))
+        self.deathMark = mark
+    end
+
+    mark.pos = pos
+    mark:breakAnchors()
+    self:centerInPosition(mark, pos)
+    self:updateDeathMarkVisibility()
 end
 
 function UIMinimap:isCyclopediaMap()
@@ -987,6 +1019,9 @@ function UIMinimap:addFlag(pos, icon, description, temporary, mapText, textColor
     flag.onMouseRelease = onFlagMouseRelease
     flag.onHoverChange = onFlagHoverChange
     flag.onDestroy = function()
+        if self.onWorldMarkChanged then
+            self:onWorldMarkChanged(flag, true)
+        end
         cancelFlagHoverEvent(flag)
         if flag.mapLabel and not flag.mapLabel:isDestroyed() then
             flag.mapLabel:destroy()
@@ -1014,10 +1049,10 @@ function UIMinimap:updateFlag(flag, icon, description, mapText, textColor)
     flag.description = description or ''
     flag.mapText = mapText or ''
     flag.textColor = textColor or markTextColors[1][2]
-    if type(flag.icon) == 'number' then
-        flag:setIcon('/images/game/minimap/flag' .. flag.icon)
-    else
-        flag:setIcon(resolvepath(icon, 1))
+    flag.iconSource = type(flag.icon) == 'number' and '/images/game/minimap/flag' .. flag.icon or resolvepath(icon, 1)
+    flag:setIcon(flag.iconSource)
+    if self.onWorldMarkChanged then
+        self:onWorldMarkChanged(flag)
     end
     local name = self:getMarkName(flag.icon)
     local tooltip = tr('Mark') .. ': ' .. name

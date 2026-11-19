@@ -73,6 +73,12 @@ return {
     disableMinimapHoverZoom = { value = false, action = refreshMinimapPreferences },
     disableMinimapSmoothZoom = { value = false, action = refreshMinimapPreferences },
     disableFlyToMark = { value = false, action = syncMinimapFlyToMark },
+    showMarksInGame = { value = true, action = function(enabled)
+        local minimap = modules.game_minimap
+        if minimap and minimap.refreshWorldMarks then
+            minimap.refreshWorldMarks(enabled)
+        end
+    end },
     flyToMarkDuration = { value = 500, action = updateFlyToMarkSpeedLabel },
     showNearbyMinimapPlayers = { value = true, action = refreshNearbyMinimapPlayers },
     nearbyMinimapPlayerLimit = { value = 8, action = refreshNearbyMinimapPlayers },
