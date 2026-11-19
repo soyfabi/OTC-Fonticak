@@ -203,6 +203,13 @@ Rect UIMap::getTileRect(const Position& pos)
 
 Position UIMap::getPosition(const Point& mousePos) { return m_mapView->getPosition(mousePos); }
 
+void UIMap::setMinimapMark(const Position& pos, const std::string& icon, std::string_view text, const Color& color, bool deathMark)
+{
+    m_mapView->setMinimapMark(pos, icon, text, color, deathMark);
+}
+
+void UIMap::clearMinimapMarks() { m_mapView->clearMinimapMarks(); }
+
 std::vector<Rect> UIMap::getSpeechTextRects()
 {
     std::vector<Rect> rects;

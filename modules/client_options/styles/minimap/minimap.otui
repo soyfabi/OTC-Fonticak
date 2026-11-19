@@ -106,6 +106,18 @@ UIWidget
     height: 22
 
     OptionCheckBoxMarked
+      id: showMarksInGame
+      !text: tr('Show Marks in Game')
+      !tooltip: tr('Show minimap marks and the last death marker on their tiles in the game view.')
+
+  SmallReversedQtPanel
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.top: prev.bottom
+    margin-top: 7
+    height: 22
+
+    OptionCheckBoxMarked
       id: showNearbyMinimapPlayers
       !text: tr('Show Nearby Players')
       !tooltip: tr('Mark nearby players when the minimap or Cyclopedia is zoomed in. Hover over a marker to see the player name.')

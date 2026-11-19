@@ -2320,6 +2320,10 @@ function Cyclopedia.loadMap()
 		minimapWidget:setSmoothWalk(true)
 	end
 	minimapWidget:load()
+	local minimap = modules.game_minimap
+	if minimap and minimap.refreshDeathMark then
+		minimap.refreshDeathMark(minimapWidget)
+	end
 
 	applyCyclopediaDefaultZoom(minimapWidget)
 end

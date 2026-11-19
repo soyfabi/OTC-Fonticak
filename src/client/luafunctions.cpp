@@ -1269,6 +1269,8 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMap>("getTilePoint", &UIMap::getTilePoint);
     g_lua.bindClassMemberFunction<UIMap>("getSpeechTextRects", &UIMap::getSpeechTextRects);
     g_lua.bindClassMemberFunction<UIMap>("getTileRect", &UIMap::getTileRect);
+    g_lua.bindClassMemberFunction<UIMap>("setMinimapMark", &UIMap::setMinimapMark);
+    g_lua.bindClassMemberFunction<UIMap>("clearMinimapMarks", &UIMap::clearMinimapMarks);
     g_lua.bindClassMemberFunction<UIMap>("getPosition", &UIMap::getPosition);
     g_lua.bindClassMemberFunction<UIMap>("getPositionOffset", &UIMap::getPositionOffset);
     g_lua.bindClassMemberFunction<UIMap>("getTile", &UIMap::getTile);

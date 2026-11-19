@@ -39,7 +39,7 @@ public:
     void draw(const Rect& dest, uint8_t flipDirection) { prepare(dest, Rect(0, 0, getSize()), Color::alpha, flipDirection); draw(); }
 
     void reset() { m_texture = nullptr; }
-    void setSmooth(const bool enabled) { m_smooth = enabled; m_texture = nullptr; }
+    void setSmooth(bool enabled);
 
     bool resize(const Size& size);
     bool isValid() const { return m_texture != nullptr; }

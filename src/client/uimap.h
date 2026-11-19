@@ -75,6 +75,8 @@ public:
     Position getCameraPosition();
     Point getTilePoint(const Position& pos);
     Rect getTileRect(const Position& pos);
+    void setMinimapMark(const Position& pos, const std::string& icon, std::string_view text, const Color& color, bool deathMark);
+    void clearMinimapMarks();
     std::vector<Rect> getSpeechTextRects();
     Position getPosition(const Point& mousePos);
     Point getPositionOffset(const Point& mousePos);
