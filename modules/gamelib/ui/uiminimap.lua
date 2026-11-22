@@ -184,7 +184,6 @@ function UIMinimap:setDeathMark(pos, icon)
     end
 
     mark.pos = pos
-    mark:breakAnchors()
     self:centerInPosition(mark, pos)
     self:updateDeathMarkVisibility()
 end

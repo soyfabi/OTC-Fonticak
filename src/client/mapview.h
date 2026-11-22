@@ -43,7 +43,7 @@ public:
     ~MapView() override;
     void drawForeground(const Rect& rect);
     void setMinimapMark(const Position& pos, const std::string& icon, std::string_view text, const Color& color, bool deathMark);
-    void clearMinimapMarks() { m_minimapMarks.clear(); }
+    void clearMinimapMarks();
     void drawCreatureInformation();
     void preLoad();
 
@@ -209,6 +209,8 @@ private:
 
     void drawMinimapMarks(const Rect& rect);
     std::unordered_map<Position, std::array<std::optional<MinimapMark>, 2>, Position::Hasher> m_minimapMarks;
+    std::vector<Position> m_visibleMinimapMarks;
+    bool m_updateVisibleMinimapMarks{ true };
 
     struct Crosshair
     {

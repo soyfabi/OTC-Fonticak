@@ -402,13 +402,18 @@ void MapView::setMinimapMark(const Position& pos, const std::string& icon, std::
         const auto it = m_minimapMarks.find(pos);
         if (it != m_minimapMarks.end()) {
             it->second[layer].reset();
-            if (!it->second[0] && !it->second[1])
+            if (!it->second[0] && !it->second[1]) {
                 m_minimapMarks.erase(it);
+                m_updateVisibleMinimapMarks = true;
+            }
         }
         return;
     }
 
-    auto& mark = m_minimapMarks[pos][layer].emplace();
+    const auto [it, inserted] = m_minimapMarks.try_emplace(pos);
+    if (inserted)
+        m_updateVisibleMinimapMarks = true;
+    auto& mark = it->second[layer].emplace();
     mark.icon = g_textures.getTexture(icon);
     if (!text.empty()) {
         auto& label = mark.label.emplace();
@@ -421,20 +426,34 @@ void MapView::setMinimapMark(const Position& pos, const std::string& icon, std::
     }
 }
 
+void MapView::clearMinimapMarks()
+{
+    m_minimapMarks.clear();
+    m_visibleMinimapMarks.clear();
+    m_updateVisibleMinimapMarks = true;
+}
+
 void MapView::drawMinimapMarks(const Rect& rect)
 {
     const auto floor = m_posInfo.camera.z;
     if (m_minimapMarks.empty() || floor >= m_floors.size())
         return;
 
+    if (m_updateVisibleMinimapMarks) {
+        m_visibleMinimapMarks.clear();
+        for (const auto& tile : m_floors[floor].cachedVisibleTiles.tiles) {
+            const auto& pos = tile->getPosition();
+            if (m_minimapMarks.contains(pos))
+                m_visibleMinimapMarks.push_back(pos);
+        }
+        m_updateVisibleMinimapMarks = false;
+    }
+    if (m_visibleMinimapMarks.empty())
+        return;
+
     constexpr int iconSize = 16;
     g_drawPool.setClipRect(rect);
-    for (const auto& tile : m_floors[floor].cachedVisibleTiles.tiles) {
-        const auto& pos = tile->getPosition();
-        const auto it = m_minimapMarks.find(pos);
-        if (it == m_minimapMarks.end())
-            continue;
-
+    for (const auto& pos : m_visibleMinimapMarks) {
         auto center = transformPositionTo2D(pos) - m_posInfo.drawOffset + Point(m_tileSize / 2, m_tileSize / 2);
         center.x *= m_posInfo.horizontalStretchFactor;
         center.y *= m_posInfo.verticalStretchFactor;
@@ -442,7 +461,7 @@ void MapView::drawMinimapMarks(const Rect& rect)
         if (!rect.contains(center))
             continue;
 
-        auto& [mark, death] = it->second;
+        auto& [mark, death] = m_minimapMarks.find(pos)->second;
         const int separation = mark && death ? iconSize / 2 + 1 : 0;
         if (mark && mark->icon)
             g_drawPool.addTexturedRect(Rect(center.x - iconSize / 2 - separation, center.y - iconSize / 2, iconSize, iconSize), mark->icon);
@@ -459,7 +478,6 @@ void MapView::drawMinimapMarks(const Rect& rect)
 
 void MapView::drawForeground(const Rect& rect)
 {
-    g_drawPool.scale(1.f);
     drawMinimapMarks(rect);
     g_drawPool.scale(g_app.getStaticTextScale());
     for (const auto& staticText : g_map.getStaticTexts()) {
@@ -510,6 +528,8 @@ void MapView::updateVisibleTiles()
     // there is no tile to render on invalid positions
     if (!m_posInfo.camera.isValid())
         return;
+
+    m_updateVisibleMinimapMarks = true;
 
     // clear current visible tiles cache
     do {
