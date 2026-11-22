@@ -55,6 +55,13 @@ FrameBuffer::~FrameBuffer()
     }
 }
 
+void FrameBuffer::setSmooth(const bool enabled)
+{
+    m_smooth = enabled;
+    if (m_texture)
+        m_texture->setSmooth(enabled);
+}
+
 bool FrameBuffer::resize(const Size& size)
 {
     assert(size.isValid());

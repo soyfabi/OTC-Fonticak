@@ -38,6 +38,7 @@
 #include "framework/core/eventdispatcher.h"
 #include <framework/core/graphicalapplication.h>
 #include "framework/graphics/graphics.h"
+#include "framework/graphics/fontmanager.h"
 #include "framework/graphics/painter.h"
 #include "framework/graphics/shadermanager.h"
 #include "framework/graphics/texturemanager.h"
@@ -391,8 +392,93 @@ void MapView::drawCreatureInformation() {
     }
 }
 
+void MapView::setMinimapMark(const Position& pos, const std::string& icon, std::string_view text, const Color& color, bool deathMark)
+{
+    if (!pos.isMapPosition())
+        return;
+
+    const int layer = deathMark ? 1 : 0;
+    if (icon.empty()) {
+        const auto it = m_minimapMarks.find(pos);
+        if (it != m_minimapMarks.end()) {
+            it->second[layer].reset();
+            if (!it->second[0] && !it->second[1]) {
+                m_minimapMarks.erase(it);
+                m_updateVisibleMinimapMarks = true;
+            }
+        }
+        return;
+    }
+
+    const auto [it, inserted] = m_minimapMarks.try_emplace(pos);
+    if (inserted)
+        m_updateVisibleMinimapMarks = true;
+    auto& mark = it->second[layer].emplace();
+    mark.icon = g_textures.getTexture(icon);
+    if (!text.empty()) {
+        auto& label = mark.label.emplace();
+        if (g_fonts.fontExists("Verdana Bold-11px-outline"))
+            label.setFont(g_fonts.getFont("Verdana Bold-11px-outline"));
+        else
+            label.setFont(g_fonts.getDefaultFont());
+        label.setText(text);
+        mark.color = color;
+    }
+}
+
+void MapView::clearMinimapMarks()
+{
+    m_minimapMarks.clear();
+    m_visibleMinimapMarks.clear();
+    m_updateVisibleMinimapMarks = true;
+}
+
+void MapView::drawMinimapMarks(const Rect& rect)
+{
+    const auto floor = m_posInfo.camera.z;
+    if (m_minimapMarks.empty() || floor >= m_floors.size())
+        return;
+
+    if (m_updateVisibleMinimapMarks) {
+        m_visibleMinimapMarks.clear();
+        for (const auto& tile : m_floors[floor].cachedVisibleTiles.tiles) {
+            const auto& pos = tile->getPosition();
+            if (m_minimapMarks.contains(pos))
+                m_visibleMinimapMarks.push_back(pos);
+        }
+        m_updateVisibleMinimapMarks = false;
+    }
+    if (m_visibleMinimapMarks.empty())
+        return;
+
+    constexpr int iconSize = 16;
+    g_drawPool.setClipRect(rect);
+    for (const auto& pos : m_visibleMinimapMarks) {
+        auto center = transformPositionTo2D(pos) - m_posInfo.drawOffset + Point(m_tileSize / 2, m_tileSize / 2);
+        center.x *= m_posInfo.horizontalStretchFactor;
+        center.y *= m_posInfo.verticalStretchFactor;
+        center += rect.topLeft();
+        if (!rect.contains(center))
+            continue;
+
+        auto& [mark, death] = m_minimapMarks.find(pos)->second;
+        const int separation = mark && death ? iconSize / 2 + 1 : 0;
+        if (mark && mark->icon)
+            g_drawPool.addTexturedRect(Rect(center.x - iconSize / 2 - separation, center.y - iconSize / 2, iconSize, iconSize), mark->icon);
+        if (death && death->icon)
+            g_drawPool.addTexturedRect(Rect(center.x - iconSize / 2 + separation, center.y - iconSize / 2, iconSize, iconSize), death->icon);
+        if (mark && mark->label) {
+            const auto size = mark->label->getTextSize();
+            const Rect labelRect(center.x - size.width() / 2, center.y - iconSize / 2 - size.height() - 2, size.width(), size.height());
+            mark->label->draw(labelRect, mark->color);
+        }
+    }
+    g_drawPool.resetClipRect();
+}
+
 void MapView::drawForeground(const Rect& rect)
 {
+    drawMinimapMarks(rect);
     g_drawPool.scale(g_app.getStaticTextScale());
     for (const auto& staticText : g_map.getStaticTexts()) {
         if (staticText->getMessageMode() == Otc::MessageNone)
@@ -442,6 +528,8 @@ void MapView::updateVisibleTiles()
     // there is no tile to render on invalid positions
     if (!m_posInfo.camera.isValid())
         return;
+
+    m_updateVisibleMinimapMarks = true;
 
     // clear current visible tiles cache
     do {

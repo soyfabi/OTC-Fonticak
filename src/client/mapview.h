@@ -23,13 +23,16 @@
 #pragma once
 #include "declarations.h"
 #include <framework/graphics/declarations.h>
+#include <framework/graphics/cachedtext.h>
 #include <framework/luaengine/luaobject.h>
 
 #include "framework/core/timer.h"
 #include "staticdata.h"
 #include "framework/core/inputevent.h"
 
+#include <array>
 #include <optional>
+#include <unordered_map>
 
  // @bindclass
 class MapView final : public LuaObject
@@ -39,6 +42,8 @@ public:
     MapView();
     ~MapView() override;
     void drawForeground(const Rect& rect);
+    void setMinimapMark(const Position& pos, const std::string& icon, std::string_view text, const Color& color, bool deathMark);
+    void clearMinimapMarks();
     void drawCreatureInformation();
     void preLoad();
 
@@ -194,6 +199,18 @@ private:
         MapObject cachedVisibleTiles;
         Timer fadingTimers;
     };
+
+    struct MinimapMark
+    {
+        TexturePtr icon;
+        std::optional<CachedText> label;
+        Color color;
+    };
+
+    void drawMinimapMarks(const Rect& rect);
+    std::unordered_map<Position, std::array<std::optional<MinimapMark>, 2>, Position::Hasher> m_minimapMarks;
+    std::vector<Position> m_visibleMinimapMarks;
+    bool m_updateVisibleMinimapMarks{ true };
 
     struct Crosshair
     {

@@ -5,6 +5,13 @@ local MINIMAP_FILE = '/minimap.otmm'
 local oldPos = nil
 local fullscreenWidget
 local pendingCreaturePinRefresh
+local deathMark
+local deathMarkKey
+local deathMarkEvent
+local worldMarkMap
+local DEATH_MARK_RADIUS = 3
+local DEATH_MARK_DURATION = 15 * 60
+local DEATH_MARK_ICON = '/images/game/minimap/flag12'
 local virtualFloor = 7
 local currentDayTime = {
     h = 12,
@@ -96,7 +103,109 @@ local function updateSidebarCamera(forceCenter)
     updateSidebarCameraControls(widget)
 end
 
-local function onPositionChange()
+function refreshDeathMark(widget)
+    if widget and not widget:isDestroyed() then
+        widget:setDeathMark(deathMark and deathMark.position, DEATH_MARK_ICON)
+    end
+end
+
+local function updateWorldMark(_, flag, removed)
+    if worldMarkMap then
+        worldMarkMap:setMinimapMark(flag.pos, removed and '' or flag.iconSource, flag.mapText, flag.textColor, false)
+    end
+end
+
+local function clearWorldMarks()
+    if worldMarkMap and not worldMarkMap:isDestroyed() then
+        worldMarkMap:clearMinimapMarks()
+    end
+    worldMarkMap = nil
+end
+
+function refreshWorldMarks(enabled)
+    clearWorldMarks()
+    if not enabled or not g_game.isOnline() or not minimapWidget or minimapWidget:isDestroyed() then
+        return
+    end
+
+    local map = modules.game_interface.getMapPanel()
+    if not map or map:isDestroyed() or not map.setMinimapMark then
+        return
+    end
+
+    worldMarkMap = map
+    for _, flag in ipairs(minimapWidget.flags) do
+        updateWorldMark(minimapWidget, flag)
+    end
+    if deathMark then
+        worldMarkMap:setMinimapMark(deathMark.position, DEATH_MARK_ICON, '', '#ffffff', true)
+    end
+end
+
+local function refreshDeathMarkers()
+    refreshDeathMark(minimapWidget)
+    local cyclopedia = modules.game_cyclopedia
+    if cyclopedia and cyclopedia.getMapMinimapWidget then
+        refreshDeathMark(cyclopedia.getMapMinimapWidget())
+    end
+end
+
+local function setDeathMark(mark)
+    if deathMarkEvent then
+        removeEvent(deathMarkEvent)
+        deathMarkEvent = nil
+    end
+    if worldMarkMap then
+        if deathMark then
+            worldMarkMap:setMinimapMark(deathMark.position, '', '', '#ffffff', true)
+        end
+        if mark then
+            worldMarkMap:setMinimapMark(mark.position, DEATH_MARK_ICON, '', '#ffffff', true)
+        end
+    end
+    deathMark = mark
+    refreshDeathMarkers()
+end
+
+local function saveDeathMark(mark)
+    if deathMarkKey then
+        local marks = g_settings.getNode('MinimapDeathMarks') or {}
+        marks[deathMarkKey] = mark
+        g_settings.setNode('MinimapDeathMarks', marks)
+        g_configs.saveSettings()
+    end
+    setDeathMark(mark)
+end
+
+local function scheduleDeathMarkExpiry()
+    local remaining = deathMark.expiresAt - os.time()
+    if remaining <= 0 then
+        saveDeathMark(nil)
+        return
+    end
+    deathMarkEvent = scheduleEvent(function()
+        deathMarkEvent = nil
+        scheduleDeathMarkExpiry()
+    end, remaining * 1000)
+end
+
+local function onDeath()
+    local player = g_game.getLocalPlayer()
+    local pos = player and player:getPosition()
+    if not deathMarkKey or not pos or pos.x == 65535 or pos.y == 65535 or pos.z > MAX_VIRTUAL_FLOOR then
+        return
+    end
+
+    saveDeathMark({ position = pos, expiresAt = os.time() + DEATH_MARK_DURATION })
+    scheduleDeathMarkExpiry()
+end
+
+local function onPositionChange(_, pos)
+    local target = deathMark and deathMark.position
+    if target and pos and not g_game.isDead() and pos.z == target.z
+        and math.max(math.abs(pos.x - target.x), math.abs(pos.y - target.y)) <= DEATH_MARK_RADIUS then
+        saveDeathMark(nil)
+    end
     updateSidebarCamera(false)
 end
 
@@ -1104,6 +1213,7 @@ function mapController:onInit()
     syncMinimapLayoutAliases(getLayoutRoot(self.ui, false))
     minimapWidget = findMinimapWidget(self.ui)
     if minimapWidget then
+        minimapWidget.onWorldMarkChanged = updateWorldMark
         local baseCameraChange = minimapWidget.onCameraPositionChange
         function minimapWidget.onCameraPositionChange(widget, position, oldPosition)
             baseCameraChange(widget, position, oldPosition)
@@ -1154,7 +1264,8 @@ end
 
 function mapController:onGameStart()
     mapController:registerEvents(g_game, {
-        onChangeWorldTime = onChangeWorldTime
+        onChangeWorldTime = onChangeWorldTime,
+        onDeath = onDeath
     })
 
     mapController:registerEvents(LocalPlayer, {
@@ -1190,6 +1301,20 @@ function mapController:onGameStart()
     -- any other explicitly saved placement.
     local char = g_game.getCharacterName()
     if char and char ~= '' then
+        local world = g_game.getWorldName() or ''
+        deathMarkKey = #world .. '-' .. world .. '-' .. char
+        local marks = g_settings.getNode('MinimapDeathMarks') or {}
+        local mark = marks[deathMarkKey]
+        if mark and mark.position and tonumber(mark.expiresAt) then
+            mark.expiresAt = tonumber(mark.expiresAt)
+            if mark.expiresAt > os.time() then
+                setDeathMark(mark)
+                scheduleDeathMarkExpiry()
+            else
+                saveDeathMark(nil)
+            end
+        end
+
         local settings = g_settings.getNode('CharMiniWindows') or {}
         settings[char] = settings[char] or {}
         local saved = settings[char].mainmappanel or {}
@@ -1222,10 +1347,15 @@ function mapController:onGameStart()
         end
     end)
 
+    local options = modules.client_options
+    refreshWorldMarks(options and options.getOption('showMarksInGame'))
     queueMinimapPartyPinsRefresh()
 end
 
 function mapController:onGameEnd()
+    clearWorldMarks()
+    setDeathMark(nil)
+    deathMarkKey = nil
     removeEvent(pendingCreaturePinRefresh)
     pendingCreaturePinRefresh = nil
     if fullscreenWidget and fullscreenWidget.fullMapView then
@@ -1263,6 +1393,8 @@ function mapController:onGameEnd()
 end
 
 function mapController:onTerminate()
+    clearWorldMarks()
+    setDeathMark(nil)
     refreshMinimapDownloadOverlay(true)
     if pendingCreaturePinRefresh then
         removeEvent(pendingCreaturePinRefresh)
