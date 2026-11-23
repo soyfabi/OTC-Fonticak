@@ -105,6 +105,8 @@ function init()
     end
 end
 
+local resetArcAnims
+
 function terminate()
     resetArcAnims()
     if StatusIconBar and StatusIconBar.terminate then
@@ -205,7 +207,7 @@ local function tweenArc(slot, targetPercent, applyFn, wrap, vital, visible)
     end, wrap, ARC_TWEEN_INTERVAL)
 end
 
-local function resetArcAnims()
+function resetArcAnims()
     for _, slot in pairs(arcAnim) do
         g_effects.cancelValue(slot)
         slot.value = nil

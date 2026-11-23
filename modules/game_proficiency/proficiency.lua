@@ -422,6 +422,8 @@ function init()
     end
 end
 
+local cancelEquippedProficiencyRefreshTimers
+
 function terminate()
     cancelProficiencyButtonInit()
     cancelTopBarProficiencyInit()
@@ -656,7 +658,7 @@ local equippedProficiencyDebounceEvent = nil
 local equippedProficiencyFollowUpEvent = nil
 local lastEquippedProficiencyCacheKey = nil
 
-local function cancelEquippedProficiencyRefreshTimers()
+function cancelEquippedProficiencyRefreshTimers()
     if equippedProficiencyDebounceEvent then
         removeEvent(equippedProficiencyDebounceEvent)
         equippedProficiencyDebounceEvent = nil
