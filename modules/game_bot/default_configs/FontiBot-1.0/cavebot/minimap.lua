@@ -22,7 +22,12 @@ local function bindMinimap(minimap)
   end
   minimap._cavebotBound = true
 
+  local baseMouseRelease = minimap.onMouseRelease
   minimap.onMouseRelease = function(widget, pos, button)
+    if button == 1 and baseMouseRelease and minimap.walkToMapPosition then
+      return baseMouseRelease(widget, pos, button)
+    end
+
     if not minimap.allowNextRelease then return true end
     minimap.allowNextRelease = false
 

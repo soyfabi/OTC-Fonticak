@@ -1072,6 +1072,8 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<LocalPlayer>("isPreWalking", &LocalPlayer::isPreWalking);
     g_lua.bindClassMemberFunction<LocalPlayer>("isSupplyStashAvailable", &LocalPlayer::isSupplyStashAvailable);
     g_lua.bindClassMemberFunction<LocalPlayer>("autoWalk", &LocalPlayer::autoWalk);
+    g_lua.bindClassMemberFunction<LocalPlayer>("autoWalkWithRoute", &LocalPlayer::autoWalkWithRoute);
+    g_lua.bindClassMemberFunction<LocalPlayer>("autoWalkFromMinimap", &LocalPlayer::autoWalkWithRoute);
     g_lua.bindClassMemberFunction<LocalPlayer>("getResourceBalance", &LocalPlayer::getResourceBalance);
     g_lua.bindClassMemberFunction<LocalPlayer>("setResourceBalance", &LocalPlayer::setResourceBalance);
     g_lua.bindClassMemberFunction<LocalPlayer>("getTotalMoney", &LocalPlayer::getTotalMoney);
@@ -1310,6 +1312,7 @@ void Client::registerLuaFunctions()
     g_lua.bindClassMemberFunction<UIMinimap>("setHdAnimations", &UIMinimap::setHdAnimations);
     g_lua.bindClassMemberFunction<UIMinimap>("setShowFloorItems", &UIMinimap::setShowFloorItems);
     g_lua.bindClassMemberFunction<UIMinimap>("setFogOfWar", &UIMinimap::setFogOfWar);
+    g_lua.bindClassMemberFunction<UIMinimap>("setAutoWalkRouteStyle", &UIMinimap::setAutoWalkRouteStyle);
     g_lua.bindClassMemberFunction<UIMinimap>("setSmoothWalk", &UIMinimap::setSmoothWalk);
     g_lua.bindClassMemberFunction<UIMinimap>("floorUp", &UIMinimap::floorUp);
     g_lua.bindClassMemberFunction<UIMinimap>("floorDown", &UIMinimap::floorDown);

@@ -623,6 +623,25 @@ function UIMinimap:setMinimapHoverZoom(hovered)
     self:startSmoothZoom(hovered and scale * MINIMAP_HOVER_SCALE or scale, true)
 end
 
+function UIMinimap:applyAutoWalkRoutePreferences()
+    local options = modules.client_options
+    if not self.setAutoWalkRouteStyle or not options or not options.getOption then
+        return
+    end
+
+    local color = options.getOption('minimapLineColor')
+    if type(color) ~= 'string' or not color:match('^#%x%x%x%x%x%x$') then
+        color = '#3ae4eb'
+    end
+    self:setAutoWalkRouteStyle(options.getOption('showMinimapLine'), color)
+end
+
+function UIMinimap.refreshAutoWalkRoutePreferences()
+    for minimap in pairs(minimapsWithMarks) do
+        minimap:applyAutoWalkRoutePreferences()
+    end
+end
+
 function UIMinimap:applyMinimapPreferences()
     local options = modules.client_options
     if not options or not options.getOption then
@@ -635,6 +654,7 @@ function UIMinimap:applyMinimapPreferences()
     if self.setShowFloorItems then
         self:setShowFloorItems(not options.getOption('disableMinimapFloorItems'))
     end
+    self:applyAutoWalkRoutePreferences()
     self:updateNearbyPlayerPulse()
     if (self.minimapHoverZoom or self.markHoverZoomHeld) and options.getOption('disableMinimapHoverZoom') then
         self:finishSmoothZoom(true)
@@ -943,6 +963,39 @@ local function showFlagContextMenu(minimap, flag, mousePos, mapPos)
     menu:display(mousePos)
 end
 
+function UIMinimap:walkToMapPosition(position)
+    local player = g_game.getLocalPlayer()
+    local playerPosition = player and player:getPosition()
+    if not playerPosition or not position then
+        return false
+    end
+
+    if Position.distance(playerPosition, position) > 250 then
+        modules.game_textmessage.displayStatusMessage(tr('Destination is out of range.'))
+        return false
+    end
+
+    if not self.autowalk then
+        return true
+    end
+
+    if playerPosition.z ~= position.z then
+        modules.game_textmessage.displayFailureMessage(tr('There is no way.'))
+        return false
+    end
+
+    if modules.game_walk then
+        modules.game_walk.stopChasingWhenMoving()
+    end
+    if self.showRouteOnClick then
+        local autoWalk = player.autoWalkWithRoute or player.autoWalkFromMinimap
+        if autoWalk then
+            return autoWalk(player, position)
+        end
+    end
+    return player:autoWalk(position)
+end
+
 local function onFlagMouseRelease(widget, pos, button)
     local minimap = widget:getParent()
     if button == MouseRightButton then
@@ -953,21 +1006,8 @@ local function onFlagMouseRelease(widget, pos, button)
         return false
     end
 
-    local player = g_game.getLocalPlayer()
-    if not player then
-        return false
-    end
-    if Position.distance(player:getPosition(), widget.pos) > 250 then
-        modules.game_textmessage.displayStatusMessage(tr('Destination is out of range.'))
-        return false
-    end
-    if minimap.autowalk then
-        if modules.game_walk then
-            modules.game_walk.stopChasingWhenMoving()
-        end
-        player:autoWalk(widget.pos)
-    end
-    return true
+    minimap.allowNextRelease = false
+    return minimap:walkToMapPosition(widget.pos)
 end
 
 function UIMinimap:setCrossPosition(pos)
@@ -1239,22 +1279,10 @@ function UIMinimap:onMouseRelease(pos, button)
     end
 
     if button == MouseLeftButton then
-        local player = g_game.getLocalPlayer()
         if g_game.getClientVersion() > 1288 and g_keyboard.isCtrlPressed() and g_keyboard.isShiftPressed() then
             return g_game.sendGmTeleport(mapPos)
         end
-        if Position.distance(player:getPosition(), mapPos) > 250 then
-            modules.game_textmessage.displayStatusMessage(tr('Destination is out of range.'))
-            return false
-        end
-
-        if self.autowalk then
-            if modules.game_walk then
-                modules.game_walk.stopChasingWhenMoving()
-            end
-            player:autoWalk(mapPos)
-        end
-        return true
+        return self:walkToMapPosition(mapPos)
     elseif button == MouseRightButton then
         showFlagContextMenu(self, self:getFlag(mapPos), pos, mapPos)
         return true
@@ -1295,6 +1323,8 @@ function UIMinimap:onStyleApply(styleName, styleNode)
     for name, value in pairs(styleNode) do
         if name == 'autowalk' then
             self.autowalk = value
+        elseif name == 'show-route-on-click' then
+            self.showRouteOnClick = value
         end
     end
 end
