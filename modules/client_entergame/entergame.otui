@@ -6,8 +6,147 @@ EnterGameWindow < MainWindow
   text-offset: 0 1
   padding-left: 15
 
-EnterGameButton < Button
-  width: 64
+SavedAccountRow < UIWidget
+  height: 22
+
+  QtButton
+    id: account
+    anchors.left: parent.left
+    anchors.right: passwordSaved.left
+    anchors.verticalCenter: parent.verticalCenter
+    height: 21
+    margin-right: 4
+    padding: 0 2
+    text-align: left
+    text-offset: 5 1
+    image-color: #d7d7d7
+
+    $hover !pressed:
+      image-color: #ffffff
+
+    $on !pressed:
+      image-color: #ffffff
+
+  UIWidget
+    id: passwordSaved
+    anchors.right: pin.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-right: 3
+    size: 8 12
+    image-source: /images/game/wheel/icon-locked
+    !tooltip: tr('Password saved')
+    focusable: false
+    visible: false
+
+  QtButton
+    id: pin
+    anchors.right: remove.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-right: 4
+    size: 22 21
+    padding: 0
+    icon-source: /images/icons/icon-star-inactive
+
+    $on:
+      icon-source: /images/icons/icon-star-active
+
+  QtButton
+    id: remove
+    text: X
+    !tooltip: tr('Remove saved account')
+    anchors.right: parent.right
+    anchors.verticalCenter: parent.verticalCenter
+    size: 22 21
+    padding: 0
+
+EnterGameAccounts < Window
+  !text: tr('Accounts')
+  size: 216 204
+  image-source: /images/ui/popupwindow-rounded
+  draggable: false
+  visible: false
+  padding: 31 10 10 10
+  font: Verdana Bold-11px
+  color: #c0c0c0
+  text-offset: 0 1
+
+  QtCheckBox
+    id: saveAccount
+    !text: tr('Save Account')
+    !tooltip: tr('Save this account after a successful login. The password is stored only if Remember Password is checked.')
+    anchors.left: parent.left
+    anchors.right: renameAccount.left
+    anchors.bottom: parent.bottom
+    margin-right: 3
+    text-offset: 16 0
+    color: #c0c0c0
+    font: Verdana Bold-11px
+
+  QtButton
+    id: renameAccount
+    !text: tr('Rename')
+    anchors.right: parent.right
+    anchors.bottom: parent.bottom
+    margin-bottom: -2
+    size: 1 18
+    padding: 0
+    visible: false
+
+  UIWidget
+    id: accountUndoBar
+    anchors.left: parent.left
+    anchors.right: parent.right
+    anchors.bottom: saveAccount.top
+    height: 1
+    focusable: false
+    visible: false
+
+    Label
+      !text: tr('Account removed')
+      anchors.left: parent.left
+      anchors.right: undo.left
+      anchors.verticalCenter: parent.verticalCenter
+      margin-right: 4
+      phantom: true
+
+    QtButton
+      id: undo
+      !text: tr('Undo')
+      anchors.right: parent.right
+      anchors.verticalCenter: parent.verticalCenter
+      size: 43 19
+      padding: 0
+
+  ScrollablePanel
+    id: accountList
+    phantom: false
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: accountScroll.left
+    anchors.bottom: accountUndoBar.top
+    margin-right: 3
+    margin-bottom: 8
+    vertical-scrollbar: accountScroll
+    layout:
+      type: verticalBox
+      spacing: 3
+
+  VerticalQtScrollBar
+    id: accountScroll
+    anchors.top: parent.top
+    anchors.right: parent.right
+    anchors.bottom: accountUndoBar.top
+    margin-bottom: 8
+    step: 25
+    pixels-scroll: true
+
+  Label
+    id: emptyAccounts
+    !text: tr('No saved accounts')
+    anchors.centerIn: accountList
+    text-auto-resize: true
+    color: #c0c0c0
+    phantom: true
 
 EnterGameWindow
   id: enterGame
@@ -15,6 +154,56 @@ EnterGameWindow
   size: 280 246
   image-source: /images/ui/popupwindow-rounded
   @onEnter: EnterGame.doLogin()
+
+  UIButton
+    id: accountsToggle
+    anchors.left: parent.right
+    anchors.verticalCenter: parent.verticalCenter
+    margin-left: 13
+    margin-top: -10
+    size: 22 86
+    padding: 0
+    overflow: visible
+    focusable: true
+    !tooltip: tr('Tab to Accounts, Enter to open, Up and Down to select, Esc to close')
+    @onClick: EnterGame.showAccounts()
+
+    UIWidget
+      anchors.centerIn: parent
+      margin-left: 1
+      size: 86 22
+      image-source: /images/ui/popupwindow-rounded
+      image-clip: 0 17 236 190
+      image-border: 5
+      image-border-top: 0
+      rotation: -90
+      phantom: true
+
+    Label
+      id: accountTabLabel
+      !text: tr('Account')
+      anchors.centerIn: parent
+      margin-bottom: 7
+      size: 76 18
+      text-align: center
+      rotation: 90
+      phantom: true
+
+    UIWidget
+      id: accountTabArrow
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.bottom: parent.bottom
+      margin-right: 1
+      margin-bottom: 9
+      size: 7 7
+      image-source: /images/ui/icon-arrow7x7-right
+      image-color: #ff6666
+      rotation: 0
+      phantom: true
+
+      $on:
+        image-color: #63df82
+        rotation: 180
 
   Label
     id: emailLabel

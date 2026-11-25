@@ -2,9 +2,12 @@
 
 EnterGame = {}
 
-local loadBox, enterGame, motdWindow, enterGameButton, clientBox
+local loadBox, enterGame, motdWindow, clientBox
+local accountsPanel, savedAccountsDirty, saveAccountOnLogin, saveAccountPassword
+local accountUndoEvent
+local accountContextMenu, accountRenameBox
 local motdEnabled = true
-local twoFactorWindow, hostInfos
+local twoFactorWindow
 local protocolLogin
 
 local function safeDecrypt(text)
@@ -13,6 +16,288 @@ local function safeDecrypt(text)
 	end
 	local ok, res = pcall(g_crypt.decrypt, text)
 	return ok and res or text
+end
+
+local SAVED_ACCOUNTS_SETTING = "login-saved-accounts"
+local PINNED_ACCOUNT_SETTING = "login-pinned-account"
+
+local function splitSavedAccount(entry)
+	-- Existing entries have two base64 fields. The alias is an optional third field.
+	return entry:match("^([^|]+)|([^|]*)|?(.*)$")
+end
+
+local function buildSavedAccount(key, password, alias)
+	local entry = key .. "|" .. password
+	return alias and alias ~= "" and entry .. "|" .. alias or entry
+end
+
+local function removeSavedAccount(entries, key)
+	local removedEntry, removedIndex
+	for index = #entries, 1, -1 do
+		if splitSavedAccount(entries[index]) == key then
+			removedEntry = table.remove(entries, index)
+			removedIndex = index
+		end
+	end
+	return removedEntry, removedIndex
+end
+
+local function clearAccountUndo()
+	removeEvent(accountUndoEvent)
+	accountUndoEvent = nil
+	local bar = accountsPanel:getChildById("accountUndoBar")
+	local button = bar:getChildById("undo")
+	button:setTooltip(nil)
+	button.onClick = nil
+	bar:setHeight(1)
+	bar:hide()
+end
+
+local function showAccountUndo(name, restore)
+	removeEvent(accountUndoEvent)
+	local bar = accountsPanel:getChildById("accountUndoBar")
+	local button = bar:getChildById("undo")
+	button:setTooltip(tr("Restore %s", name))
+	button.onClick = function()
+		clearAccountUndo()
+		restore()
+	end
+	bar:setHeight(24)
+	bar:show()
+	accountUndoEvent = scheduleEvent(clearAccountUndo, 6000)
+end
+
+local function setSavedAccountAlias(key, alias)
+	local entries = g_settings.getList(SAVED_ACCOUNTS_SETTING)
+	for index, entry in ipairs(entries) do
+		local entryKey, password = splitSavedAccount(entry)
+		if entryKey == key then
+			local encryptedAlias = alias ~= "" and g_crypt.encrypt(alias) or ""
+			entries[index] = buildSavedAccount(key, password, encryptedAlias)
+			g_settings.setList(SAVED_ACCOUNTS_SETTING, entries)
+			g_settings.save()
+			return true
+		end
+	end
+	return false
+end
+
+local function setAccountRenameAction(action, name)
+	local button = accountsPanel:getChildById("renameAccount")
+	if not action and not button:isExplicitlyVisible() then
+		return
+	end
+
+	button.onClick = action
+	button:setTooltip(action and tr("Rename %s", name) or nil)
+	button:setWidth(action and 46 or 1)
+	button:setVisible(action ~= nil)
+end
+
+local function saveLoginAccount()
+	if not saveAccountOnLogin or not G.account or G.account == "" then
+		return
+	end
+
+	local entries = g_settings.getList(SAVED_ACCOUNTS_SETTING)
+	local key = g_crypt.encrypt(G.account)
+	local password = saveAccountPassword and G.password and G.password ~= "" and g_crypt.encrypt(G.password) or ""
+	local previousEntry = removeSavedAccount(entries, key)
+	local _, _, alias = splitSavedAccount(previousEntry or "")
+	table.insert(entries, 1, buildSavedAccount(key, password, alias))
+	g_settings.setList(SAVED_ACCOUNTS_SETTING, entries)
+	savedAccountsDirty = true
+	saveAccountOnLogin = false
+end
+
+local function updateAccountPin(row, pinned)
+	local button = row:getChildById("pin")
+	button:setOn(pinned)
+	button:setTooltip(pinned and tr("Unpin account") or tr("Pin account"))
+end
+
+local function restoreAccountRowOrder(list, row)
+	local index = 1
+	for _, other in ipairs(list:getChildren()) do
+		if other.savedAccountOrder < row.savedAccountOrder then
+			index = index + 1
+		end
+	end
+	list:moveChildToIndex(row, index)
+end
+
+local function refreshSavedAccounts()
+	if not savedAccountsDirty then
+		return
+	end
+
+	local list = accountsPanel:getChildById("accountList")
+	local emptyLabel = accountsPanel:getChildById("emptyAccounts")
+	local pinnedKey = g_settings.get(PINNED_ACCOUNT_SETTING)
+	local encryptedEmptyPassword = g_crypt.encrypt("")
+	local pinnedRow
+	setAccountRenameAction(nil)
+	list:destroyChildren()
+
+	for index, entry in ipairs(g_settings.getList(SAVED_ACCOUNTS_SETTING)) do
+		local key, encryptedPassword, encryptedAlias = splitSavedAccount(entry)
+		local name = key and g_crypt.decrypt(key) or ""
+		if name ~= "" then
+			local alias = encryptedAlias ~= "" and g_crypt.decrypt(encryptedAlias) or ""
+			local row = g_ui.createWidget("SavedAccountRow", list)
+			row.savedAccountOrder = index
+			local account = row:getChildById("account")
+			local pin = row:getChildById("pin")
+			row:getChildById("passwordSaved"):setVisible(encryptedPassword ~= "" and encryptedPassword ~= encryptedEmptyPassword)
+			if not pinnedRow and key == pinnedKey then
+				pinnedRow = row
+			end
+			updateAccountPin(row, pinnedRow == row)
+			pin.onClick = function()
+				local previous = pinnedRow
+				if previous then
+					updateAccountPin(previous, false)
+					restoreAccountRowOrder(list, previous)
+				end
+				if previous == row then
+					pinnedRow = nil
+					g_settings.remove(PINNED_ACCOUNT_SETTING)
+				else
+					pinnedRow = row
+					updateAccountPin(row, true)
+					list:moveChildToIndex(row, 1)
+					g_settings.set(PINNED_ACCOUNT_SETTING, key)
+					local scrollbar = accountsPanel:getChildById("accountScroll")
+					scrollbar:setValue(scrollbar:getMinimum())
+				end
+				g_settings.save()
+			end
+			local displayName
+			local function updateAccountLabel()
+				displayName = alias ~= "" and alias or name
+				account:setText(displayName)
+				account:setTooltip(alias ~= "" and alias .. "\n" .. name or name)
+			end
+			updateAccountLabel()
+			local function renameAccount()
+				if accountRenameBox and not accountRenameBox:isDestroyed() then
+					accountRenameBox:destroy()
+				end
+				accountRenameBox = displayInputBox(tr("Rename Account"), tr("Alias (optional):"), function(text)
+					local newAlias = text:match("^%s*(.-)%s*$")
+					if newAlias == alias or not setSavedAccountAlias(key, newAlias) then
+						return
+					end
+					if row:isDestroyed() then
+						savedAccountsDirty = true
+						refreshSavedAccounts()
+						return
+					end
+					alias = newAlias
+					updateAccountLabel()
+					if accountsPanel:getChildById("renameAccount").onClick == renameAccount then
+						setAccountRenameAction(renameAccount, displayName)
+					end
+				end, nil, alias, 40)
+			end
+			connect(account, {
+				onHoverChange = function(_, hovered)
+					if hovered then
+						setAccountRenameAction(renameAccount, displayName)
+					end
+				end
+			})
+			local releaseAccountButton = account.onMouseRelease
+			account.onMouseRelease = function(widget, pos, button)
+				if button ~= MouseRightButton or not widget:containsPoint(pos) then
+					return releaseAccountButton(widget, pos, button)
+				end
+
+				local menu = g_ui.createWidget("PopupMenu")
+				accountContextMenu = menu
+				menu:addOption(tr("Rename"), renameAccount)
+				menu:display(pos)
+				return true
+			end
+			account.onClick = function()
+				local nameEdit = enterGame:getChildById("accountNameTextEdit")
+				local passwordEdit = enterGame:getChildById("accountPasswordTextEdit")
+				nameEdit:setText(name)
+				passwordEdit:setText(g_crypt.decrypt(encryptedPassword))
+				passwordEdit:setCursorPos(-1)
+				accountsPanel:hide()
+				enterGame:focus()
+				passwordEdit:focus()
+			end
+			row:getChildById("remove").onClick = function()
+				local entries = g_settings.getList(SAVED_ACCOUNTS_SETTING)
+				local removed, index = removeSavedAccount(entries, key)
+				if not removed then
+					return
+				end
+				g_settings.setList(SAVED_ACCOUNTS_SETTING, entries)
+				local wasPinned = pinnedRow == row
+				if wasPinned then
+					pinnedRow = nil
+					g_settings.remove(PINNED_ACCOUNT_SETTING)
+				end
+				g_settings.save()
+				setAccountRenameAction(nil)
+				row:destroy()
+				emptyLabel:setVisible(list:getChildCount() == 0)
+
+				showAccountUndo(displayName, function()
+					local current = g_settings.getList(SAVED_ACCOUNTS_SETTING)
+					for _, currentEntry in ipairs(current) do
+						if splitSavedAccount(currentEntry) == key then
+							return
+						end
+					end
+					table.insert(current, math.min(index, #current + 1), removed)
+					g_settings.setList(SAVED_ACCOUNTS_SETTING, current)
+					if wasPinned and not g_settings.exists(PINNED_ACCOUNT_SETTING) then
+						g_settings.set(PINNED_ACCOUNT_SETTING, key)
+					end
+					g_settings.save()
+					savedAccountsDirty = true
+					refreshSavedAccounts()
+				end)
+			end
+		end
+	end
+
+	if pinnedRow then
+		list:moveChildToIndex(pinnedRow, 1)
+	end
+	emptyLabel:setVisible(list:getChildCount() == 0)
+	savedAccountsDirty = false
+end
+
+local function positionAccountsPanel()
+	local parent = enterGame:getParent()
+	local tab = enterGame:getChildById("accountsToggle")
+	local right = parent:getX() + parent:getWidth() - 6
+	local x = tab:getX() + tab:getWidth() + 4
+	local y = enterGame:getY() + math.floor((enterGame:getHeight() - accountsPanel:getHeight()) / 2)
+	local width = math.max(140, math.min(216, right - x))
+	accountsPanel:setWidth(width)
+	accountsPanel:setPosition({ x = math.min(x, right - width), y = y })
+end
+
+function EnterGame.showAccounts()
+	if not accountsPanel or accountsPanel:isVisible() then
+		return
+	end
+
+	positionAccountsPanel()
+	local target = accountsPanel:getPosition()
+	accountsPanel:setPosition({ x = target.x - 22, y = target.y })
+	refreshSavedAccounts()
+	g_effects.fadeIn(accountsPanel, 150)
+	accountsPanel:show()
+	accountsPanel:raise()
+	enterGame:raise()
+	g_effects.moveTo(accountsPanel, target, 150)
 end
 
 local user32 = nil
@@ -176,6 +461,7 @@ local function onCharacterList(protocol, characters, account, otui)
 
 	g_settings.set("httpLogin", httpLogin)
 
+	saveLoginAccount()
 	EnterGame.saveRememberedCredentials(true)
 
 	if loadBox then
@@ -342,10 +628,178 @@ local function updateLabelText()
 	enterGame:getChildById("rememberEmailBox"):setText(tr("Remember Email/Acc. Name"))
 end
 
+local function setupAccountsPanel()
+	local accountsHoverEvent
+	local keyboardMousePosition
+	local selectedAccountRow
+	savedAccountsDirty = true
+	accountsPanel = g_ui.createWidget("EnterGameAccounts", enterGame:getParent())
+	local accountsTab = enterGame:getChildById("accountsToggle")
+	local list = accountsPanel:getChildById("accountList")
+	local accountsTabLabel = accountsTab:getChildById("accountTabLabel")
+	local accountsTabArrow = accountsTab:getChildById("accountTabArrow")
+	accountsTabLabel:setFont(enterGame:getFont())
+	accountsTabLabel:setColor(enterGame:getColor())
+	local function updateTabHighlight()
+		local active = accountsTab:isHovered() or accountsTab:isFocused()
+		accountsTabLabel:setColor(active and "#dedede" or enterGame:getColor())
+	end
+
+	local function selectAccountRow(row)
+		if selectedAccountRow == row then
+			return
+		end
+		if selectedAccountRow and not selectedAccountRow:isDestroyed() then
+			selectedAccountRow:getChildById("account"):setOn(false)
+		end
+		selectedAccountRow = row
+		if row then
+			row:getChildById("account"):setOn(true)
+			list:ensureChildVisible(row)
+		end
+	end
+
+	accountsTab.onKeyPress = function(_, keyCode, modifiers, repeatTicks)
+		if keyCode == KeyTab and (modifiers == KeyboardNoModifier or modifiers == KeyboardShiftModifier) then
+			local editId = modifiers == KeyboardShiftModifier and "accountPasswordTextEdit" or "accountNameTextEdit"
+			enterGame:getChildById(editId):focus()
+			return true
+		end
+		if keyCode == KeyEnter and modifiers == KeyboardNoModifier then
+			if repeatTicks == 0 then
+				EnterGame.showAccounts()
+				keyboardMousePosition = g_window.getMousePosition()
+				accountsPanel:focus()
+				selectAccountRow(list:getChildByIndex(1))
+			end
+			return true
+		end
+	end
+
+	accountsPanel.onKeyPress = function(panel, keyCode, modifiers, repeatTicks)
+		if modifiers ~= KeyboardNoModifier then
+			return false
+		end
+		local row = selectedAccountRow
+		if row and row:isDestroyed() then
+			row = nil
+		end
+		if keyCode == KeyEscape then
+			panel:hide()
+			enterGame:focus()
+			accountsTab:focus()
+			return true
+		elseif keyCode == KeyEnter then
+			if row and repeatTicks == 0 then
+				row:getChildById("account"):onClick()
+			end
+			return true
+		elseif keyCode == KeyUp or keyCode == KeyDown then
+			keyboardMousePosition = g_window.getMousePosition()
+			panel:focus()
+			local count = list:getChildCount()
+			if count > 0 then
+				local step = keyCode == KeyUp and -1 or 1
+				local index = row and list:getChildIndex(row) + step or 1
+				selectAccountRow(list:getChildByIndex(math.max(1, math.min(count, index))))
+			end
+			return true
+		end
+		return false
+	end
+
+	connect(accountsTab, {
+		onFocusChange = updateTabHighlight,
+		onHoverChange = function(_, hovered)
+			updateTabHighlight()
+			if hovered then
+				EnterGame.showAccounts()
+			end
+		end
+	})
+	connect(accountsPanel, {
+		onVisibilityChange = function(panel, visible)
+			accountsTabArrow:setOn(visible)
+			if not visible then
+				setAccountRenameAction(nil)
+				if accountContextMenu and not accountContextMenu:isDestroyed() then
+					accountContextMenu:destroy()
+				end
+				if accountRenameBox and not accountRenameBox:isDestroyed() then
+					accountRenameBox:destroy()
+				end
+				accountContextMenu, accountRenameBox = nil, nil
+				keyboardMousePosition = nil
+				selectAccountRow(nil)
+				removeEvent(accountsHoverEvent)
+				accountsHoverEvent = nil
+				g_effects.cancelMove(panel)
+				g_effects.cancelFade(panel)
+				return
+			end
+
+			accountsHoverEvent = cycleEvent(function()
+				if panel.moveEvent
+					or (accountContextMenu and not accountContextMenu:isDestroyed())
+					or (accountRenameBox and not accountRenameBox:isDestroyed()) then
+					return
+				end
+
+				local mouse = g_window.getMousePosition()
+				if keyboardMousePosition then
+					if panel:isFocused() and mouse.x == keyboardMousePosition.x and mouse.y == keyboardMousePosition.y then
+						return
+					end
+					keyboardMousePosition = nil
+					selectAccountRow(nil)
+				end
+				if panel:containsPoint(mouse) then
+					return
+				end
+				setAccountRenameAction(nil)
+				if accountsTab:containsPoint(mouse) then
+					return
+				end
+
+				local between = mouse.x >= accountsTab:getX() + accountsTab:getWidth()
+					and mouse.x < panel:getX()
+					and mouse.y >= panel:getY()
+					and mouse.y < panel:getY() + panel:getHeight()
+				if not between then
+					panel:hide()
+				end
+			end, 50)
+		end
+	})
+	connect(enterGame, {
+		onVisibilityChange = function(_, visible)
+			if not visible and accountsPanel then
+				accountsPanel:hide()
+			end
+		end,
+		onGeometryChange = function()
+			if accountsPanel and accountsPanel:isVisible() then
+				g_effects.cancelMove(accountsPanel)
+				positionAccountsPanel()
+			end
+		end
+	})
+
+	local loginOnKeyPress = enterGame.onKeyPress
+	enterGame.onKeyPress = function(widget, keyCode, modifiers, repeatTicks)
+		if accountsPanel and accountsPanel:isVisible()
+			and (keyCode == KeyUp or keyCode == KeyDown or keyCode == KeyEscape)
+			and accountsPanel:onKeyPress(keyCode, modifiers, repeatTicks) then
+			return true
+		end
+		return loginOnKeyPress(widget, keyCode, modifiers, repeatTicks)
+	end
+end
+
 function EnterGame.init()
 	enterGame = g_ui.displayUI("entergame")
 	enterGame.baseHeight = enterGame:getHeight()
-
+	setupAccountsPanel()
 	Keybind.new("Misc.", "Change Character", "Ctrl+G", "")
 	Keybind.bind("Misc.", "Change Character", {
 		{
@@ -356,7 +810,6 @@ function EnterGame.init()
 
 	local account = g_settings.get("account")
 	local password = g_settings.get("password")
-	local clientVersion = g_settings.getInteger("client-version")
 
 	EnterGame.setAccountName(account)
 	EnterGame.setPassword(password)
@@ -371,6 +824,7 @@ function EnterGame.init()
 
 	local emailEdit = enterGame:getChildById("accountNameTextEdit")
 	local passwordEdit = enterGame:getChildById("accountPasswordTextEdit")
+	emailEdit:focus()
 	local editsToFix = {
 		"accountNameTextEdit",
 		"accountPasswordTextEdit"
@@ -383,13 +837,20 @@ function EnterGame.init()
 			local originalOnKeyPress = editWidget.onKeyPress
 
 			function editWidget:onKeyPress(keyCode, keyboardModifiers, autoRepeatTicks)
-				if keyCode == KeyTab and (self == emailEdit or self == passwordEdit) then
-					local target = self == emailEdit and passwordEdit or emailEdit
+				if keyCode == KeyTab and (keyboardModifiers == KeyboardNoModifier or keyboardModifiers == KeyboardShiftModifier) then
+					local backwards = keyboardModifiers == KeyboardShiftModifier
+					local toAccounts = (self == emailEdit and backwards) or (self == passwordEdit and not backwards)
+					local target = toAccounts and enterGame:getChildById("accountsToggle")
+						or (self == emailEdit and passwordEdit or emailEdit)
 
 					if target and not target:isDestroyed() then
 						target:focus()
 					end
 
+					return true
+				end
+
+				if keyCode == KeyEnter and autoRepeatTicks > 0 then
 					return true
 				end
 
@@ -539,6 +1000,13 @@ end
 
 function EnterGame.terminate()
 	Keybind.delete("Misc.", "Change Character")
+
+	if accountsPanel then
+		clearAccountUndo()
+		accountsPanel:hide()
+		accountsPanel:destroy()
+		accountsPanel = nil
+	end
 
 	if clientBox then
 		disconnect(clientBox, {
@@ -1219,6 +1687,8 @@ function EnterGame.doLogin()
 	G.account = enterGame:getChildById("accountNameTextEdit"):getText()
 	G.password = enterGame:getChildById("accountPasswordTextEdit"):getText()
 	G.authenticatorToken = ""
+	saveAccountOnLogin = accountsPanel:getChildById("saveAccount"):isChecked()
+	saveAccountPassword = enterGame:getChildById("rememberPasswordBox"):isChecked()
 
 	EnterGame.saveRememberedCredentials(false, false)
 
@@ -1276,7 +1746,6 @@ end
 function EnterGame.setDefaultServer(host, port, protocol)
 	local hostTextEdit = enterGame:getChildById("serverHostTextEdit")
 	local portTextEdit = enterGame:getChildById("serverPortTextEdit")
-	local clientLabel = enterGame:getChildById("clientLabel")
 	local accountTextEdit = enterGame:getChildById("accountNameTextEdit")
 	local passwordTextEdit = enterGame:getChildById("accountPasswordTextEdit")
 
@@ -1291,7 +1760,6 @@ end
 
 function EnterGame.setUniqueServer(host, port, protocol, windowWidth, windowHeight)
 	local clientVersion = tonumber(protocol)
-	local rememberEmailBox = enterGame:getChildById("rememberEmailBox")
 
 	windowWidth = windowWidth or 280
 
