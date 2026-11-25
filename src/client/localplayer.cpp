@@ -202,7 +202,6 @@ void LocalPlayer::stopAutoWalk()
     ++m_autoWalkRequest;
     m_autoWalkDestination = {};
     m_lastAutoWalkPosition = {};
-    m_knownCompletePath = false;
     m_showAutoWalkRoute = false;
     clearAutoWalkRoute();
 

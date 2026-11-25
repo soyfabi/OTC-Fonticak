@@ -623,6 +623,25 @@ function UIMinimap:setMinimapHoverZoom(hovered)
     self:startSmoothZoom(hovered and scale * MINIMAP_HOVER_SCALE or scale, true)
 end
 
+function UIMinimap:applyAutoWalkRoutePreferences()
+    local options = modules.client_options
+    if not self.setAutoWalkRouteStyle or not options or not options.getOption then
+        return
+    end
+
+    local color = options.getOption('minimapLineColor')
+    if type(color) ~= 'string' or not color:match('^#%x%x%x%x%x%x$') then
+        color = '#3ae4eb'
+    end
+    self:setAutoWalkRouteStyle(options.getOption('showMinimapLine'), color)
+end
+
+function UIMinimap.refreshAutoWalkRoutePreferences()
+    for minimap in pairs(minimapsWithMarks) do
+        minimap:applyAutoWalkRoutePreferences()
+    end
+end
+
 function UIMinimap:applyMinimapPreferences()
     local options = modules.client_options
     if not options or not options.getOption then
@@ -635,13 +654,7 @@ function UIMinimap:applyMinimapPreferences()
     if self.setShowFloorItems then
         self:setShowFloorItems(not options.getOption('disableMinimapFloorItems'))
     end
-    if self.setAutoWalkRouteStyle then
-        local color = options.getOption('minimapLineColor')
-        if type(color) ~= 'string' or not color:match('^#%x%x%x%x%x%x$') then
-            color = '#3ae4eb'
-        end
-        self:setAutoWalkRouteStyle(options.getOption('showMinimapLine'), color)
-    end
+    self:applyAutoWalkRoutePreferences()
     self:updateNearbyPlayerPulse()
     if (self.minimapHoverZoom or self.markHoverZoomHeld) and options.getOption('disableMinimapHoverZoom') then
         self:finishSmoothZoom(true)

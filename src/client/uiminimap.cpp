@@ -75,21 +75,22 @@ void UIMinimap::drawSelf(const DrawPoolType drawPane)
     if (!m_layout)
         m_layout = std::make_shared<UIMapAnchorLayout>(static_self_cast<UIWidget>());
 
+    const auto viewport = getPaddingRect();
     const auto offset = getProjectionOffset();
     if (m_satelliteMode && g_satelliteMap.hasChunksForView(m_cameraPosition.z))
-        g_satelliteMap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_floorSeparatorOpacity, offset);
+        g_satelliteMap.draw(viewport, m_cameraPosition, m_scale, m_floorSeparatorOpacity, offset);
     else if (m_hdMode) {
         if (!m_hdCache)
             m_hdCache = std::make_shared<MinimapHdCache>();
-        g_minimap.drawHd(getPaddingRect(), m_cameraPosition, m_scale, m_color, m_hdLive, offset, m_zoomAnimating,
+        g_minimap.drawHd(viewport, m_cameraPosition, m_scale, m_color, m_hdLive, offset, m_zoomAnimating,
                          m_hdAnimations, m_showFloorItems, *m_hdCache);
     } else
-        g_minimap.draw(getPaddingRect(), m_cameraPosition, m_scale, m_color, offset);
+        g_minimap.draw(viewport, m_cameraPosition, m_scale, m_color, offset);
 
     if (m_fogOfWar && g_game.isOnline())
-        g_minimap.drawFog(getPaddingRect(), m_cameraPosition, m_scale, offset);
+        g_minimap.drawFog(viewport, m_cameraPosition, m_scale, offset);
 
-    drawAutoWalkRoute(getPaddingRect(), offset);
+    drawAutoWalkRoute(viewport, offset);
 }
 
 void UIMinimap::drawAutoWalkRoute(const Rect& viewport, const PointF& offset)
@@ -116,15 +117,29 @@ void UIMinimap::drawAutoWalkRoute(const Rect& viewport, const PointF& offset)
         start = MinimapProjection(viewport, m_cameraPosition, m_scale, offset - walkOffset).tileCenter(playerTile);
     }
 
-    std::vector<Point> points{ start };
+    std::vector<Point> points;
     const auto& route = player->getAutoWalkRoute();
     points.reserve(route.size() + 2);
+    points.push_back(start);
     if (playerTileCenter != start)
         points.push_back(playerTileCenter);
     for (const auto& tile : route) {
         const auto point = projection.tileCenter(Point(tile.x, tile.y));
-        if (point != points.back())
-            points.push_back(point);
+        if (point == points.back())
+            continue;
+
+        // A straight run needs only one segment, even when it crosses many tiles.
+        if (points.size() >= 2) {
+            const Point previous = points.back() - points[points.size() - 2];
+            const Point next = point - points.back();
+            const auto cross = int64_t(previous.x) * next.y - int64_t(previous.y) * next.x;
+            const auto dot = int64_t(previous.x) * next.x + int64_t(previous.y) * next.y;
+            if (cross == 0 && dot > 0) {
+                points.back() = point;
+                continue;
+            }
+        }
+        points.push_back(point);
     }
     if (points.size() < 2)
         return;
@@ -174,7 +189,7 @@ void UIMinimap::drawAutoWalkRoute(const Rect& viewport, const PointF& offset)
         };
 
         const float opacity = std::min(distance / fadeLength, 1.f);
-        if (i > 1 && previousDelta.x * delta.y != previousDelta.y * delta.x)
+        if (i > 1 && int64_t(previousDelta.x) * delta.y != int64_t(previousDelta.y) * delta.x)
             addJoin(from, opacity);
 
         if (distance < fadeLength && distance + length > fadeLength) {

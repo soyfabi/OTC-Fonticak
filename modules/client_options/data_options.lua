@@ -56,7 +56,7 @@ local function applyMinimapLineColor(value, _options, _controller, panels)
     if combo then
         combo:setCurrentOptionByData(value, true)
     end
-    refreshMinimapPreferences()
+    UIMinimap.refreshAutoWalkRoutePreferences()
 end
 
 local function syncMinimapFlyToMark(disabled)
@@ -75,7 +75,7 @@ local function updateFlyToMarkSpeedLabel(value, _options, _controller, panels)
 end
 
 return {
-    showMinimapLine = { value = true, action = refreshMinimapPreferences },
+    showMinimapLine = { value = true, action = UIMinimap.refreshAutoWalkRoutePreferences },
     minimapLineColor = { value = '#3ae4eb', action = applyMinimapLineColor },
     disableMinimapAnimations = { value = false, action = refreshMinimapPreferences },
     disableMinimapFloorItems = { value = false, action = refreshMinimapPreferences },

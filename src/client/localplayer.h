@@ -191,7 +191,6 @@ private:
     ticks_t m_walkLockExpiration{ 0 };
 
     bool m_preWalking{ false };
-    bool m_knownCompletePath{ false };
     bool m_premium{ false };
     bool m_known{ false };
     bool m_pending{ false };
