@@ -825,6 +825,7 @@ UIWidget
       draggable: true
       focusable: false
       autowalk: true
+      show-route-on-click: true
       cross: true
       color: black
       @onHoverChange: self:setMinimapHoverZoom(self:isHovered())

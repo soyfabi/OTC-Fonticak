@@ -40,6 +40,12 @@ public:
     {
         m_vertexArray.addTriangle(a, b, c);
     }
+    void addTexturedTriangle(const PointF& a, const PointF& b, const PointF& c,
+                             const PointF& uvA, const PointF& uvB, const PointF& uvC)
+    {
+        m_vertexArray.addTriangle(a, b, c);
+        m_textureCoordArray.addTriangle(uvA, uvB, uvC);
+    }
     void addRect(const Rect& dest)
     {
         m_vertexArray.addRect(dest);

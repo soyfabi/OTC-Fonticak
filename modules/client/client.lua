@@ -4,7 +4,57 @@ if g_sounds then
     musicChannel = g_sounds.getChannel(SoundChannels.Music)
 end
 
+local startupSplash
+local startupSplashEvent
+
+local function closeStartupSplash()
+    if startupSplashEvent then
+        removeEvent(startupSplashEvent)
+        startupSplashEvent = nil
+    end
+
+    if startupSplash then
+        startupSplash:destroy()
+        startupSplash = nil
+    end
+end
+
+local function showStartupSplash()
+    if startupSplash then
+        return
+    end
+
+    startupSplash = g_ui.displayUI('startup_splash')
+    if not startupSplash then
+        return
+    end
+
+    local content = startupSplash:getChildById('splashContent')
+    local ring = content:getChildById('splashRing')
+    local startedAt = g_clock.millis()
+    local fadeInDuration = 260
+    local fadeOutStart = 1200
+    local fadeOutDuration = 300
+    local turnDuration = 1050
+
+    content:setOpacity(0)
+    startupSplashEvent = cycleEvent(function()
+        local elapsed = g_clock.millis() - startedAt
+        if elapsed >= fadeOutStart + fadeOutDuration then
+            closeStartupSplash()
+            return
+        end
+
+        content:setOpacity(math.min(elapsed / fadeInDuration, 1))
+        ring:setRotation((elapsed % turnDuration) * 360 / turnDuration)
+        if elapsed > fadeOutStart then
+            startupSplash:setOpacity(1 - (elapsed - fadeOutStart) / fadeOutDuration)
+        end
+    end, 16)
+end
+
 local function onGameStart()
+    closeStartupSplash()
     if not musicChannel then
         return
     end
@@ -72,6 +122,9 @@ function startup()
         end
     else
         EnterGame.firstShow()
+        if not modules.client_locales.needsStartupLocaleSelection() then
+            showStartupSplash()
+        end
     end
     if g_app.hasUpdater() and g_sounds then
         g_sounds.setAudioEnabled(g_settings.getBoolean('enableAudio', true))
@@ -91,14 +144,16 @@ function init()
 
     if musicChannel then
         g_sounds.preload(musicFilename)
-        connect(g_game, {
-            onGameStart = onGameStart,
-            onGameEnd = onGameEnd
-        })
     end
+    connect(g_game, {
+        onGameStart = onGameStart,
+        onGameEnd = onGameEnd
+    })
 end
 
 function terminate()
+    closeStartupSplash()
+
     if g_app.hasUpdater() then
         disconnect(g_app, {
             onUpdateFinished = startup,
@@ -109,10 +164,8 @@ function terminate()
         })
     end
 
-    if musicChannel then
-        disconnect(g_game, {
-            onGameStart = onGameStart,
-            onGameEnd = onGameEnd
-        })
-    end
+    disconnect(g_game, {
+        onGameStart = onGameStart,
+        onGameEnd = onGameEnd
+    })
 end

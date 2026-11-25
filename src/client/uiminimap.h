@@ -65,6 +65,7 @@ public:
     void setHdAnimations(bool enabled);
     void setShowFloorItems(bool enabled);
     void setFogOfWar(bool enabled);
+    void setAutoWalkRouteStyle(bool visible, const Color& color);
     void setSmoothWalk(bool enabled);
     void updateWalkOffset();
     const Point& getWalkOffset() const { return m_walkOffset; }
@@ -79,6 +80,7 @@ protected:
     void onStyleApply(std::string_view styleName, const OTMLNodePtr& styleNode) override;
 
 private:
+    void drawAutoWalkRoute(const Rect& viewport, const PointF& offset);
     void applyCameraPosition(const Position& pos, const PointF& fraction);
     PointF getProjectionOffset() const;
 
@@ -98,6 +100,10 @@ private:
     bool m_hdAnimations{ true };
     bool m_showFloorItems{ true };
     bool m_fogOfWar{ false };
+    bool m_showAutoWalkRoute{ true };
+    Color m_autoWalkRouteColor{ 58, 228, 235 };
+    TexturePtr m_routeStrokeMask;
+    TexturePtr m_routeJoinMask;
     bool m_zoomAnimating{ false };
     std::shared_ptr<MinimapHdCache> m_hdCache;
 };
