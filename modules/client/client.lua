@@ -32,11 +32,9 @@ local function showStartupSplash()
     local content = startupSplash:getChildById('splashContent')
     local ring = content:getChildById('splashRing')
     local startedAt = g_clock.millis()
-    local fadeInDuration = 260
-    local fadeOutStart = 1200
-    local fadeOutDuration = 300
+    local fadeInDuration, fadeOutStart, fadeOutDuration = 260, 1200, 300
     local turnDuration = 1050
-
+    local fadeInComplete = false
     content:setOpacity(0)
     startupSplashEvent = cycleEvent(function()
         local elapsed = g_clock.millis() - startedAt
@@ -45,7 +43,10 @@ local function showStartupSplash()
             return
         end
 
-        content:setOpacity(math.min(elapsed / fadeInDuration, 1))
+        if not fadeInComplete then
+            fadeInComplete = elapsed >= fadeInDuration
+            content:setOpacity(math.min(elapsed / fadeInDuration, 1))
+        end
         ring:setRotation((elapsed % turnDuration) * 360 / turnDuration)
         if elapsed > fadeOutStart then
             startupSplash:setOpacity(1 - (elapsed - fadeOutStart) / fadeOutDuration)

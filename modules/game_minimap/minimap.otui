@@ -23,8 +23,6 @@ PhantomMiniWindow
 
       Minimap
         id: minimap
-        autowalk: true
-        show-route-on-click: true
         fog-of-war: true
         anchors.fill: parent
         margin: 1

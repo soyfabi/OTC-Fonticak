@@ -31,16 +31,16 @@ public:
 
     ~VertexArray() = default;
 
-    template <typename T>
-    void addTriangle(const TPoint<T>& a, const TPoint<T>& b, const TPoint<T>& c)
+    void addTriangle(const Point& a, const Point& b, const Point& c)
     {
-        const T arr[] = {
+        int arr[] = {
             a.x, a.y,
             b.x, b.y,
             c.x, c.y
         };
 
-        m_buffer.insert(m_buffer.end(), arr, arr + 6);
+        const size_t size = sizeof(arr) / sizeof(int);
+        m_buffer.insert(m_buffer.end(), &arr[0], &arr[size]);
     }
 
     void addRect(const Rect& rect)

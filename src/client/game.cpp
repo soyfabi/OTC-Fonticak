@@ -77,8 +77,6 @@ void Game::resetGameStates()
     m_safeFight = true;
     m_followingCreature = nullptr;
     m_attackingCreature = nullptr;
-    if (m_localPlayer && m_localPlayer->m_showAutoWalkRoute)
-        m_localPlayer->stopAutoWalk();
     m_localPlayer = nullptr;
     m_pingSent = 0;
     m_pingReceived = 0;
@@ -251,8 +249,6 @@ void Game::processDeath(const uint8_t deathType, const uint8_t penality)
 {
     m_dead = true;
     cancelScheduledWalk();
-    if (m_localPlayer->m_showAutoWalkRoute)
-        m_localPlayer->stopAutoWalk();
     m_localPlayer->stopWalk();
 
     g_lua.callGlobalField("g_game", "onDeath", deathType, penality);
@@ -933,13 +929,6 @@ void Game::turn(const Otc::Direction direction)
 }
 
 void Game::stop()
-{
-    if (m_localPlayer && m_localPlayer->m_showAutoWalkRoute)
-        m_localPlayer->stopAutoWalk();
-    sendStop();
-}
-
-void Game::sendStop()
 {
     if (!canPerformGameAction())
         return;

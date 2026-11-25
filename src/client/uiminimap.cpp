@@ -29,36 +29,10 @@
 #include "minimap.h"
 #include "satellitemap.h"
 #include "uimapanchorlayout.h"
-#include "framework/graphics/coordsbuffer.h"
 #include "framework/graphics/drawpoolmanager.h"
-#include "framework/graphics/image.h"
-#include "framework/graphics/texture.h"
 #include "framework/otml/otmlnode.h"
 #include "framework/ui/uilayout.h"
 #include <cmath>
-
-namespace {
-    constexpr int routeMaskSize = 32;
-
-    TexturePtr makeRouteMask(bool round)
-    {
-        auto image = std::make_shared<Image>(Size(routeMaskSize, routeMaskSize));
-        for (int y = 0; y < routeMaskSize; ++y) {
-            const float vertical = y * 2.f / (routeMaskSize - 1) - 1.f;
-            for (int x = 0; x < routeMaskSize; ++x) {
-                const float horizontal = x * 2.f / (routeMaskSize - 1) - 1.f;
-                const float distance = round ? std::hypot(horizontal, vertical) : std::abs(vertical);
-                const float edge = std::clamp((1.f - distance) * 2.f, 0.f, 1.f);
-                const float coverage = edge * edge * (3.f - 2.f * edge);
-                const float fade = round ? 1.f : float(x) / (routeMaskSize - 1);
-                image->setPixel(x, y, Color(1.f, 1.f, 1.f, coverage * fade));
-            }
-        }
-        auto texture = std::make_shared<Texture>(image);
-        texture->setSmooth(true);
-        return texture;
-    }
-}
 
 UIMinimap::~UIMinimap()
 {
@@ -88,117 +62,6 @@ void UIMinimap::drawSelf(const DrawPoolType drawPane)
 
     if (m_fogOfWar && g_game.isOnline())
         g_minimap.drawFog(getPaddingRect(), m_cameraPosition, m_scale, offset);
-
-    drawAutoWalkRoute(getPaddingRect(), offset);
-}
-
-void UIMinimap::drawAutoWalkRoute(const Rect& viewport, const PointF& offset)
-{
-    const auto& player = g_game.getLocalPlayer();
-    if (!m_showAutoWalkRoute || !g_game.isOnline() || !player || player->getAutoWalkRoute().empty())
-        return;
-
-    const Position playerPosition = player->getPosition();
-    if (playerPosition.z != m_cameraPosition.z)
-        return;
-
-    const auto oldClip = g_drawPool.getClipRect();
-    const auto clip = oldClip.isValid() ? viewport.intersection(oldClip) : viewport;
-    if (clip.isEmpty())
-        return;
-
-    const MinimapProjection projection(viewport, m_cameraPosition, m_scale, offset);
-    const Point playerTile(playerPosition.x, playerPosition.y);
-    const Point playerTileCenter = projection.tileCenter(playerTile);
-    Point start = playerTileCenter;
-    if (m_smoothWalk && !isDragging() && playerPosition == m_cameraPosition) {
-        const PointF walkOffset = PointF(m_walkOffset.x, m_walkOffset.y) + m_walkRemainder;
-        start = MinimapProjection(viewport, m_cameraPosition, m_scale, offset - walkOffset).tileCenter(playerTile);
-    }
-
-    std::vector<Point> points{ start };
-    const auto& route = player->getAutoWalkRoute();
-    points.reserve(route.size() + 2);
-    if (playerTileCenter != start)
-        points.push_back(playerTileCenter);
-    for (const auto& tile : route) {
-        const auto point = projection.tileCenter(Point(tile.x, tile.y));
-        if (point != points.back())
-            points.push_back(point);
-    }
-    if (points.size() < 2)
-        return;
-
-    constexpr float fadePixels = 18.f;
-    float fadeLength = 0.f;
-    for (size_t i = 1; i < points.size() && fadeLength < fadePixels; ++i) {
-        const Point delta = points[i] - points[i - 1];
-        fadeLength += std::hypot(float(delta.x), float(delta.y));
-    }
-    fadeLength = std::min(fadeLength, fadePixels);
-
-    if (!m_routeStrokeMask) {
-        m_routeStrokeMask = makeRouteMask(false);
-        m_routeJoinMask = makeRouteMask(true);
-    }
-
-    g_drawPool.setClipRect(clip);
-    constexpr float radius = 2.5f;
-    constexpr float maskStart = .5f;
-    constexpr float maskEnd = routeMaskSize - .5f;
-    auto stroke = std::make_shared<CoordsBuffer>();
-    auto joins = std::make_shared<CoordsBuffer>();
-    const RectF joinSource(maskStart, maskStart, maskEnd - maskStart, maskEnd - maskStart);
-    const auto addJoin = [&](const Point& center, const float opacity) {
-        joins->clear();
-        joins->addRect(RectF(center.x - radius, center.y - radius, radius * 2, radius * 2), joinSource);
-        g_drawPool.addTexturedCoordsBuffer(m_routeJoinMask, joins, Color(m_autoWalkRouteColor, opacity));
-    };
-    float distance = 0.f;
-    Point previousDelta;
-    for (size_t i = 1; i < points.size(); ++i) {
-        const Point& from = points[i - 1];
-        const Point& to = points[i];
-        const Point delta = to - from;
-        const PointF startPoint(from.x, from.y);
-        const PointF endPoint(to.x, to.y);
-        const PointF direction = endPoint - startPoint;
-        const float length = direction.length();
-        const PointF normal = PointF(-direction.y, direction.x) * (radius / length);
-        const auto addSegment = [&](const PointF& a, const PointF& b, const float startOpacity, const float endOpacity) {
-            const float u0 = std::lerp(maskStart, maskEnd, startOpacity);
-            const float u1 = std::lerp(maskStart, maskEnd, endOpacity);
-            const PointF uvA(u0, maskStart), uvB(u0, maskEnd), uvC(u1, maskStart), uvD(u1, maskEnd);
-            stroke->addTexturedTriangle(a + normal, a - normal, b + normal, uvA, uvB, uvC);
-            stroke->addTexturedTriangle(b + normal, a - normal, b - normal, uvC, uvB, uvD);
-        };
-
-        const float opacity = std::min(distance / fadeLength, 1.f);
-        if (i > 1 && previousDelta.x * delta.y != previousDelta.y * delta.x)
-            addJoin(from, opacity);
-
-        if (distance < fadeLength && distance + length > fadeLength) {
-            const PointF fadeEnd = startPoint + direction * ((fadeLength - distance) / length);
-            addSegment(startPoint, fadeEnd, opacity, 1.f);
-            addSegment(fadeEnd, endPoint, 1.f, 1.f);
-        } else {
-            addSegment(startPoint, endPoint, opacity, std::min((distance + length) / fadeLength, 1.f));
-        }
-        distance += length;
-        previousDelta = delta;
-    }
-    addJoin(points.back(), 1.f);
-    g_drawPool.addTexturedCoordsBuffer(m_routeStrokeMask, stroke, m_autoWalkRouteColor);
-    g_drawPool.setClipRect(oldClip);
-}
-
-void UIMinimap::setAutoWalkRouteStyle(bool visible, const Color& color)
-{
-    if (m_showAutoWalkRoute == visible && m_autoWalkRouteColor == color)
-        return;
-    m_showAutoWalkRoute = visible;
-    m_autoWalkRouteColor = color;
-    repaint();
 }
 
 void UIMinimap::setFogOfWar(bool enabled)

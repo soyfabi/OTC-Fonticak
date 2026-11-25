@@ -496,7 +496,6 @@ public:
 
 private:
     friend class LocalPlayer;
-    void sendStop();
     void schedulePendingWalk();
     void setAttackingCreature(const CreaturePtr& creature);
     void setFollowingCreature(const CreaturePtr& creature);

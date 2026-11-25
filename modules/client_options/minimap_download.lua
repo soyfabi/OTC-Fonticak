@@ -82,8 +82,11 @@ function initMinimapAnimationDownload(panel)
         row.button:show()
         row.label:show()
     end
-    -- Pack checks can enumerate and validate thousands of map tiles.
-    -- Initialize the rows here and keep them current through download and uninstall actions.
+    panel.onVisibilityChange = function(_, visible)
+        if visible and rows and not refreshEvent then
+            refresh()
+        end
+    end
     refresh()
 end
 

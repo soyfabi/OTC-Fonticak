@@ -51,14 +51,6 @@ local function refreshNearbyMinimapPlayers(_value, options, _controller, panels)
     end
 end
 
-local function applyMinimapLineColor(value, _options, _controller, panels)
-    local combo = panels.minimapPanel and panels.minimapPanel:recursiveGetChildById('minimapLineColor')
-    if combo then
-        combo:setCurrentOptionByData(value, true)
-    end
-    refreshMinimapPreferences()
-end
-
 local function syncMinimapFlyToMark(disabled)
     local cyclopedia = modules.game_cyclopedia and modules.game_cyclopedia.Cyclopedia
     if cyclopedia and cyclopedia.syncFlyToMarkOption then
@@ -75,8 +67,6 @@ local function updateFlyToMarkSpeedLabel(value, _options, _controller, panels)
 end
 
 return {
-    showMinimapLine = { value = true, action = refreshMinimapPreferences },
-    minimapLineColor = { value = '#3ae4eb', action = applyMinimapLineColor },
     disableMinimapAnimations = { value = false, action = refreshMinimapPreferences },
     disableMinimapFloorItems = { value = false, action = refreshMinimapPreferences },
     disableMinimapHd = { value = false, action = refreshMinimapPreferences },

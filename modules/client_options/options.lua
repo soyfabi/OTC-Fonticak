@@ -434,25 +434,6 @@ local function toggleMute()
 end
 
 local function setupComboBox()
-    local minimapLineColor = panels.minimapPanel:recursiveGetChildById('minimapLineColor')
-    local lineColors = {
-        { 'Turquoise', '#3ae4eb' },
-        { 'Red', '#ff6969' },
-        { 'Blue', '#72b8ff' },
-        { 'Gray', '#b8b8b8' },
-        { 'Yellow', '#ffdf54' },
-        { 'Violet', '#ca91ff' },
-        { 'Green', '#78e56b' },
-        { 'Orange', '#ffa64d' },
-        { 'White', '#ffffff' }
-    }
-    for _, choice in ipairs(lineColors) do
-        minimapLineColor:addOption(tr(choice[1]), choice[2])
-    end
-    minimapLineColor.onOptionChange = function(_, _, color)
-        setOption('minimapLineColor', color)
-    end
-
     local crosshairCombo = panels.interface:recursiveGetChildById('crosshair')
     local graphicsEngineCombobox = panels.graphicsPanel:recursiveGetChildById('graphicsEngine')
     local antialiasingModeCombobox = panels.graphicsPanel:recursiveGetChildById('antialiasingMode')

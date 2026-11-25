@@ -607,8 +607,8 @@ local function sendCyclopediaMapAction(action, areaId, donationAmount)
 
 	local message = OutputMessage.create()
 
-	message:addU8(CYCLOPEDIA_MAP_OPCODE)
-	message:addU8(action)
+	message:addByte(CYCLOPEDIA_MAP_OPCODE)
+	message:addByte(action)
 	message:addU16(areaId)
 
 	if action == CYCLOPEDIA_MAP_ACTION_DONATE then
@@ -908,10 +908,9 @@ local function refreshAreaLabels()
 					label.cyclopediaAreaId = data.id
 
 					function label.onMouseRelease(widget, mousePos, button)
-						if button == MouseLeftButton and widget:containsPoint(mousePos) then
-							minimap.allowNextRelease = false
+						if button == MouseLeftButton then
 							setSelectedArea(widget.cyclopediaAreaId)
-							minimap:walkToMapPosition(minimap:getTilePosition(mousePos))
+
 							return true
 						end
 
@@ -1300,6 +1299,8 @@ local function setupCyclopediaAreas()
 
 				if areaId > 0 then
 					setSelectedArea(areaId)
+
+					return true
 				end
 			end
 

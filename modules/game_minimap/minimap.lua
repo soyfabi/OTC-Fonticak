@@ -1458,7 +1458,6 @@ function fullscreen()
         g_keyboard.bindKeyDown('Escape', fullscreen)
         minimapWidget.fullMapView = true
     end
-    minimapWidget.showRouteOnClick = not minimapWidget.fullMapView
 
     local pos = oldPos or minimapWidget:getCameraPosition()
     oldPos = minimapWidget:getCameraPosition()

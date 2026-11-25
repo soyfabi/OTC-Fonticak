@@ -9,39 +9,6 @@ UIWidget
     height: 22
 
     OptionCheckBoxMarked
-      id: showMinimapLine
-      !text: tr('Show Line on Map')
-      !tooltip: tr('Show the autowalk route on the minimap and Cyclopedia map.')
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-
-    OptionsLabel
-      !text: tr('Line Color')
-      anchors.left: parent.left
-      anchors.verticalCenter: parent.verticalCenter
-      margin-left: 18
-
-    OptionsComboBox
-      id: minimapLineColor
-      anchors.right: parent.right
-      anchors.verticalCenter: parent.verticalCenter
-      margin-right: 3
-      size: 174 18
-      mouse-scroll: false
-
-  SmallReversedQtPanel
-    anchors.left: parent.left
-    anchors.right: parent.right
-    anchors.top: prev.bottom
-    margin-top: 7
-    height: 22
-
-    OptionCheckBoxMarked
       id: disableMinimapAnimations
       !text: tr('Disable Animations')
       !tooltip: tr('Pause water, animated objects, and pulsing player markers in the minimap and Cyclopedia.')

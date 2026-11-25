@@ -1,5 +1,4 @@
 UIWidget
-  id: startupSplash
   anchors.fill: parent
   background-color: #080d17
   focusable: false
@@ -14,7 +13,6 @@ UIWidget
     phantom: true
 
     UIWidget
-      id: splashGlow
       size: 512 384
       anchors.centerIn: parent
       margin-top: -56

@@ -4,7 +4,7 @@ dofile 'neededtranslations'
 local defaultLocaleName = 'en'
 local installedLocales
 local currentLocale
-local needsInitialSelection = false
+local needsInitialSelection
 
 function needsStartupLocaleSelection()
     return needsInitialSelection
@@ -78,11 +78,10 @@ function init()
     installLocales('/locales')
 
     local userLocaleName = g_settings.get('locale', 'false')
-    needsInitialSelection = false
-    if userLocaleName ~= 'false' and setLocale(userLocaleName) then
+    needsInitialSelection = userLocaleName == 'false' or not setLocale(userLocaleName)
+    if not needsInitialSelection then
         pdebug('Using configured locale: ' .. userLocaleName)
     else
-        needsInitialSelection = true
         setLocale(defaultLocaleName)
         if g_app.hasUpdater() then
             connect(g_app, {

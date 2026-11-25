@@ -25,7 +25,6 @@
 #include "player.h"
 #include "percentbaranim.h"
 #include <framework/core/clock.h>
-#include <deque>
 
  // @bindclass
 class LocalPlayer final : public Player
@@ -37,8 +36,6 @@ public:
     void stopAutoWalk();
 
     bool autoWalk(const Position& destination, bool retry = false);
-    bool autoWalkWithRoute(const Position& destination);
-    const std::deque<Position>& getAutoWalkRoute() const { return m_autoWalkRoute; }
     bool canWalk(bool ignoreLock = false);
     ticks_t getWalkDelay(bool ignoreLock = false);
 
@@ -168,9 +165,6 @@ protected:
 
 
 private:
-    bool startAutoWalk(Position destination, bool retry, bool showRoute);
-    void clearAutoWalkRoute();
-
     struct Skill
     {
         uint16_t level{ 0 };
@@ -184,9 +178,6 @@ private:
     Position m_lastPrewalkDestination;
     Position m_lastAutoWalkPosition;
     Position m_autoWalkDestination;
-    std::deque<Position> m_autoWalkRoute;
-    uint32_t m_autoWalkRequest{ 0 };
-    bool m_showAutoWalkRoute{ false };
     ScheduledEventPtr m_autoWalkContinueEvent;
     ticks_t m_walkLockExpiration{ 0 };
 
