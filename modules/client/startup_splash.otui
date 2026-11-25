@@ -1,0 +1,73 @@
+UIWidget
+  id: startupSplash
+  anchors.fill: parent
+  background-color: #080d17
+  focusable: false
+  auto-focus: none
+  phantom: false
+
+  UIWidget
+    id: splashContent
+    size: 260 256
+    anchors.centerIn: parent
+    focusable: false
+    phantom: true
+
+    UIWidget
+      id: splashGlow
+      size: 512 384
+      anchors.centerIn: parent
+      margin-top: -56
+      image-source: /images/startup-glow
+      image-smooth: true
+      focusable: false
+      phantom: true
+
+    UIWidget
+      id: splashEmblem
+      size: 124 124
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: parent.top
+      margin-top: 14
+      image-source: /images/clienticon
+      image-smooth: true
+      focusable: false
+      phantom: true
+
+    Label
+      id: splashTitle
+      size: 260 29
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: splashEmblem.bottom
+      margin-top: 13
+      text: OTC FONTICAK
+      text-align: center
+      ttf-font: martel
+      ttf-font-size: 21
+      color: #f1d08b
+      focusable: false
+      phantom: true
+
+    UIWidget
+      id: splashRing
+      size: 34 34
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: splashTitle.bottom
+      margin-top: 16
+      image-source: /images/startup-ring
+      image-smooth: true
+      focusable: false
+      phantom: true
+
+    Label
+      size: 260 18
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: splashRing.bottom
+      margin-top: 8
+      !text: tr('Loading...')
+      text-align: center
+      ttf-font: Inter-Medium
+      ttf-font-size: 11
+      color: #b4c5dc
+      focusable: false
+      phantom: true
