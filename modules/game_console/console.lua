@@ -156,6 +156,7 @@ communicationWindow = nil
 ownPrivateName = nil
 messageHistory = {}
 currentMessageIndex = 0
+local chatHistoryScope
 chatHistoryRestored = false
 pendingChatHistoryTabs = {}
 ignoreNpcMessages = false
@@ -197,8 +198,10 @@ function consoleController:onInit()
         onRuleViolationCancel = onRuleViolationCancel,
         onRuleViolationLock = onRuleViolationLock,
         onReceiveExivaOptions = onReceiveExivaOptions,
-        onChannelEvent = onChannelEvent
+        onChannelEvent = onChannelEvent,
+        onDeath = saveChatHistory
     })
+    self:registerEvents(g_app, { onExit = saveChatHistory })
     gameBottomPanel = modules.game_interface.getBottomPanel()
     consolePanel = g_ui.loadUI('console', gameBottomPanel)
     consoleTextEdit = consolePanel:getChildById('consoleTextEdit')
@@ -680,7 +683,6 @@ end
 
 function save()
     local settings = {}
-    settings.messageHistory = messageHistory
     settings.wasdMode = consoleToggleChat.isChecked
     settings.showHighlightedUnderline = showHighlightedUnderline
     g_settings.setNode('game_console', settings)
@@ -706,6 +708,36 @@ local function getChatHistoryScope()
     end
 
     return worldName .. '/' .. characterName
+end
+
+local function readChatHistory(scope)
+    local allHistory = g_settings.getNode(CHAT_HISTORY_SETTINGS) or {}
+    local history = allHistory[scope] or {}
+    if type(history.data) == 'string' then
+        local ok, decoded = pcall(json.decode, history.data)
+        history = ok and type(decoded) == 'table' and decoded or {}
+    end
+    history.tabs = history.tabs or {}
+    return history, allHistory
+end
+
+local function writeChatHistory(history, allHistory)
+    allHistory[chatHistoryScope] = { data = json.encode(history) }
+    g_settings.setNode(CHAT_HISTORY_SETTINGS, allHistory)
+    g_settings.save()
+end
+
+local function rememberSentMessage(message)
+    local key = message:lower()
+    for index = #messageHistory, 1, -1 do
+        if messageHistory[index]:lower() == key then
+            table.remove(messageHistory, index)
+        end
+    end
+    table.insert(messageHistory, message)
+    if #messageHistory > MAX_HISTORY then
+        table.remove(messageHistory, 1)
+    end
 end
 
 local function getTabHistoryType(tab)
@@ -734,7 +766,7 @@ local function serializeConsoleBuffer(tab)
     end
 
     local messages = {}
-    for _, label in pairs(consoleBuffer:getChildren()) do
+    for _, label in ipairs(consoleBuffer:getChildren()) do
         table.insert(messages, {
             text = label:getText(),
             color = label.historyColor or label:getColor(),
@@ -756,44 +788,32 @@ local function serializeConsoleBuffer(tab)
 end
 
 function saveChatHistory()
-    if not isChatHistoryEnabled() or not consoleTabBar then
+    if not chatHistoryScope or not isChatHistoryEnabled() or not consoleTabBar then
         return
     end
 
-    local scope = getChatHistoryScope()
-    if not scope then
-        return
-    end
+    local history, allHistory = readChatHistory(chatHistoryScope)
+    history.sent = messageHistory
 
-    local allHistory = g_settings.getNode(CHAT_HISTORY_SETTINGS) or {}
-    local scopeHistory = { tabs = {} }
-
-    for _, tab in pairs(consoleTabBar.tabs) do
-        local tabName = tab:getText()
-        local tabHistory = serializeConsoleBuffer(tab)
-        if tabName and tabHistory and #tabHistory.messages > 0 then
-            scopeHistory.tabs[tabName] = tabHistory
+    for _, group in ipairs({ consoleTabBar.preTabs, consoleTabBar.tabs, consoleTabBar.postTabs }) do
+        for _, tab in ipairs(group) do
+            local tabHistory = serializeConsoleBuffer(tab)
+            history.tabs[tab:getText()] = tabHistory and #tabHistory.messages > 0 and tabHistory or nil
         end
     end
 
-    allHistory[scope] = scopeHistory
-    g_settings.setNode(CHAT_HISTORY_SETTINGS, allHistory)
+    writeChatHistory(history, allHistory)
 end
 
 function clearChatHistoryTab(tabName)
-    if not tabName then
+    if not tabName or not chatHistoryScope then
         return
     end
 
-    local scope = getChatHistoryScope()
-    if not scope then
-        return
-    end
-
-    local allHistory = g_settings.getNode(CHAT_HISTORY_SETTINGS) or {}
-    if allHistory[scope] and allHistory[scope].tabs then
-        allHistory[scope].tabs[tabName] = nil
-        g_settings.setNode(CHAT_HISTORY_SETTINGS, allHistory)
+    local history, allHistory = readChatHistory(chatHistoryScope)
+    if history.tabs[tabName] then
+        history.tabs[tabName] = nil
+        writeChatHistory(history, allHistory)
     end
 end
 
@@ -808,7 +828,7 @@ local function restoreTabMessages(tab, tabHistory)
             colored = entry.coloredData ~= nil,
             restored = true
         }
-        addTabText(entry.text, speaktype, tab, entry.creatureName, {
+        addTabText(tostring(entry.text or ''), speaktype, tab, entry.creatureName, {
             restored = true,
             coloredData = entry.coloredData
         })
@@ -835,37 +855,31 @@ function restorePendingChatHistoryTab(channelId, channelName)
 end
 
 function restoreChatHistory()
-    if chatHistoryRestored or not isChatHistoryEnabled() then
-        return
-    end
-
-    local scope = getChatHistoryScope()
-    if not scope then
+    if chatHistoryRestored or not chatHistoryScope or not isChatHistoryEnabled() then
         return
     end
 
     chatHistoryRestored = true
     pendingChatHistoryTabs = {}
 
-    local allHistory = g_settings.getNode(CHAT_HISTORY_SETTINGS) or {}
-    local scopeHistory = allHistory[scope]
-    if not scopeHistory or not scopeHistory.tabs then
-        return
+    local history = readChatHistory(chatHistoryScope)
+    for _, message in ipairs(history.sent or {}) do
+        if type(message) == 'string' then
+            rememberSentMessage(message)
+        end
     end
 
-    for tabName, tabHistory in pairs(scopeHistory.tabs) do
+    for tabName, tabHistory in pairs(history.tabs) do
         if tabHistory.type == 'default' then
             restoreTabMessages(defaultTab, tabHistory)
         elseif tabHistory.type == 'server' then
             restoreTabMessages(serverTab, tabHistory)
         elseif tabHistory.type == 'npc' then
-            local tab = getTab('NPCs')
-            if tab then
-                tab.npcChat = true
-                restoreTabMessages(tab, tabHistory)
-            end
+            local tab = getTab('NPCs') or addTab('NPCs', false)
+            tab.npcChat = true
+            restoreTabMessages(tab, tabHistory)
         elseif tabHistory.type == 'private' then
-            local tab = addTab(tabName, false)
+            local tab = getTab(tabName) or addTab(tabName, false)
             channels[tabName] = tabName
             tab.npcChat = tabHistory.npcChat
             restoreTabMessages(tab, tabHistory)
@@ -881,7 +895,6 @@ end
 function load()
     local settings = g_settings.getNode('game_console')
     if settings then
-        messageHistory = settings.messageHistory or {}
         consoleToggleChat.isChecked = settings.wasdMode or false
         showHighlightedUnderline = settings.showHighlightedUnderline or false
         if consoleToggleChat.isChecked then
@@ -954,18 +967,12 @@ function clear()
         returnChat()
     end
     -- close channels
-    for _, channelName in pairs(channels) do
-        local tab = consoleTabBar:getTab(channelName)
-        if tab and tab ~= defaultTab and tab ~= serverTab then
+    for _, tab in ipairs(consoleTabBar:getChildren()) do
+        if tab.tabBar == consoleTabBar and tab ~= defaultTab and tab ~= serverTab then
             consoleTabBar:removeTab(tab)
         end
     end
     channels = {}
-
-    local npcTab = consoleTabBar:getTab('NPCs')
-    if npcTab then
-        consoleTabBar:removeTab(npcTab)
-    end
 
     if defaultTab then
         defaultTab.tabPanel:getChildById('consoleBuffer'):destroyChildren()
@@ -2117,12 +2124,7 @@ function sendMessage(message, tab)
 
     -- add new command to history
     currentMessageIndex = 0
-    if #messageHistory == 0 or messageHistory[#messageHistory] ~= originalMessage then
-        table.insert(messageHistory, originalMessage)
-        if #messageHistory > MAX_HISTORY then
-            table.remove(messageHistory, 1)
-        end
-    end
+    rememberSentMessage(originalMessage)
 
     local speaktypedesc
     if (channel or tab == defaultTab) and not chatCommandPrivateReady then
@@ -2814,6 +2816,9 @@ function onClickIgnoreButton()
 end
 
 function consoleController:onGameStart()
+    chatHistoryScope = getChatHistoryScope()
+    messageHistory = {}
+    currentMessageIndex = 0
     consoleTabBar:selectTab(defaultTab)
 
     local clientVersion = g_game.getClientVersion()
@@ -2869,6 +2874,7 @@ end
 
 function consoleController:onGameEnd()
     saveChatHistory()
+    chatHistoryScope = nil
     clear()
     chatHistoryRestored = false
     pendingChatHistoryTabs = {}
