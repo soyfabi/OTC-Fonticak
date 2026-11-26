@@ -22,6 +22,28 @@ signatures alone do not establish that two asset files have the same contents.
 The exporter uses the extended 32-bit 8.60 SPR format with 32-pixel RGB sprites.
 The generator leaves a chunk static if the pixels it would animate differ
 between the reconstructed first frame and the existing HD pack.
+
+## Full global maps
+
+Large maps can be exported one floor at a time from OTBM shards built from
+the same source world. The native base should contain `index.base.txt` and
+the level 1 PNGs under `floor-0` through `floor-15`. Combine it with the
+existing overview and export the animation source with the same assets:
+
+```powershell
+python tools/minimap_hd/merge_detail.py <overview> <native-base> <world.otbm> <items.otb> <new-hd-directory>
+tools/minimap_hd/Export-AnimationSource.ps1 -AstraPath <AstraClient> -AssetsPath <matching-data-directory> -FloorMapsPath <floor-otbm-directory> -ItemsPath <items.otb> -OutputPath <new-animation-source>
+python tools/minimap_hd/build_animation.py <animation-source> <Tibia.spr> <hd-directory> <hd-directory>/animation --jobs 3
+```
+
+Put the combined directory in the client's user data folder as
+`data/minimap_hd`. Use a client build that supports the larger index.
+The v1 animation download belongs to the v1 static map.
+
+**Uninstall** moves a manually installed map or animation pack to a backup
+folder under the client's user `data` directory. Uninstalling the manual HD
+map also moves the animations inside it.
+
 Windows players can install the static HD pack from **Options → Minimap →
 Download Map HD**, then use **Download Animation Map** for the optional
 animations. The client saves the verified ZIPs in its user data directory under

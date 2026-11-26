@@ -134,8 +134,8 @@ function confirmMinimapPackUninstall(animations)
     end
 
     local title = animations and tr('Uninstall Map Animations') or tr('Uninstall HD Map')
-    local message = animations and tr('Remove the downloaded map animations?')
-        or tr('Remove the downloaded HD map? Map animations require the HD map to play.')
+    local message = animations and tr('Uninstall the map animations?')
+        or tr('Uninstall the HD map? Map animations need the HD map to play.')
     local function close()
         uninstallBox:destroy()
         uninstallBox = nil

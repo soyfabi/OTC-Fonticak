@@ -67,6 +67,8 @@ namespace
     constexpr size_t MaxHdDecodes = 4;
     constexpr int HdChunkSize = 16;
     constexpr int HdChunkPixels = 512;
+    constexpr size_t MaxHdIndexEntries = 160000;
+    constexpr uint32_t MaxHdIndexBytes = 12 * 1024 * 1024;
     constexpr float HdAnimationScale = 8.f;
     constexpr int MaxHdAnimationFrames = 16;
     constexpr int MaxHdAnimationPixels = 16 * 1024 * 1024;
@@ -98,10 +100,38 @@ namespace
           DownloadedAnimationDir, 589071865, "9fdfd064965d463b68a8b5f22026f949764dd744bb01f315ba50c87f3ad7b791" }
     };
 
+    bool hasStaticPackForAnimationDownload()
+    {
+        try {
+            const auto file = g_resources.openFile(std::string(HdPackDir) + "index.txt");
+            constexpr std::string_view expectedHeader = "ASTRAHD 1 16 32 1277983123 1277298068 4702";
+            std::array<char, expectedHeader.size() + 1> header{};
+            return file->size() >= header.size() && file->read(header.data(), 1, header.size()) == header.size() &&
+                std::string_view(header.data(), expectedHeader.size()) == expectedHeader &&
+                (header.back() == '\n' || header.back() == '\r');
+        } catch (const std::exception&) {
+            return false;
+        }
+    }
+
     std::filesystem::path archivePath(bool animations)
     {
         return std::filesystem::u8path(g_resources.getWriteDir()) / "data" / "minimap_hd" /
             (animations ? "animations" : "map_hd") / HdPacks[animations].filename;
+    }
+
+    std::filesystem::path manualPackPath(bool animations)
+    {
+        const auto writeDir = g_resources.getWriteDir();
+        if (writeDir.empty())
+            return {};
+
+        auto path = std::filesystem::u8path(writeDir) / "data" / "minimap_hd";
+        if (animations)
+            path /= "animation";
+
+        std::error_code error;
+        return std::filesystem::is_regular_file(path / "index.txt", error) ? path : std::filesystem::path{};
     }
 
 #ifdef WIN32
@@ -223,7 +253,7 @@ namespace
 
         try {
             const auto file = g_resources.openFile(index);
-            if (file->size() == 0 || file->size() > 8 * 1024 * 1024)
+            if (file->size() == 0 || file->size() > MaxHdIndexBytes)
                 return false;
             std::string contents(file->size(), '\0');
             if (file->read(contents.data(), 1, contents.size()) != contents.size())
@@ -242,7 +272,7 @@ namespace
                        !(input >> chunkSize >> pixelsPerTile) || chunkSize != HdChunkSize || pixelsPerTile != 32) {
                 return false;
             }
-            if (!(input >> dat >> spr >> count) || count == 0 || count > 100000)
+            if (!(input >> dat >> spr >> count) || count == 0 || count > MaxHdIndexEntries)
                 return false;
 
             const auto files = g_resources.listDirectoryFiles(directory);
@@ -451,6 +481,8 @@ bool Minimap::mountDownloadedPack(bool animations)
         return true;
     if (g_resources.getWriteDir().empty())
         return false;
+    if (animations && !hasStaticPackForAnimationDownload())
+        return false;
 
     std::error_code error;
     const auto& pack = HdPacks[animations];
@@ -480,7 +512,7 @@ bool Minimap::mountDownloadedPack(bool animations)
 
 bool Minimap::canUninstallPack(bool animations) const
 {
-    return !m_mountedPackPaths[animations].empty();
+    return !m_mountedPackPaths[animations].empty() || !manualPackPath(animations).empty();
 }
 
 std::string Minimap::uninstallPack(bool animations)
@@ -489,8 +521,40 @@ std::string Minimap::uninstallPack(bool animations)
         return "Wait for the current download to finish.";
 
     auto& mountedPath = m_mountedPackPaths[animations];
-    if (mountedPath.empty())
-        return "This pack was not installed by the downloader.";
+    if (mountedPath.empty()) {
+        const auto path = manualPackPath(animations);
+        if (path.empty())
+            return "No removable map pack was found in the client data folder.";
+
+        const auto dataDir = animations ? path.parent_path().parent_path() : path.parent_path();
+        const std::string backupName = animations ? "minimap_hd-animation-backup" : "minimap_hd-backup";
+        auto backup = dataDir / backupName;
+        std::error_code error;
+        for (unsigned suffix = 1; std::filesystem::exists(backup, error); ++suffix)
+            backup = dataDir / (backupName + "-" + std::to_string(suffix));
+        if (error)
+            return "Unable to assign a backup folder for the map pack.";
+
+        hdDecodePool().wait();
+        auto& animationMount = m_mountedPackPaths[true];
+        const bool unmountAnimations = !animations && !animationMount.empty();
+        if (unmountAnimations && !PHYSFS_unmount(animationMount.c_str()))
+            return "The map animations are in use. Try again in a moment.";
+
+        std::filesystem::rename(path, backup, error);
+        if (unmountAnimations)
+            animationMount.clear();
+        if (error) {
+            if (unmountAnimations)
+                mountDownloadedPack(true);
+            return "Unable to move the map pack to its backup folder.";
+        }
+
+        m_reloadHdIndex = true;
+        if (m_downloadingAnimations == animations || !animations)
+            m_packDownloadError.clear();
+        return {};
+    }
 
     const auto path = std::filesystem::u8path(mountedPath);
     if (!PHYSFS_unmount(mountedPath.c_str()))
@@ -529,7 +593,7 @@ std::string Minimap::getPackDownloadStatus(bool animations)
         if (m_packDownloadError.empty() && !mountDownloadedPack(animations))
             m_packDownloadError = "Unable to open the downloaded map pack.";
     }
-    if (canUninstallPack(animations) || hasManualPack(animations))
+    if (!m_mountedPackPaths[animations].empty() || hasManualPack(animations))
         return "installed";
     return m_downloadingAnimations == animations ? m_packDownloadError : std::string{};
 }
@@ -545,18 +609,8 @@ bool Minimap::startPackDownload(bool animations)
             m_packDownloadError = "Install the static HD map before downloading its animations.";
             return false;
         }
-        try {
-            const auto path = std::string(HdPackDir) + "index.txt";
-            const auto file = g_resources.openFile(path);
-            constexpr std::string_view expectedHeader = "ASTRAHD 1 16 32 1277983123 1277298068 ";
-            std::array<char, expectedHeader.size()> header{};
-            if (file->size() < header.size() || file->read(header.data(), 1, header.size()) != header.size() ||
-                std::string_view(header.data(), header.size()) != expectedHeader) {
-                m_packDownloadError = "This animation pack requires a compatible static HD map.";
-                return false;
-            }
-        } catch (const std::exception&) {
-            m_packDownloadError = "Unable to read the static HD map index.";
+        if (!hasStaticPackForAnimationDownload()) {
+            m_packDownloadError = "This animation download requires HD Minimap v1.";
             return false;
         }
     }
@@ -684,14 +738,14 @@ void Minimap::loadHdIndex()
         return;
 
     try {
-        std::istringstream input(readHdFile(path, 8 * 1024 * 1024));
+        std::istringstream input(readHdFile(path, MaxHdIndexBytes));
         std::string magic;
         int version, chunkSize, pixelsPerTile;
         uint32_t datSignature, sprSignature;
         size_t count;
         if (!(input >> magic >> version >> chunkSize >> pixelsPerTile >> datSignature >> sprSignature >> count) ||
             magic != "ASTRAHD" || version != 1 || chunkSize != HdChunkSize || pixelsPerTile != 32 ||
-            count == 0 || count > 100000)
+            count == 0 || count > MaxHdIndexEntries)
             throw std::runtime_error("invalid index header");
 
         if (std::pair{ datSignature, sprSignature } != signatures)
@@ -734,9 +788,9 @@ void Minimap::loadHdAnimationIndex()
     if (m_hdAnimationIndexChecked)
         return;
     m_hdAnimationIndexChecked = true;
-    m_hdAnimationDirectory = DownloadedAnimationDir;
+    m_hdAnimationDirectory = HdAnimationDir;
     if (!g_resources.fileExists(m_hdAnimationDirectory + "index.txt"))
-        m_hdAnimationDirectory = HdAnimationDir;
+        m_hdAnimationDirectory = DownloadedAnimationDir;
     const auto path = m_hdAnimationDirectory + "index.txt";
     if (!g_resources.fileExists(path))
         return;
