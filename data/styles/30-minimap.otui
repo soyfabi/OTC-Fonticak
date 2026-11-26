@@ -236,9 +236,6 @@ MinimapFlagButton < CheckBoxButton
   image-border: 3
   $checked:
     image-source: /images/ui/button-grey-down
-  margin-left: 6
-  anchors.left: prev.right
-  anchors.top: prev.top
 
 MinimapMarkColorSwatch < CheckBoxButton
   size: 22 20
@@ -269,7 +266,7 @@ MinimapFlagWindow < MainWindowHigh
   font: $var-cip-font-new
   color: #909090
   text-offset: 0 2
-  size: 285 258
+  size: 285 302
 
   Label
     id: mapTextLabel
@@ -345,98 +342,22 @@ MinimapFlagWindow < MainWindowHigh
     margin-top: 9
     margin-left: -1
 
-  MinimapFlagButton
-    id: flag0
-    icon: /images/game/minimap/flag0
+  UIWidget
+    id: flagPalette
     anchors.left: parent.left
-    anchors.top: prev.bottom
+    anchors.top: flagLabel.bottom
     margin-top: 5
-    margin-left: 0
-
-  MinimapFlagButton
-    id: flag1
-    icon: /images/game/minimap/flag1
-
-  MinimapFlagButton
-    id: flag2
-    icon: /images/game/minimap/flag2
- 
-  MinimapFlagButton
-    id: flag3
-    icon: /images/game/minimap/flag3
-
-  MinimapFlagButton
-    id: flag4
-    icon: /images/game/minimap/flag4
-
-  MinimapFlagButton
-    id: flag5
-    icon: /images/game/minimap/flag5
-
-  MinimapFlagButton
-    id: flag6
-    icon: /images/game/minimap/flag6
-
-  MinimapFlagButton
-    id: flag7
-    icon: /images/game/minimap/flag7
-
-  MinimapFlagButton
-    id: flag8
-    icon: /images/game/minimap/flag8
-
-  MinimapFlagButton
-    id: flag9
-    icon: /images/game/minimap/flag9
-
-  MinimapFlagButton
-    id: flag10
-    icon: /images/game/minimap/flag10
-    anchors.left: parent.left
-    anchors.top: prev.bottom
-    margin-top: 6
-    margin-left: 0
-
-  MinimapFlagButton
-    id: flag11
-    icon: /images/game/minimap/flag11
-
-  MinimapFlagButton
-    id: flag12
-    icon: /images/game/minimap/flag12
-
-  MinimapFlagButton
-    id: flag13
-    icon: /images/game/minimap/flag13
-
-  MinimapFlagButton
-    id: flag14
-    icon: /images/game/minimap/flag14
-
-  MinimapFlagButton
-    id: flag15
-    icon: /images/game/minimap/flag15
-
-  MinimapFlagButton
-    id: flag16
-    icon: /images/game/minimap/flag16
-
-  MinimapFlagButton
-    id: flag17
-    icon: /images/game/minimap/flag17
-
-  MinimapFlagButton
-    id: flag18
-    icon: /images/game/minimap/flag18
-
-  MinimapFlagButton
-    id: flag19
-    icon: /images/game/minimap/flag19
+    size: 214 82
+    layout:
+      type: grid
+      cell-size: 16 16
+      cell-spacing: 6
+      num-columns: 10
 
   HorizontalSeparator
     anchors.left: parent.left
     anchors.right: parent.right
-    anchors.top: flag19.bottom
+    anchors.top: flagPalette.bottom
     margin-top: 6
 
   Button

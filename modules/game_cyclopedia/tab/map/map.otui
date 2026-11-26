@@ -40,7 +40,7 @@ UIWidget
         UIWidget
           id: DisplayBase
           margin-left: 11
-          size: 146 316
+          size: 146 400
           fixed-size: true
           image-source: /images/ui/t2pixel-up-frame-borderimage
           image-border: 20
@@ -120,7 +120,7 @@ UIWidget
             margin-top: 4
             anchors.left: parent.left
             margin-left: 7
-            size: 132 107
+            size: 132 191
             image-source: /images/ui/1pixel-down-frame
 
             UIScrollArea

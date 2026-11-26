@@ -6,6 +6,17 @@ local markNames = {
     'NPC', 'House',
     passage = 'Passage'
 }
+-- IDs 20 and 21 belong to the Cyclopedia NPC and house filters.
+UIMinimap.firstExtraMarkId = 22
+for digit = 0, 9 do
+    table.insert(markNames, tostring(digit))
+end
+for _, name in ipairs({
+    'Eye', 'Chest', 'Key', 'Potion', 'Goblet', 'Helmet', 'Tools', 'Heart', 'Leaf', 'Fire'
+}) do
+    table.insert(markNames, name)
+end
+UIMinimap.lastMarkId = #markNames
 local markTextColors = {
     { 'White', '#ffffff' },
     { 'Green', '#78e56b' },
@@ -1354,11 +1365,16 @@ function UIMinimap:createFlagWindow(pos, existingFlag)
     local cancelButton = self.flagWindow:getChildById('cancelButton')
 
     local flagRadioGroup = UIRadioGroup.create()
-    for i = 0, 19 do
-        local flagButton = self.flagWindow:getChildById('flag' .. i)
-        flagButton.icon = i
-        flagRadioGroup:addWidget(flagButton)
-        flagButton:setTooltip(tr('Mark') .. ': ' .. self:getMarkName(i))
+    local flagPalette = self.flagWindow:getChildById('flagPalette')
+    for i = 0, UIMinimap.lastMarkId do
+        if i < 20 or i >= UIMinimap.firstExtraMarkId then
+            local flagButton = g_ui.createWidget('MinimapFlagButton', flagPalette)
+            flagButton:setId('flag' .. i)
+            flagButton:setIcon('/images/game/minimap/flag' .. i)
+            flagButton.icon = i
+            flagRadioGroup:addWidget(flagButton)
+            flagButton:setTooltip(tr('Mark') .. ': ' .. self:getMarkName(i))
+        end
     end
 
     local colorRadioGroup = UIRadioGroup.create()
@@ -1380,7 +1396,7 @@ function UIMinimap:createFlagWindow(pos, existingFlag)
         mapText:setText(existingFlag.mapText or '')
         local icon = tonumber(existingFlag.icon)
         if icon then
-            local flagButton = self.flagWindow:getChildById('flag' .. icon)
+            local flagButton = flagPalette:getChildById('flag' .. icon)
             if flagButton then
                 flagRadioGroup:selectWidget(flagButton, true)
             end

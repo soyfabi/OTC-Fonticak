@@ -45,52 +45,30 @@ local function syncCyclopediaSatelliteMode(minimap, tilesDir)
 	else
 		hasHdMap = g_resources.fileExists("/data/minimap_hd/index.txt")
 	end
-	local useHd = not hdDisabled and minimap.setHdMode ~= nil and not isSurfaceViewSelected()
-		and hasHdMap
+	local canUseHd = not hdDisabled and minimap.setHdMode ~= nil and hasHdMap
+	local preferSatellite = not hdDisabled and (isSurfaceViewSelected() or not canUseHd)
+
+	cyclopediaSatelliteReady = false
+	if preferSatellite and g_satelliteMap and g_satelliteMap.loadFloors then
+		if g_resources.fileExists(tilesDir .. "/satellite/index.dat") then
+			if lastLoadedSatelliteDir ~= tilesDir then
+				g_satelliteMap.loadFloors(tilesDir, 0, 15)
+				lastLoadedSatelliteDir = tilesDir
+			end
+			local pos = minimap.getCameraPosition and minimap:getCameraPosition()
+			cyclopediaSatelliteReady = g_satelliteMap.hasChunksForView
+				and g_satelliteMap.hasChunksForView(pos and pos.z or 7) or false
+		else
+			lastLoadedSatelliteDir = nil
+			if g_satelliteMap.clearHighlight then
+				g_satelliteMap.clearHighlight()
+			end
+		end
+	end
 
 	if minimap.setHdMode then
-		minimap:setHdMode(useHd, false)
+		minimap:setHdMode(canUseHd and not cyclopediaSatelliteReady, false)
 	end
-
-	if useHd or hdDisabled then
-		minimap:setSatelliteMode(false)
-		cyclopediaSatelliteReady = false
-
-		return
-	end
-
-	if not g_resources.fileExists(tilesDir .. "/satellite/index.dat") then
-		minimap:setSatelliteMode(false)
-		cyclopediaSatelliteReady = false
-		lastLoadedSatelliteDir = nil
-
-		if g_satelliteMap and g_satelliteMap.clearHighlight then
-			g_satelliteMap.clearHighlight()
-		end
-
-		return
-	end
-
-	if not g_satelliteMap or not g_satelliteMap.loadFloors then
-		minimap:setSatelliteMode(false)
-		cyclopediaSatelliteReady = false
-
-		return
-	end
-
-	if lastLoadedSatelliteDir ~= tilesDir then
-		g_satelliteMap.loadFloors(tilesDir, 0, 15)
-		lastLoadedSatelliteDir = tilesDir
-	end
-
-	local floorZ = 7
-	local pos = minimap.getCameraPosition and minimap:getCameraPosition()
-
-	if pos then
-		floorZ = pos.z
-	end
-
-	cyclopediaSatelliteReady = g_satelliteMap.hasChunksForView and g_satelliteMap.hasChunksForView(floorZ) or false
 	minimap:setSatelliteMode(cyclopediaSatelliteReady)
 end
 local CYCLOPEDIA_AREA_TYPE_AREA = 1
@@ -105,7 +83,7 @@ local CYCLOPEDIA_AREA_LABEL_COLOR = "#ffffffff"
 local CYCLOPEDIA_AREA_LABEL_SELECTED_COLOR = "#ffff00ff"
 local CYCLOPEDIA_SUBAREA_LABEL_COLOR = "#8f8f8fff"
 local CYCLOPEDIA_SECTION_COLLAPSED_HEIGHT = 19
-local CYCLOPEDIA_DISPLAY_PANEL_HEIGHT = 316
+local CYCLOPEDIA_DISPLAY_PANEL_HEIGHT = 400
 local CYCLOPEDIA_NAVIGATION_PANEL_HEIGHT = 97
 local CYCLOPEDIA_AREA_PANEL_HEIGHT = 141
 local CYCLOPEDIA_SUBAREA_PANEL_HEIGHT = 202
@@ -1385,7 +1363,7 @@ local function isMapFlagFilterButton(widget)
 
 	local markerId = tonumber(widget:getId())
 
-	return markerId ~= nil and markerId >= 0 and markerId <= 19
+	return markerId ~= nil and ((markerId >= 0 and markerId <= 19) or (markerId >= UIMinimap.firstExtraMarkId and markerId <= UIMinimap.lastMarkId))
 end
 
 local function forEachMapFlagFilterButton(callback)
@@ -2253,6 +2231,14 @@ function initMap(contentContainer)
 	})
 
 	mapPositionConnected = true
+
+	local markList = getMarkList()
+	for id = UIMinimap.firstExtraMarkId, UIMinimap.lastMarkId do
+		local button = g_ui.createWidget('CheckBoxButton', markList)
+		button:setId(tostring(id))
+		button:setIcon('/images/game/minimap/flag' .. id)
+		button.onCheckChange = Cyclopedia.toggleMapFlag
+	end
 
 	Cyclopedia.loadMap()
 	local options = modules.client_options
