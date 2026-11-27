@@ -302,6 +302,7 @@ function EnterGame.showAccounts()
 end
 
 local clipFormats = { mp4 = true, mkv = true, avi = true }
+local recordingsOnWindows = g_platform.getOSName() == "Windows"
 
 local function trimDirectory(path)
 	return path:gsub("\\", "/"):gsub("/+$", "")
@@ -338,7 +339,7 @@ local function confirmDeleteClip(clip, writeDir, refresh)
 	}, nil, closeRecordingDeleteBox)
 end
 
-local function refreshRecordings(isWindows)
+local function refreshRecordings()
 	local list = recordingsPanel:getChildById("clipList")
 	local writeDir = trimDirectory(g_resources.getWriteDir())
 	local clips = {}
@@ -351,7 +352,7 @@ local function refreshRecordings(isWindows)
 				local timestamp = created
 				if timestamp == 0 then
 					local modified = g_resources.getFileTime(path)
-					timestamp = isWindows and math.floor(modified / 10000000 - 11644473600) or modified
+					timestamp = recordingsOnWindows and math.floor(modified / 10000000 - 11644473600) or modified
 				end
 				clips[#clips + 1] = { name = file, path = path, format = format, created = created > 0, timestamp = timestamp }
 			end
@@ -364,10 +365,24 @@ local function refreshRecordings(isWindows)
 		return a.timestamp > b.timestamp
 	end)
 
+	local previous = recordingsPanel.clips
+	if previous and #previous == #clips then
+		local changed = false
+		for index, clip in ipairs(clips) do
+			local old = previous[index]
+			if clip.path ~= old.path or clip.created ~= old.created or clip.timestamp ~= old.timestamp then
+				changed = true
+				break
+			end
+		end
+		if not changed then
+			return
+		end
+	end
+
+	recordingsPanel.clips = clips
 	list:destroyChildren()
 	recordingsPanel:getChildById("emptyClips"):setVisible(#clips == 0)
-	local folderButton = recordingsPanel:getChildById("openFolder")
-	folderButton:setEnabled(isWindows)
 	for _, clip in ipairs(clips) do
 		local row = g_ui.createWidget("RecordingClipRow", list)
 		local entry = row:getChildById("clip")
@@ -378,13 +393,11 @@ local function refreshRecordings(isWindows)
 			local dateTime = os.date("%m/%d/%Y %H:%M:%S", clip.timestamp)
 			tooltip = tooltip .. "\n" .. (clip.created and tr("Created: %s", dateTime) or tr("Modified: %s", dateTime))
 		end
-		entry:setTooltip(isWindows and (tooltip .. "\n" .. tr("Show in folder")) or tooltip)
+		entry:setTooltip(recordingsOnWindows and (tooltip .. "\n" .. tr("Show in folder")) or tooltip)
 		row:getChildById("remove").onClick = function()
-			confirmDeleteClip(clip, writeDir, function()
-				refreshRecordings(isWindows)
-			end)
+			confirmDeleteClip(clip, writeDir, refreshRecordings)
 		end
-		if isWindows then
+		if recordingsOnWindows then
 			entry.onClick = function()
 				local path = (writeDir .. "/recordings/" .. clip.name):gsub("/", "\\")
 				if not g_platform.openDir('/select,"' .. path .. '"', true) then
@@ -413,7 +426,7 @@ function EnterGame.showRecordings()
 
 	positionRecordingsPanel()
 	local target = recordingsPanel:getPosition()
-	refreshRecordings(g_platform.getOSName() == "Windows")
+	refreshRecordings()
 	recordingsPanel:setPosition({ x = target.x + 22, y = target.y })
 	g_effects.fadeIn(recordingsPanel, 150)
 	recordingsPanel:show()
@@ -922,6 +935,7 @@ local function setupRecordingsPanel()
 	local hoverEvent
 	local keyboardMousePosition
 	recordingsPanel = g_ui.createWidget("EnterGameRecordings", enterGame:getParent())
+	recordingsPanel:getChildById("openFolder"):setEnabled(recordingsOnWindows)
 	local tab = enterGame:getChildById("recordingsToggle")
 	local label = tab:getChildById("recordingsTabLabel")
 	local arrow = tab:getChildById("recordingsTabArrow")

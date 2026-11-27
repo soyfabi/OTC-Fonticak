@@ -105,14 +105,11 @@ local tempOutfit = {}
 local pendingSelectionFill = nil
 local selectionFillToken = 0
 local selectionLoadingAnim = nil
-local activeSelectionQueue = nil
-local SELECTION_BATCH_SIZE = 24
 local SELECTION_BATCH_DELAY_MS = 1
 local SELECTION_LOADING_ANIM_MS = 280
 local SELECTION_LOADING_FRAMES = { '.', '..', '...' }
 
 -- Viewport hydration (keep animations on visible tiles; free off-screen creatures).
-local SELECTION_CARD_WIDTH = 108
 local SELECTION_CARD_HEIGHT = 100
 local SELECTION_CARD_SPACING = 2
 local SELECTION_COLUMNS = 2
@@ -207,29 +204,10 @@ local function cancelPendingSelectionFill()
     pendingSelectionFill = nil
   end
   selectionFillToken = selectionFillToken + 1
-  activeSelectionQueue = nil
   cancelSelectionLoadingAnim()
   cancelPendingColorFill()
   cancelPendingSearchRebuild()
   releaseSelectionHydration()
-end
-
-local function markSelectionButtonLoading(button)
-  if not button then
-    return
-  end
-  button.appliedOutfit = nil
-  button.__selectionHydrated = false
-  if button.outfit and not button.outfit:isDestroyed() then
-    button.outfit:hide()
-    if button.outfit.setCreature then
-      button.outfit:setCreature(nil)
-    end
-  end
-  if button.loading and not button.loading:isDestroyed() then
-    button.loading:setText(SELECTION_LOADING_FRAMES[1])
-    button.loading:show()
-  end
 end
 
 local function markSelectionButtonReady(button)
@@ -465,22 +443,11 @@ local function startSelectionLoadingAnim()
   selectionLoadingAnim = scheduleEvent(tick, SELECTION_LOADING_ANIM_MS)
 end
 
-local function startSelectionFill(items)
-  cancelPendingSelectionFill()
-  if not items or #items == 0 then
+local function startSelectionFill()
+  if getSelectionList():getChildCount() == 0 then
     return
   end
 
-  for _, entry in ipairs(items) do
-    local button = entry.button
-    if button and not button:isDestroyed() then
-      button.__selectionApply = entry.apply
-      button.__selectionHydrated = false
-      markSelectionButtonLoading(button)
-    end
-  end
-
-  activeSelectionQueue = { items = items, index = 1 }
   startSelectionLoadingAnim()
   scheduleSelectionListHydration('open')
 end
@@ -625,21 +592,6 @@ local function clearSelectionCreatures(container)
   for _, child in ipairs(container:getChildren()) do
     if child.outfit and not child.outfit:isDestroyed() and child.outfit.setCreature then
       child.outfit:setCreature(nil)
-    end
-  end
-end
-
-local function prioritizeSelectionItem(items, focusedId)
-  if not focusedId or #items == 0 then
-    return
-  end
-  for i, entry in ipairs(items) do
-    if entry.id == focusedId then
-      if i > 1 then
-        local focused = table.remove(items, i)
-        table.insert(items, 1, focused)
-      end
-      return
     end
   end
 end
@@ -1903,7 +1855,6 @@ function showOutfits(searchText, fromTop)
   local orderedOutfits, favorites = orderFavorites(availableOutfits, 'outfit')
 
   local focused = nil
-  local fillItems = {}
   local baseOutfit = table.copy(previewCreature:getOutfit())
   baseOutfit.mount = 0
 
@@ -1918,7 +1869,6 @@ function showOutfits(searchText, fromTop)
     button.name:setText(outfitData[2])
     local id = tostring(outfitData[1])
     configureFavoriteButton(button, 'outfit', id, favorites[id])
-    markSelectionButtonLoading(button)
 
     local storeMode, storeOffer = getOutfitStoreInfo(outfitData)
     if storeMode ~= 0 then
@@ -1937,28 +1887,23 @@ function showOutfits(searchText, fromTop)
 
     local outfitType = outfitData[1]
     local outfitAddons = outfitData[3]
-    table.insert(fillItems, {
-      id = outfitType,
-      button = button,
-      apply = function(btn)
-        local outfit = table.copy(baseOutfit)
-        outfit.type = outfitType
-        outfit.addons = outfitAddons
-        outfit.mount = 0
-        outfit.head = tempOutfit.head
-        outfit.body = tempOutfit.body
-        outfit.legs = tempOutfit.legs
-        outfit.feet = tempOutfit.feet
-        btn.outfit:setOutfit(outfit)
-        btn.appliedOutfit = outfit
-      end
-    })
+    button.__selectionApply = function(btn)
+      local outfit = table.copy(baseOutfit)
+      outfit.type = outfitType
+      outfit.addons = outfitAddons
+      outfit.mount = 0
+      outfit.head = tempOutfit.head
+      outfit.body = tempOutfit.body
+      outfit.legs = tempOutfit.legs
+      outfit.feet = tempOutfit.feet
+      btn.outfit:setOutfit(outfit)
+      btn.appliedOutfit = outfit
+    end
 
     :: continue ::
   end
 
-  prioritizeSelectionItem(fillItems, focused)
-  startSelectionFill(fillItems)
+  startSelectionFill()
 
   local focusedWidget = focused and window.ScrollBar.selectionList[focused] or nil
 
@@ -2004,7 +1949,6 @@ function showMounts(searchText, fromTop)
   local orderedMounts, favorites = orderFavorites(availableMounts, 'mount')
 
   local focused = nil
-  local fillItems = {}
   for _, mountData in ipairs(orderedMounts) do
     if searchText and searchText ~= '' and not matchText(searchText, mountData[2]) then
       goto continue
@@ -2016,7 +1960,6 @@ function showMounts(searchText, fromTop)
     button.name:setText(mountData[2])
     local id = tostring(mountData[1])
     configureFavoriteButton(button, 'mount', id, favorites[id])
-    markSelectionButtonLoading(button)
 
     local storeOffer = tonumber(mountData[3]) or 0
     if storeOffer > 0 then
@@ -2030,34 +1973,29 @@ function showMounts(searchText, fromTop)
 
     local mountType = mountData[1]
     local wrapName = button.name:isTextWraped()
-    table.insert(fillItems, {
-      id = mountType,
-      button = button,
-      apply = function(btn)
-        local outfit = {
-          type = mountType,
-          head = tempOutfit.mountHead,
-          body = tempOutfit.mountBody,
-          legs = tempOutfit.mountLegs,
-          feet = tempOutfit.mountFeet
-        }
-        btn.outfit:setOutfit(outfit)
-        btn.appliedOutfit = outfit
-        btn.outfit:setCenter(true)
-        if wrapName then
-          btn.outfit:setMarginBottom(24)
-        end
-        if focused == mountType and not btn.outfit:isColoredMount() then
-          window.appearance.grayHover:setVisible(true)
-        end
+    button.__selectionApply = function(btn)
+      local outfit = {
+        type = mountType,
+        head = tempOutfit.mountHead,
+        body = tempOutfit.mountBody,
+        legs = tempOutfit.mountLegs,
+        feet = tempOutfit.mountFeet
+      }
+      btn.outfit:setOutfit(outfit)
+      btn.appliedOutfit = outfit
+      btn.outfit:setCenter(true)
+      if wrapName then
+        btn.outfit:setMarginBottom(24)
       end
-    })
+      if focused == mountType and not btn.outfit:isColoredMount() then
+        window.appearance.grayHover:setVisible(true)
+      end
+    end
 
     :: continue ::
   end
 
-  prioritizeSelectionItem(fillItems, focused)
-  startSelectionFill(fillItems)
+  startSelectionFill()
 
   if #ServerData.mounts == 1 then
     window.ScrollBar.selectionList:focusChild(nil)
@@ -2087,31 +2025,24 @@ function showFamiliars()
   updateFavoritesFilter()
 
   local focused = nil
-  local fillItems = {}
   for _, mountData in ipairs(ServerData.familiars) do
     local button = g_ui.createWidget("SelectionButton", window.ScrollBar.selectionList)
     button:setId(mountData[1])
     button.selectionKind = 'familiar'
     button.name:setText(mountData[2])
-    markSelectionButtonLoading(button)
 
     if tempOutfit.familiar == mountData[1] then
       focused = mountData[1]
     end
 
     local familiarType = mountData[1]
-    table.insert(fillItems, {
-      id = familiarType,
-      button = button,
-      apply = function(btn)
-        btn.outfit:setOutfit({type = familiarType})
-        btn.outfit:setCenter(true)
-      end
-    })
+    button.__selectionApply = function(btn)
+      btn.outfit:setOutfit({type = familiarType})
+      btn.outfit:setCenter(true)
+    end
   end
 
-  prioritizeSelectionItem(fillItems, focused)
-  startSelectionFill(fillItems)
+  startSelectionFill()
 
   if #ServerData.familiars == 1 then
     window.ScrollBar.selectionList:focusChild(nil)
@@ -2137,7 +2068,6 @@ function showAuras()
   updateFavoritesFilter()
 
   local focused = nil
-  local fillItems = {}
   local baseOutfit = table.copy(previewCreature:getOutfit())
 
   for _, auraData in ipairs(ServerData.auras) do
@@ -2147,7 +2077,6 @@ function showAuras()
     button.aura = auraData[3]
     button.auraCategory = auraData[2]
     button.name:setText(auraData[4])
-    markSelectionButtonLoading(button)
 
     if tempOutfit.aura == auraData[3] then
       focused = auraData[1]
@@ -2155,28 +2084,22 @@ function showAuras()
 
     local auraId = auraData[3]
     local auraCategory = auraData[2]
-    local buttonId = auraData[1]
-    table.insert(fillItems, {
-      id = buttonId,
-      button = button,
-      apply = function(btn)
-        local outfit = table.copy(baseOutfit)
-        outfit.head = tempOutfit.head
-        outfit.body = tempOutfit.body
-        outfit.legs = tempOutfit.legs
-        outfit.feet = tempOutfit.feet
-        outfit.aura = auraId
-        outfit.auraCategory = auraCategory
-        btn.outfit:setOutfit(outfit)
-        btn.appliedOutfit = outfit
-        btn.outfit:setCenter(true)
-        btn.outfit:setAnimate(true)
-      end
-    })
+    button.__selectionApply = function(btn)
+      local outfit = table.copy(baseOutfit)
+      outfit.head = tempOutfit.head
+      outfit.body = tempOutfit.body
+      outfit.legs = tempOutfit.legs
+      outfit.feet = tempOutfit.feet
+      outfit.aura = auraId
+      outfit.auraCategory = auraCategory
+      btn.outfit:setOutfit(outfit)
+      btn.appliedOutfit = outfit
+      btn.outfit:setCenter(true)
+      btn.outfit:setAnimate(true)
+    end
   end
 
-  prioritizeSelectionItem(fillItems, focused)
-  startSelectionFill(fillItems)
+  startSelectionFill()
 
   if #ServerData.auras == 1 then
     window.ScrollBar.selectionList:focusChild(nil)

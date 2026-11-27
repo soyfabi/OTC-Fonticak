@@ -176,7 +176,7 @@ SelectionButton < OutfitNamedButton
     anchors.verticalCenter: parent.verticalCenter
     anchors.horizontalCenter: parent.horizontalCenter
     margin-bottom: 20
-    text: ...
+    text: .
     text-align: center
     text-auto-resize: true
     color: $var-text-cip-color
