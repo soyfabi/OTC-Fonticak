@@ -66,7 +66,32 @@ RotateButton < UIButton
   $hover:
     image-color: #ffffff
 
-PresetButton < UIButton
+OutfitNamedButton < UIButton
+  @onHoverChange: |
+    function(self, hovered)
+      UIButton.onHoverChange(self, hovered)
+      local name = self:getChildById('name')
+      if name then
+        name:setColor(hovered and '#ffffff' or '#c0c0c0')
+      end
+    end
+
+OutfitValuePanel < FlatPanel
+  color: $var-text-cip-color
+  $hover !disabled:
+    color: #ffffff
+
+OutfitActionButton < Button
+  color: #dfdfdf
+  $hover !disabled:
+    color: #ffffff
+
+OutfitImageButton < UIButton
+  image-color: #dfdfdf
+  $hover !disabled:
+    image-color: #ffffff
+
+PresetButton < OutfitNamedButton
   size: 218 100
   focusable: true
   image-source: /images/ui/big-light-button
@@ -112,8 +137,15 @@ PresetButton < UIButton
     text-auto-resize: true
     color: $var-text-cip-color
     font: $var-cip-font
+    phantom: true
 
-SelectionButton < UIButton
+OutfitFavoriteHeart < UIWidget
+  image-source: /images/icons/outfit-favorite-heart
+  image-smooth: true
+  phantom: true
+  focusable: false
+
+SelectionButton < OutfitNamedButton
   size: 108 100
   image-source: /images/ui/large_gray_button
   image-clip: 0 0 108 100
@@ -137,6 +169,7 @@ SelectionButton < UIButton
     margin-left: -10
     idle-animate: true
     visible: false
+    phantom: true
 
   Label
     id: loading
@@ -163,6 +196,15 @@ SelectionButton < UIButton
     text-auto-resize: true
     color: $var-text-cip-color
     font: $var-cip-font
+    phantom: true
+
+  OutfitFavoriteHeart
+    id: favoriteHeart
+    size: 16 16
+    anchors.top: parent.top
+    anchors.right: parent.right
+    margin: 4
+    visible: false
 
 OutfitWindow < MainWindow
   size: 756 565
@@ -221,7 +263,7 @@ OutfitWindow < MainWindow
         margin-left: 4
         change-cursor-image: false
         $hover !disabled:
-          color: $var-text-cip-color
+          color: #ffffff
 
     FlatPanel
       id: previewoutfit
@@ -333,7 +375,7 @@ OutfitWindow < MainWindow
         $disabled:
           color: #707070
         $hover !disabled:
-          color: $var-text-cip-color
+          color: #ffffff
 
     FlatPanel
       id: showAura
@@ -361,7 +403,7 @@ OutfitWindow < MainWindow
         $disabled:
           color: #707070
         $hover !disabled:
-          color: $var-text-cip-color
+          color: #ffffff
 
     FlatPanel
       id: showfamiliar
@@ -389,7 +431,7 @@ OutfitWindow < MainWindow
         $disabled:
           color: #707070
         $hover !disabled:
-          color: $var-text-cip-color
+          color: #ffffff
 
     FlatPanel
       id: showfloor
@@ -415,7 +457,7 @@ OutfitWindow < MainWindow
         margin-left: 4
         change-cursor-image: false
         $hover !disabled:
-          color: $var-text-cip-color
+          color: #ffffff
 
   WindowCyclopedia
     id: presetBar
@@ -436,7 +478,7 @@ OutfitWindow < MainWindow
     padding-right: 2
     visible: false
     
-    Button
+    OutfitActionButton
       id: newButton
       size: 43 20
       anchors.top: parent.top
@@ -449,7 +491,7 @@ OutfitWindow < MainWindow
       !text: tr('New')
       @onClick: modules.game_outfit.newPreset()
 
-    Button
+    OutfitActionButton
       id: renameButton
       size: 43 20
       anchors.top: parent.top
@@ -463,7 +505,7 @@ OutfitWindow < MainWindow
       !text: tr('Rename')
       @onClick: modules.game_outfit.renamePreset()
 
-    Button
+    OutfitActionButton
       id: editButton
       size: 43 20
       anchors.top: parent.top
@@ -477,7 +519,7 @@ OutfitWindow < MainWindow
       !text: tr('Edit')
       @onClick: modules.game_outfit.editPreset()
 
-    Button
+    OutfitActionButton
       id: saveButton
       size: 43 20
       anchors.top: parent.top
@@ -491,7 +533,7 @@ OutfitWindow < MainWindow
       !text: tr('Save')
       @onClick: modules.game_outfit.savePreset()
 
-    Button
+    OutfitActionButton
       id: deleteButton
       size: 43 20
       anchors.top: parent.top
@@ -507,7 +549,7 @@ OutfitWindow < MainWindow
 
   WindowCyclopedia
     id: filter_outfits
-    size: 242 51
+    size: 242 71
     !text: tr('Filter Outfits')
     font: Verdana Bold-11px
     color: #909090
@@ -533,31 +575,55 @@ OutfitWindow < MainWindow
       id: onlyCheck
       size: 12 12
       font: Verdana Bold-11px
-      text: Only mine
+      !text: tr('Only mine')
+      !tooltip: tr('Show only the outfits or mounts you own.')
       text-offset: 15 -2
       text-auto-resize: true
       color: #c0c0c0
       image-source: /images/ui/checkbox
       image-clip: 0 0 12 12
       anchors.left: parent.left
-      anchors.verticalCenter: parent.verticalCenter
+      anchors.bottom: parent.bottom
       margin-left: 5
-      margin-top: 1
+      margin-bottom: 5
       change-cursor-image: false
-      @onCheckChange: modules.game_outfit.onOnlyMineThings()
+      @onCheckChange: modules.game_outfit.onAppearanceFiltersChange()
       $disabled:
         color: #707070
       $hover !disabled:
-        color: $var-text-cip-color
+        color: #ffffff
+
+    CheckBox
+      id: favoritesCheck
+      size: 12 12
+      font: Verdana Bold-11px
+      !text: tr('Favorites')
+      !tooltip: tr('Show only your favorites.\nDouble-click an outfit or mount to add or remove it.\nYou can also right-click and choose Set Favorite or Remove Favorite.')
+      text-offset: 15 -2
+      text-auto-resize: true
+      color: #c0c0c0
+      image-source: /images/ui/checkbox
+      image-clip: 0 0 12 12
+      anchors.left: onlyCheck.right
+      anchors.top: onlyCheck.top
+      margin-left: 16
+      change-cursor-image: false
+      @onCheckChange: modules.game_outfit.onAppearanceFiltersChange()
+      $disabled:
+        color: #707070
+      $hover !disabled:
+        color: #ffffff
 
     TextEdit
       id: searchfilter
-      size: 137 22
+      height: 22
       image-source: /images/ui/search-text-void
-      anchors.left: onlyCheck.right
-      anchors.verticalCenter: parent.verticalCenter
-      margin-left: 12
-      margin-top: -1
+      anchors.left: parent.left
+      anchors.right: parent.right
+      anchors.top: parent.top
+      margin-left: 5
+      margin-right: 5
+      margin-top: 3
       text-align: LeftCenter
       !placeholder: tr("Type to search")
       placeholder-color: #707070
@@ -632,12 +698,12 @@ OutfitWindow < MainWindow
 
   FlatPanel
     id: ScrollBar
-    size: 240 430
+    size: 240 410
     image-source: /images/game/cyclopedia/ui/panel-background
     padding: 1 1 1 1
     anchors.top: parent.top
     anchors.right: parent.right
-    margin-top: 85
+    margin-top: 105
     margin-right: 18
     ScrollablePanel
       id: selectionList
@@ -716,8 +782,8 @@ OutfitWindow < MainWindow
         margin-left: 4
         change-cursor-image: false
         $hover !disabled:
-          color: $var-text-cip-color
-        $disabled
+          color: #ffffff
+        $disabled:
           color: #707070
 
     FlatPanel
@@ -744,8 +810,8 @@ OutfitWindow < MainWindow
         margin-left: 4
         change-cursor-image: false
         $hover !disabled:
-          color: $var-text-cip-color
-        $disabled
+          color: #ffffff
+        $disabled:
           color: #707070
 
     FlatPanel
@@ -773,7 +839,7 @@ OutfitWindow < MainWindow
         @onCheckChange: modules.game_outfit.updatePreview()
         change-cursor-image: false
         $hover !disabled:
-          color: $var-text-cip-color
+          color: #ffffff
         $disabled:
           color: #707070
 
@@ -802,7 +868,7 @@ OutfitWindow < MainWindow
         @onCheckChange: modules.game_outfit.updatePreview()
         change-cursor-image: false
         $hover !disabled:
-          color: $var-text-cip-color
+          color: #ffffff
 
     FlatPanel
       id: randommount
@@ -828,7 +894,7 @@ OutfitWindow < MainWindow
         margin-left: 4
         change-cursor-image: false
         $hover !disabled:
-          color: $var-text-cip-color
+          color: #ffffff
 
 // familiar: 234  sem falimilar 212
 
@@ -858,7 +924,7 @@ OutfitWindow < MainWindow
     focusable: false
     phantom: true
 
-    UIButton
+    OutfitNamedButton
       id: outfit
       size: 230 20
       anchors.top: parent.top
@@ -908,8 +974,8 @@ OutfitWindow < MainWindow
       margin-left: 7
       change-cursor-image: false
       $hover !disabled:
-        color: $var-text-cip-color
-    UIButton
+        color: #ffffff
+    OutfitNamedButton
       id: mount
       size: 230 20
       image-source: /images/ui/pressed-large-button
@@ -956,9 +1022,9 @@ OutfitWindow < MainWindow
       margin-left: 7
       change-cursor-image: false
       $hover !disabled:
-        color: $var-text-cip-color
+        color: #ffffff
 
-    FlatPanel
+    OutfitValuePanel
       id: aura
       size: 230 20
       image-source: /images/game/cyclopedia/ui/panel-background
@@ -986,11 +1052,11 @@ OutfitWindow < MainWindow
       margin-left: 7
       change-cursor-image: false
       $hover !disabled:
-        color: $var-text-cip-color
+        color: #ffffff
       $disabled:
         color: #707070
 
-    FlatPanel
+    OutfitValuePanel
       id: familiar
       size: 230 20
       image-source: /images/game/cyclopedia/ui/panel-background
@@ -1018,11 +1084,11 @@ OutfitWindow < MainWindow
       margin-left: 7
       change-cursor-image: false
       $hover !disabled:
-        color: $var-text-cip-color
+        color: #ffffff
       $disabled:
         color: #707070
 
-    FlatPanel
+    OutfitValuePanel
       id: preset
       size: 230 20
       image-source: /images/game/cyclopedia/ui/panel-background
@@ -1050,7 +1116,7 @@ OutfitWindow < MainWindow
       margin-left: 7
       change-cursor-image: false
       $hover !disabled:
-        color: $var-text-cip-color
+        color: #ffffff
 
     WindowCyclopedia
       id: panelcolor
@@ -1073,7 +1139,7 @@ OutfitWindow < MainWindow
         cell-size: 13 13
         num-columns: 19
 
-    UIButton
+    OutfitImageButton
       id: paste
       size: 54 28
       anchors.bottom: parent.bottom
@@ -1090,7 +1156,7 @@ OutfitWindow < MainWindow
       $disabled:
         image-clip: 0 0 54 28
 
-    UIButton
+    OutfitImageButton
       id: copycolours
       size: 54 28
       anchors.bottom: paste.top
@@ -1106,7 +1172,7 @@ OutfitWindow < MainWindow
       $checked:
         image-clip: 0 28 54 28
 
-    UIButton
+    OutfitImageButton
       id: copyall
       size: 54 28
       anchors.bottom: copycolours.top
@@ -1122,7 +1188,7 @@ OutfitWindow < MainWindow
       $checked:
         image-clip: 0 28 54 28
 
-    Button
+    OutfitActionButton
       id: randomizeButton
       width: 54
       height: 28
@@ -1205,11 +1271,13 @@ OutfitWindow < MainWindow
     image-source: /images/ui/cancelButton
     image-clip: 0 0 43 20
     image-border: 1
+    image-color: #dfdfdf
     opacity: 1.0
     @onClick: modules.game_outfit.destroy()
 
     $hover !disabled:
       image-clip: 0 0 43 20
+      image-color: #ffffff
 
     $pressed:
       image-clip: 0 20 43 20
@@ -1238,11 +1306,13 @@ OutfitWindow < MainWindow
     image-source: /images/ui/ok-button
     image-clip: 0 0 43 20
     image-border: 1
+    image-color: #dfdfdf
     opacity: 1.0
     @onClick: modules.game_outfit.accept()
 
     $hover !disabled:
       image-clip: 0 0 43 20
+      image-color: #ffffff
 
     $pressed:
       image-clip: 0 20 43 20

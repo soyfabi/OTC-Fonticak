@@ -838,6 +838,7 @@ local function ensurePresetTimestamps(data)
 end
 
 local presetList = {}
+local favoriteOrderOnOpen
 local pendingStoreTryOn = nil
 local currentPlayerId = nil
 
@@ -1045,11 +1046,181 @@ function onShowAuraChange(checkBox, checked)
   updatePreview()
 end
 
-function onOnlyMineThings()
+local function refreshAppearanceList(fromTop)
+  local searchText = window.filter_outfits.searchfilter:getText()
   if window.appearance.outfitCheck:isChecked() then
-    showOutfits()
+    showOutfits(searchText, fromTop)
   elseif window.appearance.mountCheck:isChecked() then
-    showMounts()
+    showMounts(searchText, fromTop)
+  end
+end
+
+function onAppearanceFiltersChange()
+  cancelPendingSearchRebuild()
+  refreshAppearanceList(true)
+end
+
+local function getFavorites(kind)
+  return presetList.favorites[kind]
+end
+
+local function updateFavoritesFilter(kind)
+  local check = window.filter_outfits.favoritesCheck
+  local label = tr('Favorites')
+  if kind then
+    label = string.format('%s (%d)', label, #getFavorites(kind))
+  end
+  check:setText(label)
+  check:setEnabled(kind ~= nil)
+end
+
+local function orderFavorites(items, kind)
+  local itemsById = {}
+  for _, item in ipairs(items) do
+    itemsById[tostring(item[1])] = item
+  end
+
+  local favorites = {}
+  for _, id in ipairs(getFavorites(kind)) do
+    if itemsById[id] then
+      favorites[id] = true
+    end
+  end
+
+  local ordered, placed = {}, {}
+  local favoritesOnly = window.filter_outfits.favoritesCheck:isChecked()
+  for _, id in ipairs(favoriteOrderOnOpen[kind]) do
+    if itemsById[id] and not placed[id] and (not favoritesOnly or favorites[id]) then
+      table.insert(ordered, itemsById[id])
+      placed[id] = true
+    end
+  end
+  for _, item in ipairs(items) do
+    local id = tostring(item[1])
+    if not placed[id] and (not favoritesOnly or favorites[id]) then
+      table.insert(ordered, item)
+    end
+  end
+  return ordered, favorites
+end
+
+local function animateFavoriteHeart(button)
+  local badge = button.favoriteHeart
+  local heart = g_ui.createWidget('OutfitFavoriteHeart', button)
+  heart:fill('parent')
+  button.favoriteAnimation = heart
+  badge:hide()
+
+  local duration = outfitAnimDuration(480)
+  local started = g_clock.millis()
+  local frameEvent
+  heart.onDestroy = function()
+    button.favoriteAnimation = nil
+    if frameEvent then
+      removeEvent(frameEvent)
+    end
+  end
+
+  local function update()
+    frameEvent = nil
+    local progress = math.min((g_clock.millis() - started) / duration, 1)
+    if progress == 1 then
+      badge:show()
+      heart:destroy()
+      return
+    end
+
+    local width, height = button:getWidth(), button:getHeight()
+    local centerX, centerY = width / 2, height / 2 - 7
+    local travel = math.max(0, (progress - 0.55) / 0.45)
+    local position = travel * travel * (3 - 2 * travel)
+    local size
+    if progress < 0.32 then
+      size = 10 + 48 * (1 - (1 - progress / 0.32) ^ 3)
+    elseif progress < 0.55 then
+      size = 58 - 8 * ((progress - 0.32) / 0.23)
+    else
+      size = 50 + (badge:getWidth() - 50) * position
+    end
+    centerX = centerX + (width - badge:getMarginRight() - badge:getWidth() / 2 - centerX) * position
+    centerY = centerY + (badge:getMarginTop() + badge:getHeight() / 2 - centerY) * position
+
+    size = math.floor(size + 0.5)
+    heart:setImageRect({ x = math.floor(centerX - size / 2), y = math.floor(centerY - size / 2),
+      width = size, height = size })
+    frameEvent = scheduleEvent(update, 16)
+  end
+
+  update()
+end
+
+local function updateFavoriteTile(kind, id, favorite)
+  if not window.appearance[kind .. 'Check']:isChecked() then
+    return
+  end
+  updateFavoritesFilter(kind)
+
+  local list = getSelectionList()
+  local tile = list:getChildById(id)
+  if not tile then
+    return
+  end
+  if favorite then
+    if isOutfitAnimEnabled() then
+      animateFavoriteHeart(tile)
+    else
+      tile.favoriteHeart:show()
+    end
+  elseif window.filter_outfits.favoritesCheck:isChecked() then
+    if pendingSelectionFill then
+      removeEvent(pendingSelectionFill)
+      pendingSelectionFill = nil
+    end
+    dehydrateSelectionButton(tile)
+    tile:destroy()
+    scheduleSelectionListHydration('favorite')
+  else
+    if tile.favoriteAnimation then
+      tile.favoriteAnimation:destroy()
+    end
+    tile.favoriteHeart:hide()
+  end
+end
+
+local function configureFavoriteButton(button, kind, id, favorite)
+  button.favoriteHeart:setVisible(favorite == true)
+  local owner = window
+
+  local function toggleFavorite()
+    if window ~= owner then
+      return
+    end
+    local favorites = getFavorites(kind)
+    local index = table.find(favorites, id)
+    if index then
+      table.remove(favorites, index)
+    else
+      table.insert(favorites, 1, id)
+    end
+    updateFavoriteTile(kind, id, index == nil)
+    saveSettings()
+  end
+
+  button.onDoubleClick = function()
+    addEvent(toggleFavorite)
+    return true
+  end
+
+  button.onMouseRelease = function(self, mousePos, mouseButton)
+    if mouseButton ~= MouseRightButton or not self:containsPoint(mousePos) then
+      return UIButton.onMouseRelease(self, mousePos, mouseButton)
+    end
+
+    local index = table.find(getFavorites(kind), id)
+    local menu = g_ui.createWidget('PopupMenu')
+    menu:addOption(index and tr('Remove Favorite') or tr('Set Favorite'), toggleFavorite)
+    menu:display(mousePos)
+    return true
   end
 end
 
@@ -1103,6 +1274,10 @@ function create(player, outfitList, creatureMount, mountList, familiarList, wing
   end
 
   loadSettings()
+  favoriteOrderOnOpen = {
+    outfit = table.copy(getFavorites('outfit')),
+    mount = table.copy(getFavorites('mount'))
+  }
 
   for i = 1, #auraList do
     local auraData = auraList[i]
@@ -1599,9 +1774,9 @@ function onAppearanceChange(widget, selectedWidget)
   if id == "presetCheck" then
     showPresets()
   elseif id == "outfitCheck" then
-    showOutfits()
+    refreshAppearanceList()
   elseif id == "mountCheck" then
-    showMounts()
+    refreshAppearanceList()
   elseif id == "familiarCheck" then
     showFamiliars()
   elseif id == "auraCheck" then
@@ -1699,12 +1874,13 @@ function showPresets()
   end
 end
 
-function showOutfits(searchText)
+function showOutfits(searchText, fromTop)
   onHidePresetWindow()
   cancelPendingSelectionFill()
   window.ScrollBar.selectionList.onChildFocusChange = nil
   window.ScrollBar.selectionList:destroyChildren()
   window.filter_outfits.onlyCheck:setEnabled(true)
+  updateFavoritesFilter('outfit')
 
   local onlyMine = window.filter_outfits.onlyCheck:isChecked()
 
@@ -1724,14 +1900,15 @@ function showOutfits(searchText)
     table.insert(availableOutfits, data)
     end
   end
+  local orderedOutfits, favorites = orderFavorites(availableOutfits, 'outfit')
 
   local focused = nil
   local fillItems = {}
   local baseOutfit = table.copy(previewCreature:getOutfit())
   baseOutfit.mount = 0
 
-  for _, outfitData in ipairs(availableOutfits) do
-    if searchText and not matchText(searchText, outfitData[2]) then
+  for _, outfitData in ipairs(orderedOutfits) do
+    if searchText and searchText ~= '' and not matchText(searchText, outfitData[2]) then
       goto continue
     end
 
@@ -1739,6 +1916,8 @@ function showOutfits(searchText)
     button:setId(outfitData[1])
     button.selectionKind = 'outfit'
     button.name:setText(outfitData[2])
+    local id = tostring(outfitData[1])
+    configureFavoriteButton(button, 'outfit', id, favorites[id])
     markSelectionButtonLoading(button)
 
     local storeMode, storeOffer = getOutfitStoreInfo(outfitData)
@@ -1791,14 +1970,19 @@ function showOutfits(searchText)
     window.ScrollBar.selectionList:ensureChildVisible(focusedWidget, {x = 0, y = 196})
     onOutfitSelect(window.ScrollBar.selectionList, focusedWidget, nil, KeyboardFocusReason)
   end
+  if fromTop or next(favorites) then
+    local scroll = getSelectionScrollBar()
+    scroll:setValue(scroll:getMinimum())
+  end
 end
 
-function showMounts(searchText)
+function showMounts(searchText, fromTop)
   onHidePresetWindow()
   cancelPendingSelectionFill()
   window.ScrollBar.selectionList.onChildFocusChange = nil
   window.ScrollBar.selectionList:destroyChildren()
   window.filter_outfits.onlyCheck:setEnabled(true)
+  updateFavoritesFilter('mount')
 
   local onlyMine = window.filter_outfits.onlyCheck:isChecked()
 
@@ -1817,11 +2001,12 @@ function showMounts(searchText)
       table.insert(availableMounts, data)
     end
   end
+  local orderedMounts, favorites = orderFavorites(availableMounts, 'mount')
 
   local focused = nil
   local fillItems = {}
-  for _, mountData in ipairs(availableMounts) do
-    if searchText and not matchText(searchText, mountData[2]) then
+  for _, mountData in ipairs(orderedMounts) do
+    if searchText and searchText ~= '' and not matchText(searchText, mountData[2]) then
       goto continue
     end
 
@@ -1829,6 +2014,8 @@ function showMounts(searchText)
     button:setId(mountData[1])
     button.selectionKind = 'mount'
     button.name:setText(mountData[2])
+    local id = tostring(mountData[1])
+    configureFavoriteButton(button, 'mount', id, favorites[id])
     markSelectionButtonLoading(button)
 
     local storeOffer = tonumber(mountData[3]) or 0
@@ -1885,6 +2072,10 @@ function showMounts(searchText)
     window.ScrollBar.selectionList:ensureChildVisible(focusedWidget, {x = 0, y = 196})
     onMountSelect(window.ScrollBar.selectionList, focusedWidget, nil, KeyboardFocusReason)
   end
+  if fromTop or next(favorites) then
+    local scroll = getSelectionScrollBar()
+    scroll:setValue(scroll:getMinimum())
+  end
 end
 
 function showFamiliars()
@@ -1893,6 +2084,7 @@ function showFamiliars()
   window.ScrollBar.selectionList.onChildFocusChange = nil
   window.ScrollBar.selectionList:destroyChildren()
   window.filter_outfits.onlyCheck:setEnabled(false)
+  updateFavoritesFilter()
 
   local focused = nil
   local fillItems = {}
@@ -1942,6 +2134,7 @@ function showAuras()
   window.ScrollBar.selectionList.onChildFocusChange = nil
   window.ScrollBar.selectionList:destroyChildren()
   window.filter_outfits.onlyCheck:setEnabled(false)
+  updateFavoritesFilter()
 
   local focused = nil
   local fillItems = {}
@@ -2441,8 +2634,7 @@ function rotate(value)
   end
 end
 
-function onFilterSearch(widget)
-  local searchText = widget:getText()
+function onFilterSearch()
   cancelPendingSearchRebuild()
 
   pendingSearchRebuild = scheduleEvent(function()
@@ -2450,22 +2642,14 @@ function onFilterSearch(widget)
     if not window or window:isDestroyed() then
       return
     end
-    if window.appearance.outfitCheck:isChecked() then
-      showOutfits(searchText)
-    elseif window.appearance.mountCheck:isChecked() then
-      showMounts(searchText)
-    end
+    refreshAppearanceList()
   end, SEARCH_DEBOUNCE_MS)
 end
 
 function onClearFilterSearch(widget)
   widget:clearText()
   cancelPendingSearchRebuild()
-  if window.appearance.outfitCheck:isChecked() then
-    showOutfits()
-  elseif window.appearance.mountCheck:isChecked() then
-    showMounts()
-  end
+  refreshAppearanceList()
 end
 
 function saveSettings()
@@ -2492,9 +2676,8 @@ end
 
 function loadSettings()
   local player = g_game.getLocalPlayer()
-  if player then
-    currentPlayerId = player:getName()
-  end
+  currentPlayerId = player and player:getName() or nil
+  loadDefaultSettings()
   if not currentPlayerId then return end
   local folder = "/characterdata/".. currentPlayerId .."/outfitdialog.json"
   if g_resources.fileExists(folder) then
@@ -2502,25 +2685,27 @@ function loadSettings()
 			return json.decode(g_resources.readFileContents(folder))
 		end)
 
-		if not status then
+		if not status or type(result) ~= 'table' then
 			return false
 		end
 		presetList = result
+		presetList.favorites = presetList.favorites or {}
+		presetList.favorites.outfit = presetList.favorites.outfit or {}
+		presetList.favorites.mount = presetList.favorites.mount or {}
 		if presetList and presetList["customiseCharacterPresets"] then
 			for _, data in ipairs(presetList["customiseCharacterPresets"]) do
 				ensurePresetTimestamps(data)
 			end
 		end
 		return true
-  else
-    loadDefaultSettings()
 	end
 end
 
 function loadDefaultSettings()
   presetList = {
     ["configureShowOffSocketPresets"] = {},
-    ["customiseCharacterPresets"] = {}
+    ["customiseCharacterPresets"] = {},
+    favorites = { outfit = {}, mount = {} }
   }
 
 end
