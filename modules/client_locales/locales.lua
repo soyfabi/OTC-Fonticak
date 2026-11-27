@@ -4,6 +4,11 @@ dofile 'neededtranslations'
 local defaultLocaleName = 'en'
 local installedLocales
 local currentLocale
+local needsInitialSelection
+
+function needsStartupLocaleSelection()
+    return needsInitialSelection
+end
 
 function sendLocale(localeName)
     local protocolGame = g_game.getProtocolGame()
@@ -44,6 +49,7 @@ function createWindow()
 end
 
 function selectFirstLocale(name)
+    needsInitialSelection = false
     if localesWindow then
         localesWindow:destroy()
         localesWindow = nil
@@ -72,7 +78,8 @@ function init()
     installLocales('/locales')
 
     local userLocaleName = g_settings.get('locale', 'false')
-    if userLocaleName ~= 'false' and setLocale(userLocaleName) then
+    needsInitialSelection = userLocaleName == 'false' or not setLocale(userLocaleName)
+    if not needsInitialSelection then
         pdebug('Using configured locale: ' .. userLocaleName)
     else
         setLocale(defaultLocaleName)
