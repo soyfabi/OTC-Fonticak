@@ -348,6 +348,7 @@ private:
     uint8_t m_type;
     uint8_t m_healthPercent{ 101 };
     uint8_t m_manaPercent{ 101 };
+    uint8_t m_healthLossMarkerPercent{ 0 };
     PercentBarAnim m_healthBarAnim;
     uint8_t m_skull{ Otc::SkullNone };
     uint8_t m_icon{ Otc::NpcIconNone };

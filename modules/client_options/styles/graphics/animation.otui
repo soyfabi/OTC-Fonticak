@@ -109,7 +109,7 @@ UIWidget
             OptionCheckBoxMarked
               id: showAnimationHudHealthBar
               !text: tr('Show Animation HUD Health Bar')
-              !tooltip: tr('Smooth ease-out for health bars above the player and monsters.')
+              !tooltip: tr('Smooth health changes above the player and monsters. A white marker shows the previous health level after damage.')
 
           SmallReversedQtPanel
             anchors.left: parent.left

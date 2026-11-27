@@ -333,8 +333,9 @@ void Creature::drawInformation(const MapPosInfo& mapRect, const Point& dest, con
         textRect.moveTop(backgroundRect.top() - offset);
 
     // health rect is based on background rect, so no worries
-    Rect healthRect = backgroundRect.expanded(-1);
-    healthRect.setWidth((getDrawnHealthPercent() / 100.0) * 29);
+    const Rect healthTrack = backgroundRect.expanded(-1);
+    Rect healthRect = healthTrack;
+    healthRect.setWidth((getDrawnHealthPercent() / 100.0) * healthTrack.width());
 
     Rect barsRect = backgroundRect;
     bool drewBar = false;
@@ -345,6 +346,11 @@ void Creature::drawInformation(const MapPosInfo& mapRect, const Point& dest, con
     if (drawHealthBar) {
         g_drawPool.addFilledRect(backgroundRect, Color::black);
         g_drawPool.addFilledRect(healthRect, fillColor);
+        if (m_healthLossMarkerPercent > 0 && m_healthBarAnim.active && g_gameConfig.isAnimateNameplateHealth()) {
+            const int previousWidth = m_healthLossMarkerPercent * healthTrack.width() / 100;
+            const int markerX = healthTrack.left() + std::max(0, previousWidth - 1);
+            g_drawPool.addFilledRect(Rect(markerX, healthTrack.top(), 1, healthTrack.height()), Color::white);
+        }
         barsRect = backgroundRect;
         drewBar = true;
     }
@@ -1056,6 +1062,7 @@ void Creature::setHealthPercent(const uint8_t healthPercent)
 
     // First paint / unset (101) snaps; later changes ease-out when option is on.
     const bool animate = g_gameConfig.isAnimateNameplateHealth() && oldHealthPercent <= 100;
+    m_healthLossMarkerPercent = animate && healthPercent < oldHealthPercent ? oldHealthPercent : 0;
     m_healthBarAnim.startToward(static_cast<float>(healthPercent), animate);
 
     callLuaField("onHealthPercentChange", healthPercent, oldHealthPercent);

@@ -148,12 +148,141 @@ EnterGameAccounts < Window
     color: #c0c0c0
     phantom: true
 
+RecordingClipRow < UIWidget
+  height: 24
+
+  QtButton
+    id: clip
+    anchors.left: parent.left
+    anchors.right: remove.left
+    anchors.verticalCenter: parent.verticalCenter
+    height: 24
+    margin-right: 4
+    padding: 0 6
+    text-align: left
+    image-color: #d7d7d7
+    $hover !disabled:
+      image-color: #ffffff
+
+  QtButton
+    id: remove
+    text: X
+    !tooltip: tr('Delete clip')
+    anchors.right: parent.right
+    anchors.verticalCenter: parent.verticalCenter
+    size: 22 24
+    padding: 0
+    $hover !disabled:
+      color: #ff6666
+
+EnterGameRecordings < Window
+  id: recordingsPanel
+  !text: tr('Recordings')
+  size: 222 204
+  image-source: /images/ui/popupwindow-rounded
+  draggable: false
+  visible: false
+  padding: 31 10 10 10
+  font: Verdana Bold-11px
+  color: #c0c0c0
+  text-offset: 0 1
+
+  QtButton
+    id: openFolder
+    !text: tr('Open Clips Folder')
+    anchors.horizontalCenter: parent.horizontalCenter
+    anchors.bottom: parent.bottom
+    size: 132 20
+    padding: 0
+    @onClick: modules.client_options.openRecordingFolder()
+
+  ScrollablePanel
+    id: clipList
+    phantom: false
+    anchors.top: parent.top
+    anchors.left: parent.left
+    anchors.right: clipScroll.left
+    anchors.bottom: openFolder.top
+    margin-bottom: 7
+    margin-right: 3
+    vertical-scrollbar: clipScroll
+    layout:
+      type: verticalBox
+      spacing: 3
+
+  VerticalQtScrollBar
+    id: clipScroll
+    anchors.top: parent.top
+    anchors.right: parent.right
+    anchors.bottom: openFolder.top
+    margin-bottom: 7
+    step: 27
+    pixels-scroll: true
+
+  Label
+    id: emptyClips
+    !text: tr('No saved clips')
+    anchors.centerIn: clipList
+    text-auto-resize: true
+    color: #c0c0c0
+    phantom: true
+
 EnterGameWindow
   id: enterGame
   draggable: false
   size: 280 246
   image-source: /images/ui/popupwindow-rounded
   @onEnter: EnterGame.doLogin()
+
+  UIButton
+    id: recordingsToggle
+    anchors.right: parent.left
+    anchors.verticalCenter: parent.verticalCenter
+    margin-right: 13
+    margin-top: -10
+    size: 22 104
+    padding: 0
+    overflow: visible
+    focusable: true
+    !tooltip: tr('View saved clips')
+    @onClick: EnterGame.showRecordings()
+
+    UIWidget
+      anchors.centerIn: parent
+      margin-left: -1
+      size: 104 22
+      image-source: /images/ui/popupwindow-rounded
+      image-clip: 0 17 236 190
+      image-border: 5
+      image-border-top: 0
+      rotation: 90
+      phantom: true
+
+    Label
+      id: recordingsTabLabel
+      !text: tr('Recordings')
+      anchors.centerIn: parent
+      margin-top: 8
+      size: 90 18
+      text-align: center
+      rotation: -90
+      phantom: true
+
+    UIWidget
+      id: recordingsTabArrow
+      anchors.horizontalCenter: parent.horizontalCenter
+      anchors.top: parent.top
+      margin-left: 1
+      margin-top: 9
+      size: 7 7
+      image-source: /images/ui/icon-arrow7x7-right
+      image-color: #ff6666
+      rotation: 180
+      phantom: true
+
+      $on:
+        image-color: #63df82
+        rotation: 0
 
   UIButton
     id: accountsToggle

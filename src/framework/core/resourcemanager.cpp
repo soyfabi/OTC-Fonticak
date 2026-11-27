@@ -557,6 +557,15 @@ ticks_t ResourceManager::getFileTime(const std::string& filename)
     return g_platform.getFileModificationTime(getRealPath(filename));
 }
 
+int64_t ResourceManager::getFileCreationTime(const std::string& filename)
+{
+    PHYSFS_Stat info{};
+    if (!PHYSFS_stat(resolvePath(filename).c_str(), &info) || info.filetype != PHYSFS_FILETYPE_REGULAR)
+        return 0;
+
+    return std::max<int64_t>(0, info.createtime);
+}
+
 std::string ResourceManager::encrypt(const std::string& data, const std::string& password)
 {
     const int len = data.length(),

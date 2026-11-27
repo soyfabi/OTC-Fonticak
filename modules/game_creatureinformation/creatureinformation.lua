@@ -25,9 +25,11 @@ local function setAnimatedPercent(bar, targetPercent, optionKey, firstPaint)
     elseif modules.client_options and modules.client_options.getOption then
         animate = modules.client_options.getOption(optionKey) ~= false
     end
+    local duration
     if animate and not firstPaint and g_effects and g_effects.animatePercent then
         local from = bar.getPercent and bar:getPercent() or targetPercent
-        g_effects.animatePercent(bar, targetPercent, vitalAnimDuration(targetPercent - from))
+        duration = vitalAnimDuration(targetPercent - from)
+        g_effects.animatePercent(bar, targetPercent, duration)
     else
         if g_effects and g_effects.cancelPercent then
             g_effects.cancelPercent(bar)
@@ -35,6 +37,7 @@ local function setAnimatedPercent(bar, targetPercent, optionKey, firstPaint)
         bar:setPercent(targetPercent)
     end
     bar._animReady = true
+    return duration
 end
 
 local function updateHarmonyWidget(creature, harmony)
@@ -214,8 +217,26 @@ local function onHealthPercentChange(creature, healthPercent, oldHealthPercent)
     widget.name:setColor(color)
     widget.lifeBar:setBackgroundColor(color)
     widget.lifeBar:setVisible(gameMapPanel:isDrawingHealthBars())
-    setAnimatedPercent(widget.lifeBar, healthPercent, 'showAnimationHudHealthBar',
+    local duration = setAnimatedPercent(widget.lifeBar, healthPercent, 'showAnimationHudHealthBar',
         not widget.lifeBar._animReady or (oldHealthPercent and oldHealthPercent > 100))
+    local marker = widget.lifeBar.healthLossMarker
+    if marker.hideEvent then
+        removeEvent(marker.hideEvent)
+        marker.hideEvent = nil
+    end
+    if not duration or not oldHealthPercent or healthPercent >= oldHealthPercent then
+        marker:hide()
+        return
+    end
+
+    marker:setMarginLeft(math.max(0, math.floor(widget.lifeBar:getWidth() * oldHealthPercent / 100) - 1))
+    marker:show()
+    marker.hideEvent = scheduleEvent(function()
+        if not marker:isDestroyed() then
+            marker:hide()
+            marker.hideEvent = nil
+        end
+    end, duration)
 end
 
 local function onManaChange(player, mana, maxMana, oldMana, oldMaxMana)

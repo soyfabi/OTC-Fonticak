@@ -89,12 +89,17 @@ local function getMaxMargin(tabBar, tab)
     return maxMargin + tabBar.tabSpacing * (#tabBar.tabs - 1)
 end
 
+local function fitsAfterVisibleTabs(tabBar, tab)
+    return #tabBar.tabs == 0 or
+        getMaxMargin(tabBar) + tabBar.tabSpacing + tab:getWidth() <= tabBar:getWidth()
+end
+
 local function updateTabs(tabBar)
     if #tabBar.postTabs > 0 then
         local i = 1
         while i <= #tabBar.postTabs do
             local tab = tabBar.postTabs[i]
-            if getMaxMargin(tabBar) + tab:getWidth() > tabBar:getWidth() then
+            if not fitsAfterVisibleTabs(tabBar, tab) then
                 break
             end
 
@@ -106,7 +111,7 @@ local function updateTabs(tabBar)
     if #tabBar.preTabs > 0 then
         for i = #tabBar.preTabs, 1, -1 do
             local tab = tabBar.preTabs[i]
-            if getMaxMargin(tabBar) + tab:getWidth() > tabBar:getWidth() then
+            if not fitsAfterVisibleTabs(tabBar, tab) then
                 break
             end
 
@@ -331,26 +336,10 @@ function UIMoveableTabBar:addTab(text, panel, menuCallback)
         end
     end
 
-    if #self.tabs == 0 then
-        self:selectTab(tab)
-        tab:setMarginLeft(0)
-        table.insert(self.tabs, tab)
-    else
-        local newMargin = self.tabSpacing * #self.tabs
-        for i = 1, #self.tabs do
-            newMargin = newMargin + self.tabs[i]:getWidth()
-        end
-        tab:setMarginLeft(newMargin)
-
-        hideTabs(self, true, self.postTabs, tab:getWidth())
-        table.insert(self.tabs, tab)
-        if #self.tabs == 1 then
-            self:selectTab(tab)
-        end
-        updateMargins(self)
-    end
-
-    updateNavigation(self)
+    -- Keep new tabs after existing ones even before the bar has its final width.
+    tab:setVisible(false)
+    table.insert(self.postTabs, tab)
+    updateTabs(self)
     return tab
 end
 
@@ -445,6 +434,20 @@ function UIMoveableTabBar:getTab(text)
 end
 
 function UIMoveableTabBar:selectTab(tab)
+    local preIndex = table.find(self.preTabs, tab)
+    local postIndex = table.find(self.postTabs, tab)
+    if preIndex then
+        for _ = preIndex, #self.preTabs do
+            showPreTab(self)
+        end
+        updateMargins(self)
+    elseif postIndex then
+        for _ = 1, postIndex do
+            showPostTab(self)
+        end
+        updateMargins(self)
+    end
+
     if self.currentTab == tab then
         return
     end
