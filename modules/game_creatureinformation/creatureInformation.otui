@@ -33,6 +33,17 @@ UIWidget
     anchors.left: parent.left
     anchors.HorizontalCenter: parent.HorizontalCenter
 
+    UIWidget
+      id: healthLossMarker
+      width: 1
+      anchors.top: parent.top
+      anchors.bottom: parent.bottom
+      anchors.left: parent.left
+      background-color: #ffffff
+      background-draw-order: 3
+      visible: false
+      phantom: true
+
   ProgressBar
     id: manaBar
     visible: false
