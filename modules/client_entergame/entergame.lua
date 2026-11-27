@@ -4,6 +4,7 @@ EnterGame = {}
 
 local loadBox, enterGame, motdWindow, clientBox
 local accountsPanel, savedAccountsDirty, saveAccountOnLogin, saveAccountPassword
+local recordingsPanel, recordingDeleteBox
 local accountUndoEvent
 local accountContextMenu, accountRenameBox
 local motdEnabled = true
@@ -298,6 +299,127 @@ function EnterGame.showAccounts()
 	accountsPanel:raise()
 	enterGame:raise()
 	g_effects.moveTo(accountsPanel, target, 150)
+end
+
+local clipFormats = { mp4 = true, mkv = true, avi = true }
+
+local function trimDirectory(path)
+	return path:gsub("\\", "/"):gsub("/+$", "")
+end
+
+local function isSavedClip(path, writeDir)
+	return g_resources.fileExists(path) and trimDirectory(g_resources.getRealDir(path)) == writeDir
+end
+
+local function closeRecordingDeleteBox()
+	if recordingDeleteBox then
+		recordingDeleteBox:destroy()
+		recordingDeleteBox = nil
+	end
+end
+
+local function confirmDeleteClip(clip, writeDir, refresh)
+	if recordingDeleteBox then
+		return
+	end
+
+	local title = tr("Delete clip")
+	local function remove()
+		closeRecordingDeleteBox()
+		if isSavedClip(clip.path, writeDir) and not g_resources.deleteFile(clip.path) then
+			displayErrorBox(title, tr("Could not delete the clip."))
+		end
+		refresh()
+	end
+	recordingDeleteBox = displayGeneralBox(title, tr("Permanently delete this clip?") .. "\n" .. clip.name, {
+		{ text = tr("Cancel"), callback = closeRecordingDeleteBox },
+		{ text = tr("Delete"), callback = remove },
+		anchor = AnchorHorizontalCenter
+	}, nil, closeRecordingDeleteBox)
+end
+
+local function refreshRecordings(isWindows)
+	local list = recordingsPanel:getChildById("clipList")
+	local writeDir = trimDirectory(g_resources.getWriteDir())
+	local clips = {}
+	if writeDir ~= "" and g_resources.directoryExists("/recordings") then
+		for _, file in ipairs(g_resources.listDirectoryFiles("/recordings")) do
+			local format = file:lower():match("%.([a-z0-9]+)$")
+			local path = "/recordings/" .. file
+			if clipFormats[format] and not file:find('[/"\\%c]') and isSavedClip(path, writeDir) then
+				local created = g_resources.getFileCreationTime and g_resources.getFileCreationTime(path) or 0
+				local timestamp = created
+				if timestamp == 0 then
+					local modified = g_resources.getFileTime(path)
+					timestamp = isWindows and math.floor(modified / 10000000 - 11644473600) or modified
+				end
+				clips[#clips + 1] = { name = file, path = path, format = format, created = created > 0, timestamp = timestamp }
+			end
+		end
+	end
+	table.sort(clips, function(a, b)
+		if a.timestamp == b.timestamp then
+			return a.name < b.name
+		end
+		return a.timestamp > b.timestamp
+	end)
+
+	list:destroyChildren()
+	recordingsPanel:getChildById("emptyClips"):setVisible(#clips == 0)
+	local folderButton = recordingsPanel:getChildById("openFolder")
+	folderButton:setEnabled(isWindows)
+	for _, clip in ipairs(clips) do
+		local row = g_ui.createWidget("RecordingClipRow", list)
+		local entry = row:getChildById("clip")
+		local date = clip.timestamp > 0 and os.date("%m/%d/%Y", clip.timestamp)
+		entry:setText(date and (clip.format:upper() .. " " .. date) or clip.name)
+		local tooltip = clip.name
+		if date then
+			local dateTime = os.date("%m/%d/%Y %H:%M:%S", clip.timestamp)
+			tooltip = tooltip .. "\n" .. (clip.created and tr("Created: %s", dateTime) or tr("Modified: %s", dateTime))
+		end
+		entry:setTooltip(isWindows and (tooltip .. "\n" .. tr("Show in folder")) or tooltip)
+		row:getChildById("remove").onClick = function()
+			confirmDeleteClip(clip, writeDir, function()
+				refreshRecordings(isWindows)
+			end)
+		end
+		if isWindows then
+			entry.onClick = function()
+				local path = (writeDir .. "/recordings/" .. clip.name):gsub("/", "\\")
+				if not g_platform.openDir('/select,"' .. path .. '"', true) then
+					modules.client_options.openRecordingFolder()
+				end
+			end
+		end
+	end
+end
+
+local function positionRecordingsPanel()
+	local parent = enterGame:getParent()
+	local tab = enterGame:getChildById("recordingsToggle")
+	local left = parent:getX() + 6
+	local right = tab:getX() - 4
+	local width = math.max(170, math.min(222, right - left))
+	local y = enterGame:getY() + math.floor((enterGame:getHeight() - recordingsPanel:getHeight()) / 2)
+	recordingsPanel:setWidth(width)
+	recordingsPanel:setPosition({ x = math.max(left, right - width), y = y })
+end
+
+function EnterGame.showRecordings()
+	if not recordingsPanel or recordingsPanel:isVisible() or not enterGame:isVisible() then
+		return
+	end
+
+	positionRecordingsPanel()
+	local target = recordingsPanel:getPosition()
+	refreshRecordings(g_platform.getOSName() == "Windows")
+	recordingsPanel:setPosition({ x = target.x + 22, y = target.y })
+	g_effects.fadeIn(recordingsPanel, 150)
+	recordingsPanel:show()
+	recordingsPanel:raise()
+	enterGame:raise()
+	g_effects.moveTo(recordingsPanel, target, 150, positionRecordingsPanel)
 end
 
 local user32 = nil
@@ -796,10 +918,101 @@ local function setupAccountsPanel()
 	end
 end
 
+local function setupRecordingsPanel()
+	local hoverEvent
+	local keyboardMousePosition
+	recordingsPanel = g_ui.createWidget("EnterGameRecordings", enterGame:getParent())
+	local tab = enterGame:getChildById("recordingsToggle")
+	local label = tab:getChildById("recordingsTabLabel")
+	local arrow = tab:getChildById("recordingsTabArrow")
+	label:setFont(enterGame:getFont())
+
+	local function updateHighlight()
+		label:setColor((tab:isHovered() or tab:isFocused()) and "#dedede" or enterGame:getColor())
+	end
+	updateHighlight()
+
+	local function reposition()
+		if recordingsPanel and recordingsPanel:isVisible() then
+			g_effects.cancelMove(recordingsPanel)
+			positionRecordingsPanel()
+		end
+	end
+
+	tab.onKeyPress = function(_, keyCode, modifiers, repeatTicks)
+		if keyCode == KeyEnter and modifiers == KeyboardNoModifier then
+			if repeatTicks == 0 then
+				EnterGame.showRecordings()
+				keyboardMousePosition = g_window.getMousePosition()
+				recordingsPanel:focus()
+			end
+			return true
+		end
+	end
+	recordingsPanel.onKeyPress = function(panel, keyCode, modifiers)
+		if keyCode == KeyEscape and modifiers == KeyboardNoModifier then
+			panel:hide()
+			enterGame:focus()
+			tab:focus()
+			return true
+		end
+	end
+
+	connect(tab, {
+		onFocusChange = updateHighlight,
+		onGeometryChange = reposition,
+		onHoverChange = function(_, hovered)
+			updateHighlight()
+			if hovered then
+				EnterGame.showRecordings()
+			end
+		end
+	})
+	connect(recordingsPanel, {
+		onVisibilityChange = function(panel, visible)
+			arrow:setOn(visible)
+			if not visible then
+				closeRecordingDeleteBox()
+				removeEvent(hoverEvent)
+				hoverEvent = nil
+				keyboardMousePosition = nil
+				g_effects.cancelMove(panel)
+				g_effects.cancelFade(panel)
+				return
+			end
+
+			hoverEvent = cycleEvent(function()
+				if panel.moveEvent or recordingDeleteBox then
+					return
+				end
+				local mouse = g_window.getMousePosition()
+				if keyboardMousePosition and mouse.x == keyboardMousePosition.x and mouse.y == keyboardMousePosition.y then
+					return
+				end
+				keyboardMousePosition = nil
+				local between = mouse.x >= panel:getX() + panel:getWidth() and mouse.x < tab:getX()
+					and mouse.y >= panel:getY() and mouse.y < panel:getY() + panel:getHeight()
+				if not between and not panel:containsPoint(mouse) and not tab:containsPoint(mouse) then
+					panel:hide()
+				end
+			end, 50)
+		end
+	})
+	connect(enterGame, {
+		onVisibilityChange = function(_, visible)
+			if not visible and recordingsPanel then
+				recordingsPanel:hide()
+			end
+		end,
+		onGeometryChange = reposition
+	})
+end
+
 function EnterGame.init()
 	enterGame = g_ui.displayUI("entergame")
 	enterGame.baseHeight = enterGame:getHeight()
 	setupAccountsPanel()
+	setupRecordingsPanel()
 	Keybind.new("Misc.", "Change Character", "Ctrl+G", "")
 	Keybind.bind("Misc.", "Change Character", {
 		{
@@ -1000,6 +1213,12 @@ end
 
 function EnterGame.terminate()
 	Keybind.delete("Misc.", "Change Character")
+
+	if recordingsPanel then
+		recordingsPanel:hide()
+		recordingsPanel:destroy()
+		recordingsPanel = nil
+	end
 
 	if accountsPanel then
 		clearAccountUndo()
