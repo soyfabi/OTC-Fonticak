@@ -18,7 +18,9 @@ PhantomMiniWindow
 
     UIWidget
       id: icon
-      image-source: /images/healthmana/hitpoints_symbol
+      image-source: /images/icons/outfit-favorite-heart
+      image-rect: 0 0 11 11
+      image-smooth: true
       anchors.left: parent.left
       anchors.verticalCenter: parent.verticalCenter
       size: 12 11
@@ -68,6 +70,8 @@ PhantomMiniWindow
     UIWidget
       id: icon
       image-source: /images/healthmana/mana_symbol
+      image-rect: 0 0 11 11
+      image-smooth: true
       anchors.left: parent.left
       anchors.verticalCenter: parent.verticalCenter
       size: 12 11
